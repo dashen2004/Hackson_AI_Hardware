@@ -8,8 +8,12 @@
                         \___/_/\_\ .__/ \__,_|\__|
                                  |_| XML parser
 
-   Copyright (c) 1997-2000 Thai Open Source Software Center Ltd
-   Copyright (c) 2000-2017 Expat development team
+   Copyright (c) 2000      Clark Cooper <coopercc@users.sourceforge.net>
+   Copyright (c) 2001-2003 Fred L. Drake, Jr. <fdrake@users.sourceforge.net>
+   Copyright (c) 2005-2007 Steven Solie <ssolie@users.sourceforge.net>
+   Copyright (c) 2005-2006 Karl Waclawek <karl@waclawek.net>
+   Copyright (c) 2016-2019 Sebastian Pipping <sebastian@pipping.org>
+   Copyright (c) 2017      Rhodri James <rhodri@wildebeest.org.uk>
    Licensed under the MIT license:
 
    Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -36,30 +40,25 @@
 #include <expat.h>
 
 #ifdef XML_LARGE_SIZE
-# if defined(XML_USE_MSC_EXTENSIONS) && _MSC_VER < 1400
-#  define XML_FMT_INT_MOD "I64"
-# else
 #  define XML_FMT_INT_MOD "ll"
-# endif
 #else
-# define XML_FMT_INT_MOD "l"
+#  define XML_FMT_INT_MOD "l"
 #endif
 
 #ifdef XML_UNICODE_WCHAR_T
-# define XML_FMT_STR "ls"
+#  define XML_FMT_STR "ls"
 #else
-# define XML_FMT_STR "s"
+#  define XML_FMT_STR "s"
 #endif
 
-#define BUFFSIZE        8192
+#define BUFFSIZE 8192
 
 char Buff[BUFFSIZE];
 
 int Depth;
 
 static void XMLCALL
-start(void *data, const XML_Char *el, const XML_Char **attr)
-{
+start(void *data, const XML_Char *el, const XML_Char **attr) {
   int i;
   (void)data;
 
@@ -77,8 +76,7 @@ start(void *data, const XML_Char *el, const XML_Char **attr)
 }
 
 static void XMLCALL
-end(void *data, const XML_Char *el)
-{
+end(void *data, const XML_Char *el) {
   (void)data;
   (void)el;
 
@@ -86,8 +84,7 @@ end(void *data, const XML_Char *el)
 }
 
 int
-main(int argc, char *argv[])
-{
+main(int argc, char *argv[]) {
   XML_Parser p = XML_ParserCreate(NULL);
   (void)argc;
   (void)argv;

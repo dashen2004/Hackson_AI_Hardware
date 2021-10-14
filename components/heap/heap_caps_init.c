@@ -18,9 +18,11 @@
 
 #include "esp_log.h"
 #include "multi_heap.h"
-#include "multi_heap_platform.h"
 #include "esp_heap_caps_init.h"
 #include "soc/soc_memory_layout.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static const char *TAG = "heap_init";
 
@@ -37,7 +39,7 @@ static void register_heap(heap_t *region)
     }
 }
 
-void heap_caps_enable_nonos_stack_heaps(void)
+void heap_caps_enable_nonos_stack_heaps()
 {
     heap_t *heap;
     SLIST_FOREACH(heap, &registered_heaps, next) {
@@ -55,7 +57,7 @@ void heap_caps_enable_nonos_stack_heaps(void)
 /* Initialize the heap allocator to use all of the memory not
    used by static data or reserved for other purposes
  */
-void heap_caps_init(void)
+void heap_caps_init()
 {
     /* Get the array of regions that we can use for heaps
        (with reserved memory removed already.)
@@ -105,7 +107,7 @@ void heap_caps_init(void)
         memcpy(heap->caps, type->caps, sizeof(heap->caps));
         heap->start = region->start;
         heap->end = region->start + region->size;
-        MULTI_HEAP_LOCK_INIT(&heap->heap_mux);
+        vPortCPUInitializeMutex(&heap->heap_mux);
         if (type->startup_stack) {
             /* Will be registered when OS scheduler starts */
             heap->heap = NULL;
@@ -214,7 +216,7 @@ esp_err_t heap_caps_add_region_with_caps(const uint32_t caps[], intptr_t start, 
     memcpy(p_new->caps, caps, sizeof(p_new->caps));
     p_new->start = start;
     p_new->end = end;
-    MULTI_HEAP_LOCK_INIT(&p_new->heap_mux);
+    vPortCPUInitializeMutex(&p_new->heap_mux);
     p_new->heap = multi_heap_register((void *)start, end - start);
     SLIST_NEXT(p_new, next) = NULL;
     if (p_new->heap == NULL) {
@@ -226,10 +228,10 @@ esp_err_t heap_caps_add_region_with_caps(const uint32_t caps[], intptr_t start, 
     /* (This insertion is atomic to registered_heaps, so
        we don't need to worry about thread safety for readers,
        only for writers. */
-    static multi_heap_lock_t registered_heaps_write_lock = MULTI_HEAP_LOCK_STATIC_INITIALIZER;
-    MULTI_HEAP_LOCK(&registered_heaps_write_lock);
+    static _lock_t registered_heaps_write_lock;
+    _lock_acquire(&registered_heaps_write_lock);
     SLIST_INSERT_HEAD(&registered_heaps, p_new, next);
-    MULTI_HEAP_UNLOCK(&registered_heaps_write_lock);
+    _lock_release(&registered_heaps_write_lock);
 
     err = ESP_OK;
 

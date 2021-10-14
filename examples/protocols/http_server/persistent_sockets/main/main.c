@@ -8,24 +8,26 @@
 */
 
 #include <esp_wifi.h>
-#include <esp_event.h>
+#include <esp_event_loop.h>
 #include <esp_log.h>
 #include <esp_system.h>
 #include <nvs_flash.h>
-#include "esp_netif.h"
-#include "esp_eth.h"
-#include "protocol_examples_common.h"
 
 #include <esp_http_server.h>
 
 /* An example to demonstrate persistent sockets, with context maintained across
  * multiple requests on that socket.
+ * The examples use simple WiFi configuration that you can set via 'make menuconfig'.
+ * If you'd rather not, just change the below entries to strings with
+ * the config you want - ie #define EXAMPLE_WIFI_SSID "mywifissid"
  */
+#define EXAMPLE_WIFI_SSID CONFIG_WIFI_SSID
+#define EXAMPLE_WIFI_PASS CONFIG_WIFI_PASSWORD
 
-static const char *TAG = "example";
- 
+static const char *TAG="APP";
+
 /* Function to free context */
-static void adder_free_func(void *ctx)
+void adder_free_func(void *ctx)
 {
     ESP_LOGI(TAG, "/adder Free Context function called");
     free(ctx);
@@ -34,7 +36,7 @@ static void adder_free_func(void *ctx)
 /* This handler keeps accumulating data that is posted to it into a per
  * socket/session context. And returns the result.
  */
-static esp_err_t adder_post_handler(httpd_req_t *req)
+esp_err_t adder_post_handler(httpd_req_t *req)
 {
     /* Log total visitors */
     unsigned *visitors = (unsigned *)req->user_ctx;
@@ -76,7 +78,7 @@ static esp_err_t adder_post_handler(httpd_req_t *req)
 }
 
 /* This handler gets the present value of the accumulator */
-static esp_err_t adder_get_handler(httpd_req_t *req)
+esp_err_t adder_get_handler(httpd_req_t *req)
 {
     /* Log total visitors */
     unsigned *visitors = (unsigned *)req->user_ctx;
@@ -100,7 +102,7 @@ static esp_err_t adder_get_handler(httpd_req_t *req)
 }
 
 /* This handler resets the value of the accumulator */
-static esp_err_t adder_put_handler(httpd_req_t *req)
+esp_err_t adder_put_handler(httpd_req_t *req)
 {
     /* Log total visitors */
     unsigned *visitors = (unsigned *)req->user_ctx;
@@ -141,28 +143,28 @@ static esp_err_t adder_put_handler(httpd_req_t *req)
  * the "/adder" URI has been visited */
 static unsigned visitors = 0;
 
-static const httpd_uri_t adder_post = {
+httpd_uri_t adder_post = {
     .uri      = "/adder",
     .method   = HTTP_POST,
     .handler  = adder_post_handler,
     .user_ctx = &visitors
 };
 
-static const httpd_uri_t adder_get = {
+httpd_uri_t adder_get = {
     .uri      = "/adder",
     .method   = HTTP_GET,
     .handler  = adder_get_handler,
     .user_ctx = &visitors
 };
 
-static const httpd_uri_t adder_put = {
+httpd_uri_t adder_put = {
     .uri      = "/adder",
     .method   = HTTP_PUT,
     .handler  = adder_put_handler,
     .user_ctx = &visitors
 };
 
-static httpd_handle_t start_webserver(void)
+httpd_handle_t start_webserver(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     // Start the httpd server
@@ -182,61 +184,69 @@ static httpd_handle_t start_webserver(void)
     return NULL;
 }
 
-static void stop_webserver(httpd_handle_t server)
+void stop_webserver(httpd_handle_t server)
 {
     // Stop the httpd server
     httpd_stop(server);
 }
 
-
-static void disconnect_handler(void* arg, esp_event_base_t event_base, 
-                               int32_t event_id, void* event_data)
+static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
-    httpd_handle_t* server = (httpd_handle_t*) arg;
-    if (*server) {
-        ESP_LOGI(TAG, "Stopping webserver");
-        stop_webserver(*server);
-        *server = NULL;
+    httpd_handle_t *server = (httpd_handle_t *) ctx;
+
+    switch(event->event_id) {
+    case SYSTEM_EVENT_STA_START:
+        ESP_LOGI(TAG, "SYSTEM_EVENT_STA_START");
+        esp_wifi_connect();
+        break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+        ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP");
+        ESP_LOGI(TAG, "Got IP: '%s'",
+                 ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
+
+        /* Start the web server */
+        if (*server == NULL) {
+            *server = start_webserver();
+        }
+        break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+        ESP_LOGI(TAG, "SYSTEM_EVENT_STA_DISCONNECTED");
+        esp_wifi_connect();
+
+        /* Stop the webserver */
+        if (*server) {
+            stop_webserver(*server);
+            *server = NULL;
+        }
+        break;
+    default:
+        break;
     }
+    return ESP_OK;
 }
 
-static void connect_handler(void* arg, esp_event_base_t event_base, 
-                            int32_t event_id, void* event_data)
+static void initialise_wifi(void *arg)
 {
-    httpd_handle_t* server = (httpd_handle_t*) arg;
-    if (*server == NULL) {
-        ESP_LOGI(TAG, "Starting webserver");
-        *server = start_webserver();
-    }
+    tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, arg));
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = EXAMPLE_WIFI_SSID,
+            .password = EXAMPLE_WIFI_PASS,
+        },
+    };
+    ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
 }
 
-
-void app_main(void)
+void app_main()
 {
     static httpd_handle_t server = NULL;
-
     ESP_ERROR_CHECK(nvs_flash_init());
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
-     * Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
-    ESP_ERROR_CHECK(example_connect());
-
-    /* Register event handlers to stop the server when Wi-Fi or Ethernet is disconnected,
-     * and re-start it upon connection.
-     */
-#ifdef CONFIG_EXAMPLE_CONNECT_WIFI
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &connect_handler, &server));
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &disconnect_handler, &server));
-#endif // CONFIG_EXAMPLE_CONNECT_WIFI
-#ifdef CONFIG_EXAMPLE_CONNECT_ETHERNET
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &connect_handler, &server));
-    ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ETHERNET_EVENT_DISCONNECTED, &disconnect_handler, &server));
-#endif // CONFIG_EXAMPLE_CONNECT_ETHERNET
-
-    /* Start the server for the first time */
-    server = start_webserver();
+    initialise_wifi(&server);
 }

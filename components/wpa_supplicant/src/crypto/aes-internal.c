@@ -21,11 +21,12 @@
  * See README and COPYING for more details.
  */
 
-#include "utils/includes.h"
+#include "crypto/includes.h"
 
-#include "utils/common.h"
-#include "crypto.h"
-#include "aes_i.h"
+//#include "wpa/common.h"
+#include "crypto/common.h"
+#include "crypto/crypto.h"
+#include "crypto/aes_i.h"
 
 /*
  * rijndael-alg-fst.c

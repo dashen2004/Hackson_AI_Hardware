@@ -1,3 +1,7 @@
-idf_component_register(SRCS "cmd_nvs.c"
-                    INCLUDE_DIRS .
-                    REQUIRES console nvs_flash)
+set(COMPONENT_ADD_INCLUDEDIRS .)
+
+set(COMPONENT_SRCS "cmd_nvs.c")
+
+set(COMPONENT_REQUIRES console nvs_flash)
+
+register_component()

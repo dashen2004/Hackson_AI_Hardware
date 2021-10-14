@@ -32,21 +32,16 @@
 #include "sdkconfig.h"
 
 #include "esp_ota_ops.h"
-#include "sys/queue.h"
-#include "esp32/rom/crc.h"
+#include "rom/queue.h"
+#include "rom/crc.h"
+#include "soc/dport_reg.h"
 #include "esp_log.h"
-#include "esp_flash_partitions.h"
+#include "esp_flash_data_types.h"
 #include "bootloader_common.h"
 #include "sys/param.h"
 #include "esp_system.h"
 #include "esp_efuse.h"
 
-#ifdef CONFIG_IDF_TARGET_ESP32
-#include "esp32/rom/crc.h"
-#elif CONFIG_IDF_TARGET_ESP32S2
-#include "esp32s2/rom/crc.h"
-#include "esp32s2/rom/secure_boot.h"
-#endif
 
 #define SUB_TYPE_ID(i) (i & 0x0F)
 
@@ -113,12 +108,19 @@ static esp_err_t image_validate(const esp_partition_t *partition, esp_image_load
         return ESP_ERR_OTA_VALIDATE_FAILED;
     }
 
+#ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
+    esp_err_t ret = esp_secure_boot_verify_signature(partition->address, data.image_len);
+    if (ret != ESP_OK) {
+        return ESP_ERR_OTA_VALIDATE_FAILED;
+    }
+#endif
+
     return ESP_OK;
 }
 
 static esp_ota_img_states_t set_new_state_otadata(void)
 {
-#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+#ifdef CONFIG_APP_ROLLBACK_ENABLE
     ESP_LOGD(TAG, "Monitoring the first boot of the app is enabled.");
     return ESP_OTA_IMG_NEW;
 #else
@@ -149,7 +151,7 @@ esp_err_t esp_ota_begin(const esp_partition_t *partition, size_t image_size, esp
         return ESP_ERR_OTA_PARTITION_CONFLICT;
     }
 
-#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+#ifdef CONFIG_APP_ROLLBACK_ENABLE
     esp_ota_img_states_t ota_state_running_part;
     if (esp_ota_get_state_partition(running_partition, &ota_state_running_part) == ESP_OK) {
         if (ota_state_running_part == ESP_OTA_IMG_PENDING_VERIFY) {
@@ -253,43 +255,6 @@ esp_err_t esp_ota_write(esp_ota_handle_t handle, const void *data, size_t size)
 
     //if go to here ,means don't find the handle
     ESP_LOGE(TAG,"not found the handle");
-    return ESP_ERR_INVALID_ARG;
-}
-
-esp_err_t esp_ota_write_with_offset(esp_ota_handle_t handle, const void *data, size_t size, uint32_t offset)
-{
-    const uint8_t *data_bytes = (const uint8_t *)data;
-    esp_err_t ret;
-    ota_ops_entry_t *it;
-
-    if (data == NULL) {
-        ESP_LOGE(TAG, "write data is invalid");
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    // find ota handle in linked list
-    for (it = LIST_FIRST(&s_ota_ops_entries_head); it != NULL; it = LIST_NEXT(it, entries)) {
-        if (it->handle == handle) {
-            // must erase the partition before writing to it
-            assert(it->erased_size > 0 && "must erase the partition before writing to it");
-
-            /* esp_ota_write_with_offset is used to write data in non contiguous manner.
-             * Hence, unaligned data(less than 16 bytes) cannot be cached if flash encryption is enabled.
-             */
-            if (esp_flash_encryption_enabled() && (size % 16)) {
-                ESP_LOGE(TAG, "Size should be 16byte aligned for flash encryption case");
-                return ESP_ERR_INVALID_ARG;
-            }
-            ret = esp_partition_write(it->part, offset, data_bytes, size);
-            if (ret == ESP_OK) {
-                it->wrote_size += size;
-            }
-            return ret;
-        }
-    }
-
-    // OTA handle is not found in linked list
-    ESP_LOGE(TAG,"OTA handle not found");
     return ESP_ERR_INVALID_ARG;
 }
 
@@ -437,7 +402,7 @@ esp_err_t esp_ota_set_boot_partition(const esp_partition_t *partition)
                 return ESP_ERR_NOT_FOUND;
             }
         } else {
-#ifdef CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
+#ifdef CONFIG_APP_ANTI_ROLLBACK
             esp_app_desc_t partition_app_desc;
             esp_err_t err = esp_ota_get_partition_description(partition, &partition_app_desc);
             if (err != ESP_OK) {
@@ -625,7 +590,7 @@ esp_err_t esp_ota_get_partition_description(const esp_partition_t *partition, es
     return ESP_OK;
 }
 
-#ifdef CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
+#ifdef CONFIG_APP_ANTI_ROLLBACK
 static esp_err_t esp_ota_set_anti_rollback(void) {
     const esp_app_desc_t *app_desc = esp_ota_get_app_description();
     return esp_efuse_update_secure_version(app_desc->secure_version);
@@ -657,7 +622,7 @@ bool esp_ota_check_rollback_is_possible(void)
     int last_active_ota = (~active_ota)&1;
 
     const esp_partition_t *partition = NULL;
-#ifndef CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
+#ifndef CONFIG_APP_ANTI_ROLLBACK
     if (valid_otadata[last_active_ota] == false) {
         partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
         if (partition != NULL) {
@@ -673,7 +638,7 @@ bool esp_ota_check_rollback_is_possible(void)
         partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_MIN + slot, NULL);
         if (partition != NULL) {
             if(image_validate(partition, ESP_IMAGE_VERIFY_SILENT) == ESP_OK) {
-#ifdef CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
+#ifdef CONFIG_APP_ANTI_ROLLBACK
                 esp_app_desc_t app_desc;
                 if (esp_ota_get_partition_description(partition, &app_desc) == ESP_OK &&
                     esp_efuse_check_secure_version(app_desc.secure_version) == true) {
@@ -704,7 +669,7 @@ static esp_err_t esp_ota_current_ota_is_workable(bool valid)
             otadata[active_otadata].ota_state = ESP_OTA_IMG_VALID;
             ESP_LOGD(TAG, "OTA[current] partition is marked as VALID");
             esp_err_t err = rewrite_ota_seq(otadata, otadata[active_otadata].ota_seq, active_otadata, otadata_partition);
-#ifdef CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
+#ifdef CONFIG_APP_ANTI_ROLLBACK
             if (err == ESP_OK) {
                 return esp_ota_set_anti_rollback();
             }
@@ -731,12 +696,12 @@ static esp_err_t esp_ota_current_ota_is_workable(bool valid)
     return ESP_OK;
 }
 
-esp_err_t esp_ota_mark_app_valid_cancel_rollback(void)
+esp_err_t esp_ota_mark_app_valid_cancel_rollback()
 {
     return esp_ota_current_ota_is_workable(true);
 }
 
-esp_err_t esp_ota_mark_app_invalid_rollback_and_reboot(void)
+esp_err_t esp_ota_mark_app_invalid_rollback_and_reboot()
 {
     return esp_ota_current_ota_is_workable(false);
 }
@@ -759,7 +724,7 @@ static int get_last_invalid_otadata(const esp_ota_select_entry_t *two_otadata)
     return num_invalid_otadata;
 }
 
-const esp_partition_t* esp_ota_get_last_invalid_partition(void)
+const esp_partition_t* esp_ota_get_last_invalid_partition()
 {
     esp_ota_select_entry_t otadata[2];
     if (read_otadata(otadata) == NULL) {
@@ -864,24 +829,3 @@ esp_err_t esp_ota_erase_last_boot_app_partition(void)
 
     return ESP_OK;
 }
-
-#if CONFIG_IDF_TARGET_ESP32S2 && CONFIG_SECURE_BOOT_V2_ENABLED
-esp_err_t esp_ota_revoke_secure_boot_public_key(esp_ota_secure_boot_public_key_index_t index) {
-
-    if (!esp_secure_boot_enabled()) {
-        ESP_LOGE(TAG, "Secure boot v2 has not been enabled.");
-        return ESP_FAIL;
-    }
-
-    if (index != SECURE_BOOT_PUBLIC_KEY_INDEX_0 &&
-         index != SECURE_BOOT_PUBLIC_KEY_INDEX_1 &&
-         index != SECURE_BOOT_PUBLIC_KEY_INDEX_2) {
-        ESP_LOGE(TAG, "Invalid Index found for public key revocation %d.", index);
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    ets_secure_boot_revoke_public_key_digest(index);
-    ESP_LOGI(TAG, "Revoked signature block %d.", index);
-    return ESP_OK;
-}
-#endif

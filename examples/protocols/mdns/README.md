@@ -4,18 +4,20 @@ Shows how to use mDNS to advertise lookup services and hosts
 
 ## Example workflow
 
-- mDNS is initialized with host name and instance name defined through the project configuration and `_http._tcp` service is added to be advertised
-- WiFi STA is started and trying to connect to the access point defined through the project configuration
+- mDNS is initialized with host name and instance name defined through `make menuconfig` and `_http._tcp` service is added to be advertised
+- WiFi STA is started and trying to connect to the access point defined through `make menuconfig`
 - The system event handler is used to pass the network events to mDNS so the service is aware when the interface comes up or down
 - GPIO0 (BOOT Button) is initialized as pulled-up input that can be monitored for button press
 - Example task is started to check if the button is pressed so it can execute the mDNS queries defined
 
 ### Configure the project
 
-* Open the project configuration menu (`idf.py menuconfig`)
+```
+make menuconfig
+```
 
-* Configure Wi-Fi or Ethernet under "Example Connection Configuration" menu. See "Establishing Wi-Fi or Ethernet Connection" section in [examples/protocols/README.md](../README.md) for more details.
-* When using Make build system, set `Default serial port` under `Serial flasher config`.
+* Set `Default serial port` under `Serial flasher config`.
+* Set `WiFi SSID` and  `WiFi Password` for the board to connect to AP.
 * Set `mDNS Hostname` as host name prefix for the device and its instance name in `mDNS Instance Name`
 * Disable `Resolve test services` to prevent the example from querying defined names/services on startup (cause warnings in example logs, as illustrated below)
 
@@ -24,14 +26,13 @@ Shows how to use mDNS to advertise lookup services and hosts
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
 ```
-idf.py -p PORT flash monitor
+make -j4 flash monitor
 ```
-
 - Wait for WiFi to connect to your access point
 - You can now ping the device at `[board-hostname].local`, where `[board-hostname]` is preconfigured hostname, `esp32-mdns` by default.
 - You can also browse for `_http._tcp` on the same network to find the advertised service
 - Pressing the BOOT button will start querying the local network for the predefined in `check_button` hosts and services
-- Note that for purpose of CI tests, configuration options of `MDNS_RESOLVE_TEST_SERVICES` and `MDNS_ADD_MAC_TO_HOSTNAME` are available, but disabled by default. If enabled, then the hostname suffix of last 3 bytes from device MAC address is added, e.g. `esp32-mdns-80FFFF`, and a query for test service is issued.
+- Note that for purpose of CI tests, configuration options of `RESOLVE_TEST_SERVICES` and `MDNS_ADD_MAC_TO_HOSTNAME` are available, but disabled by default. If enabled, then the hostname suffix of last 3 bytes from device MAC address is added, e.g. `esp32-mdns-80FFFF`, and a query for test service is issued.
 
 
 (To exit the serial monitor, type ``Ctrl-]``.)

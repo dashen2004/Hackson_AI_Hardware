@@ -16,7 +16,6 @@ typedef struct outbox_item {
     int msg_type;
     int msg_qos;
     outbox_tick_t tick;
-    int retry_count;
     pending_state_t pending;
     STAILQ_ENTRY(outbox_item) next;
 } outbox_item_t;
@@ -79,6 +78,20 @@ outbox_item_handle_t outbox_dequeue(outbox_handle_t outbox, pending_state_t pend
         }
     }
     return NULL;
+}
+
+esp_err_t outbox_delete_item(outbox_handle_t outbox, outbox_item_handle_t item_to_delete)
+{
+    outbox_item_handle_t item;
+    STAILQ_FOREACH(item, outbox, next) {
+        if (item == item_to_delete) {
+            STAILQ_REMOVE(outbox, item, outbox_item, next);
+            free(item->buffer);
+            free(item);
+            return ESP_OK;
+        }
+    }
+    return ESP_FAIL;
 }
 
 uint8_t *outbox_item_get_data(outbox_item_handle_t item,  size_t *len, uint16_t *msg_id, int *msg_type, int *qos)
@@ -153,6 +166,22 @@ esp_err_t outbox_delete_msgtype(outbox_handle_t outbox, int msg_type)
 
     }
     return ESP_OK;
+}
+int outbox_delete_single_expired(outbox_handle_t outbox, outbox_tick_t current_tick, outbox_tick_t timeout)
+{
+    int msg_id = -1;
+    outbox_item_handle_t item, tmp;
+    STAILQ_FOREACH_SAFE(item, outbox, next, tmp) {
+        if (current_tick - item->tick > timeout) {
+            STAILQ_REMOVE(outbox, item, outbox_item, next);
+            free(item->buffer);
+            msg_id = item->msg_id;
+            free(item);
+            return msg_id;
+        }
+
+    }
+    return msg_id;
 }
 
 int outbox_delete_expired(outbox_handle_t outbox, outbox_tick_t current_tick, outbox_tick_t timeout)

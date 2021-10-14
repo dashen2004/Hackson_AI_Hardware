@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-typedef nvs_handle_t    bt_mesh_nvs_handle_t;
+typedef nvs_handle      bt_mesh_nvs_handle_t;
 
 #define SETTINGS_ITEM_SIZE              sizeof(uint16_t)
 

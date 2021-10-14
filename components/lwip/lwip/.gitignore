@@ -16,4 +16,3 @@
 /test/fuzz/output
 /test/fuzz/lwip_fuzz
 /test/fuzz/.depend
-/build

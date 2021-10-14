@@ -18,7 +18,8 @@ menu "Example Configuration"
         help
             WiFi channel (network channel) for the example to use.
 
-    config ESP_MAX_STA_CONN
+
+    config MAX_STA_CONN
         int "Maximal STA connections"
         default 4
         help

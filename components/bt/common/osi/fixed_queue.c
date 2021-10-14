@@ -127,34 +127,69 @@ size_t fixed_queue_capacity(fixed_queue_t *queue)
     return queue->capacity;
 }
 
-bool fixed_queue_enqueue(fixed_queue_t *queue, void *data, uint32_t timeout)
+void fixed_queue_enqueue(fixed_queue_t *queue, void *data)
 {
     bool status=false; //Flag whether enqueued success
 
     assert(queue != NULL);
     assert(data != NULL);
 
-    if (osi_sem_take(&queue->enqueue_sem, timeout) != 0) {
-        return false;
-    }
+    osi_sem_take(&queue->enqueue_sem, OSI_SEM_MAX_TIMEOUT);
 
     osi_mutex_lock(&queue->lock, OSI_MUTEX_MAX_TIMEOUT);
-    status = list_append(queue->list, data); //Check whether enqueued success 
+    status = list_append(queue->list, data); //Check whether enqueued success
     osi_mutex_unlock(&queue->lock);
 
-    if(status == true )
+    if(status == true)
         osi_sem_give(&queue->dequeue_sem);
-
-    return status;
 }
 
-void *fixed_queue_dequeue(fixed_queue_t *queue, uint32_t timeout)
+void *fixed_queue_dequeue(fixed_queue_t *queue)
 {
     void *ret = NULL;
 
     assert(queue != NULL);
 
-    if (osi_sem_take(&queue->dequeue_sem, timeout) != 0) {
+    osi_sem_take(&queue->dequeue_sem, OSI_SEM_MAX_TIMEOUT);
+
+    osi_mutex_lock(&queue->lock, OSI_MUTEX_MAX_TIMEOUT);
+    ret = list_front(queue->list);
+    list_remove(queue->list, ret);
+    osi_mutex_unlock(&queue->lock);
+
+    osi_sem_give(&queue->enqueue_sem);
+
+    return ret;
+}
+
+bool fixed_queue_try_enqueue(fixed_queue_t *queue, void *data)
+{
+    assert(queue != NULL);
+    assert(data != NULL);
+
+    if (osi_sem_take(&queue->enqueue_sem, 0) != 0) {
+        return false;
+    }
+
+    osi_mutex_lock(&queue->lock, OSI_MUTEX_MAX_TIMEOUT);
+
+    list_append(queue->list, data);
+    osi_mutex_unlock(&queue->lock);
+
+    osi_sem_give(&queue->dequeue_sem);
+
+    return true;
+}
+
+void *fixed_queue_try_dequeue(fixed_queue_t *queue)
+{
+    void *ret = NULL;
+
+    if (queue == NULL) {
+        return NULL;
+    }
+
+    if (osi_sem_take(&queue->dequeue_sem, 0) != 0) {
         return NULL;
     }
 

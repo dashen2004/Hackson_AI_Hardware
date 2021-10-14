@@ -29,14 +29,19 @@ try:
     from gi.repository import GLib
 except ImportError as e:
     if 'linux' not in sys.platform:
-        raise e
+        sys.exit("Error: Only supported on Linux platform")
     print(e)
     print("Install packages `libgirepository1.0-dev gir1.2-gtk-3.0 libcairo2-dev libdbus-1-dev libdbus-glib-1-dev` for resolving the issue")
     print("Run `pip install -r $IDF_PATH/tools/ble/requirements.txt` for resolving the issue")
     raise
 
-from . import lib_gatt
-from . import lib_gap
+try:
+    import lib_gatt
+    import lib_gap
+except ImportError:
+    # for python3 assign_test
+    from . import lib_gatt
+    from . import lib_gap
 
 srv_added_old_cnt = 0
 srv_added_new_cnt = 0

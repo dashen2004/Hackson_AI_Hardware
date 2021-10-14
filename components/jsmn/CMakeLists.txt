@@ -1,10 +1,6 @@
-idf_component_register(SRCS "src/jsmn.c"
-                    INCLUDE_DIRS "include")
+set(COMPONENT_SRCS "src/jsmn.c")
+set(COMPONENT_ADD_INCLUDEDIRS "include")
 
-if(CONFIG_JSMN_PARENT_LINKS)
-    target_compile_definitions(${COMPONENT_LIB} PUBLIC "-DJSMN_PARENT_LINKS")
-endif()
+set(COMPONENT_REQUIRES "")
 
-if(CONFIG_JSMN_STRICT)
-    target_compile_definitions(${COMPONENT_LIB} PUBLIC "-DJSMN_STRICT")
-endif()
+register_component()

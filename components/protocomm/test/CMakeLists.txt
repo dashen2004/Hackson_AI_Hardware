@@ -1,4 +1,7 @@
-idf_component_register(SRC_DIRS "."
-                    PRIV_INCLUDE_DIRS "."
-                    PRIV_INCLUDE_DIRS "../proto-c/"
-                    PRIV_REQUIRES unity mbedtls protocomm protobuf-c)
+set(COMPONENT_SRCDIRS ".")
+set(COMPONENT_ADD_INCLUDEDIRS ".")
+set(COMPONENT_PRIV_INCLUDEDIRS "../proto-c/")
+
+set(COMPONENT_REQUIRES unity mbedtls protocomm protobuf-c)
+
+register_component()

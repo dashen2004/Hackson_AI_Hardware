@@ -43,10 +43,10 @@ extern "C" {
 #endif
 
 
-int ping_init(void) __attribute__ ((deprecated));
+int ping_init(void);
 
 #ifdef ESP_PING
-void ping_deinit(void) __attribute__ ((deprecated));
+void ping_deinit(void);
 #endif
 
 #if !PING_USE_SOCKETS

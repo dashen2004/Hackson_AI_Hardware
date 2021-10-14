@@ -21,7 +21,8 @@
 #include "esp_attr.h"
 #include "soc/rtc.h"
 #include "driver/mcpwm.h"
-#include "soc/mcpwm_periph.h"
+#include "soc/mcpwm_reg.h"
+#include "soc/mcpwm_struct.h"
 
 #define MCPWM_EN_CARRIER 0   //Make this 1 to test carrier submodule of mcpwm, set high frequency carrier parameters
 #define MCPWM_EN_DEADTIME 0  //Make this 1 to test deadtime submodule of mcpwm, set deadtime value and deadtime mode
@@ -62,7 +63,7 @@ xQueueHandle cap_queue;
 static mcpwm_dev_t *MCPWM[2] = {&MCPWM0, &MCPWM1};
 #endif
 
-static void mcpwm_example_gpio_initialize(void)
+static void mcpwm_example_gpio_initialize()
 {
     printf("initializing mcpwm gpio...\n");
 #if MCPWM_GPIO_INIT
@@ -167,7 +168,7 @@ static void disp_captured_signal(void *arg)
 /**
  * @brief this is ISR handler function, here we check for interrupt that triggers rising edge on CAP0 signal and according take action
  */
-static void IRAM_ATTR isr_handler(void)
+static void IRAM_ATTR isr_handler()
 {
     uint32_t mcpwm_intr_status;
     capture evt;
@@ -282,7 +283,7 @@ static void mcpwm_example_config(void *arg)
     vTaskDelete(NULL);
 }
 
-void app_main(void)
+void app_main()
 {
     printf("Testing MCPWM...\n");
     cap_queue = xQueueCreate(1, sizeof(capture)); //comment if you don't want to use capture module

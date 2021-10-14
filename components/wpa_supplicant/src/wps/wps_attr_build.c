@@ -5,18 +5,19 @@
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
  */
-#include "utils/includes.h"
-#include "utils/common.h"
-#include "utils/wpa_debug.h"
+#include "wpa/includes.h"
+#include "wpa/common.h"
+#include "wpa/wpa_debug.h"
 
 #include "crypto/aes_wrap.h"
 #include "crypto/crypto.h"
+#include "crypto/dh_group5.h"
 #include "crypto/sha256.h"
 #include "crypto/random.h"
-#include "crypto/dh_group5.h"
 
-#include "common/ieee802_11_defs.h"
+#include "wpa/ieee802_11_defs.h"
 #include "wps/wps_i.h"
+#include "soc/dport_reg.h"
 
 int wps_build_public_key(struct wps_data *wps, struct wpabuf *msg, wps_key_mode_t mode)
 {
@@ -166,7 +167,12 @@ int wps_build_authenticator(struct wps_data *wps, struct wpabuf *msg)
 	len[0] = wpabuf_len(wps->last_msg);
 	addr[1] = wpabuf_head(msg);
 	len[1] = wpabuf_len(msg);
-	hmac_sha256_vector(wps->authkey, WPS_AUTHKEY_LEN, 2, addr, len, hash);
+	if (wps_crypto_funcs.hmac_sha256_vector) {
+	        wps_crypto_funcs.hmac_sha256_vector(wps->authkey, WPS_AUTHKEY_LEN, 2, addr, (int *)len, hash);
+	} else {
+		wpa_printf(MSG_ERROR, "Fail to register hmac sha256 vector!\r\n");
+		return -1;
+	}
 	wpa_printf(MSG_DEBUG,  "WPS:  * Authenticator");
 	wpabuf_put_be16(msg, ATTR_AUTHENTICATOR);
 	wpabuf_put_be16(msg, WPS_AUTHENTICATOR_LEN);
@@ -324,8 +330,13 @@ int wps_build_key_wrap_auth(struct wps_data *wps, struct wpabuf *msg)
 	u8 hash[SHA256_MAC_LEN];
 
 	wpa_printf(MSG_DEBUG,  "WPS:  * Key Wrap Authenticator");
-	hmac_sha256(wps->authkey, WPS_AUTHKEY_LEN, wpabuf_head(msg),
-		            wpabuf_len(msg), hash);
+	if (wps_crypto_funcs.hmac_sha256) {
+	        wps_crypto_funcs.hmac_sha256(wps->authkey, WPS_AUTHKEY_LEN, wpabuf_head(msg),
+		                             wpabuf_len(msg), hash);
+	} else {
+		wpa_printf(MSG_ERROR, "Fail to register hmac sha256 function!\r\n");
+		return -1;
+	}
 	wpabuf_put_be16(msg, ATTR_KEY_WRAP_AUTH);
 	wpabuf_put_be16(msg, WPS_KWA_LEN);
 	wpabuf_put_data(msg, hash, WPS_KWA_LEN);
@@ -356,8 +367,13 @@ int wps_build_encr_settings(struct wps_data *wps, struct wpabuf *msg,
 	data = wpabuf_put(msg, 0);
 	wpabuf_put_buf(msg, plain);
 	wpa_printf(MSG_DEBUG,  "WPS:  * AES 128 Encrypted Settings");
-	if (aes_128_cbc_encrypt(wps->keywrapkey, iv, data, wpabuf_len(plain)))
+	if (wps_crypto_funcs.aes_128_encrypt) {
+	        if (wps_crypto_funcs.aes_128_encrypt(wps->keywrapkey, iv, data, wpabuf_len(plain)))
+		        return -1;
+	} else {
+		wpa_printf(MSG_ERROR, "Fail to register aes_128_encrypt function!\r\n");
 		return -1;
+	}
 	return 0;
 }
 
@@ -373,7 +389,12 @@ int wps_build_oob_dev_pw(struct wpabuf *msg, u16 dev_pw_id,
 
 	addr[0] = wpabuf_head(pubkey);
 	hash_len = wpabuf_len(pubkey);
-	sha256_vector(1, addr, &hash_len, pubkey_hash);
+	if (wps_crypto_funcs.sha256_vector) {
+	        wps_crypto_funcs.sha256_vector(1, addr, &hash_len, pubkey_hash);
+	} else {
+		wpa_printf(MSG_ERROR, "Fail to register sha256 vector function!\r\n");
+		return -1;
+	}
 	wpabuf_put_be16(msg, ATTR_OOB_DEVICE_PASSWORD);
 	wpabuf_put_be16(msg, WPS_OOB_PUBKEY_HASH_LEN + 2 + dev_pw_len);
 	wpabuf_put_data(msg, pubkey_hash, WPS_OOB_PUBKEY_HASH_LEN);

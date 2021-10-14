@@ -14,9 +14,9 @@
 
 #include <string.h>
 #include "esp_https_server.h"
+#include "openssl/ssl.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
-#include "esp_tls.h"
 
 const static char *TAG = "esp_https_server";
 
@@ -28,7 +28,8 @@ const static char *TAG = "esp_https_server";
 static void httpd_ssl_close(void *ctx)
 {
     assert(ctx != NULL);
-    esp_tls_server_session_delete(ctx);
+    SSL_shutdown(ctx);
+    SSL_free(ctx);
     ESP_LOGD(TAG, "Secure socket closed");
 }
 
@@ -41,9 +42,9 @@ static void httpd_ssl_close(void *ctx)
  */
 static int httpd_ssl_pending(httpd_handle_t server, int sockfd)
 {
-    esp_tls_t *tls = httpd_sess_get_transport_ctx(server, sockfd);
-    assert(tls != NULL);
-    return esp_tls_get_bytes_avail(tls);
+    SSL *ssl = httpd_sess_get_transport_ctx(server, sockfd);
+    assert(ssl != NULL);
+    return SSL_pending(ssl);
 }
 
 /**
@@ -58,9 +59,9 @@ static int httpd_ssl_pending(httpd_handle_t server, int sockfd)
  */
 static int httpd_ssl_recv(httpd_handle_t server, int sockfd, char *buf, size_t buf_len, int flags)
 {
-    esp_tls_t *tls = httpd_sess_get_transport_ctx(server, sockfd);
-    assert(tls != NULL);
-    return esp_tls_conn_read(tls, buf, buf_len);
+    SSL *ssl = httpd_sess_get_transport_ctx(server, sockfd);
+    assert(ssl != NULL);
+    return SSL_read(ssl, buf, buf_len);
 }
 
 /**
@@ -75,9 +76,9 @@ static int httpd_ssl_recv(httpd_handle_t server, int sockfd, char *buf, size_t b
  */
 static int httpd_ssl_send(httpd_handle_t server, int sockfd, const char *buf, size_t buf_len, int flags)
 {
-    esp_tls_t *tls = httpd_sess_get_transport_ctx(server, sockfd);
-    assert(tls != NULL);
-    return esp_tls_conn_write(tls, buf, buf_len);
+    SSL *ssl = httpd_sess_get_transport_ctx(server, sockfd);
+    assert(ssl != NULL);
+    return SSL_write(ssl, buf, buf_len);
 }
 
 /**
@@ -93,22 +94,28 @@ static esp_err_t httpd_ssl_open(httpd_handle_t server, int sockfd)
     assert(server != NULL);
 
     // Retrieve the SSL context from the global context field (set in config)
-    esp_tls_cfg_server_t *global_ctx = httpd_get_global_transport_ctx(server);
+    SSL_CTX *global_ctx = httpd_get_global_transport_ctx(server);
     assert(global_ctx != NULL);
 
-    esp_tls_t *tls = (esp_tls_t *)calloc(1, sizeof(esp_tls_t));
-    if (!tls) {
+    SSL *ssl = SSL_new(global_ctx);
+    if (NULL == ssl) {
+        ESP_LOGE(TAG, "SSL_new ret NULL (out of memory)");
         return ESP_ERR_NO_MEM;
     }
-    ESP_LOGI(TAG, "performing session handshake");
-    int ret = esp_tls_server_session_create(global_ctx, sockfd, tls);
-    if (ret != 0) {
-        ESP_LOGE(TAG, "esp_tls_create_server_session failed");
-        goto fail;
+
+    if (1 != SSL_set_fd(ssl, sockfd)) {
+        ESP_LOGE(TAG, "fail to set SSL fd");
+        goto teardown;
+    }
+
+    ESP_LOGD(TAG, "SSL accept");
+    if (1 != SSL_accept(ssl)) {
+        ESP_LOGW(TAG, "fail to SSL_accept - handshake error");
+        goto teardown;
     }
 
     // Store the SSL session into the context field of the HTTPD session object
-    httpd_sess_set_transport_ctx(server, sockfd, tls, httpd_ssl_close);
+    httpd_sess_set_transport_ctx(server, sockfd, ssl, httpd_ssl_close);
 
     // Set rx/tx/pending override functions
     httpd_sess_set_send_override(server, sockfd, httpd_ssl_send);
@@ -120,8 +127,9 @@ static esp_err_t httpd_ssl_open(httpd_handle_t server, int sockfd)
     ESP_LOGD(TAG, "Secure socket open");
 
     return ESP_OK;
-fail:
-    esp_tls_server_session_delete(tls);
+
+teardown:
+    SSL_free(ssl);
     return ESP_FAIL;
 }
 
@@ -133,60 +141,38 @@ fail:
 static void free_secure_context(void *ctx)
 {
     assert(ctx != NULL);
-    esp_tls_cfg_server_t *cfg = (esp_tls_cfg_server_t *)ctx;
+
     ESP_LOGI(TAG, "Server shuts down, releasing SSL context");
-    if (cfg->cacert_buf) {
-        free((void *)cfg->cacert_buf);
-    }
-    if (cfg->servercert_buf) {
-        free((void *)cfg->servercert_buf);
-    }
-    if (cfg->serverkey_buf) {
-        free((void *)cfg->serverkey_buf);
-    }
-    free(cfg);
+    SSL_CTX_free(ctx);
 }
 
-static esp_tls_cfg_server_t *create_secure_context(const struct httpd_ssl_config *config)
+/**
+* Create and perform basic init of a SSL_CTX, or return NULL on failure
+*
+* @return ctx or null
+*/
+static SSL_CTX *create_secure_context(const struct httpd_ssl_config *config)
 {
-    esp_tls_cfg_server_t *cfg = (esp_tls_cfg_server_t *)calloc(1, sizeof(esp_tls_cfg_server_t));
-    if (!cfg) {
-        return NULL;
-    }
-/* cacert = CA which signs client cert, or client cert itself , which is mapped to client_verify_cert_pem */
-    if(config->client_verify_cert_pem != NULL) {
-        cfg->cacert_buf = (unsigned char *)malloc(config->client_verify_cert_len);
-        if (!cfg->cacert_buf) {
-            ESP_LOGE(TAG, "Could not allocate memory");
-            free(cfg);
-            return NULL;
+    SSL_CTX *ctx = NULL;
+
+    ESP_LOGD(TAG, "SSL server context create");
+    ctx = SSL_CTX_new(TLS_server_method());
+    if (NULL != ctx) {
+        //region SSL ctx alloc'd
+        ESP_LOGD(TAG, "SSL ctx set own cert");
+        if (SSL_CTX_use_certificate_ASN1(ctx, config->cacert_len, config->cacert_pem)
+            && SSL_CTX_use_PrivateKey_ASN1(0, ctx, config->prvtkey_pem, (long) config->prvtkey_len)) {
+            return ctx;
         }
-        memcpy((char *)cfg->cacert_buf, config->client_verify_cert_pem, config->client_verify_cert_len);
-        cfg->cacert_bytes = config->client_verify_cert_len;
+        else {
+            ESP_LOGE(TAG, "Failed to set certificate");
+            SSL_CTX_free(ctx);
+            ctx = NULL;
+        }
+    } else {
+        ESP_LOGE(TAG, "Failed to create SSL context");
     }
-/* servercert = cert of server itself ( in our case it is mapped to cacert in https_server example) */
-    cfg->servercert_buf = (unsigned char *)malloc(config->cacert_len);
-    if (!cfg->servercert_buf) {
-        ESP_LOGE(TAG, "Could not allocate memory");
-        free((void *)cfg->cacert_buf);
-        free(cfg);
-        return NULL;
-    }
-    memcpy((char *)cfg->servercert_buf, config->cacert_pem, config->cacert_len);
-    cfg->servercert_bytes = config->cacert_len;
-
-    cfg->serverkey_buf = (unsigned char *)malloc(config->prvtkey_len);
-    if (!cfg->serverkey_buf) {
-        ESP_LOGE(TAG, "Could not allocate memory");
-        free((void *)cfg->servercert_buf);
-        free((void *)cfg->cacert_buf);
-        free(cfg);
-        return NULL;
-    }
-    memcpy((char *)cfg->serverkey_buf, config->prvtkey_pem, config->prvtkey_len);
-    cfg->serverkey_bytes = config->prvtkey_len;
-
-    return cfg;
+    return NULL;
 }
 
 /** Start the server */
@@ -198,16 +184,15 @@ esp_err_t httpd_ssl_start(httpd_handle_t *pHandle, struct httpd_ssl_config *conf
     ESP_LOGI(TAG, "Starting server");
 
     if (HTTPD_SSL_TRANSPORT_SECURE == config->transport_mode) {
-
-        esp_tls_cfg_server_t *esp_tls_cfg = create_secure_context(config);
-        if (!esp_tls_cfg) {
-            return -1;
+        SSL_CTX *ctx = create_secure_context(config);
+        if (!ctx) {
+            return ESP_FAIL;
         }
 
         ESP_LOGD(TAG, "SSL context ready");
 
         // set SSL specific config
-        config->httpd.global_transport_ctx = esp_tls_cfg;
+        config->httpd.global_transport_ctx = ctx;
         config->httpd.global_transport_ctx_free_fn = free_secure_context;
         config->httpd.open_fn = httpd_ssl_open; // the open function configures the created SSL sessions
 

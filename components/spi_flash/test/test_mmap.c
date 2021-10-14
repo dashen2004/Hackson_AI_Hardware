@@ -21,25 +21,7 @@ static uint32_t end;
 
 static spi_flash_mmap_handle_t handle1, handle2, handle3;
 
-static esp_err_t spi_flash_read_maybe_encrypted(size_t src_addr, void *des_addr, size_t size)
-{
-    if (!esp_flash_encryption_enabled()) {
-        return spi_flash_read(src_addr, des_addr, size);
-    } else {
-        return spi_flash_read_encrypted(src_addr, des_addr, size);
-    }
-}
-
-static esp_err_t spi_flash_write_maybe_encrypted(size_t des_addr, const void *src_addr, size_t size)
-{
-    if (!esp_flash_encryption_enabled()) {
-        return spi_flash_write(des_addr, src_addr, size);
-    } else {
-        return spi_flash_write_encrypted(des_addr, src_addr, size);
-    }
-}
-
-static void setup_mmap_tests(void)
+static void setup_mmap_tests()
 {
     if (start == 0) {
         const esp_partition_t *part = get_test_data_partition();
@@ -72,7 +54,7 @@ static void setup_mmap_tests(void)
             uint32_t sector_offs = abs_sector * SPI_FLASH_SEC_SIZE;
             bool sector_needs_write = false;
 
-            ESP_ERROR_CHECK( spi_flash_read_maybe_encrypted(sector_offs, buffer, sizeof(buffer)) );
+            ESP_ERROR_CHECK( spi_flash_read(sector_offs, buffer, sizeof(buffer)) );
 
             for (uint32_t word = 0; word < 1024; ++word) {
                 uint32_t val = rand();
@@ -87,13 +69,13 @@ static void setup_mmap_tests(void)
             /* Only rewrite the sector if it has changed */
             if (sector_needs_write) {
                 ESP_ERROR_CHECK( spi_flash_erase_sector((uint16_t) abs_sector) );
-                ESP_ERROR_CHECK( spi_flash_write_maybe_encrypted(sector_offs, (const uint8_t *) buffer, sizeof(buffer)) );
+                ESP_ERROR_CHECK( spi_flash_write(sector_offs, (const uint8_t *) buffer, sizeof(buffer)) );
             }
         }
     }
 }
 
-TEST_CASE("Can mmap into data address space", "[spi_flash][mmap]")
+TEST_CASE("Can mmap into data address space", "[spi_flash]")
 {
     setup_mmap_tests();
 
@@ -153,7 +135,7 @@ TEST_CASE("Can mmap into data address space", "[spi_flash][mmap]")
     TEST_ASSERT_EQUAL_PTR(NULL, spi_flash_phys2cache(start, SPI_FLASH_MMAP_DATA));
 }
 
-TEST_CASE("Can mmap into instruction address space", "[spi_flash][mmap]")
+TEST_CASE("Can mmap into instruction address space", "[mmap]")
 {
     setup_mmap_tests();
 
@@ -177,23 +159,15 @@ TEST_CASE("Can mmap into instruction address space", "[spi_flash][mmap]")
     printf("Mapping %x (+%x)\n", start - 0x10000, 0x20000);
     spi_flash_mmap_handle_t handle2;
     const void *ptr2;
-    ESP_ERROR_CHECK( spi_flash_mmap(start - 0x10000, 0x20000, SPI_FLASH_MMAP_INST, &ptr2, &handle2) );
+    ESP_ERROR_CHECK( spi_flash_mmap(start - 0x10000, 0x20000, SPI_FLASH_MMAP_DATA, &ptr2, &handle2) );
     printf("mmap_res: handle=%d ptr=%p\n", handle2, ptr2);
-
-    TEST_ASSERT_EQUAL_HEX32(start - 0x10000, spi_flash_cache2phys(ptr2));
-    TEST_ASSERT_EQUAL_PTR(ptr2, spi_flash_phys2cache(start - 0x10000, SPI_FLASH_MMAP_INST));
-
     spi_flash_mmap_dump();
 
     printf("Mapping %x (+%x)\n", start, 0x10000);
     spi_flash_mmap_handle_t handle3;
     const void *ptr3;
-    ESP_ERROR_CHECK( spi_flash_mmap(start, 0x10000, SPI_FLASH_MMAP_INST, &ptr3, &handle3) );
+    ESP_ERROR_CHECK( spi_flash_mmap(start, 0x10000, SPI_FLASH_MMAP_DATA, &ptr3, &handle3) );
     printf("mmap_res: handle=%d ptr=%p\n", handle3, ptr3);
-
-    TEST_ASSERT_EQUAL_HEX32(start, spi_flash_cache2phys(ptr3));
-    TEST_ASSERT_EQUAL_PTR(ptr3, spi_flash_phys2cache(start, SPI_FLASH_MMAP_INST));
-
     spi_flash_mmap_dump();
 
     printf("Unmapping handle1\n");
@@ -209,7 +183,7 @@ TEST_CASE("Can mmap into instruction address space", "[spi_flash][mmap]")
 
 }
 
-TEST_CASE("Can mmap unordered pages into contiguous memory", "[spi_flash][mmap]")
+TEST_CASE("Can mmap unordered pages into contiguous memory", "[spi_flash]")
 {
     int nopages;
     int *pages;
@@ -226,7 +200,7 @@ TEST_CASE("Can mmap unordered pages into contiguous memory", "[spi_flash][mmap]"
         pages[i]=startpage+(nopages-1)-i;
         printf("Offset %x page %d\n", i*0x10000, pages[i]);
     }
-
+    
     printf("Attempting mapping of unordered pages to contiguous memory area\n");
 
     spi_flash_mmap_handle_t handle1;
@@ -251,7 +225,8 @@ TEST_CASE("Can mmap unordered pages into contiguous memory", "[spi_flash][mmap]"
     spi_flash_mmap_dump();
 }
 
-TEST_CASE("flash_mmap invalidates just-written data", "[spi_flash][mmap]")
+
+TEST_CASE("flash_mmap invalidates just-written data", "[spi_flash]")
 {
     const void *ptr1;
 
@@ -300,9 +275,9 @@ TEST_CASE("flash_mmap invalidates just-written data", "[spi_flash][mmap]")
     handle1 = 0;
 }
 
-TEST_CASE("flash_mmap can mmap after get enough free MMU pages", "[spi_flash][mmap]")
+TEST_CASE("flash_mmap can mmap after get enough free MMU pages", "[spi_flash]")
 {
-    //this test case should make flash size >= 4MB, because max size of Dcache can mapped is 4MB
+    //this test case should make flash size >= 4MB, because max size of Dcache can mapped is 4MB 
     setup_mmap_tests();
 
     printf("Mapping %x (+%x)\n", start, end - start);
@@ -348,7 +323,7 @@ TEST_CASE("flash_mmap can mmap after get enough free MMU pages", "[spi_flash][mm
     TEST_ASSERT_EQUAL_PTR(NULL, spi_flash_phys2cache(start, SPI_FLASH_MMAP_DATA));
 }
 
-TEST_CASE("phys2cache/cache2phys basic checks", "[spi_flash][mmap]")
+TEST_CASE("phys2cache/cache2phys basic checks", "[spi_flash]")
 {
     uint8_t buf[64];
 
@@ -361,7 +336,7 @@ TEST_CASE("phys2cache/cache2phys basic checks", "[spi_flash][mmap]")
     TEST_ASSERT_EQUAL_PTR(NULL, spi_flash_phys2cache(phys, SPI_FLASH_MMAP_DATA));
 
     /* Read the flash @ 'phys' and compare it to the data we get via regular cache access */
-    spi_flash_read_maybe_encrypted(phys, buf, sizeof(buf));
+    spi_flash_read(phys, buf, sizeof(buf));
     TEST_ASSERT_EQUAL_HEX32_ARRAY((void *)esp_partition_find, buf, sizeof(buf)/sizeof(uint32_t));
 
     /* spi_flash_mmap is in IRAM */
@@ -377,11 +352,11 @@ TEST_CASE("phys2cache/cache2phys basic checks", "[spi_flash][mmap]")
     TEST_ASSERT_EQUAL_PTR(NULL, spi_flash_phys2cache(phys, SPI_FLASH_MMAP_INST));
 
     /* Read the flash @ 'phys' and compare it to the data we get via normal cache access */
-    spi_flash_read_maybe_encrypted(phys, buf, sizeof(constant_data));
+    spi_flash_read(phys, buf, sizeof(constant_data));
     TEST_ASSERT_EQUAL_HEX8_ARRAY(constant_data, buf, sizeof(constant_data));
 }
 
-TEST_CASE("mmap consistent with phys2cache/cache2phys", "[spi_flash][mmap]")
+TEST_CASE("mmap consistent with phys2cache/cache2phys", "[spi_flash]")
 {
     const void *ptr = NULL;
     const size_t test_size = 2 * SPI_FLASH_MMU_PAGE_SIZE;
@@ -406,7 +381,7 @@ TEST_CASE("mmap consistent with phys2cache/cache2phys", "[spi_flash][mmap]")
     TEST_ASSERT_EQUAL_HEX(SPI_FLASH_CACHE2PHYS_FAIL, spi_flash_cache2phys(ptr));
 }
 
-TEST_CASE("munmap followed by mmap flushes cache", "[spi_flash][mmap]")
+TEST_CASE("munmap followed by mmap flushes cache", "[spi_flash]")
 {
     setup_mmap_tests();
 
@@ -425,10 +400,9 @@ TEST_CASE("munmap followed by mmap flushes cache", "[spi_flash][mmap]")
     TEST_ASSERT_NOT_EQUAL(0, memcmp(buf, data, sizeof(buf)));
 }
 
-TEST_CASE("no stale data read post mmap and write partition", "[spi_flash][mmap]")
+TEST_CASE("no stale data read post mmap and write partition", "[spi_flash]")
 {
-    /* Buffer size is set to 32 to allow encrypted flash writes */
-    const char buf[32] = "Test buffer data for partition";
+    const char buf[] = "Test buffer data for partition";
     char read_data[sizeof(buf)];
     setup_mmap_tests();
 
@@ -440,9 +414,7 @@ TEST_CASE("no stale data read post mmap and write partition", "[spi_flash][mmap]
             SPI_FLASH_MMAP_DATA, (const void **) &data, &handle) );
     memcpy(read_data, data, sizeof(read_data));
     TEST_ESP_OK(esp_partition_erase_range(p, 0, SPI_FLASH_MMU_PAGE_SIZE));
-    /* not using esp_partition_write here, since the partition in not marked as "encrypted"
-       in the partition table */
-    TEST_ESP_OK(spi_flash_write_maybe_encrypted(p->address + 0, buf, sizeof(buf)));
+    TEST_ESP_OK(esp_partition_write(p, 0, buf, sizeof(buf)));
     /* This should retrigger actual flash content read */
     memcpy(read_data, data, sizeof(read_data));
 

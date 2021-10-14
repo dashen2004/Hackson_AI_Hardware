@@ -1,2 +1,4 @@
-idf_component_register(SRCS "task_watchdog_example_main.c"
-                    INCLUDE_DIRS ".")
+set(COMPONENT_SRCS "task_watchdog_example_main.c")
+set(COMPONENT_ADD_INCLUDEDIRS ".")
+
+register_component()

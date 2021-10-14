@@ -13,7 +13,6 @@
 
 #include "crypto.h"
 #include "adv.h"
-#include "scan.h"
 #include "mesh.h"
 #include "lpn.h"
 #include "friend.h"
@@ -824,12 +823,6 @@ int bt_mesh_net_resend(struct bt_mesh_subnet *sub, struct net_buf *buf,
     if (IS_ENABLED(CONFIG_BLE_MESH_GATT_PROXY_SERVER) &&
         bt_mesh_proxy_server_relay(&buf->b, dst) &&
         BLE_MESH_ADDR_IS_UNICAST(dst)) {
-        send_cb_finalize(cb, cb_data);
-        return 0;
-    }
-
-    if (IS_ENABLED(CONFIG_BLE_MESH_GATT_PROXY_CLIENT) &&
-        bt_mesh_proxy_client_relay(&buf->b, dst)) {
         send_cb_finalize(cb, cb_data);
         return 0;
     }

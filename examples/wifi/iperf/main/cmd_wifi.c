@@ -16,8 +16,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
-#include "esp_netif.h"
-#include "esp_event.h"
+#include "tcpip_adapter.h"
+#include "esp_event_loop.h"
 #include "iperf.h"
 
 typedef struct {
@@ -48,15 +48,12 @@ static wifi_scan_arg_t scan_args;
 static wifi_args_t ap_args;
 static bool reconnect = true;
 static const char *TAG="cmd_wifi";
-static esp_netif_t *netif_ap = NULL;
-static esp_netif_t *netif_sta = NULL;
 
 static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
 const int DISCONNECTED_BIT = BIT1;
 
-static void scan_done_handler(void* arg, esp_event_base_t event_base,
-                              int32_t event_id, void* event_data)
+static void scan_done_handler(void)
 {
     uint16_t sta_number = 0;
     uint8_t i;
@@ -80,29 +77,34 @@ static void scan_done_handler(void* arg, esp_event_base_t event_base,
         }
     }
     free(ap_list_buffer);
-    ESP_LOGI(TAG, "sta scan done");
 }
 
-static void got_ip_handler(void* arg, esp_event_base_t event_base,
-                           int32_t event_id, void* event_data)
+static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
-    xEventGroupClearBits(wifi_event_group, DISCONNECTED_BIT);
-    xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-}
-
-static void disconnect_handler(void* arg, esp_event_base_t event_base,
-                               int32_t event_id, void* event_data)
-{
-    if (reconnect) {
-        ESP_LOGI(TAG, "sta disconnect, reconnect...");
-        esp_wifi_connect();
-    } else {
-        ESP_LOGI(TAG, "sta disconnect");
+    switch(event->event_id) {
+    case SYSTEM_EVENT_STA_GOT_IP:
+        xEventGroupClearBits(wifi_event_group, DISCONNECTED_BIT);
+        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+        break;
+    case SYSTEM_EVENT_SCAN_DONE:
+        scan_done_handler();
+        ESP_LOGI(TAG, "sta scan done");
+        break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+        if (reconnect) {
+            ESP_LOGI(TAG, "sta disconnect, reconnect...");
+            esp_wifi_connect();
+        } else {
+            ESP_LOGI(TAG, "sta disconnect");
+        }
+        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+        xEventGroupSetBits(wifi_event_group, DISCONNECTED_BIT);
+        break;
+    default:
+        break;
     }
-    xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-    xEventGroupSetBits(wifi_event_group, DISCONNECTED_BIT);
+    return ESP_OK;
 }
-
 
 void initialise_wifi(void)
 {
@@ -113,33 +115,14 @@ void initialise_wifi(void)
         return;
     }
 
-    ESP_ERROR_CHECK(esp_netif_init());
+    tcpip_adapter_init();
     wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK( esp_event_loop_create_default() );
-    netif_ap = esp_netif_create_default_wifi_ap();
-    assert(netif_ap);
-    netif_sta = esp_netif_create_default_wifi_sta();
-    assert(netif_sta);
+    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
-                                                        WIFI_EVENT_SCAN_DONE,
-                                                        &scan_done_handler,
-                                                        NULL,
-                                                        NULL));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
-                                                        WIFI_EVENT_STA_DISCONNECTED,
-                                                        &disconnect_handler,
-                                                        NULL,
-                                                        NULL));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
-                                                        IP_EVENT_STA_GOT_IP,
-                                                        &got_ip_handler,
-                                                        NULL,
-                                                        NULL));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_NULL) );
-    ESP_ERROR_CHECK(esp_wifi_start() );
+    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_NULL) );
+    ESP_ERROR_CHECK( esp_wifi_start() );
     initialized = true;
 }
 
@@ -289,22 +272,22 @@ static int wifi_cmd_query(int argc, char** argv)
 static uint32_t wifi_get_local_ip(void)
 {
     int bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, 0, 1, 0);
-    esp_netif_t * netif = netif_ap;
-    esp_netif_ip_info_t ip_info;
+    tcpip_adapter_if_t ifx = TCPIP_ADAPTER_IF_AP;
+    tcpip_adapter_ip_info_t ip_info;
     wifi_mode_t mode;
 
     esp_wifi_get_mode(&mode);
     if (WIFI_MODE_STA == mode) {
         bits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, 0, 1, 0);
         if (bits & CONNECTED_BIT) {
-            netif = netif_sta;
+            ifx = TCPIP_ADAPTER_IF_STA;
         } else {
             ESP_LOGE(TAG, "sta has no IP");
             return 0;
         }
      }
 
-     esp_netif_get_ip_info(netif, &ip_info);
+     tcpip_adapter_get_ip_info(ifx, &ip_info);
      return ip_info.ip.addr;
 }
 
@@ -334,7 +317,7 @@ static int wifi_cmd_iperf(int argc, char** argv)
     if (iperf_args.ip->count == 0) {
         cfg.flag |= IPERF_FLAG_SERVER;
     } else {
-        cfg.dip = esp_ip4addr_aton(iperf_args.ip->sval[0]);
+        cfg.dip = ipaddr_addr(iperf_args.ip->sval[0]);
         cfg.flag |= IPERF_FLAG_CLIENT;
     }
 
@@ -392,7 +375,7 @@ static int wifi_cmd_iperf(int argc, char** argv)
     return 0;
 }
 
-void register_wifi(void)
+void register_wifi()
 {
     sta_args.ssid = arg_str1(NULL, NULL, "<ssid>", "SSID of AP");
     sta_args.password = arg_str0(NULL, NULL, "<pass>", "password of AP");

@@ -1,4 +1,4 @@
-[mapping:heap]
+[mapping]
 archive: libheap.a
 entries:
     multi_heap (noflash)

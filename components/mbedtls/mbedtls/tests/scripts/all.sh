@@ -2,7 +2,7 @@
 
 # all.sh
 #
-# Copyright (c) 2014-2017, ARM Limited, All Rights Reserved
+# Copyright The Mbed TLS Contributors
 # SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 #
 # This file is provided under the Apache License 2.0, or the
@@ -43,8 +43,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # **********
-#
-# This file is part of Mbed TLS (https://tls.mbed.org)
 
 
 
@@ -186,6 +184,9 @@ pre_initialize_variables () {
     if [ -z "${MAKEFLAGS+set}" ]; then
         export MAKEFLAGS="-j"
     fi
+
+    # Include more verbose output for failing tests run by CMake
+    export CTEST_OUTPUT_ON_FAILURE=1
 
     # CFLAGS and LDFLAGS for Asan builds that don't use CMake
     ASAN_CFLAGS='-Werror -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=all'
@@ -664,8 +665,8 @@ component_check_doxy_blocks () {
 }
 
 component_check_files () {
-    msg "test: check-files.py" # < 1s
-    record_status tests/scripts/check-files.py
+    msg "Check: file sanity checks (permissions, encodings)" # < 1s
+    record_status tests/scripts/check_files.py
 }
 
 component_check_changelog () {
@@ -688,6 +689,18 @@ component_check_names () {
 component_check_doxygen_warnings () {
     msg "test: doxygen warnings" # ~ 3s
     record_status tests/scripts/doxygen.sh
+}
+
+component_check_python2 () {
+    # Check that what used to work with Python 2 still works with Python 2.
+    msg "check: python2 compatibility"
+    mkdir -p tests/with_python2 tests/with_python3
+    make -C tests PYTHON=python2 c_files
+    mv tests/test_suite_*.c tests/with_python2/
+    make -C tests PYTHON=python3 c_files
+    mv tests/test_suite_*.c tests/with_python3/
+    diff -r tests/with_python2 tests/with_python3
+    rm -rf tests/with_python2 tests/with_python3
 }
 
 
@@ -889,11 +902,21 @@ component_test_no_hmac_drbg () {
     CC=gcc cmake -D CMAKE_BUILD_TYPE:String=Asan .
     make
 
-    msg "test: no HMAC_DRBG"
+    msg "test: Full minus HMAC_DRBG - main suites"
     make test
 
-    # No ssl-opt.sh/compat.sh as they never use HMAC_DRBG so far,
-    # so there's little value in running those lengthy tests here.
+    # Normally our ECDSA implementation uses deterministic ECDSA. But since
+    # HMAC_DRBG is disabled in this configuration, randomized ECDSA is used
+    # instead.
+    # Test SSL with non-deterministic ECDSA. Only test features that
+    # might be affected by how ECDSA signature is performed.
+    msg "test: Full minus HMAC_DRBG - ssl-opt.sh (subset)"
+    if_build_succeeded tests/ssl-opt.sh -f 'Default\|SSL async private: sign'
+
+    # To save time, only test one protocol version, since this part of
+    # the protocol is identical in (D)TLS up to 1.2.
+    msg "test: Full minus HMAC_DRBG - compat.sh (ECDSA)"
+    if_build_succeeded tests/compat.sh -m tls1_2 -t 'ECDSA'
 }
 
 component_test_no_drbg_all_hashes () {
@@ -1029,6 +1052,46 @@ component_test_full_cmake_clang () {
 
     msg "test: compat.sh ARIA + ChachaPoly"
     if_build_succeeded env OPENSSL_CMD="$OPENSSL_NEXT" tests/compat.sh -e '^$' -f 'ARIA\|CHACHA'
+}
+
+component_test_memsan_constant_flow () {
+    # This tests both (1) accesses to undefined memory, and (2) branches or
+    # memory access depending on secret values. To distinguish between those:
+    # - unset MBEDTLS_TEST_CONSTANT_FLOW_MEMSAN - does the failure persist?
+    # - or alternatively, change the build type to MemSanDbg, which enables
+    # origin tracking and nicer stack traces (which are useful for debugging
+    # anyway), and check if the origin was TEST_CF_SECRET() or something else.
+    msg "build: cmake MSan (clang), full config with constant flow testing"
+    scripts/config.pl full
+    scripts/config.pl set MBEDTLS_TEST_CONSTANT_FLOW_MEMSAN
+    scripts/config.pl unset MBEDTLS_AESNI_C # memsan doesn't grok asm
+    CC=clang cmake -D CMAKE_BUILD_TYPE:String=MemSan .
+    make
+
+    msg "test: main suites (Msan + constant flow)"
+    make test
+}
+
+component_test_valgrind_constant_flow () {
+    # This tests both (1) everything that valgrind's memcheck usually checks
+    # (heap buffer overflows, use of uninitialized memory, use-after-free,
+    # etc.) and (2) branches or memory access depending on secret values,
+    # which will be reported as uninitialized memory. To distinguish between
+    # secret and actually uninitialized:
+    # - unset MBEDTLS_TEST_CONSTANT_FLOW_VALGRIND - does the failure persist?
+    # - or alternatively, build with debug info and manually run the offending
+    # test suite with valgrind --track-origins=yes, then check if the origin
+    # was TEST_CF_SECRET() or something else.
+    msg "build: cmake release GCC, full config with constant flow testing"
+    scripts/config.pl full
+    scripts/config.pl set MBEDTLS_TEST_CONSTANT_FLOW_VALGRIND
+    cmake -D CMAKE_BUILD_TYPE:String=Release .
+    make
+
+    # this only shows a summary of the results (how many of each type)
+    # details are left in Testing/<date>/DynamicAnalysis.xml
+    msg "test: main suites (valgrind + constant flow)"
+    make memcheck
 }
 
 component_test_default_no_deprecated () {
@@ -1247,6 +1310,16 @@ component_test_null_entropy () {
     make test
 }
 
+component_test_no_date_time () {
+    msg "build: default config without MBEDTLS_HAVE_TIME_DATE"
+    scripts/config.pl unset MBEDTLS_HAVE_TIME_DATE
+    CC=gcc cmake
+    make
+
+    msg "test: !MBEDTLS_HAVE_TIME_DATE - main suites"
+    make test
+}
+
 component_test_platform_calloc_macro () {
     msg "build: MBEDTLS_PLATFORM_{CALLOC/FREE}_MACRO enabled (ASan build)"
     scripts/config.pl set MBEDTLS_PLATFORM_MEMORY
@@ -1263,7 +1336,7 @@ component_test_malloc_0_null () {
     msg "build: malloc(0) returns NULL (ASan+UBSan build)"
     scripts/config.pl full
     scripts/config.pl unset MBEDTLS_MEMORY_BUFFER_ALLOC_C
-    make CC=gcc CFLAGS="'-DMBEDTLS_CONFIG_FILE=\"$PWD/tests/configs/config-wrapper-malloc-0-null.h\"' -O -Werror -Wall -Wextra -fsanitize=address,undefined" LDFLAGS='-fsanitize=address,undefined'
+    make CC=gcc CFLAGS="'-DMBEDTLS_CONFIG_FILE=\"$PWD/tests/configs/config-wrapper-malloc-0-null.h\"' -O $ASAN_CFLAGS" LDFLAGS="$ASAN_CFLAGS"
 
     msg "test: malloc(0) returns NULL (ASan+UBSan build)"
     make test
@@ -1447,6 +1520,20 @@ component_test_no_64bit_multiplication () {
     make CFLAGS='-Werror -O1'
 
     msg "test: MBEDTLS_NO_64BIT_MULTIPLICATION native" # ~ 10s
+    make test
+}
+
+component_test_no_strings () {
+    msg "build: no strings" # ~10s
+    scripts/config.pl full
+    # Disable options that activate a large amount of string constants.
+    scripts/config.pl unset MBEDTLS_DEBUG_C
+    scripts/config.pl unset MBEDTLS_ERROR_C
+    scripts/config.pl set MBEDTLS_ERROR_STRERROR_DUMMY
+    scripts/config.pl unset MBEDTLS_VERSION_FEATURES
+    make CFLAGS='-Werror -Os'
+
+    msg "test: no strings" # ~ 10s
     make test
 }
 

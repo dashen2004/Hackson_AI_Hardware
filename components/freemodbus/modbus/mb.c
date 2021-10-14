@@ -41,12 +41,12 @@
 #include "mbframe.h"
 #include "mbproto.h"
 #include "mbfunc.h"
-#include "mbport.h"
 
-#if MB_SLAVE_RTU_ENABLED == 1
+#include "mbport.h"
+#if MB_RTU_ENABLED == 1
 #include "mbrtu.h"
 #endif
-#if MB_SLAVE_ASCII_ENABLED == 1
+#if MB_ASCII_ENABLED == 1
 #include "mbascii.h"
 #endif
 #if MB_TCP_ENABLED == 1
@@ -61,8 +61,6 @@
 
 static UCHAR    ucMBAddress;
 static eMBMode  eMBCurrentMode;
-
-volatile UCHAR ucMbSlaveBuf[MB_SERIAL_BUF_SIZE];
 
 static enum
 {
@@ -87,6 +85,7 @@ static pvMBFrameClose pvMBFrameCloseCur;
 BOOL( *pxMBFrameCBByteReceived ) ( void );
 BOOL( *pxMBFrameCBTransmitterEmpty ) ( void );
 BOOL( *pxMBPortCBTimerExpired ) ( void );
+
 BOOL( *pxMBFrameCBReceiveFSMCur ) ( void );
 BOOL( *pxMBFrameCBTransmitFSMCur ) ( void );
 
@@ -144,7 +143,7 @@ eMBInit( eMBMode eMode, UCHAR ucSlaveAddress, UCHAR ucPort, ULONG ulBaudRate, eM
 
         switch ( eMode )
         {
-#if MB_SLAVE_RTU_ENABLED > 0
+#if MB_RTU_ENABLED > 0
         case MB_RTU:
             pvMBFrameStartCur = eMBRTUStart;
             pvMBFrameStopCur = eMBRTUStop;
@@ -158,7 +157,7 @@ eMBInit( eMBMode eMode, UCHAR ucSlaveAddress, UCHAR ucPort, ULONG ulBaudRate, eM
             eStatus = eMBRTUInit( ucMBAddress, ucPort, ulBaudRate, eParity );
             break;
 #endif
-#if MB_SLAVE_ASCII_ENABLED > 0
+#if MB_ASCII_ENABLED > 0
         case MB_ASCII:
             pvMBFrameStartCur = eMBASCIIStart;
             pvMBFrameStopCur = eMBASCIIStop;
@@ -229,7 +228,7 @@ eMBRegisterCB( UCHAR ucFunctionCode, pxMBFunctionHandler pxHandler )
     int             i;
     eMBErrorCode    eStatus;
 
-    if( ( 0 < ucFunctionCode ) && ( ucFunctionCode <= MB_FUNC_CODE_MAX ) )
+    if( ( 0 < ucFunctionCode ) && ( ucFunctionCode <= 127 ) )
     {
         ENTER_CRITICAL_SECTION(  );
         if( pxHandler != NULL )
@@ -332,7 +331,7 @@ eMBDisable( void )
 eMBErrorCode
 eMBPoll( void )
 {
-    static UCHAR    *ucMBFrame = NULL;
+    static UCHAR   *ucMBFrame;
     static UCHAR    ucRcvAddress;
     static UCHAR    ucFunctionCode;
     static USHORT   usLength;
@@ -355,11 +354,9 @@ eMBPoll( void )
         switch ( eEvent )
         {
         case EV_READY:
-            ESP_LOGD(MB_PORT_TAG, "%s:EV_READY", __func__);
             break;
 
         case EV_FRAME_RECEIVED:
-            ESP_LOGD(MB_PORT_TAG, "EV_FRAME_RECEIVED");
             eStatus = peMBFrameReceiveCur( &ucRcvAddress, &ucMBFrame, &usLength );
             if( eStatus == MB_ENOERR )
             {
@@ -369,14 +366,9 @@ eMBPoll( void )
                     ( void )xMBPortEventPost( EV_EXECUTE );
                 }
             }
-            ESP_LOG_BUFFER_HEX_LEVEL(MB_PORT_TAG, &ucMBFrame[MB_PDU_FUNC_OFF], usLength, ESP_LOG_DEBUG);
             break;
 
         case EV_EXECUTE:
-            if ( !ucMBFrame ) {
-                return MB_EILLSTATE;
-            }
-            ESP_LOGD(MB_PORT_TAG, "%s:EV_EXECUTE", __func__);
             ucFunctionCode = ucMBFrame[MB_PDU_FUNC_OFF];
             eException = MB_EX_ILLEGAL_FUNCTION;
             for( i = 0; i < MB_FUNC_HANDLERS_MAX; i++ )
@@ -386,7 +378,7 @@ eMBPoll( void )
                 {
                     break;
                 }
-                if( xFuncHandlers[i].ucFunctionCode == ucFunctionCode )
+                else if( xFuncHandlers[i].ucFunctionCode == ucFunctionCode )
                 {
                     eException = xFuncHandlers[i].pxHandler( ucMBFrame, &usLength );
                     break;
@@ -411,18 +403,10 @@ eMBPoll( void )
                 eStatus = peMBFrameSendCur( ucMBAddress, ucMBFrame, usLength );
             }
             break;
-        
-        case EV_FRAME_TRANSMIT:
-            ESP_LOGD(MB_PORT_TAG, "%s:EV_FRAME_TRANSMIT", __func__);
-            break;
 
         case EV_FRAME_SENT:
-            ESP_LOGD(MB_PORT_TAG, "%s:EV_FRAME_SENT", __func__);
-            break;
-
-        default:
             break;
         }
     }
-    return eStatus;
+    return MB_ENOERR;
 }

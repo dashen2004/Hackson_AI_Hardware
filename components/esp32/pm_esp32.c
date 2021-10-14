@@ -21,8 +21,8 @@
 #include "esp_err.h"
 #include "esp_pm.h"
 #include "esp_log.h"
-#include "esp32/clk.h"
-#include "esp_private/crosscore_int.h"
+#include "esp_crosscore_int.h"
+#include "esp_clk.h"
 
 #include "soc/rtc.h"
 
@@ -31,11 +31,10 @@
 #include "freertos/xtensa_timer.h"
 #include "xtensa/core-macros.h"
 
-#include "esp_private/pm_impl.h"
-#include "esp_private/pm_trace.h"
-#include "esp_private/esp_timer_private.h"
+#include "pm_impl.h"
+#include "pm_trace.h"
+#include "esp_timer_impl.h"
 #include "esp32/pm.h"
-#include "esp_sleep.h"
 
 /* CCOMPARE update timeout, in CPU cycles. Any value above ~600 cycles will work
  * for the purpose of detecting a deadlock.
@@ -145,9 +144,9 @@ static const char* s_mode_names[] = {
 
 static const char* TAG = "pm_esp32";
 
-static void update_ccompare(void);
+static void update_ccompare();
 static void do_switch(pm_mode_t new_mode);
-static void leave_idle(void);
+static void leave_idle();
 static void on_freq_update(uint32_t old_ticks_per_us, uint32_t ticks_per_us);
 
 
@@ -181,6 +180,15 @@ esp_err_t esp_pm_configure(const void* vconfig)
 
     int min_freq_mhz = config->min_freq_mhz;
     int max_freq_mhz = config->max_freq_mhz;
+
+    if (min_freq_mhz == 0 && max_freq_mhz == 0) {
+        /* For compatibility, handle deprecated fields, min_cpu_freq and max_cpu_freq. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        min_freq_mhz = rtc_clk_cpu_freq_value(config->min_cpu_freq) / MHZ;
+        max_freq_mhz = rtc_clk_cpu_freq_value(config->max_cpu_freq) / MHZ;
+#pragma GCC diagnostic pop
+    }
 
     if (min_freq_mhz > max_freq_mhz) {
         return ESP_ERR_INVALID_ARG;
@@ -237,24 +245,7 @@ esp_err_t esp_pm_configure(const void* vconfig)
     return ESP_OK;
 }
 
-esp_err_t esp_pm_get_configuration(void* vconfig)
-{
-    if (vconfig == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    esp_pm_config_esp32_t* config = (esp_pm_config_esp32_t*) vconfig;
-
-    portENTER_CRITICAL(&s_switch_lock);
-    config->light_sleep_enable = s_light_sleep_en;
-    config->max_freq_mhz = s_cpu_freq_by_mode[PM_MODE_CPU_MAX].freq_mhz;
-    config->min_freq_mhz = s_cpu_freq_by_mode[PM_MODE_APB_MIN].freq_mhz;
-    portEXIT_CRITICAL(&s_switch_lock);
-
-    return ESP_OK;
-}
-
-static pm_mode_t IRAM_ATTR get_lowest_allowed_mode(void)
+static pm_mode_t IRAM_ATTR get_lowest_allowed_mode()
 {
     /* TODO: optimize using ffs/clz */
     if (s_mode_mask >= BIT(PM_MODE_CPU_MAX)) {
@@ -318,7 +309,7 @@ static void IRAM_ATTR on_freq_update(uint32_t old_ticks_per_us, uint32_t ticks_p
     uint32_t apb_ticks_per_us = MIN(ticks_per_us, 80);
     /* Update APB frequency value used by the timer */
     if (old_apb_ticks_per_us != apb_ticks_per_us) {
-        esp_timer_private_update_apb_freq(apb_ticks_per_us);
+        esp_timer_impl_update_apb_freq(apb_ticks_per_us);
     }
 
     /* Calculate new tick divisor */
@@ -426,7 +417,7 @@ static void IRAM_ATTR do_switch(pm_mode_t new_mode)
  * would happen without the frequency change.
  * Assumes that the new_frequency = old_frequency * s_ccount_mul / s_ccount_div.
  */
-static void IRAM_ATTR update_ccompare(void)
+static void IRAM_ATTR update_ccompare()
 {
     uint32_t ccount = XTHAL_GET_CCOUNT();
     uint32_t ccompare = XTHAL_GET_CCOMPARE(XT_TIMER_INDEX);
@@ -440,7 +431,7 @@ static void IRAM_ATTR update_ccompare(void)
     }
 }
 
-static void IRAM_ATTR leave_idle(void)
+static void IRAM_ATTR leave_idle()
 {
     int core_id = xPortGetCoreID();
     if (s_core_idle[core_id]) {
@@ -450,7 +441,7 @@ static void IRAM_ATTR leave_idle(void)
     }
 }
 
-void esp_pm_impl_idle_hook(void)
+void esp_pm_impl_idle_hook()
 {
     int core_id = xPortGetCoreID();
     uint32_t state = portENTER_CRITICAL_NESTED();
@@ -462,7 +453,7 @@ void esp_pm_impl_idle_hook(void)
     ESP_PM_TRACE_ENTER(IDLE, core_id);
 }
 
-void IRAM_ATTR esp_pm_impl_isr_hook(void)
+void IRAM_ATTR esp_pm_impl_isr_hook()
 {
     int core_id = xPortGetCoreID();
     ESP_PM_TRACE_ENTER(ISR_HOOK, core_id);
@@ -484,7 +475,7 @@ void IRAM_ATTR esp_pm_impl_isr_hook(void)
     ESP_PM_TRACE_EXIT(ISR_HOOK, core_id);
 }
 
-void esp_pm_impl_waiti(void)
+void esp_pm_impl_waiti()
 {
 #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
     int core_id = xPortGetCoreID();
@@ -603,7 +594,7 @@ void esp_pm_impl_dump_stats(FILE* out)
 }
 #endif // WITH_PROFILING
 
-void esp_pm_impl_init(void)
+void esp_pm_impl_init()
 {
 #ifdef CONFIG_PM_TRACE
     esp_pm_trace_init();

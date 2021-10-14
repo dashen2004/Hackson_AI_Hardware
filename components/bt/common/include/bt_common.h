@@ -16,7 +16,6 @@
 #ifndef _BT_COMMON_H_
 #define _BT_COMMON_H_
 
-#include "bt_user_config.h"
 #include "esp_log.h"
 
 #ifndef FALSE
@@ -31,42 +30,54 @@
 #define BT_QUEUE_CONGEST_SIZE    40
 #endif
 
-#define BTC_INITIAL_TRACE_LEVEL             UC_BT_LOG_BTC_TRACE_LEVEL
-#define OSI_INITIAL_TRACE_LEVEL             UC_BT_LOG_OSI_TRACE_LEVEL
+#ifdef  CONFIG_BTC_INITIAL_TRACE_LEVEL
+#define BTC_INITIAL_TRACE_LEVEL             CONFIG_BTC_INITIAL_TRACE_LEVEL
+#else
+#define BTC_INITIAL_TRACE_LEVEL             BT_TRACE_LEVEL_WARNING
+#endif
 
-#if UC_BT_BLE_DYNAMIC_ENV_MEMORY
+#ifdef  CONFIG_OSI_INITIAL_TRACE_LEVEL
+#define OSI_INITIAL_TRACE_LEVEL            CONFIG_OSI_INITIAL_TRACE_LEVEL
+#else
+#define OSI_INITIAL_TRACE_LEVEL            BT_TRACE_LEVEL_WARNING
+#endif
+
+#if CONFIG_BT_BLE_DYNAMIC_ENV_MEMORY
 #define BT_BLE_DYNAMIC_ENV_MEMORY  TRUE
-#define BTC_DYNAMIC_MEMORY         TRUE
 #else
 #define BT_BLE_DYNAMIC_ENV_MEMORY  FALSE
-#define BTC_DYNAMIC_MEMORY         FALSE
 #endif
 
-#ifndef BT_BLE_DYNAMIC_ENV_MEMORY
-#define BT_BLE_DYNAMIC_ENV_MEMORY  FALSE
+#ifdef CONFIG_BLUEDROID_PINNED_TO_CORE
+#define TASK_PINNED_TO_CORE             (CONFIG_BLUEDROID_PINNED_TO_CORE < portNUM_PROCESSORS ? CONFIG_BLUEDROID_PINNED_TO_CORE : tskNO_AFFINITY)
+#define BTC_TASK_STACK_SIZE             (CONFIG_BTC_TASK_STACK_SIZE + BT_TASK_EXTRA_STACK_SIZE)	//by menuconfig
 #endif
 
-/* OS Configuration from User config (eg: sdkconfig) */
-#define TASK_PINNED_TO_CORE         UC_TASK_PINNED_TO_CORE
-#define BT_TASK_MAX_PRIORITIES      configMAX_PRIORITIES
-#define BT_BTC_TASK_STACK_SIZE      UC_BTC_TASK_STACK_SIZE
+#ifdef CONFIG_NIMBLE_ENABLED
+#define TASK_PINNED_TO_CORE             (CONFIG_NIMBLE_PINNED_TO_CORE < portNUM_PROCESSORS ? CONFIG_NIMBLE_PINNED_TO_CORE : tskNO_AFFINITY)
+#define BTC_TASK_STACK_SIZE             4096
+#endif
+
+#define BTC_TASK_PINNED_TO_CORE         (TASK_PINNED_TO_CORE)
+#define BTC_TASK_PRIO                   (configMAX_PRIORITIES - 6)
+#define BTC_TASK_QUEUE_LEN              60
 
 /* Define trace levels */
-#define BT_TRACE_LEVEL_NONE    UC_TRACE_LEVEL_NONE          /* No trace messages to be generated    */
-#define BT_TRACE_LEVEL_ERROR   UC_TRACE_LEVEL_ERROR         /* Error condition trace messages       */
-#define BT_TRACE_LEVEL_WARNING UC_TRACE_LEVEL_WARNING       /* Warning condition trace messages     */
-#define BT_TRACE_LEVEL_API     UC_TRACE_LEVEL_API           /* API traces                           */
-#define BT_TRACE_LEVEL_EVENT   UC_TRACE_LEVEL_EVENT         /* Debug messages for events            */
-#define BT_TRACE_LEVEL_DEBUG   UC_TRACE_LEVEL_DEBUG         /* Full debug messages                  */
-#define BT_TRACE_LEVEL_VERBOSE UC_TRACE_LEVEL_VERBOSE       /* Verbose debug messages               */
+#define BT_TRACE_LEVEL_NONE    0       /* No trace messages to be generated    */
+#define BT_TRACE_LEVEL_ERROR   1       /* Error condition trace messages       */
+#define BT_TRACE_LEVEL_WARNING 2       /* Warning condition trace messages     */
+#define BT_TRACE_LEVEL_API     3       /* API traces                           */
+#define BT_TRACE_LEVEL_EVENT   4       /* Debug messages for events            */
+#define BT_TRACE_LEVEL_DEBUG   5       /* Full debug messages                  */
+#define BT_TRACE_LEVEL_VERBOSE 6       /* Verbose debug messages               */
 
-#define MAX_TRACE_LEVEL        UC_TRACE_LEVEL_VERBOSE
+#define MAX_TRACE_LEVEL        6
 
 #ifndef LOG_LOCAL_LEVEL
 #ifndef BOOTLOADER_BUILD
-#define LOG_LOCAL_LEVEL  UC_LOG_DEFAULT_LEVEL
+#define LOG_LOCAL_LEVEL  CONFIG_LOG_DEFAULT_LEVEL
 #else
-#define LOG_LOCAL_LEVEL  UC_BOOTLOADER_LOG_LEVEL
+#define LOG_LOCAL_LEVEL  CONFIG_LOG_BOOTLOADER_LEVEL
 #endif
 #endif
 
@@ -92,7 +103,7 @@
 #endif
 
 
-#if !UC_BT_STACK_NO_LOG
+#if !CONFIG_BT_STACK_NO_LOG
 /* define traces for BTC */
 #define BTC_TRACE_ERROR(fmt, args...)      {if (BTC_INITIAL_TRACE_LEVEL >= BT_TRACE_LEVEL_ERROR && BT_LOG_LEVEL_CHECK(BTC, ERROR)) BT_PRINT_E("BT_BTC", fmt, ## args);}
 #define BTC_TRACE_WARNING(fmt, args...)    {if (BTC_INITIAL_TRACE_LEVEL >= BT_TRACE_LEVEL_WARNING && BT_LOG_LEVEL_CHECK(BTC, WARNING)) BT_PRINT_W("BT_BTC", fmt, ## args);}

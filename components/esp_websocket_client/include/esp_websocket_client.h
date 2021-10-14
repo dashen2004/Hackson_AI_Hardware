@@ -85,6 +85,7 @@ typedef struct {
     char                        *subprotocol;               /*!< Websocket subprotocol */
     char                        *user_agent;                /*!< Websocket user-agent */
     char                        *headers;                   /*!< Websocket additional headers */
+    int                         pingpong_timeout_sec;       /*!< Period before connection is aborted due to no PONGs received, disabled if value is 0 */
     bool                        keep_alive_enable;          /*!< Enable keep-alive timeout */
     int                         keep_alive_idle;            /*!< Keep-alive idle time. Default is 5 (second) */
     int                         keep_alive_interval;        /*!< Keep-alive interval time. Default is 5 (second) */
@@ -195,7 +196,7 @@ int esp_websocket_client_send_bin(esp_websocket_client_handle_t client, const ch
 int esp_websocket_client_send_text(esp_websocket_client_handle_t client, const char *data, int len, TickType_t timeout);
 
 /**
- * @brief      Check the WebSocket connection status
+ * @brief      Check the WebSocket client connection state
  *
  * @param[in]  client  The client handle
  *

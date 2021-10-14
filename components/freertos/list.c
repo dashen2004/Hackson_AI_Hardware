@@ -72,7 +72,6 @@
 #include "FreeRTOS.h"
 #include "list.h"
 
-
 /*-----------------------------------------------------------
  * PUBLIC LIST API documented in list.h
  *----------------------------------------------------------*/
@@ -216,7 +215,7 @@ List_t * const pxList = ( List_t * ) pxItemToRemove->pvContainer;
 	pxItemToRemove->pxPrevious->pxNext = pxItemToRemove->pxNext;
 
 	/* Make sure the index is left pointing to a valid item. */
-	if(pxList->pxIndex == pxItemToRemove)
+	if( pxList->pxIndex == pxItemToRemove )
 	{
 		pxList->pxIndex = pxItemToRemove->pxPrevious;
 	}

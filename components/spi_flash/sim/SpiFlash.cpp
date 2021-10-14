@@ -23,7 +23,7 @@
 #include <string>
 
 #include "sdkconfig.h"
-#include "esp_flash_partitions.h"
+#include "esp_flash_data_types.h"
 
 using namespace std;
 

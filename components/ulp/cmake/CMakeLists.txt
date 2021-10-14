@@ -31,14 +31,14 @@ endif()
 set(ULP_MAP_GEN ${PYTHON} ${IDF_PATH}/components/ulp/esp32ulp_mapgen.py)
 set(ULP_LD_TEMPLATE ${IDF_PATH}/components/ulp/ld/esp32.ulp.ld)
 
-get_filename_component(sdkconfig_dir ${SDKCONFIG_HEADER} DIRECTORY)
+get_filename_component(sdkconfig_dir ${SDKCONFIG} DIRECTORY)
 
 foreach(include ${COMPONENT_INCLUDES})
     list(APPEND component_includes -I${include})
 endforeach()
 
 list(APPEND ULP_PREPROCESSOR_ARGS ${component_includes})
-list(APPEND ULP_PREPROCESSOR_ARGS -I${COMPONENT_DIR})
+list(APPEND ULP_PREPROCESSOR_ARGS -I${COMPONENT_PATH})
 list(APPEND ULP_PREPROCESSOR_ARGS -I${sdkconfig_dir})
 
 include_directories(${component_includes})
@@ -50,7 +50,7 @@ get_filename_component(ULP_LD_SCRIPT ${ULP_LD_TEMPLATE} NAME)
 add_custom_command( OUTPUT ${ULP_LD_SCRIPT}
                     COMMAND ${CMAKE_C_COMPILER} -E -P -xc -o ${ULP_LD_SCRIPT} ${ULP_PREPROCESSOR_ARGS} ${ULP_LD_TEMPLATE}
                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-                    DEPENDS ${ULP_LD_TEMPLATE} ${SDKCONFIG_HEADER}
+                    DEPENDS ${ULP_LD_TEMPLATE}
                     VERBATIM)
 add_custom_target(${ULP_APP_NAME}_ld_script
                     DEPENDS ${ULP_LD_SCRIPT}

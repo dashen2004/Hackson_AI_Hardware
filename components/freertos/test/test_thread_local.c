@@ -11,7 +11,6 @@
 #include "test_utils.h"
 #include "sdkconfig.h"
 
-
 static __thread int tl_test_var1;
 static __thread uint8_t tl_test_var2 = 55;
 static __thread uint16_t tl_test_var3 = 44;

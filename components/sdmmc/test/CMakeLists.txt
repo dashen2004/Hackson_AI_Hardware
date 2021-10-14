@@ -1,4 +1,6 @@
-idf_component_register(SRC_DIRS "."
-                       PRIV_INCLUDE_DIRS "."
-                       PRIV_REQUIRES unity sdmmc
-                      )
+set(COMPONENT_SRCDIRS ".")
+set(COMPONENT_ADD_INCLUDEDIRS ".")
+
+set(COMPONENT_REQUIRES unity sdmmc)
+
+register_component()

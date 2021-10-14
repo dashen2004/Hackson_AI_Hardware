@@ -16,19 +16,31 @@
 #ifndef _HTTP_UTILS_H_
 #define _HTTP_UTILS_H_
 #include <sys/time.h>
-
+#include "esp_transport_utils.h"
 /**
  * @brief      Assign new_str to *str pointer, and realloc *str if it not NULL
  *
  * @param      str      pointer to string pointer
  * @param      new_str  assign this tring to str
- * @param      len      length of string, 0 if new_str is zero terminated
+ * @param      len      length of string, less than 0 if new_str is zero terminated
  *
  * @return
  *  - new_str pointer
  *  - NULL
  */
 char *http_utils_assign_string(char **str, const char *new_str, int len);
+
+/**
+ * @brief      Realloc *str and append new_str to it if new_str is not NULL; return *str pointer if new_str is NULL
+ *
+ * @param      str      pointer to string pointer
+ * @param      new_str  append this string to str
+ * @param      len      length of string, less than 0 if new_str is zero terminated
+ *
+ * @return
+ *  - *str pointer
+ */
+char *http_utils_append_string(char **str, const char *new_str, int len);
 
 /**
  * @brief      Remove white space at begin and end of string
@@ -80,9 +92,7 @@ char *http_utils_join_string(const char *first_str, int len_first, const char *s
 int http_utils_str_starts_with(const char *str, const char *start);
 
 
-#define HTTP_MEM_CHECK(TAG, a, action) if (!(a)) {                                                  \
-        ESP_LOGE(TAG,"%s:%d (%s): %s", __FILE__, __LINE__, __FUNCTION__, "Memory exhausted");       \
-        action;                                                                                     \
-        }
+#define HTTP_MEM_CHECK(TAG, a, action) ESP_TRANSPORT_MEM_CHECK(TAG, a, action)
+
 
 #endif

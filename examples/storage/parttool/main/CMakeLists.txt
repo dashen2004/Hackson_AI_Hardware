@@ -1,2 +1,4 @@
-idf_component_register(SRCS "parttool_main.c"
-                    INCLUDE_DIRS ".")
+set(COMPONENT_SRCS "parttool_main.c")
+set(COMPONENT_ADD_INCLUDEDIRS ".")
+
+register_component()

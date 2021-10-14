@@ -7,10 +7,6 @@
 
 #define WITH_LWIP 1
 
-#ifndef COAP_CONSTRAINED_STACK
-#define COAP_CONSTRAINED_STACK 1
-#endif
-
 #define PACKAGE_NAME "libcoap-lwip"
 #define PACKAGE_VERSION "?"
 #define PACKAGE_STRING PACKAGE_NAME PACKAGE_VERSION
@@ -23,5 +19,7 @@
 #define HAVE_STRNLEN 1
 
 #define HAVE_LIMITS_H
+
+#define COAP_RESOURCES_NOHASH
 
 #endif /* _CONFIG_H_ */

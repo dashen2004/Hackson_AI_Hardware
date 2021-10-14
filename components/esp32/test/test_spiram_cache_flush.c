@@ -4,25 +4,27 @@ This code tests the interaction between PSRAM and SPI flash routines.
 
 #include <esp_types.h>
 #include <stdio.h>
-#include "esp32/rom/ets_sys.h"
+#include "rom/ets_sys.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 #include "freertos/xtensa_api.h"
 #include "unity.h"
+#include "soc/dport_reg.h"
+#include "soc/io_mux_reg.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "esp32/rom/ets_sys.h"
+#include "rom/ets_sys.h"
 #include "esp_heap_caps.h"
 #include "esp_spi_flash.h"
 #include "esp_partition.h"
 #include "test_utils.h"
-#include "soc/soc.h"
 
-#if CONFIG_SPIRAM
+#if CONFIG_SPIRAM_SUPPORT
 
 #if CONFIG_SPIRAM_USE_CAPS_ALLOC || CONFIG_SPIRAM_USE_MALLOC
 #define USE_CAPS_ALLOC 1
@@ -62,8 +64,8 @@ TEST_CASE("Spiram cache flush on mmap", "[spiram]")
     mem[0]=heap_caps_malloc(TSTSZ, MALLOC_CAP_SPIRAM);
     mem[1]=heap_caps_malloc(TSTSZ, MALLOC_CAP_SPIRAM);
 #else
-    mem[0]=(void*)SOC_EXTRAM_DATA_LOW;
-    mem[1]=(void*)SOC_EXTRAM_DATA_LOW+TSTSZ;
+    mem[0]=(void*)0x3f800000;
+    mem[1]=(void*)0x3f800000+TSTSZ;
 #endif
     assert(mem[0]);
     assert(mem[1]);
@@ -106,8 +108,8 @@ TEST_CASE("Spiram cache flush on write/read", "[spiram]")
     mem[0]=heap_caps_malloc(TSTSZ, MALLOC_CAP_SPIRAM);
     mem[1]=heap_caps_malloc(TSTSZ, MALLOC_CAP_SPIRAM);
 #else
-    mem[0]=(void*)SOC_EXTRAM_DATA_LOW;
-    mem[1]=(void*)SOC_EXTRAM_DATA_LOW+TSTSZ;
+    mem[0]=(void*)0x3f800000;
+    mem[1]=(void*)0x3f800000+TSTSZ;
 #endif
     assert(mem[0]);
     assert(mem[1]);
@@ -149,7 +151,7 @@ IRAM_ATTR TEST_CASE("Spiram memcmp weirdness at 80MHz", "[spiram]") {
 #if USE_CAPS_ALLOC
     char *mem2=heap_caps_malloc(0x10000, MALLOC_CAP_SPIRAM);
 #else
-    char *mem2=(void*)SOC_EXTRAM_DATA_LOW;
+    char *mem2=(void*)0x3f800000;
 #endif
 
 #if !CONFIG_SPIRAM_SPEED_80M
@@ -160,7 +162,7 @@ IRAM_ATTR TEST_CASE("Spiram memcmp weirdness at 80MHz", "[spiram]") {
     assert(mem1);
     assert(mem2);
     for (int i=0; i<0x10000; i++) mem1[i]=i^0xAAAAAAAA;
-
+    
     for (int cycle=1; cycle<100; cycle++) {
         memcpy(mem2, mem1, 0x10000);
         if (memcmp(mem1, mem2, 0x10000)!=0) {
@@ -180,4 +182,4 @@ IRAM_ATTR TEST_CASE("Spiram memcmp weirdness at 80MHz", "[spiram]") {
 #endif
 }
 
-#endif // CONFIG_SPIRAM
+#endif // CONFIG_SPIRAM_SUPPORT

@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := ethernet_iperf
+PROJECT_NAME := ethernet-iperf
 
 EXTRA_COMPONENT_DIRS = $(IDF_PATH)/examples/system/console/components
 EXTRA_COMPONENT_DIRS += $(IDF_PATH)/examples/wifi/iperf/components

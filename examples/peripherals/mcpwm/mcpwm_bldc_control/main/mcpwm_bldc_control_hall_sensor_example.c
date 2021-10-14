@@ -23,7 +23,8 @@
 #include "esp_attr.h"
 #include "soc/rtc.h"
 #include "driver/mcpwm.h"
-#include "soc/mcpwm_periph.h"
+#include "soc/mcpwm_reg.h"
+#include "soc/mcpwm_struct.h"
 
 #define INITIAL_DUTY 10.0   //initial duty cycle is 10.0%
 #define MCPWM_GPIO_INIT 0   //select which function to use to initialize gpio signals
@@ -58,7 +59,7 @@ xQueueHandle cap_queue;
 
 static mcpwm_dev_t *MCPWM[2] = {&MCPWM0, &MCPWM1};
 
-static void mcpwm_example_gpio_initialize(void)
+static void mcpwm_example_gpio_initialize()
 {
     printf("initializing mcpwm bldc control gpio...\n");
 #if MCPWM_GPIO_INIT
@@ -162,7 +163,7 @@ static void disp_captured_signal(void *arg)
 /**
  * @brief this is ISR handler function, here we check for interrupt that triggers rising edge on CAP0 signal and according take action
  */
-static void IRAM_ATTR isr_handler(void *arg)
+static void IRAM_ATTR isr_handler()
 {
     uint32_t mcpwm_intr_status;
     capture evt;
@@ -307,7 +308,7 @@ static void mcpwm_example_bldc_control(void *arg)
     }
 }
 
-void app_main(void)
+void app_main()
 {
     printf("Testing MCPWM BLDC Control...\n");
 #if CHANGE_DUTY_CONTINUOUSLY

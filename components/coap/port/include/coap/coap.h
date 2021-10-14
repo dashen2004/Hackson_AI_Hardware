@@ -17,21 +17,19 @@
 #ifndef _COAP_H_
 #define _COAP_H_
 
+#include "libcoap.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "libcoap.h"
 
 #include "address.h"
 #include "async.h"
 #include "bits.h"
 #include "block.h"
-#include "coap_dtls.h"
-#include "coap_event.h"
 #include "coap_io.h"
 #include "coap_time.h"
-#include "coap_debug.h"
+#include "debug.h"
 #include "encode.h"
 #include "mem.h"
 #include "net.h"
@@ -42,6 +40,8 @@ extern "C" {
 #include "str.h"
 #include "subscribe.h"
 #include "uri.h"
+#include "uthash.h"
+#include "utlist.h"
 
 #ifdef __cplusplus
 }

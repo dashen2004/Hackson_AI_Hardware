@@ -17,9 +17,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "esp_netif.h"
+#include "tcpip_adapter.h"
 #include "lwip/sockets.h"
-#include "esp32/rom/md5_hash.h"
+#include "rom/md5_hash.h"
 #include "mbedtls/base64.h"
 
 #include "esp_system.h"
@@ -51,6 +51,7 @@ static int md5_printf(char *md, const char *fmt, ...)
     va_start(ap, fmt);
     len = vasprintf((char **)&buf, fmt, ap);
     if (buf == NULL) {
+        va_end(ap);
         return ESP_FAIL;
     }
 

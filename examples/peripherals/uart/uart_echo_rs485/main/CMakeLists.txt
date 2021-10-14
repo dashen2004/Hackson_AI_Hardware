@@ -1,2 +1,4 @@
-idf_component_register(SRCS "rs485_example.c"
-                    INCLUDE_DIRS ".")
+set(COMPONENT_SRCS "rs485_example.c")
+set(COMPONENT_ADD_INCLUDEDIRS ".")
+
+register_component()

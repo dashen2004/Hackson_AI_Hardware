@@ -62,9 +62,8 @@
 eMBException    prveMBError2Exception( eMBErrorCode eErrorCode );
 
 /* ----------------------- Start implementation -----------------------------*/
-#if MB_SLAVE_RTU_ENABLED || MB_SLAVE_ASCII_ENABLED
 
-#if MB_FUNC_READ_COILS_ENABLED
+#if MB_FUNC_READ_COILS_ENABLED > 0
 
 eMBException
 eMBFuncReadCoils( UCHAR * pucFrame, USHORT * usLen )
@@ -265,8 +264,6 @@ eMBFuncWriteMultipleCoils( UCHAR * pucFrame, USHORT * usLen )
     }
     return eStatus;
 }
-
-#endif
 
 #endif
 

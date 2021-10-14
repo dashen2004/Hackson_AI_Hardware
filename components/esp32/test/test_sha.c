@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "esp_types.h"
-#include "esp32/clk.h"
+#include "esp_clk.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_heap_caps.h"
@@ -13,8 +13,7 @@
 #include "mbedtls/sha1.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/sha512.h"
-#include "esp32/sha.h"
-#include "ccomp_timer.h"
+#include "hwcrypto/sha.h"
 
 /* Note: Most of the SHA functions are called as part of mbedTLS, so
 are tested as part of mbedTLS tests. Only esp_sha() is different.
@@ -26,7 +25,7 @@ TEST_CASE("Test esp_sha()", "[hw_crypto]")
 {
     const size_t BUFFER_SZ = 32 * 1024 + 6; // NB: not an exact multiple of SHA block size
 
-    int64_t elapsed;
+    int64_t begin, end;
     uint32_t us_sha1, us_sha512;
     uint8_t sha1_result[20] = { 0 };
     uint8_t sha512_result[64] = { 0 };
@@ -46,29 +45,25 @@ TEST_CASE("Test esp_sha()", "[hw_crypto]")
                                           0x1e, 0x07, 0xc6, 0xa2, 0x9e, 0x3b, 0x65, 0x75,
                                           0x80, 0x7d, 0xe6, 0x6e, 0x47, 0x61, 0x2c, 0x94 };
 
-    ccomp_timer_start();
+    begin = esp_timer_get_time();
     esp_sha(SHA1, buffer, BUFFER_SZ, sha1_result);
-    elapsed = ccomp_timer_stop();
+    end = esp_timer_get_time();
     TEST_ASSERT_EQUAL_HEX8_ARRAY(sha1_expected, sha1_result, sizeof(sha1_expected));
-    us_sha1 = elapsed;
+    us_sha1 = end - begin;
     ESP_LOGI(TAG, "esp_sha() 32KB SHA1 in %u us", us_sha1);
 
-    ccomp_timer_start();
+    begin = esp_timer_get_time();
     esp_sha(SHA2_512, buffer, BUFFER_SZ, sha512_result);
-    elapsed = ccomp_timer_stop();
+    end = esp_timer_get_time();
     TEST_ASSERT_EQUAL_HEX8_ARRAY(sha512_expected, sha512_result, sizeof(sha512_expected));
 
-    us_sha512 = elapsed;
+    us_sha512 = end - begin;
     ESP_LOGI(TAG, "esp_sha() 32KB SHA512 in %u us", us_sha512);
 
     free(buffer);
-/* ccomp timer seems to sometimes give wrong results in psram config,
-   disable check for now, IDF-2993
-*/
-#ifndef CONFIG_SPIRAM
-    TEST_PERFORMANCE_LESS_THAN(TIME_SHA1_32KB, "%dus", us_sha1);
-    TEST_PERFORMANCE_LESS_THAN(TIME_SHA512_32KB, "%dus", us_sha512);
-#endif
+
+    TEST_PERFORMANCE_LESS_THAN(ESP32_TIME_SHA1_32KB, "%dus", us_sha1);
+    TEST_PERFORMANCE_LESS_THAN(ESP32_TIME_SHA512_32KB, "%dus", us_sha512);
 }
 
 TEST_CASE("Test esp_sha() function with long input", "[hw_crypto]")

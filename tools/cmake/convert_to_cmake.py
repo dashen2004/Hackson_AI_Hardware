@@ -78,14 +78,14 @@ def get_component_variables(project_path, component_path):
             return None
 
         srcs = []
-        for obj in make_vars["COMPONENT_OBJS"].split():
+        for obj in make_vars["COMPONENT_OBJS"].split(" "):
             src = find_src(obj)
             if src is not None:
                 srcs.append(src)
         make_vars["COMPONENT_SRCS"] = " ".join(srcs)
     else:
         component_srcs = list()
-        for component_srcdir in make_vars.get("COMPONENT_SRCDIRS", ".").split():
+        for component_srcdir in make_vars.get("COMPONENT_SRCDIRS", ".").split(" "):
             component_srcdir_path = os.path.abspath(os.path.join(component_path, component_srcdir))
 
             srcs = list()
@@ -114,9 +114,7 @@ def convert_project(project_path):
     if "PROJECT_NAME" not in project_vars:
         raise RuntimeError("PROJECT_NAME does not appear to be defined in IDF project Makefile at %s" % project_path)
 
-    component_paths = project_vars["COMPONENT_PATHS"].split()
-
-    converted_components = 0
+    component_paths = project_vars["COMPONENT_PATHS"].split(" ")
 
     # Convert components as needed
     for p in component_paths:
@@ -124,7 +122,7 @@ def convert_project(project_path):
             cmd = ["cygpath", "-w", p]
             p = subprocess.check_output(cmd).decode('utf-8').strip()
 
-        converted_components += convert_component(project_path, p)
+        convert_component(project_path, p)
 
     project_name = project_vars["PROJECT_NAME"]
 
@@ -145,13 +143,6 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
     print("Converted project %s" % project_cmakelists)
 
-    if converted_components > 0:
-        print("Note: Newly created component CMakeLists.txt do not have any REQUIRES or PRIV_REQUIRES "
-              "lists to declare their component requirements. Builds may fail to include other "
-              "components' header files. If so requirements need to be added to the components' "
-              "CMakeLists.txt files. See the 'Component Requirements' section of the "
-              "Build System docs for more details.")
-
 
 def convert_component(project_path, component_path):
     if debug:
@@ -159,7 +150,7 @@ def convert_component(project_path, component_path):
     cmakelists_path = os.path.join(component_path, "CMakeLists.txt")
     if os.path.exists(cmakelists_path):
         print("Skipping already-converted component %s..." % cmakelists_path)
-        return 0
+        return
     v = get_component_variables(project_path, component_path)
 
     # Look up all the variables before we start writing the file, so it's not
@@ -170,19 +161,21 @@ def convert_component(project_path, component_path):
     cflags = v.get("CFLAGS", None)
 
     with open(cmakelists_path, "w") as f:
+        f.write("set(COMPONENT_ADD_INCLUDEDIRS %s)\n\n" % component_add_includedirs)
+
+        f.write("# Edit following two lines to set component requirements (see docs)\n")
+        f.write("set(COMPONENT_REQUIRES "")\n")
+        f.write("set(COMPONENT_PRIV_REQUIRES "")\n\n")
+
         if component_srcs is not None:
-            f.write("idf_component_register(SRCS %s)\n" % component_srcs)
-            f.write("                       INCLUDE_DIRS %s" % component_add_includedirs)
-            f.write("                       # Edit following two lines to set component requirements (see docs)\n")
-            f.write("                       REQUIRES "")\n")
-            f.write("                       PRIV_REQUIRES "")\n\n")
+            f.write("set(COMPONENT_SRCS %s)\n\n" % component_srcs)
+            f.write("register_component()\n")
         else:
-            f.write("idf_component_register()\n")
+            f.write("register_config_only_component()\n")
         if cflags is not None:
-            f.write("target_compile_options(${COMPONENT_LIB} PRIVATE %s)\n" % cflags)
+            f.write("component_compile_options(%s)\n" % cflags)
 
     print("Converted %s" % cmakelists_path)
-    return 1
 
 
 def main():

@@ -22,10 +22,10 @@
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[]   asm("_binary_ulp_main_bin_end");
 
-static void init_ulp_program(void);
-static void update_pulse_count(void);
+static void init_ulp_program();
+static void update_pulse_count();
 
-void app_main(void)
+void app_main()
 {
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
     if (cause != ESP_SLEEP_WAKEUP_ULP) {
@@ -41,7 +41,7 @@ void app_main(void)
     esp_deep_sleep_start();
 }
 
-static void init_ulp_program(void)
+static void init_ulp_program()
 {
     esp_err_t err = ulp_load_binary(0, ulp_main_bin_start,
             (ulp_main_bin_end - ulp_main_bin_start) / sizeof(uint32_t));
@@ -49,8 +49,7 @@ static void init_ulp_program(void)
 
     /* GPIO used for pulse counting. */
     gpio_num_t gpio_num = GPIO_NUM_0;
-    int rtcio_num = rtc_io_number_get(gpio_num);
-    assert(rtc_gpio_is_valid_gpio(gpio_num) && "GPIO used for pulse counting must be an RTC IO");
+    assert(rtc_gpio_desc[gpio_num].reg && "GPIO used for pulse counting must be an RTC IO");
 
     /* Initialize some variables used by ULP program.
      * Each 'ulp_xyz' variable corresponds to 'xyz' variable in the ULP program.
@@ -64,7 +63,7 @@ static void init_ulp_program(void)
     ulp_debounce_counter = 3;
     ulp_debounce_max_count = 3;
     ulp_next_edge = 0;
-    ulp_io_number = rtcio_num; /* map from GPIO# to RTC_IO# */
+    ulp_io_number = rtc_gpio_desc[gpio_num].rtc_num; /* map from GPIO# to RTC_IO# */
     ulp_edge_count_to_wake_up = 10;
 
     /* Initialize selected GPIO as RTC IO, enable input, disable pullup and pulldown */
@@ -92,13 +91,13 @@ static void init_ulp_program(void)
     ESP_ERROR_CHECK(err);
 }
 
-static void update_pulse_count(void)
+static void update_pulse_count()
 {
     const char* namespace = "plusecnt";
     const char* count_key = "count";
 
     ESP_ERROR_CHECK( nvs_flash_init() );
-    nvs_handle_t handle;
+    nvs_handle handle;
     ESP_ERROR_CHECK( nvs_open(namespace, NVS_READWRITE, &handle));
     uint32_t pulse_count = 0;
     esp_err_t err = nvs_get_u32(handle, count_key, &pulse_count);

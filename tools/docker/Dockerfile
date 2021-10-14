@@ -60,8 +60,8 @@ RUN $IDF_PATH/tools/idf_tools.py --non-interactive install required \
   && $IDF_PATH/tools/idf_tools.py --non-interactive install-python-env \
   && rm -rf $IDF_TOOLS_PATH/dist
 
-# Ccache is installed, enable it by default
-ENV IDF_CCACHE_ENABLE=1
+RUN mkdir -p $HOME/.ccache && \
+  touch $HOME/.ccache/ccache.conf
 
 COPY entrypoint.sh /opt/esp/entrypoint.sh
 

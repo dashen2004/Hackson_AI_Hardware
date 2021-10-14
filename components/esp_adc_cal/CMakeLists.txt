@@ -1,15 +1,6 @@
-idf_build_get_property(target IDF_TARGET)
+set(COMPONENT_SRCS "esp_adc_cal.c")
+set(COMPONENT_ADD_INCLUDEDIRS "include")
 
-if(${target} STREQUAL "esp32")
-    idf_component_register(SRCS "esp_adc_cal_esp32.c"
-                    INCLUDE_DIRS "include"
-                    REQUIRES driver efuse)
+set(COMPONENT_REQUIRES)
 
-elseif(${target} STREQUAL "esp32s2")
-	idf_component_register(SRCS "esp_adc_cal_esp32s2.c"
-                    INCLUDE_DIRS "include"
-                    REQUIRES driver efuse)
-
-endif()
-
-
+register_component()

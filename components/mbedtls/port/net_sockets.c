@@ -59,6 +59,16 @@ static int net_prepare( void )
     return ( 0 );
 }
 
+static int mbedtls_net_errno(int fd)
+{
+    int sock_errno = 0;
+    u32_t optlen = sizeof(sock_errno);
+
+    getsockopt(fd, SOL_SOCKET, SO_ERROR, &sock_errno, &optlen);
+
+    return sock_errno;
+}
+
 /*
  * Initialize a context
  */
@@ -194,11 +204,15 @@ int mbedtls_net_bind( mbedtls_net_context *ctx, const char *bind_ip, const char 
  *
  * Note: on a blocking socket this function always returns 0!
  */
-static int net_would_block( const mbedtls_net_context *ctx )
+static int net_would_block( const mbedtls_net_context *ctx, int *errout )
 {
-    int error = errno;
+    int error = mbedtls_net_errno(ctx->fd);
 
-    switch ( errno = error ) {
+    if ( errout ) {
+        *errout = error;
+    }
+
+    switch ( error ) {
 #if defined EAGAIN
     case EAGAIN:
 #endif
@@ -246,7 +260,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
     }
 
     if ( ret < 0 ) {
-        if ( net_would_block( bind_ctx ) != 0 ) {
+        if ( net_would_block( bind_ctx, NULL ) != 0 ) {
             return ( MBEDTLS_ERR_SSL_WANT_READ );
         }
 
@@ -326,6 +340,7 @@ int mbedtls_net_recv( void *ctx, unsigned char *buf, size_t len )
 {
     int ret;
     int fd = ((mbedtls_net_context *) ctx)->fd;
+    int error = 0;
 
     if ( fd < 0 ) {
         return ( MBEDTLS_ERR_NET_INVALID_CONTEXT );
@@ -334,15 +349,15 @@ int mbedtls_net_recv( void *ctx, unsigned char *buf, size_t len )
     ret = (int) read( fd, buf, len );
 
     if ( ret < 0 ) {
-        if ( net_would_block( ctx ) != 0 ) {
+        if ( net_would_block( ctx, &error ) != 0 ) {
             return ( MBEDTLS_ERR_SSL_WANT_READ );
         }
 
-        if ( errno == EPIPE || errno == ECONNRESET ) {
+        if ( error == EPIPE || error == ECONNRESET ) {
             return ( MBEDTLS_ERR_NET_CONN_RESET );
         }
 
-        if ( errno == EINTR ) {
+        if ( error == EINTR ) {
             return ( MBEDTLS_ERR_SSL_WANT_READ );
         }
 
@@ -400,6 +415,8 @@ int mbedtls_net_send( void *ctx, const unsigned char *buf, size_t len )
     int ret;
     int fd = ((mbedtls_net_context *) ctx)->fd;
 
+    int error = 0;
+
     if ( fd < 0 ) {
         return ( MBEDTLS_ERR_NET_INVALID_CONTEXT );
     }
@@ -407,15 +424,15 @@ int mbedtls_net_send( void *ctx, const unsigned char *buf, size_t len )
     ret = (int) write( fd, buf, len );
 
     if ( ret < 0 ) {
-        if ( net_would_block( ctx ) != 0 ) {
+        if ( net_would_block( ctx, &error ) != 0 ) {
             return ( MBEDTLS_ERR_SSL_WANT_WRITE );
         }
 
-        if ( errno == EPIPE || errno == ECONNRESET ) {
+        if ( error == EPIPE || error == ECONNRESET ) {
             return ( MBEDTLS_ERR_NET_CONN_RESET );
         }
 
-        if ( errno == EINTR ) {
+        if ( error == EINTR ) {
             return ( MBEDTLS_ERR_SSL_WANT_WRITE );
         }
 

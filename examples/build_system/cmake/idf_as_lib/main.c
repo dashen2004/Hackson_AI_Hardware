@@ -12,7 +12,7 @@
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 
-void app_main(void)
+void app_main()
 {
     printf("Hello world!\n");
 

@@ -10,4 +10,3 @@ CLASSIC BT
    BT SPP <esp_spp>
    BT HFP Define <esp_hf_defs>
    BT HFP Client <esp_hf_client>
-   BT HFP AG <esp_hf_ag>

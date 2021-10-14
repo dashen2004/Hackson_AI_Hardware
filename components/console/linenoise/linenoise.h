@@ -43,8 +43,6 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-
 typedef struct linenoiseCompletions {
   size_t len;
   char **cvec;
@@ -65,12 +63,11 @@ int linenoiseHistoryAdd(const char *line);
 int linenoiseHistorySetMaxLen(int len);
 int linenoiseHistorySave(const char *filename);
 int linenoiseHistoryLoad(const char *filename);
-void linenoiseHistoryFree(void);
+void linenoiseHistoryFree();
 void linenoiseClearScreen(void);
 void linenoiseSetMultiLine(int ml);
 void linenoiseSetDumbMode(int set);
 void linenoisePrintKeyCodes(void);
-void linenoiseAllowEmpty(bool);
 
 #ifdef __cplusplus
 }

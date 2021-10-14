@@ -91,9 +91,7 @@ COMPONENT_SUBMODULES ?=
 COMPILING_COMPONENT_PATH := $(COMPONENT_PATH)
 
 define includeCompBuildMakefile
-ifeq ("$(V)","1")
-$$(info including $(1)/Makefile.componentbuild...)
-endif
+$(if $(V),$(info including $(1)/Makefile.componentbuild...))
 COMPONENT_PATH := $(1)
 include $(1)/Makefile.componentbuild
 endef

@@ -321,7 +321,7 @@ class GenerationModel:
 
         return scheme_dictionary
 
-    def generate_rules(self, sections_infos):
+    def generate_rules(self, sdkconfig, sections_infos):
         scheme_dictionary = self._build_scheme_dictionary()
 
         # Generate default rules
@@ -331,17 +331,37 @@ class GenerationModel:
         all_mapping_rules = collections.defaultdict(list)
 
         # Generate rules based on mapping fragments
-        for mapping in self.mappings.values():
-            archive = mapping.archive
-            mapping_rules = all_mapping_rules[archive]
-            for (obj, symbol, scheme_name) in mapping.entries:
-                try:
-                    if not (obj == Mapping.MAPPING_ALL_OBJECTS and symbol is None and
-                            scheme_name == GenerationModel.DEFAULT_SCHEME):
-                        self._add_mapping_rules(archive, obj, symbol, scheme_name, scheme_dictionary, mapping_rules)
-                except KeyError:
-                    message = GenerationException.UNDEFINED_REFERENCE + " to scheme '" + scheme_name + "'."
-                    raise GenerationException(message, mapping)
+        for mapping_list in self.mappings.values():
+            for mapping in mapping_list:
+                for (condition, entries) in mapping.entries:
+                    condition_true = False
+
+                    # Only non-default condition are evaluated agains sdkconfig model
+                    if condition != Mapping.DEFAULT_CONDITION:
+                        try:
+                            condition_true = sdkconfig.evaluate_expression(condition)
+                        except Exception as e:
+                            raise GenerationException(e.message, mapping)
+                    else:
+                        condition_true = True
+
+                    if condition_true:
+
+                        mapping_rules = list()
+
+                        archive = mapping.archive
+                        for (obj, symbol, scheme_name) in entries:
+                            try:
+                                self._add_mapping_rules(archive, obj, symbol, scheme_name, scheme_dictionary, mapping_rules)
+                            except KeyError:
+                                message = GenerationException.UNDEFINED_REFERENCE + " to scheme '" + scheme_name + "'."
+                                raise GenerationException(message, mapping)
+
+                        for mapping_rule in mapping_rules:
+                            if mapping_rule not in all_mapping_rules[mapping.name]:
+                                all_mapping_rules[mapping.name].append(mapping_rule)
+
+                        break   # Exit on first condition that evaluates to true
 
         # Detect rule conflicts
         for mapping_rules in all_mapping_rules.items():
@@ -359,7 +379,7 @@ class GenerationModel:
             if default_rule.get_section_names():
                 existing_rules.append(default_rule)
 
-        archives = sorted(all_mapping_rules.keys())
+        archives = sorted(all_mapping_rules.keys(), key=lambda a: a.replace("_a", ".a"))
 
         for archive in archives:
             # Add the mapping rules grouped by target
@@ -383,7 +403,8 @@ class GenerationModel:
                 if intersections and rule_a.maps_same_entities_as(rule_b):
                     rules_string = str([str(rule_a), str(rule_b)])
                     message = "Rules " + rules_string + " map sections " + str(list(intersections)) + " into multiple targets."
-                    raise GenerationException(message)
+                    mapping = self.mappings[Mapping.get_mapping_name_from_archive(archive)]
+                    raise GenerationException(message, mapping)
 
     def _create_extra_rules(self, rules):
         # This function generates extra rules for symbol specific rules. The reason for generating extra rules is to isolate,
@@ -454,16 +475,22 @@ class GenerationModel:
         for fragment in fragment_file.fragments:
             dict_to_append_to = None
 
-            if isinstance(fragment, Mapping) and fragment.deprecated and fragment.name in self.mappings.keys():
-                self.mappings[fragment.name].entries |= fragment.entries
+            if isinstance(fragment, Scheme):
+                dict_to_append_to = self.schemes
+            elif isinstance(fragment, Sections):
+                dict_to_append_to = self.sections
             else:
-                if isinstance(fragment, Scheme):
-                    dict_to_append_to = self.schemes
-                elif isinstance(fragment, Sections):
-                    dict_to_append_to = self.sections
-                else:
-                    dict_to_append_to = self.mappings
+                dict_to_append_to = self.mappings
 
+            if isinstance(fragment, Mapping):
+                try:
+                    fragment_list = dict_to_append_to[fragment.name]
+                except KeyError:
+                    fragment_list = list()
+                    dict_to_append_to[fragment.name] = fragment_list
+
+                fragment_list.append(fragment)
+            else:
                 # Raise exception when the fragment of the same type is already in the stored fragments
                 if fragment.name in dict_to_append_to.keys():
                     stored = dict_to_append_to[fragment.name].path
@@ -511,7 +538,7 @@ class TemplateModel:
                 # Does not match marker syntax
                 self.members.append(line)
 
-    def fill(self, mapping_rules):
+    def fill(self, mapping_rules, sdkconfig):
         for member in self.members:
             target = None
             try:
@@ -577,8 +604,8 @@ class SectionsInfo(dict):
     def __init__(self):
         self.sections = dict()
 
-    def add_sections_info(self, sections_info_dump):
-        first_line = sections_info_dump.readline()
+    def add_sections_info(self, sections_info_file):
+        first_line = sections_info_file.readline()
 
         archive_path = (Literal("In archive").suppress() +
                         White().suppress() +
@@ -591,10 +618,10 @@ class SectionsInfo(dict):
         try:
             results = parser.parseString(first_line)
         except ParseException as p:
-            raise ParseException("Parsing sections info for library " + sections_info_dump.name + " failed. " + p.message)
+            raise ParseException("File " + sections_info_file.name + " is not a valid sections info file. " + p.message)
 
         archive = os.path.basename(results.archive_path)
-        self.sections[archive] = SectionsInfo.__info(sections_info_dump.name, sections_info_dump.read())
+        self.sections[archive] = SectionsInfo.__info(sections_info_file.name, sections_info_file.read())
 
     def _get_infos_from_file(self, info):
         # Object file line: '{object}:  file format elf32-xtensa-le'

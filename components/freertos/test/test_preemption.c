@@ -4,6 +4,7 @@
 
 #include <esp_types.h>
 #include <stdio.h>
+#include "rom/ets_sys.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

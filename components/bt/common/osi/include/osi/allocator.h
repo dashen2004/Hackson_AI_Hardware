@@ -22,6 +22,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include "esp_heap_caps.h"
+#include "sdkconfig.h"
 
 char *osi_strdup(const char *str);
 
@@ -29,19 +30,14 @@ void *osi_malloc_func(size_t size);
 void *osi_calloc_func(size_t size);
 void osi_free_func(void *ptr);
 
-#if HEAP_MEMORY_DEBUG
+#ifdef CONFIG_BLUEDROID_MEM_DEBUG
 
 void osi_mem_dbg_init(void);
 void osi_mem_dbg_record(void *p, int size, const char *func, int line);
 void osi_mem_dbg_clean(void *p, const char *func, int line);
 void osi_mem_dbg_show(void);
-uint32_t osi_mem_dbg_get_max_size(void);
-uint32_t osi_mem_dbg_get_current_size(void);
-void osi_men_dbg_set_section_start(uint8_t index);
-void osi_men_dbg_set_section_end(uint8_t index);
-uint32_t osi_mem_dbg_get_max_size_section(uint8_t index);
 
-#if HEAP_ALLOCATION_FROM_SPIRAM_FIRST
+#if CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST
 #define osi_malloc(size)                                \
 ({                                                      \
     void *p;                                            \
@@ -72,15 +68,15 @@ uint32_t osi_mem_dbg_get_max_size_section(uint8_t index);
     (void *)p;                                          \
 })
 
-#define osi_calloc(size)                                \
-({                                                      \
-    void *p;                                            \
+#define osi_calloc(size)                               \
+({                                                    \
+    void *p;                                           \
     p = calloc(1, (size));                              \
     osi_mem_dbg_record(p, size, __func__, __LINE__);    \
     (void *)p;                                          \
 })
 
-#endif /* #if HEAP_ALLOCATION_FROM_SPIRAM_FIRST */
+#endif /* #if CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST */
 
 
 #if 0
@@ -88,11 +84,11 @@ uint32_t osi_mem_dbg_get_max_size_section(uint8_t index);
 do {                                                    \
     void *p;                                            \
                                                         \
-#if HEAP_ALLOCATION_FROM_SPIRAM_FIRST              \
+#if CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST              \
     p = heap_caps_malloc_prefer(size, 2, MALLOC_CAP_DEFAULT|MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT|MALLOC_CAP_INTERNAL); \
 #else                                                   \
     p = malloc((size));                                 \
-#endif /* #if HEAP_ALLOCATION_FROM_SPIRAM_FIRST */ \
+#endif /* #if CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST */ \
     osi_mem_dbg_record(p, size, __func__, __LINE__);    \
     (void *)p;                                          \
 }while(0)
@@ -101,13 +97,13 @@ do {                                                    \
 do {                                                    \
     void *p;                                            \
                                                         \
-#if HEAP_ALLOCATION_FROM_SPIRAM_FIRST              \
+#if CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST              \
         p = heap_caps_calloc_prefer(1, size, 2,         \
             MALLOC_CAP_DEFAULT|MALLOC_CAP_SPIRAM,       \
             MALLOC_CAP_DEFAULT|MALLOC_CAP_INTERNAL);    \
 #else                                                   \
     p = calloc(1, (size));                              \
-#endif /* #if HEAP_ALLOCATION_FROM_SPIRAM_FIRST */ \
+#endif /* #if CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST */ \
     osi_mem_dbg_record(p, size, __func__, __LINE__);    \
     (void *)p;                                          \
 } while(0)
@@ -122,16 +118,16 @@ do {                                                    \
 
 #else
 
-#if HEAP_ALLOCATION_FROM_SPIRAM_FIRST
+#if CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST
 #define osi_malloc(size)                  heap_caps_malloc_prefer(size, 2, MALLOC_CAP_DEFAULT|MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT|MALLOC_CAP_INTERNAL)
 #define osi_calloc(size)                  heap_caps_calloc_prefer(1, size, 2, MALLOC_CAP_DEFAULT|MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT|MALLOC_CAP_INTERNAL)
 #else
 #define osi_malloc(size)                  malloc((size))
 #define osi_calloc(size)                  calloc(1, (size))
-#endif /* #if HEAP_ALLOCATION_FROM_SPIRAM_FIRST */
+#endif /* #if CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST */
 #define osi_free(p)                       free((p))
 
-#endif /* HEAP_MEMORY_DEBUG */
+#endif /* CONFIG_BLUEDROID_MEM_DEBUG */
 
 #define FREE_AND_RESET(a)   \
 do {                        \

@@ -20,6 +20,7 @@
 #include "driver/pcnt.h"
 #include "esp_attr.h"
 #include "esp_log.h"
+#include "soc/gpio_sig_map.h"
 
 /**
  * TEST CODE BRIEF
@@ -96,16 +97,15 @@ static void ledc_init(void)
 {
     // Prepare and then apply the LEDC PWM timer configuration
     ledc_timer_config_t ledc_timer;
-    ledc_timer.speed_mode       = LEDC_LOW_SPEED_MODE;
+    ledc_timer.speed_mode       = LEDC_HIGH_SPEED_MODE;
     ledc_timer.timer_num        = LEDC_TIMER_1;
     ledc_timer.duty_resolution  = LEDC_TIMER_10_BIT;
     ledc_timer.freq_hz          = 1;  // set output frequency at 1 Hz
-    ledc_timer.clk_cfg = LEDC_AUTO_CLK;
     ledc_timer_config(&ledc_timer);
 
     // Prepare and then apply the LEDC PWM channel configuration
     ledc_channel_config_t ledc_channel;
-    ledc_channel.speed_mode = LEDC_LOW_SPEED_MODE;
+    ledc_channel.speed_mode = LEDC_HIGH_SPEED_MODE;
     ledc_channel.channel    = LEDC_CHANNEL_1;
     ledc_channel.timer_sel  = LEDC_TIMER_1;
     ledc_channel.intr_type  = LEDC_INTR_DISABLE;
@@ -168,7 +168,7 @@ static void pcnt_example_init(void)
     pcnt_counter_resume(PCNT_TEST_UNIT);
 }
 
-void app_main(void)
+void app_main()
 {
     /* Initialize LEDC to generate sample pulse signal */
     ledc_init();
@@ -188,19 +188,19 @@ void app_main(void)
         if (res == pdTRUE) {
             pcnt_get_counter_value(PCNT_TEST_UNIT, &count);
             printf("Event PCNT unit[%d]; cnt: %d\n", evt.unit, count);
-            if (evt.status & PCNT_EVT_THRES_1) {
+            if (evt.status & PCNT_STATUS_THRES1_M) {
                 printf("THRES1 EVT\n");
             }
-            if (evt.status & PCNT_EVT_THRES_0) {
+            if (evt.status & PCNT_STATUS_THRES0_M) {
                 printf("THRES0 EVT\n");
             }
-            if (evt.status & PCNT_EVT_L_LIM) {
+            if (evt.status & PCNT_STATUS_L_LIM_M) {
                 printf("L_LIM EVT\n");
             }
-            if (evt.status & PCNT_EVT_H_LIM) {
+            if (evt.status & PCNT_STATUS_H_LIM_M) {
                 printf("H_LIM EVT\n");
             }
-            if (evt.status & PCNT_EVT_ZERO) {
+            if (evt.status & PCNT_STATUS_ZERO_M) {
                 printf("ZERO EVT\n");
             }
         } else {

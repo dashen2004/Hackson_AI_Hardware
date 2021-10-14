@@ -8,7 +8,6 @@
 #include <sys/time.h>
 #include "unity.h"
 #include "sdkconfig.h"
-#include "soc/soc.h"
 
 TEST_CASE("test ctype functions", "[newlib]")
 {
@@ -20,7 +19,7 @@ TEST_CASE("test ctype functions", "[newlib]")
     TEST_ASSERT_FALSE( isspace('0') || isspace('9') || isspace(')') || isspace('A') || isspace('*') || isspace('\x81') || isspace('a'));
 }
 
-TEST_CASE("test atoX functions", "[newlib]")
+TEST_CASE("test atoX functions", "[newlib][ignore]")
 {
     TEST_ASSERT_EQUAL_INT(-2147483648, atoi("-2147483648"));
     TEST_ASSERT_EQUAL_INT(2147483647, atoi("2147483647"));
@@ -66,7 +65,6 @@ TEST_CASE("test time functions", "[newlib]")
 {
     time_t now = 1464248488;
     setenv("TZ", "UTC-8", 1);
-    tzset();
     struct tm *tm_utc = gmtime(&now);
     TEST_ASSERT_EQUAL( 28, tm_utc->tm_sec);
     TEST_ASSERT_EQUAL( 41, tm_utc->tm_min);
@@ -117,34 +115,29 @@ TEST_CASE("test asctime", "[newlib]")
     TEST_ASSERT_EQUAL_STRING(buf, time_str);
 }
 
-static bool fn_in_rom(void *fn)
+static bool fn_in_rom(void *fn, const char *name)
 {
     const int fnaddr = (int)fn;
-    return (fnaddr >= SOC_IROM_MASK_LOW && fnaddr < SOC_IROM_MASK_HIGH);
+    return (fnaddr >= 0x40000000) && (fnaddr < 0x40070000);
 }
 
 
 TEST_CASE("check if ROM or Flash is used for functions", "[newlib]")
 {
-#if defined(CONFIG_NEWLIB_NANO_FORMAT)
-    TEST_ASSERT(fn_in_rom(vfprintf));
+#if defined(CONFIG_NEWLIB_NANO_FORMAT) && !defined(CONFIG_SPIRAM_SUPPORT)
+    TEST_ASSERT(fn_in_rom(printf, "printf"));
+    TEST_ASSERT(fn_in_rom(sscanf, "sscanf"));
 #else
-    TEST_ASSERT_FALSE(fn_in_rom(vfprintf));
-#endif // CONFIG_NEWLIB_NANO_FORMAT
-
-#if defined(CONFIG_IDF_TARGET_ESP32) && defined(CONFIG_NEWLIB_NANO_FORMAT)
-    TEST_ASSERT(fn_in_rom(sscanf));
+    TEST_ASSERT_FALSE(fn_in_rom(printf, "printf"));
+    TEST_ASSERT_FALSE(fn_in_rom(sscanf, "sscanf"));
+#endif
+#if !defined(CONFIG_SPIRAM_SUPPORT)
+    TEST_ASSERT(fn_in_rom(atoi,   "atoi"));
+    TEST_ASSERT(fn_in_rom(strtol, "strtol"));
 #else
-    TEST_ASSERT_FALSE(fn_in_rom(sscanf));
-#endif // CONFIG_IDF_TARGET_ESP32 && CONFIG_NEWLIB_NANO_FORMAT
-
-#if defined(CONFIG_IDF_TARGET_ESP32) && !defined(CONFIG_SPIRAM)
-    TEST_ASSERT(fn_in_rom(atoi));
-    TEST_ASSERT(fn_in_rom(strtol));
-#else
-    TEST_ASSERT_FALSE(fn_in_rom(atoi));
-    TEST_ASSERT_FALSE(fn_in_rom(strtol));
-#endif // defined(CONFIG_IDF_TARGET_ESP32) && !defined(CONFIG_SPIRAM)
+    TEST_ASSERT_FALSE(fn_in_rom(atoi,   "atoi"));
+    TEST_ASSERT_FALSE(fn_in_rom(strtol, "strtol"));
+#endif
 }
 
 #ifndef CONFIG_NEWLIB_NANO_FORMAT
@@ -164,8 +157,8 @@ TEST_CASE("test 64bit int formats", "[newlib]")
     TEST_ASSERT_EQUAL(1, ret);
     TEST_ASSERT_EQUAL(val, sval);
 }
-#else // CONFIG_NEWLIB_NANO_FORMAT
-TEST_CASE("test 64bit int formats", "[newlib]")
+#else
+TEST_CASE("test 64bit int formats", "[newlib][ignore]")
 {
     char* res = NULL;
     const uint64_t val = 123456789012LL;
@@ -180,34 +173,11 @@ TEST_CASE("test 64bit int formats", "[newlib]")
 
     TEST_ASSERT_EQUAL(0, ret);
 }
-#endif // CONFIG_NEWLIB_NANO_FORMAT
+#endif
 
 
 TEST_CASE("fmod and fmodf work as expected", "[newlib]")
 {
     TEST_ASSERT_EQUAL(0.1, fmod(10.1, 2.0));
     TEST_ASSERT_EQUAL(0.1f, fmodf(10.1f, 2.0f));
-}
-
-TEST_CASE("newlib: can link 'system', 'raise'", "[newlib]")
-{
-    printf("system: %p, raise: %p\n", &system, &raise);
-}
-
-
-TEST_CASE("newlib: rom and toolchain localtime func gives the same result", "[newlib]")
-{
-    // This UNIX time represents 2020-03-12 15:00:00 EDT (19:00 GMT)
-    // as can be verified with 'date --date @1584039600'
-    const time_t seconds = 1584039600;
-    setenv("TZ", "EST5EDT,M3.2.0,M11.1.0", 1); // America/New_York
-    tzset();
-    struct tm *tm = localtime(&seconds);
-    tm->tm_isdst = 1;
-    static char buf[32];
-    strftime(buf, sizeof(buf), "%F %T %Z", tm);
-    static char test_result[64];
-    sprintf(test_result, "%s (tm_isdst = %d)", buf, tm->tm_isdst);
-    printf("%s\n", test_result);
-    TEST_ASSERT_EQUAL_STRING("2020-03-12 15:00:00 EDT (tm_isdst = 1)", test_result);
 }

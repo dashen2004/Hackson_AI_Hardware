@@ -5,11 +5,10 @@
 #
 from __future__ import print_function
 import argparse
-import confgen
 import json
 import os
 import sys
-import tempfile
+import confgen
 from confgen import FatalError, __version__
 
 try:
@@ -34,16 +33,8 @@ def main():
                         help='KConfig file with config item definitions',
                         required=True)
 
-    parser.add_argument('--sdkconfig-rename',
-                        help='File with deprecated Kconfig options',
-                        required=False)
-
     parser.add_argument('--env', action='append', default=[],
                         help='Environment to set when evaluating the config file', metavar='NAME=VAL')
-
-    parser.add_argument('--env-file', type=argparse.FileType('r'),
-                        help='Optional file to load environment variables from. Contents '
-                             'should be a JSON object where each key/value pair is a variable.')
 
     parser.add_argument('--version', help='Set protocol version to use on initial status',
                         type=int, default=MAX_PROTOCOL_VERSION)
@@ -67,26 +58,11 @@ def main():
     for name, value in args.env:
         os.environ[name] = value
 
-    if args.env_file is not None:
-        env = json.load(args.env_file)
-        os.environ.update(confgen.dict_enc_for_env(env))
-
-    run_server(args.kconfig, args.config, args.sdkconfig_rename)
+    run_server(args.kconfig, args.config)
 
 
-def run_server(kconfig, sdkconfig, sdkconfig_rename, default_version=MAX_PROTOCOL_VERSION):
+def run_server(kconfig, sdkconfig, default_version=MAX_PROTOCOL_VERSION):
     config = kconfiglib.Kconfig(kconfig)
-    sdkconfig_renames = [sdkconfig_rename] if sdkconfig_rename else []
-    sdkconfig_renames += os.environ.get("COMPONENT_SDKCONFIG_RENAMES", "").split()
-    deprecated_options = confgen.DeprecatedOptions(config.config_prefix, path_rename_files=sdkconfig_renames)
-    f_o = tempfile.NamedTemporaryFile(mode='w+b', delete=False)
-    try:
-        with open(sdkconfig, mode='rb') as f_i:
-            f_o.write(f_i.read())
-        f_o.close()  # need to close as DeprecatedOptions will reopen, and Windows only allows one open file
-        deprecated_options.replace(sdkconfig_in=f_o.name, sdkconfig_out=sdkconfig)
-    finally:
-        os.unlink(f_o.name)
     config.load_config(sdkconfig)
 
     print("Server running, waiting for requests on stdin...", file=sys.stderr)
@@ -103,7 +79,6 @@ def run_server(kconfig, sdkconfig, sdkconfig_rename, default_version=MAX_PROTOCO
         # V2 onwards: separate visibility from version
         json.dump({"version": default_version, "values": config_dict, "ranges": ranges_dict, "visible": visible_dict}, sys.stdout)
     print("\n")
-    sys.stdout.flush()
 
     while True:
         line = sys.stdin.readline()
@@ -115,7 +90,6 @@ def run_server(kconfig, sdkconfig, sdkconfig_rename, default_version=MAX_PROTOCO
             response = {"version": default_version, "error": ["JSON formatting error: %s" % e]}
             json.dump(response, sys.stdout)
             print("\n")
-            sys.stdout.flush()
             continue
         before = confgen.get_json_values(config)
         before_ranges = get_ranges(config)
@@ -142,7 +116,7 @@ def run_server(kconfig, sdkconfig, sdkconfig_rename, default_version=MAX_PROTOCO
             else:
                 sdkconfig = req["save"]
 
-        error = handle_request(deprecated_options, config, req)
+        error = handle_request(config, req)
 
         after = confgen.get_json_values(config)
         after_ranges = get_ranges(config)
@@ -165,10 +139,9 @@ def run_server(kconfig, sdkconfig, sdkconfig_rename, default_version=MAX_PROTOCO
             response["error"] = error
         json.dump(response, sys.stdout)
         print("\n")
-        sys.stdout.flush()
 
 
-def handle_request(deprecated_options, config, req):
+def handle_request(config, req):
     if "version" not in req:
         return ["All requests must have a 'version'"]
 
@@ -193,7 +166,7 @@ def handle_request(deprecated_options, config, req):
     if "save" in req:
         try:
             print("Saving config to %s..." % req["save"], file=sys.stderr)
-            confgen.write_config(deprecated_options, config, req["save"])
+            confgen.write_config(config, req["save"])
         except Exception as e:
             error += ["Failed to save to %s: %s" % (req["save"], e)]
 
@@ -224,13 +197,6 @@ def handle_set(config, error, to_set):
                     sym.set_value(0)
                 else:
                     error.append("Boolean symbol %s only accepts true/false values" % sym.name)
-            elif sym.type == kconfiglib.HEX:
-                try:
-                    if not isinstance(val, int):
-                        val = int(val, 16)  # input can be a decimal JSON value or a string of hex digits
-                    sym.set_value(hex(val))
-                except ValueError:
-                    error.append("Hex symbol %s can accept a decimal integer or a string of hex digits, only")
             else:
                 sym.set_value(str(val))
             print("Set %s" % sym.name)
@@ -252,41 +218,15 @@ def diff(before, after):
 def get_ranges(config):
     ranges_dict = {}
 
-    def is_base_n(i, n):
-        try:
-            int(i, n)
-            return True
-        except ValueError:
-            return False
-
-    def get_active_range(sym):
-        """
-        Returns a tuple of (low, high) integer values if a range
-        limit is active for this symbol, or (None, None) if no range
-        limit exists.
-        """
-        base = kconfiglib._TYPE_TO_BASE[sym.orig_type] if sym.orig_type in kconfiglib._TYPE_TO_BASE else 0
-
-        try:
-            for low_expr, high_expr, cond in sym.ranges:
-                if kconfiglib.expr_value(cond):
-                    low = int(low_expr.str_value, base) if is_base_n(low_expr.str_value, base) else 0
-                    high = int(high_expr.str_value, base) if is_base_n(high_expr.str_value, base) else 0
-                    return (low, high)
-        except ValueError:
-            pass
-        return (None, None)
-
     def handle_node(node):
         sym = node.item
         if not isinstance(sym, kconfiglib.Symbol):
             return
-        active_range = get_active_range(sym)
+        active_range = sym.active_range
         if active_range[0] is not None:
             ranges_dict[sym.name] = active_range
 
-    for n in config.node_iter():
-        handle_node(n)
+    config.walk_menu(handle_node)
     return ranges_dict
 
 
@@ -307,8 +247,7 @@ def get_visible(config):
             result[node] = visible
         except AttributeError:
             menus.append(node)
-    for n in config.node_iter():
-        handle_node(n)
+    config.walk_menu(handle_node)
 
     # now, figure out visibility for each menu. A menu is visible if any of its children are visible
     for m in reversed(menus):  # reverse to start at leaf nodes

@@ -1,7 +1,6 @@
 #include "test/test_common_spi.h"
 #include "driver/spi_slave.h"
 #include "esp_log.h"
-#include "driver/gpio.h"
 
 int test_freq_default[]=TEST_FREQ_DEFAULT();
 
@@ -45,7 +44,7 @@ esp_err_t init_slave_context(spi_slave_task_context_t *context)
     if ( context->data_received == NULL ) {
         return ESP_ERR_NO_MEM;
     }
-    context->spi=TEST_SLAVE_HOST;
+    context->spi=VSPI_HOST;
     return ESP_OK;
 }
 
@@ -87,7 +86,7 @@ void spitest_slave_task(void* arg)
         } while ( t.trans_len <= 2 );
         memcpy(recvbuf, &t.trans_len, sizeof(uint32_t));
         *(uint8_t**)(recvbuf+4) = (uint8_t*)txdata.start;
-        ESP_LOGD( SLAVE_TAG, "received: %d", t.trans_len );
+        ESP_LOGI( SLAVE_TAG, "received: %d", t.trans_len );
         xRingbufferSend( ringbuf, recvbuf, 8+(t.trans_len+7)/8, portMAX_DELAY );
     }
 }
@@ -161,35 +160,21 @@ void spitest_slave_print_data(slave_rxdata_t *t, bool print_rxdata)
 
 esp_err_t spitest_check_data(int len, spi_transaction_t *master_t, slave_rxdata_t *slave_t, bool check_master_data, bool check_slave_len, bool check_slave_data)
 {
-    esp_err_t ret = ESP_OK;
-    uint32_t rcv_len = slave_t->len;
     //currently the rcv_len can be in range of [t->length-1, t->length+3]
-    if (check_slave_len &&
-        (rcv_len < len - 1 || rcv_len > len + 4)) {
-            ret = ESP_FAIL;
+    if (check_slave_len) {
+        uint32_t rcv_len = slave_t->len;
+        TEST_ASSERT(rcv_len >= len - 1 && rcv_len <= len + 4);
     }
 
-    if (check_master_data &&
-        memcmp(slave_t->tx_start, master_t->rx_buffer, (len + 7) / 8) != 0 ) {
-            ret = ESP_FAIL;
-    }
-
-    if (check_slave_data &&
-        memcmp(master_t->tx_buffer, slave_t->data, (len + 7) / 8) != 0 ) {
-            ret = ESP_FAIL;
-    }
-    if (ret != ESP_OK) {
-        ESP_LOGI(SLAVE_TAG, "slave_recv_len: %d", rcv_len);
-        spitest_master_print_data(master_t, len);
-        spitest_slave_print_data(slave_t, true);
-        //already failed, try to use the TEST_ASSERT to output the reason...
-        if (check_slave_len) {
-            TEST_ASSERT(rcv_len >= len - 1 && rcv_len <= len + 4);
-        }
+        //if (dup!=HALF_DUPLEX_MOSI) {
+    if (check_master_data) {
         TEST_ASSERT_EQUAL_HEX8_ARRAY(slave_t->tx_start, master_t->rx_buffer, (len + 7) / 8);
+    }
+
+    //if (dup!=HALF_DUPLEX_MISO) {
+    if (check_slave_data) {
         TEST_ASSERT_EQUAL_HEX8_ARRAY(master_t->tx_buffer, slave_t->data, (len + 7) / 8);
     }
-
     return ESP_OK;
 }
 

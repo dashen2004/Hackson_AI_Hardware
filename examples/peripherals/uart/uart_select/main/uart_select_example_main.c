@@ -20,18 +20,17 @@
 
 static const char* TAG = "uart_select_example";
 
-static void uart_select_task(void *arg)
+static void uart_select_task()
 {
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
         .parity    = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .source_clk = UART_SCLK_APB,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
     };
-    uart_driver_install(UART_NUM_0, 2*1024, 0, 0, NULL, 0);
     uart_param_config(UART_NUM_0, &uart_config);
+    uart_driver_install(UART_NUM_0, 2*1024, 0, 0, NULL, 0);
 
     while (1) {
         int fd;
@@ -88,7 +87,7 @@ static void uart_select_task(void *arg)
     vTaskDelete(NULL);
 }
 
-void app_main(void)
+void app_main()
 {
     xTaskCreate(uart_select_task, "uart_select_task", 4*1024, NULL, 5, NULL);
 }

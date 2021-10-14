@@ -16,6 +16,7 @@
 
 from __future__ import print_function
 import os
+import sys
 import re
 import traceback
 import threading
@@ -26,9 +27,28 @@ try:
 except ImportError:
     import queue as Queue
 
-from tiny_test_fw import Utility
-import ttfw_idf
-from ble import lib_ble_client
+try:
+    # This environment variable is expected on the host machine
+    test_fw_path = os.getenv("TEST_FW_PATH")
+    if test_fw_path and test_fw_path not in sys.path:
+        sys.path.insert(0, test_fw_path)
+    import IDF
+except ImportError as e:
+    print(e)
+    print("Try `export TEST_FW_PATH=$IDF_PATH/tools/tiny-test-fw` for resolving the issue")
+    print("Try `pip install -r $IDF_PATH/tools/tiny-test-fw/requirements.txt` for resolving the issue")
+    import IDF
+
+try:
+    import lib_ble_client
+except ImportError:
+    lib_ble_client_path = os.getenv("IDF_PATH") + "/tools/ble"
+    if lib_ble_client_path and lib_ble_client_path not in sys.path:
+        sys.path.insert(0, lib_ble_client_path)
+    import lib_ble_client
+
+
+import Utility
 
 # When running on local machine execute the following before running this script
 # > make app bootloader
@@ -119,7 +139,7 @@ class BlePrphThread(threading.Thread):
             self.exceptions_queue.put(traceback.format_exc(), block=False)
 
 
-@ttfw_idf.idf_example_test(env_tag="Example_WIFI_BT")
+@IDF.idf_example_test(env_tag="Example_WIFI_BT")
 def test_example_app_ble_peripheral(env, extra_data):
     """
         Steps:
@@ -133,13 +153,13 @@ def test_example_app_ble_peripheral(env, extra_data):
     subprocess.check_output(['hciconfig','hci0','reset'])
 
     # Acquire DUT
-    dut = env.get_dut("bleprph", "examples/bluetooth/nimble/bleprph", dut_class=ttfw_idf.ESP32DUT)
+    dut = env.get_dut("bleprph", "examples/bluetooth/nimble/bleprph")
 
     # Get binary file
     binary_file = os.path.join(dut.app.binary_path, "bleprph.bin")
     bin_size = os.path.getsize(binary_file)
-    ttfw_idf.log_performance("bleprph_bin_size", "{}KB".format(bin_size // 1024))
-    ttfw_idf.check_performance("bleprph_bin_size", bin_size // 1024, dut.TARGET)
+    IDF.log_performance("bleprph_bin_size", "{}KB".format(bin_size // 1024))
+    IDF.check_performance("bleprph_bin_size", bin_size // 1024)
 
     # Upload binary and start testing
     Utility.console_log("Starting bleprph simple example test app")

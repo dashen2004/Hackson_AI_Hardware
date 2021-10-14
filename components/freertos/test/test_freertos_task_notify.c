@@ -11,17 +11,9 @@
 #include "freertos/task.h"
 #include <freertos/semphr.h>
 #include "driver/timer.h"
-#ifndef CONFIG_FREERTOS_UNICORE
 #include "esp_ipc.h"
-#endif
 #include "unity.h"
 #include "test_utils.h"
-
-#ifdef CONFIG_IDF_TARGET_ESP32S2
-#define int_clr_timers int_clr
-#define update update.update
-#define int_st_timers int_st
-#endif
 
 #define NO_OF_NOTIFS    4
 #define NO_OF_TASKS     2       //Sender and receiver
@@ -102,13 +94,19 @@ static void receiver_task (void* arg){
     vTaskDelete(NULL);
 }
 
-static void IRAM_ATTR sender_ISR (void *arg)
+static void IRAM_ATTR sender_ISR ()
 {
     int curcore = xPortGetCoreID();
-    timer_group_clr_intr_status_in_isr(TIMER_GROUP_0, curcore);
-    timer_group_set_counter_enable_in_isr(TIMER_GROUP_0, curcore, TIMER_PAUSE);
+    if(curcore == 0){      //Clear timer interrupt
+        //Clear intr and pause via direct reg access as IRAM ISR cannot access timer APIs
+        TIMERG0.int_clr_timers.t0 = 1;
+        TIMERG0.hw_timer[0].config.enable = 0;
+    }else{
+        TIMERG0.int_clr_timers.t1 = 1;
+        TIMERG0.hw_timer[1].config.enable = 0;
+    }
     //Re-enable alarm
-    timer_group_enable_alarm_in_isr(TIMER_GROUP_0, curcore);
+    TIMERG0.hw_timer[curcore].config.alarm_en = 1;
 
     if(isr_give){   //Test vTaskNotifyGiveFromISR() on same core
         notifs_sent++;

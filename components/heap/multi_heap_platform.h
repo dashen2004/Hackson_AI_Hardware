@@ -13,39 +13,26 @@
 // limitations under the License.
 #pragma once
 
-#ifdef MULTI_HEAP_FREERTOS
+#ifdef ESP_PLATFORM
 
 #include <freertos/FreeRTOS.h>
-#include "sdkconfig.h"
-#if CONFIG_IDF_TARGET_ESP32
-#include "esp32/rom/ets_sys.h"
-#elif CONFIG_IDF_TARGET_ESP32S2
-#include "esp32s2/rom/ets_sys.h"
-#endif
+#include <rom/ets_sys.h>
 #include <assert.h>
-
-typedef portMUX_TYPE multi_heap_lock_t;
 
 /* Because malloc/free can happen inside an ISR context,
    we need to use portmux spinlocks here not RTOS mutexes */
-#define MULTI_HEAP_LOCK(PLOCK) do {                         \
+#define MULTI_HEAP_LOCK(PLOCK) do {               \
         if((PLOCK) != NULL) {                               \
-            portENTER_CRITICAL((PLOCK));                    \
+            portENTER_CRITICAL((portMUX_TYPE *)(PLOCK));    \
         }                                                   \
     } while(0)
 
 
-#define MULTI_HEAP_UNLOCK(PLOCK) do {                       \
+#define MULTI_HEAP_UNLOCK(PLOCK) do {                \
         if ((PLOCK) != NULL) {                              \
-            portEXIT_CRITICAL((PLOCK));                     \
+            portEXIT_CRITICAL((portMUX_TYPE *)(PLOCK));     \
         }                                                   \
     } while(0)
-
-#define MULTI_HEAP_LOCK_INIT(PLOCK) do {                    \
-        vPortCPUInitializeMutex((PLOCK));                   \
-    } while(0)
-
-#define MULTI_HEAP_LOCK_STATIC_INITIALIZER     portMUX_INITIALIZER_UNLOCKED
 
 /* Not safe to use std i/o while in a portmux critical section,
    can deadlock, so we use the ROM equivalent functions. */
@@ -61,9 +48,9 @@ inline static void multi_heap_assert(bool condition, const char *format, int lin
     */
 #ifndef NDEBUG
     if(!condition) {
-#ifndef CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_SILENT
+#ifndef CONFIG_OPTIMIZATION_ASSERTIONS_SILENT
         ets_printf(format, line, address);
-#endif  // CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_SILENT
+#endif  // CONFIG_OPTIMIZATION_ASSERTIONS_SILENT
         abort();
     }
 #else // NDEBUG
@@ -86,18 +73,14 @@ inline static void multi_heap_assert(bool condition, const char *format, int lin
 #define MULTI_HEAP_GET_BLOCK_OWNER(HEAD) (NULL)
 #endif
 
-#else // MULTI_HEAP_FREERTOS
+#else // ESP_PLATFORM
 
 #include <assert.h>
 
-typedef int multi_heap_lock_t;
-
 #define MULTI_HEAP_PRINTF printf
 #define MULTI_HEAP_STDERR_PRINTF(MSG, ...) fprintf(stderr, MSG, __VA_ARGS__)
-#define MULTI_HEAP_LOCK(PLOCK)  (void) (PLOCK)
-#define MULTI_HEAP_UNLOCK(PLOCK)  (void) (PLOCK)
-#define MULTI_HEAP_LOCK_INIT(PLOCK)  (void) (PLOCK)
-#define MULTI_HEAP_LOCK_STATIC_INITIALIZER  0
+#define MULTI_HEAP_LOCK(PLOCK)
+#define MULTI_HEAP_UNLOCK(PLOCK)
 
 #define MULTI_HEAP_ASSERT(CONDITION, ADDRESS) assert((CONDITION) && "Heap corrupt")
 
@@ -105,4 +88,4 @@ typedef int multi_heap_lock_t;
 #define MULTI_HEAP_SET_BLOCK_OWNER(HEAD)
 #define MULTI_HEAP_GET_BLOCK_OWNER(HEAD) (NULL)
 
-#endif // MULTI_HEAP_FREERTOS
+#endif

@@ -25,9 +25,10 @@
 #include <test_utils.h>
 #include <esp_spi_flash.h>
 #include <esp_log.h>
-#include <esp32/rom/spi_flash.h>
+#include <rom/spi_flash.h>
 #include "../cache_utils.h"
-#include "soc/timer_periph.h"
+#include "soc/timer_group_struct.h"
+#include "soc/timer_group_reg.h"
 
 static const uint8_t large_const_buffer[16400] = {
     203, // first byte
@@ -42,13 +43,13 @@ static const uint8_t large_const_buffer[16400] = {
 
 static void test_write_large_buffer(const uint8_t *source, size_t length);
 
-TEST_CASE("Test spi_flash_write large const buffer", "[spi_flash][esp_flash]")
+TEST_CASE("Test spi_flash_write large const buffer", "[spi_flash]")
 {
     // buffer in flash
     test_write_large_buffer(large_const_buffer, sizeof(large_const_buffer));
 }
 
-TEST_CASE("Test spi_flash_write large RAM buffer", "[spi_flash][esp_flash]")
+TEST_CASE("Test spi_flash_write large RAM buffer", "[spi_flash]")
 {
     // buffer in RAM
     uint8_t *source_buf = malloc(sizeof(large_const_buffer));

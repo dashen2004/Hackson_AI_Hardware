@@ -67,7 +67,7 @@ typedef struct {
  *
  * @return simple_ble_cfg_t* Pointer to configuration structure
  */
-simple_ble_cfg_t *simple_ble_init(void);
+simple_ble_cfg_t *simple_ble_init();
 
 /** Deallocates memory
  *
@@ -75,7 +75,7 @@ simple_ble_cfg_t *simple_ble_init(void);
  *
  * @return ESP_OK
  */
-esp_err_t simple_ble_deinit(void);
+esp_err_t simple_ble_deinit();
 
 /** Starts BLE service
  *
@@ -97,7 +97,7 @@ esp_err_t simple_ble_start(simple_ble_cfg_t *cfg);
  *
  * @return ESP_OK on success, and appropriate error code for failure
  */
-esp_err_t simple_ble_stop(void);
+esp_err_t simple_ble_stop();
 
 /** Convert handle to 128 bit UUID of characteristic
  *

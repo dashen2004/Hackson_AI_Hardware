@@ -2,6 +2,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 import re
 import os
+import sys
 import socket
 import select
 import hashlib
@@ -10,7 +11,18 @@ import queue
 import random
 import string
 from threading import Thread, Event
-import ttfw_idf
+
+try:
+    import IDF
+except Exception:
+    # this is a test case write with tiny-test-fw.
+    # to run test cases outside tiny-test-fw,
+    # we need to set environment variable `TEST_FW_PATH`,
+    # then get and insert `TEST_FW_PATH` to sys path before import FW module
+    test_fw_path = os.getenv("TEST_FW_PATH")
+    if test_fw_path and test_fw_path not in sys.path:
+        sys.path.insert(0, test_fw_path)
+    import IDF
 
 
 def get_my_ip():
@@ -37,7 +49,6 @@ class Websocket:
         self.socket.settimeout(10.0)
         self.send_q = queue.Queue()
         self.shutdown = Event()
-        self.conn = None
 
     def __enter__(self):
         try:
@@ -56,8 +67,7 @@ class Websocket:
         self.shutdown.set()
         self.server_thread.join()
         self.socket.close()
-        if self.conn:
-            self.conn.close()
+        self.conn.close()
 
     def run_server(self):
         self.conn, address = self.socket.accept()  # accept new connection
@@ -84,7 +94,7 @@ class Websocket:
                     return
 
             except socket.error as err:
-                print("Unable to establish a websocket connection: {}".format(err))
+                print("Unable to establish a websocket connection: {}, {}".format(err))
                 raise
 
     def handshake(self, data):
@@ -209,7 +219,7 @@ def test_recv_long_msg(dut, websocket, msg_len, repeats):
                             \nreceived: {}\nwith length {}".format(send_msg, len(send_msg), recv_msg, len(recv_msg)))
 
 
-@ttfw_idf.idf_example_test(env_tag="Example_WIFI")
+@IDF.idf_example_test(env_tag="Example_WIFI")
 def test_examples_protocol_websocket(env, extra_data):
     """
     steps:
@@ -217,12 +227,12 @@ def test_examples_protocol_websocket(env, extra_data):
       2. connect to uri specified in the config
       3. send and receive data
     """
-    dut1 = env.get_dut("websocket", "examples/protocols/websocket", dut_class=ttfw_idf.ESP32DUT)
+    dut1 = env.get_dut("websocket", "examples/protocols/websocket")
     # check and log bin size
     binary_file = os.path.join(dut1.app.binary_path, "websocket-example.bin")
     bin_size = os.path.getsize(binary_file)
-    ttfw_idf.log_performance("websocket_bin_size", "{}KB".format(bin_size // 1024))
-    ttfw_idf.check_performance("websocket_bin_size", bin_size // 1024, dut1.TARGET)
+    IDF.log_performance("websocket_bin_size", "{}KB".format(bin_size // 1024))
+    IDF.check_performance("websocket_bin_size", bin_size // 1024)
 
     try:
         if "CONFIG_WEBSOCKET_URI_FROM_STDIN" in dut1.app.get_sdkconfig():

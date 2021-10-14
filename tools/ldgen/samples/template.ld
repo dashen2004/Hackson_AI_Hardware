@@ -134,6 +134,7 @@ SECTIONS
 
     . = ALIGN (8);
     _bss_end = ABSOLUTE(.);
+    _heap_start = ABSOLUTE(.);
   } >dram0_0_seg
 
   .flash.rodata :

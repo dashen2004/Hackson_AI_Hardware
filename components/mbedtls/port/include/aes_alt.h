@@ -28,11 +28,7 @@ extern "C" {
 #endif
 
 #if defined(MBEDTLS_AES_ALT)
-#if CONFIG_IDF_TARGET_ESP32
-#include "esp32/aes.h"
-#elif CONFIG_IDF_TARGET_ESP32S2
-#include "esp32s2/aes.h"
-#endif
+#include "hwcrypto/aes.h"
 
 typedef esp_aes_context mbedtls_aes_context;
 
@@ -50,9 +46,6 @@ typedef esp_aes_context mbedtls_aes_context;
 #endif
 #if defined(MBEDTLS_CIPHER_MODE_CTR)
 #define mbedtls_aes_crypt_ctr       esp_aes_crypt_ctr
-#endif
-#if defined(MBEDTLS_CIPHER_MODE_OFB)
-#define mbedtls_aes_crypt_ofb       esp_aes_crypt_ofb
 #endif
 #if defined(MBEDTLS_CIPHER_MODE_XTS)
 typedef esp_aes_xts_context mbedtls_aes_xts_context;

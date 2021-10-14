@@ -19,7 +19,7 @@ If you want to send packets to host, make sure to connect ESP32 to some kind of 
 
 ### Configure the project
 
-Open the project configuration menu (`idf.py menuconfig`). Then go into `Example Configuration` menu.
+Enter `make menuconfig` if you are using GNU Make based build system or enter `idf.py menuconfig` if you are using CMake based build system. Then go into `Example Configuration` menu.
 
 - Check `Store command history in flash` if you want to save command history into flash (recommend).
 - Select where to save the pcap file in `Select destination to store pcap file` menu item.
@@ -33,11 +33,7 @@ Open the project configuration menu (`idf.py menuconfig`). Then go into `Example
 
 ### Build and Flash
 
-```
-idf.py -p PORT flash monitor
-```
-
-(Replace PORT with name of the serial port.)
+Enter `make -j4 flash monitor` if you are using GNU Make based build system or enter `idf.py build flash monitor` if you' are using CMake based build system.
 
 (To exit the serial monitor, type ``Ctrl-]``.)
 
@@ -118,7 +114,7 @@ I (248800) example: Card unmounted
 
 ### Steps for sending packets to host via JTAG interface
 1. Select `JTAG (App Trace)` as the destination of pcap files.
-2. Build & Flash with `idf.py -p PORT flash`
+2. Build & Flash with `idf.py build flash` or `make flash`.
 3. Connect JTAG, run OpenOCD (for more information about how-to please refer to [JTAG Debugging](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/jtag-debugging/index.html)).
 4. Telnet to localhost with 4444 port: `telnet localhost 4444`.
 5. In the telnet session, run command like `esp32 apptrace start file://sniffer-esp32.pcap 1 -1 20` (more information about this command, please refer to [apptrace command](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/app_trace.html#openocd-application-level-tracing-commands)).

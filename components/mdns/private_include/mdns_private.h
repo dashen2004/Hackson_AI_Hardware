@@ -14,35 +14,12 @@
 #ifndef MDNS_PRIVATE_H_
 #define MDNS_PRIVATE_H_
 
-#include "esp_event_base.h"
-#include "esp_task.h"
-
 //#define MDNS_ENABLE_DEBUG
 
 #ifdef MDNS_ENABLE_DEBUG
 #define _mdns_dbg_printf(...) printf(__VA_ARGS__)
 #endif
 
-/** mDNS strict mode: Set this to 1 for the mDNS library to strictly follow the RFC6762:
- * Strict features:
- *   - to do not set original questions in response packets per RFC6762, sec 6
- *
- * The actual configuration is 0, i.e. non-strict mode, since some implementations,
- * such as lwIP mdns resolver (used by standard POSIX API like getaddrinfo, gethostbyname)
- * could not correctly resolve advertised names.
- */
-#ifndef CONFIG_MDNS_STRICT_MODE
-#define MDNS_STRICT_MODE 0
-#else
-#define MDNS_STRICT_MODE 1
-#endif
-
-#if !MDNS_STRICT_MODE
-/* mDNS responders sometimes repeat queries in responses
- * but according to RFC6762, sec 6: Responses MUST NOT contain
- * any item in question field */
-#define  MDNS_REPEAT_QUERY_IN_RESPONSE 1
-#endif
 /** The maximum number of services */
 #define MDNS_MAX_SERVICES           CONFIG_MDNS_MAX_SERVICES
 
@@ -73,19 +50,9 @@
 #define MDNS_ANSWER_AAAA            0x10
 #define MDNS_ANSWER_NSEC            0x20
 #define MDNS_ANSWER_SDPTR           0x80
-#define MDNS_ANSWER_AAAA_SIZE       16
 
 #define MDNS_SERVICE_PORT           5353                    // UDP port that the server runs on
-#define MDNS_SERVICE_STACK_DEPTH    CONFIG_MDNS_TASK_STACK_SIZE
-#define MDNS_TASK_PRIORITY          CONFIG_MDNS_TASK_PRIORITY
-#if (MDNS_TASK_PRIORITY > ESP_TASK_PRIO_MAX)
-#error "mDNS task priority is higher than ESP_TASK_PRIO_MAX"
-#elif (MDNS_TASK_PRIORITY > ESP_TASKD_EVENT_PRIO)
-#warning "mDNS task priority is higher than ESP_TASKD_EVENT_PRIO, mDNS library might not work correctly"
-#endif
-#define MDNS_TASK_AFFINITY          CONFIG_MDNS_TASK_AFFINITY
-#define MDNS_SERVICE_ADD_TIMEOUT_MS CONFIG_MDNS_SERVICE_ADD_TIMEOUT_MS
-
+#define MDNS_SERVICE_STACK_DEPTH    4096                    // Stack size for the service thread
 #define MDNS_PACKET_QUEUE_LEN       16                      // Maximum packets that can be queued for parsing
 #define MDNS_ACTION_QUEUE_LEN       16                      // Maximum actions pending to the server
 #define MDNS_TXT_MAX_LEN            1024                    // Maximum string length of text data in TXT record
@@ -112,7 +79,7 @@
 #define MDNS_SRV_PORT_OFFSET        4
 #define MDNS_SRV_FQDN_OFFSET        6
 
-#define MDNS_TIMER_PERIOD_US        (CONFIG_MDNS_TIMER_PERIOD_MS*1000)
+#define MDNS_TIMER_PERIOD_US        100000
 
 #define MDNS_SERVICE_LOCK()     xSemaphoreTake(_mdns_service_semaphore, portMAX_DELAY)
 #define MDNS_SERVICE_UNLOCK()   xSemaphoreGive(_mdns_service_semaphore)
@@ -161,7 +128,7 @@ typedef enum {
 
 typedef enum {
     MDNS_ANSWER, MDNS_NS, MDNS_EXTRA
-} mdns_parsed_record_type_t;
+} mdns_parsed_recort_type_t;
 
 typedef enum {
     ACTION_SYSTEM_EVENT,
@@ -215,7 +182,6 @@ typedef struct {
     char domain[MDNS_NAME_BUF_LEN];
     uint8_t parts;
     uint8_t sub;
-    bool    invalid;
 } mdns_name_t;
 
 typedef struct mdns_parsed_question_s {
@@ -230,7 +196,7 @@ typedef struct mdns_parsed_question_s {
 
 typedef struct mdns_parsed_record_s {
     struct mdns_parsed_record_s * next;
-    mdns_parsed_record_type_t record_type;
+    mdns_parsed_recort_type_t record_type;
     uint16_t type;
     uint16_t clas;
     uint8_t flush;
@@ -244,10 +210,10 @@ typedef struct mdns_parsed_record_s {
 } mdns_parsed_record_t;
 
 typedef struct {
-    mdns_if_t tcpip_if;
+    tcpip_adapter_if_t tcpip_if;
     mdns_ip_protocol_t ip_protocol;
     //struct udp_pcb *pcb;
-    esp_ip_addr_t src;
+    ip_addr_t src;
     uint16_t src_port;
     uint8_t multicast;
     uint8_t authoritative;
@@ -256,15 +222,14 @@ typedef struct {
     uint8_t distributed;
     mdns_parsed_question_t * questions;
     mdns_parsed_record_t * records;
-    uint16_t id;
 } mdns_parsed_packet_t;
 
 typedef struct {
-    mdns_if_t tcpip_if;
+    tcpip_adapter_if_t tcpip_if;
     mdns_ip_protocol_t ip_protocol;
     struct pbuf *pb;
-    esp_ip_addr_t src;
-    esp_ip_addr_t dest;
+    ip_addr_t src;
+    ip_addr_t dest;
     uint16_t src_port;
     uint8_t multicast;
 } mdns_rx_packet_t;
@@ -293,7 +258,7 @@ typedef struct mdns_srv_item_s {
 typedef struct mdns_out_question_s {
     struct mdns_out_question_s * next;
     uint16_t type;
-    bool unicast;
+    uint8_t unicast;
     const char * host;
     const char * service;
     const char * proto;
@@ -314,9 +279,9 @@ typedef struct mdns_out_answer_s {
 typedef struct mdns_tx_packet_s {
     struct mdns_tx_packet_s * next;
     uint32_t send_at;
-    mdns_if_t tcpip_if;
+    tcpip_adapter_if_t tcpip_if;
     mdns_ip_protocol_t ip_protocol;
-    esp_ip_addr_t dst;
+    ip_addr_t dst;
     uint16_t port;
     uint16_t flags;
     uint8_t distributed;
@@ -325,7 +290,6 @@ typedef struct mdns_tx_packet_s {
     mdns_out_answer_t * servers;
     mdns_out_answer_t * additional;
     bool queued;
-    uint16_t id;
 } mdns_tx_packet_t;
 
 typedef struct {
@@ -365,7 +329,7 @@ typedef struct mdns_search_once_s {
 typedef struct mdns_server_s {
     struct {
         mdns_pcb_t pcbs[MDNS_IP_PROTOCOL_MAX];
-    } interfaces[MDNS_IF_MAX];
+    } interfaces[TCPIP_ADAPTER_IF_MAX];
     const char * hostname;
     const char * instance;
     mdns_srv_item_t * services;
@@ -382,9 +346,8 @@ typedef struct {
         char * hostname;
         char * instance;
         struct {
-            esp_event_base_t event_base;
-            int32_t event_id;
-            esp_netif_t* interface;
+            system_event_id_t event_id;
+            tcpip_adapter_if_t interface;
         } sys_event;
         struct {
             mdns_srv_item_t * service;
@@ -424,17 +387,5 @@ typedef struct {
         } rx_handle;
     } data;
 } mdns_action_t;
-
-/*
- * @brief  Convert mnds if to esp-netif handle
- *
- * @param  tcpip_if     mdns supported interface as internal enum
- *
- * @return
- *     - ptr to esp-netif on success
- *     - NULL if no available netif for current interface index
- */
-esp_netif_t *_mdns_get_esp_netif(mdns_if_t tcpip_if);
-
 
 #endif /* MDNS_PRIVATE_H_ */

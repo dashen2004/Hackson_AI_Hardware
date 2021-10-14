@@ -1,3 +1,7 @@
-idf_component_register(SRCS "cmd_system.c"
-                    INCLUDE_DIRS .
-                    REQUIRES console spi_flash)
+set(COMPONENT_ADD_INCLUDEDIRS .)
+
+set(COMPONENT_SRCS "cmd_system.c")
+
+set(COMPONENT_REQUIRES console spi_flash)
+
+register_component()

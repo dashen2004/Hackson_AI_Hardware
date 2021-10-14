@@ -16,11 +16,7 @@
 #include "btc/btc_task.h"
 #include "osi/thread.h"
 
-#if BTC_DYNAMIC_MEMORY == FALSE
-void *btc_profile_cb_tab[BTC_PID_NUM] = {};
-#else
-void **btc_profile_cb_tab;
-#endif
+static void *btc_profile_cb_tab[BTC_PID_NUM] = {};
 
 void esp_profile_cb_reset(void)
 {

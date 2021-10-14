@@ -12,11 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tiny_test_fw import TinyFW
-import ttfw_idf
+""" example of writing test with TinyTestFW """
+import os
+import sys
+
+try:
+    import TinyFW
+except ImportError:
+    # if we want to run test case outside `tiny-test-fw` folder,
+    # we need to insert tiny-test-fw path into sys path
+    test_fw_path = os.getenv("TEST_FW_PATH")
+    if test_fw_path and test_fw_path not in sys.path:
+        sys.path.insert(0, test_fw_path)
+    import TinyFW
+
+import IDF
 
 
-@ttfw_idf.idf_example_test(env_tag="Example_SDIO", ignore=True)
+@IDF.idf_example_test(env_tag="Example_SDIO", ignore=True)
 def test_example_sdio_communication(env, extra_data):
     """
     Configurations
@@ -36,8 +49,8 @@ def test_example_sdio_communication(env, extra_data):
     or use sdio test board, which has two wrover modules connect to a same FT3232
     Assume that first dut is host and second is slave
     """
-    dut1 = env.get_dut("sdio_host", "examples/peripherals/sdio/host", dut_class=ttfw_idf.ESP32DUT)
-    dut2 = env.get_dut("sdio_slave", "examples/peripherals/sdio/slave", dut_class=ttfw_idf.ESP32DUT)
+    dut1 = env.get_dut("sdio_host", "examples/peripherals/sdio/host")
+    dut2 = env.get_dut("sdio_slave", "examples/peripherals/sdio/slave")
     dut1.start_app()
     # wait until the master is ready to setup the slave
     dut1.expect("host ready, start initializing slave...")
@@ -119,5 +132,5 @@ def test_example_sdio_communication(env, extra_data):
 
 
 if __name__ == '__main__':
-    TinyFW.set_default_config(env_config_file="EnvConfigTemplate.yml", dut=ttfw_idf.IDFDUT)
+    TinyFW.set_default_config(env_config_file="EnvConfigTemplate.yml", dut=IDF.IDFDUT)
     test_example_sdio_communication()

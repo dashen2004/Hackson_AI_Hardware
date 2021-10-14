@@ -3,7 +3,7 @@
 #include "xtensa/core-macros.h"
 #include "xtensa/hal.h"
 #include "esp_types.h"
-#include "esp32/clk.h"
+#include "esp_clk.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -12,8 +12,8 @@
 #include "soc/cpu.h"
 #include "unity.h"
 #include "test_utils.h"
-#include "esp32/rom/uart.h"
-#include "soc/uart_periph.h"
+#include "rom/uart.h"
+#include "soc/uart_reg.h"
 #include "soc/dport_reg.h"
 #include "soc/rtc.h"
 #include "esp_intr_alloc.h"
@@ -72,7 +72,8 @@ void run_tasks(const char *task1_description, void (* task1_func)(void *), const
 
     for (i=0; i<2; i++) {
         if((task1_func != NULL && i == 0) || (task2_func != NULL && i == 1)){
-            exit_sema[i] = xSemaphoreCreateBinary();
+            exit_sema[i] = xSemaphoreCreateMutex();
+            xSemaphoreTake(exit_sema[i], portMAX_DELAY);
         }
     }
 
@@ -113,8 +114,8 @@ TEST_CASE("access DPORT and APB at same time", "[esp32]")
 
 void run_tasks_with_change_freq_cpu(int cpu_freq_mhz)
 {
-    const int uart_num = CONFIG_ESP_CONSOLE_UART_NUM;
-    const int uart_baud = CONFIG_ESP_CONSOLE_UART_BAUDRATE;
+    const int uart_num = CONFIG_CONSOLE_UART_NUM;
+    const int uart_baud = CONFIG_CONSOLE_UART_BAUDRATE;
     dport_test_result = false;
     apb_test_result = false;
     rtc_cpu_freq_config_t old_config;
@@ -389,8 +390,10 @@ static void accessDPORT2(void *pvParameters)
 
     TEST_ESP_OK(esp_intr_alloc(ETS_INTERNAL_TIMER2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL5 | ESP_INTR_FLAG_IRAM, NULL, NULL, &inth));
 
+    XTHAL_SET_CCOMPARE(2, XTHAL_GET_CCOUNT() + 21);
+    int sync = 0;
     while (exit_flag == false) {
-        XTHAL_SET_CCOMPARE(2, XTHAL_GET_CCOUNT() + 21);
+        ets_delay_us(++sync % 10);
         for (int i = 0; i < 200; ++i) {
             if (DPORT_REG_READ(DPORT_DATE_REG) != DPORT_REG_READ(DPORT_DATE_REG)) {
                 dport_test_result = false;

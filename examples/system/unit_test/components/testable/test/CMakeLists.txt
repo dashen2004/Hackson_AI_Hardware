@@ -1,3 +1,6 @@
-idf_component_register(SRC_DIRS "."
-                    INCLUDE_DIRS "."
-                    REQUIRES unity testable)
+set(COMPONENT_SRCDIRS ".")
+set(COMPONENT_ADD_INCLUDEDIRS ".")
+
+set(COMPONENT_REQUIRES unity testable)
+
+register_component()

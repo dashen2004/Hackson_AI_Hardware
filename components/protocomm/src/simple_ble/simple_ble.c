@@ -185,7 +185,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     }
 }
 
-simple_ble_cfg_t *simple_ble_init(void)
+simple_ble_cfg_t *simple_ble_init()
 {
     simple_ble_cfg_t *ble_cfg_p = (simple_ble_cfg_t *) malloc(sizeof(simple_ble_cfg_t));
     if (ble_cfg_p == NULL) {
@@ -195,7 +195,7 @@ simple_ble_cfg_t *simple_ble_init(void)
     return ble_cfg_p;
 }
 
-esp_err_t simple_ble_deinit(void)
+esp_err_t simple_ble_deinit()
 {
     free(g_ble_cfg_p->gatt_db);
     g_ble_cfg_p->gatt_db = NULL;
@@ -223,9 +223,9 @@ esp_err_t simple_ble_start(simple_ble_cfg_t *cfg)
         return ret;
     }
 
-#ifdef CONFIG_BTDM_CTRL_MODE_BTDM
+#ifdef CONFIG_BTDM_CONTROLLER_MODE_BTDM
     ret = esp_bt_controller_enable(ESP_BT_MODE_BTDM);
-#elif defined CONFIG_BTDM_CTRL_MODE_BLE_ONLY
+#elif defined CONFIG_BTDM_CONTROLLER_MODE_BLE_ONLY
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
 #else
     ESP_LOGE(TAG, "Configuration mismatch. Select BLE Only or BTDM mode from menuconfig");
@@ -275,7 +275,7 @@ esp_err_t simple_ble_start(simple_ble_cfg_t *cfg)
     return ESP_OK;
 }
 
-esp_err_t simple_ble_stop(void)
+esp_err_t simple_ble_stop()
 {
     esp_err_t err;
     ESP_LOGD(TAG, "Free mem at start of simple_ble_stop %d", esp_get_free_heap_size());

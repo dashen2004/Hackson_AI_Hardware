@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 // Register system functions
-void register_system(void);
+void register_system();
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,3 @@
-| Supported Targets | ESP32 |
-| ----------------- | ----- |
-
 # I2S Built-in ADC/DAC Example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -38,10 +35,10 @@ The following is the hardware connection:
 ### Configure the Project
 
 ```
-idf.py menuconfig
+make menuconfig
 ```
 
-* Set the flash size to 4 MB under Serial Flasher Options.
+* Set serial port under Serial Flasher Options, the flash size should be set to 4 MB.
 * Select "Custom partition table CSV" and rename "Custom partition CSV file" to "partitions_adc_dac_example.csv".
 
 (Note that you can use `sdkconfig.defaults`)
@@ -51,7 +48,7 @@ idf.py menuconfig
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
 ```
-idf.py -p PORT flash monitor
+make -j4 flash monitor
 ```
 
 (To exit the serial monitor, type ``Ctrl-]``.)
@@ -88,7 +85,7 @@ I2S: PLL_D2: Req RATE: 16000, real rate: 1004.000, BITS: 16, CLKM: 83, BCK: 60, 
 
 * Program upload failure
 
-    * Hardware connection is not correct: run `idf.py -p PORT monitor`, and reboot your board to see if there are any output logs.
+    * Hardware connection is not correct: run `make monitor`, and reboot your board to see if there are any output logs.
     * The baud rate for downloading is too high: lower your baud rate in the `menuconfig` menu, and try again.
 
 For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.

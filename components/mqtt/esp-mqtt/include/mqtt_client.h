@@ -12,11 +12,7 @@
 #include <string.h>
 #include "esp_err.h"
 
-#include "mqtt_config.h"
 #include "esp_event.h"
-#if CONFIG_ESP_TLS_USE_DS_PERIPHERAL
-#include "rsa_sign_alt.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,6 +57,13 @@ typedef enum {
                                         and current data offset updating.
                                          */
     MQTT_EVENT_BEFORE_CONNECT,     /*!< The event occurs before connecting */
+    MQTT_EVENT_DELETED,            /*!< Notification on delete of one message from the internal outbox,
+                                        if the message couldn't have been sent and acknowledged before expiring
+                                        defined in OUTBOX_EXPIRED_TIMEOUT_MS.
+                                        (events are not posted upon deletion of successfully acknowledged messages)
+                                        - This event id is posted only if MQTT_REPORT_DELETED_MESSAGES==1
+                                        - Additional context: msg_id (id of the deleted message).
+                                        */
 } esp_mqtt_event_id_t;
 
 /**
@@ -80,9 +83,16 @@ typedef enum {
  */
 typedef enum {
     MQTT_ERROR_TYPE_NONE = 0,
-    MQTT_ERROR_TYPE_ESP_TLS,
+    MQTT_ERROR_TYPE_TCP_TRANSPORT,
     MQTT_ERROR_TYPE_CONNECTION_REFUSED,
 } esp_mqtt_error_type_t;
+
+/**
+ * MQTT_ERROR_TYPE_TCP_TRANSPORT error type hold all sorts of transport layer errors,
+ * including ESP-TLS error, but in the past only the errors from MQTT_ERROR_TYPE_ESP_TLS layer
+ * were reported, so the ESP-TLS error type is re-defined here for backward compatibility
+ */
+#define MQTT_ERROR_TYPE_ESP_TLS MQTT_ERROR_TYPE_TCP_TRANSPORT
 
 typedef enum {
     MQTT_TRANSPORT_UNKNOWN = 0x0,
@@ -110,7 +120,7 @@ typedef enum {
  * Use this structure directly checking error_type first and then appropriate error code depending on the source of the error:
  *
  * | error_type | related member variables | note |
- * | MQTT_ERROR_TYPE_ESP_TLS | esp_tls_last_esp_err, esp_tls_stack_err, esp_tls_cert_verify_flags | Error reported from esp-tls |
+ * | MQTT_ERROR_TYPE_TCP_TRANSPORT | esp_tls_last_esp_err, esp_tls_stack_err, esp_tls_cert_verify_flags, sock_errno | Error reported from tcp_transport/esp-tls |
  * | MQTT_ERROR_TYPE_CONNECTION_REFUSED | connect_return_code | Internal error reported from MQTT broker on connection |
  */
 typedef struct esp_mqtt_error_codes {
@@ -121,6 +131,9 @@ typedef struct esp_mqtt_error_codes {
     /* esp-mqtt specific structure extension */
     esp_mqtt_error_type_t error_type;            /*!< error type referring to the source of the error */
     esp_mqtt_connect_return_code_t connect_return_code; /*!< connection refused error code reported from MQTT broker on connection */
+    /* tcp_transport extension */
+    int       esp_transport_sock_errno;         /*!< errno from the underlying socket */
+
 } esp_mqtt_error_codes_t;
 
 /**
@@ -179,7 +192,7 @@ typedef struct {
     int refresh_connection_after_ms;        /*!< Refresh connection after this value (in milliseconds) */
     const struct psk_key_hint* psk_hint_key;     /*!< Pointer to PSK struct defined in esp_tls.h to enable PSK authentication (as alternative to certificate verification). If not NULL and server/client certificates are NULL, PSK is enabled */
     bool          use_global_ca_store;      /*!< Use a global ca_store for all the connections in which this bool is set. */
-    int reconnect_timeout_ms;               /*!< Reconnect to the broker after this value in miliseconds if auto reconnect is not disabled */
+    int reconnect_timeout_ms;               /*!< Reconnect to the broker after this value in miliseconds if auto reconnect is not disabled (defaults to 10s) */
     const char **alpn_protos;               /*!< NULL-terminated list of supported application protocols to be used for ALPN */
     const char *clientkey_password;         /*!< Client key decryption password string */
     int clientkey_password_len;             /*!< String length of the password pointed to by clientkey_password */
@@ -188,6 +201,8 @@ typedef struct {
     bool skip_cert_common_name_check;       /*!< Skip any validation of server certificate CN field, this reduces the security of TLS and makes the mqtt client susceptible to MITM attacks  */
     bool use_secure_element;                /*!< enable secure element for enabling SSL connection */
     void *ds_data;                          /*!< carrier of handle for digital signature parameters */
+    int network_timeout_ms;                 /*!< Abort network operation if it is not completed after this value, in milliseconds (defaults to 10s) */
+    bool disable_keepalive;                 /*!< Set disable_keepalive=true to turn off keep-alive mechanism, false by default (keepalive is active by default). Note: setting the config value `keepalive` to `0` doesn't disable keepalive feature, but uses a default keepalive period */
 } esp_mqtt_client_config_t;
 
 /**
@@ -294,8 +309,10 @@ int esp_mqtt_client_unsubscribe(esp_mqtt_client_handle_t client, const char *top
  * - This API might block for several seconds, either due to network timeout (10s)
  *   or if publishing payloads longer than internal buffer (due to message
  *   fragmentation)
- * - Client doesn't have to be connected to send publish message
- *   (although it would drop all qos=0 messages, qos>1 messages would be enqueued)
+ * - Client doesn't have to be connected for this API to work, enqueueing the messages
+ *   with qos>1 (returning -1 for all the qos=0 messages if disconnected).
+ *   If MQTT_SKIP_PUBLISH_IF_DISCONNECTED is enabled, this API will not attempt to publish
+ *   when the client is not connected and will always return -1.
  * - It is thread safe, please refer to `esp_mqtt_client_subscribe` for details
  *
  * @param client    mqtt client handle
@@ -309,6 +326,27 @@ int esp_mqtt_client_unsubscribe(esp_mqtt_client_handle_t client, const char *top
  *         -1 on failure.
  */
 int esp_mqtt_client_publish(esp_mqtt_client_handle_t client, const char *topic, const char *data, int len, int qos, int retain);
+
+/**
+ * @brief Enqueue a message to the outbox, to be sent later. Typically used for messages with qos>0, but could
+ * be also used for qos=0 messages if store=true.
+ *
+ * This API generates and stores the publish message into the internal outbox and the actual sending
+ * to the network is performed in the mqtt-task context (in contrast to the esp_mqtt_client_publish()
+ * which sends the publish message immediately in the user task's context).
+ * Thus, it could be used as a non blocking version of esp_mqtt_client_publish().
+ *
+ * @param client    mqtt client handle
+ * @param topic     topic string
+ * @param data      payload string (set to NULL, sending empty payload message)
+ * @param len       data length, if set to 0, length is calculated from payload string
+ * @param qos       qos of publish message
+ * @param retain    retain flag
+ * @param store     if true, all messages are enqueued; otherwise only qos1 and qos 2 are enqueued
+ *
+ * @return message_id if queued successfully, -1 otherwise
+ */
+int esp_mqtt_client_enqueue(esp_mqtt_client_handle_t client, const char *topic, const char *data, int len, int qos, int retain, bool store);
 
 /**
  * @brief Destroys the client handle
@@ -346,6 +384,14 @@ esp_err_t esp_mqtt_set_config(esp_mqtt_client_handle_t client, const esp_mqtt_cl
  *         ESP_OK on success
  */
 esp_err_t esp_mqtt_client_register_event(esp_mqtt_client_handle_t client, esp_mqtt_event_id_t event, esp_event_handler_t event_handler, void* event_handler_arg);
+
+/**
+ * @brief Get outbox size
+ *
+ * @param client            mqtt client handle
+ * @return outbox size
+ */
+int esp_mqtt_client_get_outbox_size(esp_mqtt_client_handle_t client);
 
 #ifdef __cplusplus
 }

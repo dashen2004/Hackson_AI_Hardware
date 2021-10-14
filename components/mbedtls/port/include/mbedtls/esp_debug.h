@@ -14,8 +14,6 @@
 #ifndef _ESP_DEBUG_H_
 #define _ESP_DEBUG_H_
 
-#include "mbedtls/ssl.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -2,7 +2,7 @@
 #include <xtensa/corebits.h>
 #include <xtensa/config/system.h>
 #include "freertos/xtensa_context.h"
-#include "esp_private/panic_reason.h"
+
 #include "sdkconfig.h"
 #include "soc/soc.h"
 #include "soc/dport_reg.h"

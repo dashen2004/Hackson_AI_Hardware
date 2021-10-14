@@ -6,18 +6,17 @@
  * See README for more details.
  */
 
-#include "utils/common.h"
-#include "crypto.h"
+#include "crypto/common.h"
+#include "crypto/crypto.h"
 
-#include "utils/includes.h"
-#include "utils/common.h"
-#include "utils/wpa_debug.h"
+#include "wpa/includes.h"
+#include "wpa/common.h"
+#include "wpa/wpa_debug.h"
 
-#include "tls/rsa.h"
-#include "tls/pkcs1.h"
-#include "tls/pkcs8.h"
+#include "wpa2/tls/rsa.h"
+#include "wpa2/tls/pkcs1.h"
+#include "wpa2/tls/pkcs8.h"
 
-#ifndef USE_MBEDTLS_CRYPTO
 /* Dummy structures; these are just typecast to struct crypto_rsa_key */
 struct crypto_public_key;
 struct crypto_private_key;
@@ -28,6 +27,7 @@ struct crypto_public_key *  crypto_public_key_import(const u8 *key, size_t len)
 	return (struct crypto_public_key *)
 		crypto_rsa_import_public_key(key, len);
 }
+
 
 struct crypto_private_key *  crypto_private_key_import(const u8 *key,
 						      size_t len,
@@ -109,4 +109,3 @@ int  crypto_public_key_decrypt_pkcs1(struct crypto_public_key *key,
 	return pkcs1_decrypt_public_key((struct crypto_rsa_key *) key,
 					crypt, crypt_len, plain, plain_len);
 }
-#endif

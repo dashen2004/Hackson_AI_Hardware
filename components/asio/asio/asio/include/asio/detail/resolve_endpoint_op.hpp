@@ -2,7 +2,7 @@
 // detail/resolve_endpoint_op.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2019 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2018 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -17,6 +17,7 @@
 
 #include "asio/detail/config.hpp"
 #include "asio/error.hpp"
+#include "asio/io_context.hpp"
 #include "asio/ip/basic_resolver_results.hpp"
 #include "asio/detail/bind_handler.hpp"
 #include "asio/detail/fenced_block.hpp"
@@ -26,18 +27,12 @@
 #include "asio/detail/resolve_op.hpp"
 #include "asio/detail/socket_ops.hpp"
 
-#if defined(ASIO_HAS_IOCP)
-# include "asio/detail/win_iocp_io_context.hpp"
-#else // defined(ASIO_HAS_IOCP)
-# include "asio/detail/scheduler.hpp"
-#endif // defined(ASIO_HAS_IOCP)
-
 #include "asio/detail/push_options.hpp"
 
 namespace asio {
 namespace detail {
 
-template <typename Protocol, typename Handler, typename IoExecutor>
+template <typename Protocol, typename Handler>
 class resolve_endpoint_op : public resolve_op
 {
 public:
@@ -46,23 +41,15 @@ public:
   typedef typename Protocol::endpoint endpoint_type;
   typedef asio::ip::basic_resolver_results<Protocol> results_type;
 
-#if defined(ASIO_HAS_IOCP)
-  typedef class win_iocp_io_context scheduler_impl;
-#else
-  typedef class scheduler scheduler_impl;
-#endif
-
   resolve_endpoint_op(socket_ops::weak_cancel_token_type cancel_token,
-      const endpoint_type& endpoint, scheduler_impl& sched,
-      Handler& handler, const IoExecutor& io_ex)
+      const endpoint_type& endpoint, io_context_impl& ioc, Handler& handler)
     : resolve_op(&resolve_endpoint_op::do_complete),
       cancel_token_(cancel_token),
       endpoint_(endpoint),
-      scheduler_(sched),
-      handler_(ASIO_MOVE_CAST(Handler)(handler)),
-      io_executor_(io_ex)
+      io_context_impl_(ioc),
+      handler_(ASIO_MOVE_CAST(Handler)(handler))
   {
-    handler_work<Handler, IoExecutor>::start(handler_, io_executor_);
+    handler_work<Handler>::start(handler_);
   }
 
   static void do_complete(void* owner, operation* base,
@@ -72,9 +59,9 @@ public:
     // Take ownership of the operation object.
     resolve_endpoint_op* o(static_cast<resolve_endpoint_op*>(base));
     ptr p = { asio::detail::addressof(o->handler_), o, o };
-    handler_work<Handler, IoExecutor> w(o->handler_, o->io_executor_);
+    handler_work<Handler> w(o->handler_);
 
-    if (owner && owner != &o->scheduler_)
+    if (owner && owner != &o->io_context_impl_)
     {
       // The operation is being run on the worker io_context. Time to perform
       // the resolver operation.
@@ -88,7 +75,7 @@ public:
       o->results_ = results_type::create(o->endpoint_, host_name, service_name);
 
       // Pass operation back to main io_context for completion.
-      o->scheduler_.post_deferred_completion(o);
+      o->io_context_impl_.post_deferred_completion(o);
       p.v = p.p = 0;
     }
     else
@@ -122,9 +109,8 @@ public:
 private:
   socket_ops::weak_cancel_token_type cancel_token_;
   endpoint_type endpoint_;
-  scheduler_impl& scheduler_;
+  io_context_impl& io_context_impl_;
   Handler handler_;
-  IoExecutor io_executor_;
   results_type results_;
 };
 

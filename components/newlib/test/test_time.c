@@ -4,14 +4,15 @@
 #include "driver/adc.h"
 #include <time.h>
 #include <sys/time.h>
+#include "soc/rtc_cntl_reg.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "sdkconfig.h"
 #include "soc/rtc.h"
+#include "esp_clk.h"
 #include "esp_system.h"
 #include "test_utils.h"
-#include "esp_log.h"
 
 #if portNUM_PROCESSORS == 2
 
@@ -81,27 +82,25 @@ TEST_CASE("test adjtime function", "[newlib]")
     tv_delta.tv_sec = 0;
     tv_delta.tv_usec = -900000;
     TEST_ASSERT_EQUAL(adjtime(&tv_delta, &tv_outdelta), 0);
-    TEST_ASSERT_EQUAL(tv_outdelta.tv_sec, 0);
-    TEST_ASSERT_EQUAL(tv_outdelta.tv_usec, 0);
-    TEST_ASSERT_EQUAL(adjtime(NULL, &tv_outdelta), 0);
-    TEST_ASSERT_LESS_THAN(-800000, tv_outdelta.tv_usec);
+    TEST_ASSERT_TRUE(tv_outdelta.tv_usec <= 0);
+
+    tv_delta.tv_sec = 0;
+    tv_delta.tv_usec = 900000;
+    TEST_ASSERT_EQUAL(adjtime(&tv_delta, &tv_outdelta), 0);
+    TEST_ASSERT_TRUE(tv_outdelta.tv_usec >= 0);
 
     tv_delta.tv_sec = -4;
     tv_delta.tv_usec = -900000;
-    TEST_ASSERT_EQUAL(adjtime(&tv_delta, NULL), 0);
-    TEST_ASSERT_EQUAL(adjtime(NULL, &tv_outdelta), 0);
+    TEST_ASSERT_EQUAL(adjtime(&tv_delta, &tv_outdelta), 0);
     TEST_ASSERT_EQUAL(tv_outdelta.tv_sec,  -4);
-    TEST_ASSERT_LESS_THAN(-800000, tv_outdelta.tv_usec);
+    TEST_ASSERT_TRUE(tv_outdelta.tv_usec <= 0);
 
     // after settimeofday() adjtime() is stopped
     tv_delta.tv_sec = 15;
     tv_delta.tv_usec = 900000;
     TEST_ASSERT_EQUAL(adjtime(&tv_delta, &tv_outdelta), 0);
-    TEST_ASSERT_EQUAL(tv_outdelta.tv_sec, -4);
-    TEST_ASSERT_LESS_THAN(-800000, tv_outdelta.tv_usec);
-    TEST_ASSERT_EQUAL(adjtime(NULL, &tv_outdelta), 0);
     TEST_ASSERT_EQUAL(tv_outdelta.tv_sec,  15);
-    TEST_ASSERT_GREATER_OR_EQUAL(800000, tv_outdelta.tv_usec);
+    TEST_ASSERT_TRUE(tv_outdelta.tv_usec >= 0);
 
     TEST_ASSERT_EQUAL(gettimeofday(&tv_time, NULL), 0);
     TEST_ASSERT_EQUAL(settimeofday(&tv_time, NULL), 0);
@@ -114,24 +113,21 @@ TEST_CASE("test adjtime function", "[newlib]")
     tv_delta.tv_sec = 15;
     tv_delta.tv_usec = 900000;
     TEST_ASSERT_EQUAL(adjtime(&tv_delta, &tv_outdelta), 0);
-    TEST_ASSERT_EQUAL(tv_outdelta.tv_sec,  0);
-    TEST_ASSERT_EQUAL(tv_outdelta.tv_usec, 0);
-    TEST_ASSERT_EQUAL(adjtime(NULL, &tv_outdelta), 0);
     TEST_ASSERT_EQUAL(tv_outdelta.tv_sec,  15);
-    TEST_ASSERT_GREATER_OR_EQUAL(800000, tv_outdelta.tv_usec);
+    TEST_ASSERT_TRUE(tv_outdelta.tv_usec >= 0);
 
     TEST_ASSERT_EQUAL(gettimeofday(&tv_time, NULL), 0);
 
     TEST_ASSERT_EQUAL(adjtime(NULL, &tv_outdelta), 0);
     TEST_ASSERT_EQUAL(tv_outdelta.tv_sec,  15);
-    TEST_ASSERT_GREATER_OR_EQUAL(800000, tv_outdelta.tv_usec);
+    TEST_ASSERT_TRUE(tv_outdelta.tv_usec >= 0);
 
     tv_delta.tv_sec = 1;
     tv_delta.tv_usec = 0;
     TEST_ASSERT_EQUAL(adjtime(&tv_delta, NULL), 0);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     TEST_ASSERT_EQUAL(adjtime(NULL, &tv_outdelta), 0);
-    TEST_ASSERT_EQUAL(tv_outdelta.tv_sec, 0);
+    TEST_ASSERT_TRUE(tv_outdelta.tv_sec == 0);
     // the correction will be equal to (1_000_000us >> 6) = 15_625 us.
     TEST_ASSERT_TRUE(1000000L - tv_outdelta.tv_usec >= 15600);
     TEST_ASSERT_TRUE(1000000L - tv_outdelta.tv_usec <= 15650);
@@ -220,6 +216,7 @@ static void get_time_task(void *pvParameters)
     // although exit flag is set in another task, checking (exit_flag == false) is safe
     while (exit_flag == false) {
         gettimeofday(&tv_time, NULL);
+        vTaskDelay(1500 / portTICK_PERIOD_MS);
     }
     xSemaphoreGive(*sema);
     vTaskDelete(NULL);
@@ -228,13 +225,9 @@ static void get_time_task(void *pvParameters)
 static void start_measure(int64_t* sys_time, int64_t* real_time)
 {
     struct timeval tv_time;
-    int64_t t1, t2;
-    do {
-        t1 = esp_timer_get_time();
-        gettimeofday(&tv_time, NULL);
-        t2 = esp_timer_get_time();
-    } while (t2 - t1 > 40);
-    *real_time = t2;
+    // there shouldn't be much time between gettimeofday and esp_timer_get_time
+    gettimeofday(&tv_time, NULL);
+    *real_time = esp_timer_get_time();
     *sys_time = (int64_t)tv_time.tv_sec * 1000000L + tv_time.tv_usec;
 }
 
@@ -270,7 +263,7 @@ static void measure_time_task(void *pvParameters)
         int64_t sys_time_us[2] = { main_sys_time_us[0], 0};
         // although exit flag is set in another task, checking (exit_flag == false) is safe
         while (exit_flag == false) {
-            ets_delay_us(2 * 1000000); // 2 sec
+            vTaskDelay(2000 / portTICK_PERIOD_MS);
 
             start_measure(&sys_time_us[1], &real_time_us[1]);
             result_adjtime_correction_us[1] += calc_correction("measure", sys_time_us, real_time_us);
@@ -291,7 +284,7 @@ static void measure_time_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
-TEST_CASE("test time adjustment happens linearly", "[newlib][timeout=35]")
+TEST_CASE("test time adjustment happens linearly", "[newlib][timeout=15]")
 {
     exit_flag = false;
 
@@ -304,8 +297,8 @@ TEST_CASE("test time adjustment happens linearly", "[newlib][timeout=35]")
     xTaskCreatePinnedToCore(get_time_task, "get_time_task", 4096, &exit_sema[0], UNITY_FREERTOS_PRIORITY - 1, NULL, 0);
     xTaskCreatePinnedToCore(measure_time_task, "measure_time_task", 4096, &exit_sema[1], UNITY_FREERTOS_PRIORITY - 1, NULL, 1);
 
-    printf("start waiting for 30 seconds\n");
-    vTaskDelay(30000 / portTICK_PERIOD_MS);
+    printf("start waiting for 10 seconds\n");
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
 
     // set exit flag to let thread exit
     exit_flag = true;
@@ -322,11 +315,11 @@ TEST_CASE("test time adjustment happens linearly", "[newlib][timeout=35]")
 }
 #endif
 
-#if defined( CONFIG_ESP32_TIME_SYSCALL_USE_RTC ) || defined( CONFIG_ESP32_TIME_SYSCALL_USE_RTC_FRC1 ) || defined( CONFIG_ESP32S2_TIME_SYSCALL_USE_RTC ) || defined( CONFIG_ESP32S2_TIME_SYSCALL_USE_RTC_FRC1 )
+#if defined( CONFIG_ESP32_TIME_SYSCALL_USE_RTC ) || defined( CONFIG_ESP32_TIME_SYSCALL_USE_RTC_FRC1 )
 #define WITH_RTC 1
 #endif
 
-#if defined( CONFIG_ESP32_TIME_SYSCALL_USE_FRC1 ) || defined( CONFIG_ESP32_TIME_SYSCALL_USE_RTC_FRC1 ) || defined( CONFIG_ESP32S2_TIME_SYSCALL_USE_FRC1 ) || defined( CONFIG_ESP32S2_TIME_SYSCALL_USE_RTC_FRC1 )
+#if defined( CONFIG_ESP32_TIME_SYSCALL_USE_FRC1 ) || defined( CONFIG_ESP32_TIME_SYSCALL_USE_RTC_FRC1 )
 #define WITH_FRC 1
 #endif
 void test_posix_timers_clock (void)
@@ -343,7 +336,7 @@ void test_posix_timers_clock (void)
     printf("WITH_RTC    ");
 #endif
 
-#ifdef CONFIG_ESP32_RTC_CLK_SRC_EXT_CRYS
+#ifdef CONFIG_ESP32_RTC_CLOCK_SOURCE_EXTERNAL_CRYSTAL
     printf("External (crystal) Frequency = %d Hz\n", rtc_clk_slow_freq_get_hz());
 #else
     printf("Internal Frequency = %d Hz\n", rtc_clk_slow_freq_get_hz());
@@ -426,92 +419,3 @@ TEST_CASE("test posix_timers clock_... functions", "[newlib]")
 {
     test_posix_timers_clock();
 }
-
-#ifdef CONFIG_SDK_TOOLCHAIN_SUPPORTS_TIME_WIDE_64_BITS
-#include <string.h>
-
-static struct timeval get_time(const char *desc, char *buffer)
-{
-    struct timeval timestamp;
-    gettimeofday(&timestamp, NULL);
-    struct tm* tm_info = localtime(&timestamp.tv_sec);
-    strftime(buffer, 32, "%c", tm_info);
-    ESP_LOGI("TAG", "%s: %016llX (%s)", desc, timestamp.tv_sec, buffer);
-    return timestamp;
-}
-
-TEST_CASE("test time_t wide 64 bits", "[newlib]")
-{
-    static char buffer[32];
-    ESP_LOGI("TAG", "sizeof(time_t): %d (%d-bit)", sizeof(time_t), sizeof(time_t)*8);
-    TEST_ASSERT_EQUAL(8, sizeof(time_t));
-
-    struct tm tm = {4, 14, 3, 19, 0, 138, 0, 0, 0};
-    struct timeval timestamp = { mktime(&tm), 0 };
-    ESP_LOGI("TAG", "timestamp: %016llX", timestamp.tv_sec);
-    settimeofday(&timestamp, NULL);
-    get_time("Set time", buffer);
-
-    while (timestamp.tv_sec < 0x80000003LL) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        timestamp = get_time("Time now", buffer);
-    }
-    TEST_ASSERT_EQUAL_MEMORY("Tue Jan 19 03:14:11 2038", buffer, strlen(buffer));
-}
-
-TEST_CASE("test time functions wide 64 bits", "[newlib]")
-{
-    static char origin_buffer[32];
-    char strftime_buf[64];
-
-    int year = 2018;
-    struct tm tm = {0, 14, 3, 19, 0, year - 1900, 0, 0, 0};
-    time_t t = mktime(&tm);
-    while (year < 2119) {
-        struct timeval timestamp = { t, 0 };
-        ESP_LOGI("TAG", "year: %d", year);
-        settimeofday(&timestamp, NULL);
-        get_time("Time now", origin_buffer);
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-        t += 86400 * 366;
-        struct tm timeinfo = { 0 };
-        time_t now;
-        time(&now);
-        localtime_r(&now, &timeinfo);
-
-        time_t t = mktime(&timeinfo);
-        ESP_LOGI("TAG", "Test mktime(). Time: %016llX", t);
-        TEST_ASSERT_EQUAL(timestamp.tv_sec, t);
-        // mktime() has error in newlib-3.0.0. It fixed in newlib-3.0.0.20180720
-        TEST_ASSERT_EQUAL((timestamp.tv_sec >> 32), (t >> 32));
-
-        strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-        ESP_LOGI("TAG", "Test time() and localtime_r(). Time: %s", strftime_buf);
-        TEST_ASSERT_EQUAL(timeinfo.tm_year, year - 1900);
-        TEST_ASSERT_EQUAL_MEMORY(origin_buffer, strftime_buf, strlen(origin_buffer));
-
-        struct tm *tm2 = localtime(&now);
-        strftime(strftime_buf, sizeof(strftime_buf), "%c", tm2);
-        ESP_LOGI("TAG", "Test localtime(). Time: %s", strftime_buf);
-        TEST_ASSERT_EQUAL(tm2->tm_year, year - 1900);
-        TEST_ASSERT_EQUAL_MEMORY(origin_buffer, strftime_buf, strlen(origin_buffer));
-
-        struct tm *gm = gmtime(&now);
-        strftime(strftime_buf, sizeof(strftime_buf), "%c", gm);
-        ESP_LOGI("TAG", "Test gmtime(). Time: %s", strftime_buf);
-        TEST_ASSERT_EQUAL_MEMORY(origin_buffer, strftime_buf, strlen(origin_buffer));
-
-        const char* time_str1 = ctime(&now);
-        ESP_LOGI("TAG", "Test ctime(). Time: %s", time_str1);
-        TEST_ASSERT_EQUAL_MEMORY(origin_buffer, time_str1, strlen(origin_buffer));
-
-        const char* time_str2 = asctime(&timeinfo);
-        ESP_LOGI("TAG", "Test asctime(). Time: %s", time_str2);
-        TEST_ASSERT_EQUAL_MEMORY(origin_buffer, time_str2, strlen(origin_buffer));
-
-        printf("\n");
-        ++year;
-    }
-}
-
-#endif // CONFIG_SDK_TOOLCHAIN_SUPPORTS_TIME_WIDE_64_BITS

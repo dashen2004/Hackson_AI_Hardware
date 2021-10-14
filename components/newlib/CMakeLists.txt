@@ -1,42 +1,37 @@
-set(srcs 
-    "abort.c"
-    "heap.c"
-    "locks.c"
-    "poll.c"
-    "pthread.c"
-    "random.c"
-    "reent_init.c"
-    "syscall_table.c"
-    "syscalls.c"
-    "termios.c"
-    "time.c")
-set(include_dirs platform_include)
+set(COMPONENT_SRCS "locks.c"
+                   "pthread.c"
+                   "random.c"
+                   "reent_init.c"
+                   "select.c"
+                   "poll.c"
+                   "syscall_table.c"
+                   "syscalls.c"
+                   "termios.c"
+                   "utime.c"
+                   "time.c")
+set(COMPONENT_ADD_INCLUDEDIRS platform_include include)
 
 if(CONFIG_SPIRAM_CACHE_WORKAROUND)
-    set(ldfragments esp32-spiram-rom-functions-c.lf)
+    set(LIBC c-psram-workaround)
+    set(LIBM m-psram-workaround)
+
+    set(COMPONENT_ADD_LDFRAGMENTS esp32-spiram-rom-functions.lf)
+else()
+
+    if(CONFIG_NEWLIB_NANO_FORMAT)
+        set(LIBC c_nano)
+    else()
+        set(LIBC c)
+    endif()
+
+    set(LIBM m)
 endif()
 
-list(APPEND ldfragments newlib.lf)
+set(COMPONENT_REQUIRES vfs)  # for sys/ioctl.h
 
-idf_component_register(SRCS "${srcs}"
-                    INCLUDE_DIRS "${include_dirs}"
-                    PRIV_REQUIRES soc esp_timer
-                    LDFRAGMENTS "${ldfragments}")  
+register_component()
 
-# Toolchain libraries require code defined in this component
-idf_component_get_property(newlib newlib COMPONENT_LIB)
-target_link_libraries(${COMPONENT_LIB} INTERFACE c m gcc "$<TARGET_FILE:${newlib}>")
+target_link_libraries(${COMPONENT_TARGET} "-L ${CMAKE_CURRENT_SOURCE_DIR}/lib")
+target_link_libraries(${COMPONENT_TARGET} ${LIBC} ${LIBM})
 
-set_source_files_properties(heap.c PROPERTIES COMPILE_FLAGS -fno-builtin)
-
-# Forces the linker to include locks, heap, and syscalls from this component,
-# instead of the implementations provided by newlib.
-set(EXTRA_LINK_FLAGS "-u newlib_include_locks_impl")
-list(APPEND EXTRA_LINK_FLAGS "-u newlib_include_heap_impl")
-list(APPEND EXTRA_LINK_FLAGS "-u newlib_include_syscalls_impl")
-list(APPEND EXTRA_LINK_FLAGS "-u newlib_include_pthread_impl")
-target_link_libraries(${COMPONENT_LIB} INTERFACE "${EXTRA_LINK_FLAGS}")
-
-if(CONFIG_NEWLIB_NANO_FORMAT)
-    target_link_libraries(${COMPONENT_LIB} INTERFACE "--specs=nano.specs")
-endif()
+set_source_files_properties(syscalls.c PROPERTIES COMPILE_FLAGS -fno-builtin)

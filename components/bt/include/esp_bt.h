@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20200622
+#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20200611
 
 /**
  * @brief Bluetooth mode for controller enable/disable
@@ -36,21 +36,6 @@ typedef enum {
     ESP_BT_MODE_CLASSIC_BT = 0x02,   /*!< Run Classic BT mode */
     ESP_BT_MODE_BTDM       = 0x03,   /*!< Run dual mode */
 } esp_bt_mode_t;
-
-/**
- * @brief BLE sleep clock accuracy(SCA), values for ble_sca field in esp_bt_controller_config_t,
- *        currently only ESP_BLE_SCA_500PPM and ESP_BLE_SCA_250PPM are supported
- */
-enum {
-    ESP_BLE_SCA_500PPM     = 0,   /*!< BLE SCA at 500ppm */
-    ESP_BLE_SCA_250PPM,           /*!< BLE SCA at 250ppm */
-    ESP_BLE_SCA_150PPM,           /*!< BLE SCA at 150ppm */
-    ESP_BLE_SCA_100PPM,           /*!< BLE SCA at 100ppm */
-    ESP_BLE_SCA_75PPM,            /*!< BLE SCA at 75ppm */
-    ESP_BLE_SCA_50PPM,            /*!< BLE SCA at 50ppm */
-    ESP_BLE_SCA_30PPM,            /*!< BLE SCA at 30ppm */
-    ESP_BLE_SCA_20PPM,            /*!< BLE SCA at 20ppm */
-};
 
 #ifdef CONFIG_BT_ENABLED
 /* While scanning, if the free memory value in controller is less than SCAN_SEND_ADV_RESERVED_SIZE,
@@ -71,30 +56,30 @@ the adv packet will be discarded until the memory is restored. */
 #define BT_HCI_UART_BAUDRATE_DEFAULT                921600
 #endif /* BT_HCI_UART_BAUDRATE_DEFAULT */
 
-#ifdef CONFIG_BTDM_SCAN_DUPL_TYPE
-#define SCAN_DUPLICATE_TYPE_VALUE  CONFIG_BTDM_SCAN_DUPL_TYPE
+#ifdef CONFIG_SCAN_DUPLICATE_TYPE
+#define SCAN_DUPLICATE_TYPE_VALUE  CONFIG_SCAN_DUPLICATE_TYPE
 #else
 #define SCAN_DUPLICATE_TYPE_VALUE  0
 #endif
 
 /* normal adv cache size */
-#ifdef CONFIG_BTDM_SCAN_DUPL_CACHE_SIZE
-#define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            CONFIG_BTDM_SCAN_DUPL_CACHE_SIZE
+#ifdef CONFIG_DUPLICATE_SCAN_CACHE_SIZE
+#define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            CONFIG_DUPLICATE_SCAN_CACHE_SIZE
 #else
 #define NORMAL_SCAN_DUPLICATE_CACHE_SIZE            20
 #endif
 
-#ifndef CONFIG_BTDM_BLE_MESH_SCAN_DUPL_EN
-#define CONFIG_BTDM_BLE_MESH_SCAN_DUPL_EN FALSE
+#ifndef CONFIG_BLE_MESH_SCAN_DUPLICATE_EN
+#define CONFIG_BLE_MESH_SCAN_DUPLICATE_EN FALSE
 #endif
 
 #define SCAN_DUPLICATE_MODE_NORMAL_ADV_ONLY         0
 #define SCAN_DUPLICATE_MODE_NORMAL_ADV_MESH_ADV     1
 
-#if CONFIG_BTDM_BLE_MESH_SCAN_DUPL_EN
+#if CONFIG_BLE_MESH_SCAN_DUPLICATE_EN
     #define SCAN_DUPLICATE_MODE                     SCAN_DUPLICATE_MODE_NORMAL_ADV_MESH_ADV
-    #ifdef CONFIG_BTDM_MESH_DUPL_SCAN_CACHE_SIZE
-    #define MESH_DUPLICATE_SCAN_CACHE_SIZE          CONFIG_BTDM_MESH_DUPL_SCAN_CACHE_SIZE
+    #ifdef CONFIG_MESH_DUPLICATE_SCAN_CACHE_SIZE
+    #define MESH_DUPLICATE_SCAN_CACHE_SIZE          CONFIG_MESH_DUPLICATE_SCAN_CACHE_SIZE
     #else
     #define MESH_DUPLICATE_SCAN_CACHE_SIZE          50
     #endif
@@ -103,9 +88,9 @@ the adv packet will be discarded until the memory is restored. */
     #define MESH_DUPLICATE_SCAN_CACHE_SIZE          0
 #endif
 
-#if defined(CONFIG_BTDM_CTRL_MODE_BLE_ONLY)
+#if defined(CONFIG_BTDM_CONTROLLER_MODE_BLE_ONLY)
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BLE
-#elif defined(CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY)
+#elif defined(CONFIG_BTDM_CONTROLLER_MODE_BR_EDR_ONLY)
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_CLASSIC_BT
 #else
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BTDM
@@ -142,15 +127,12 @@ the adv packet will be discarded until the memory is restored. */
     .send_adv_reserved_size = SCAN_SEND_ADV_RESERVED_SIZE,                 \
     .controller_debug_flag = CONTROLLER_ADV_LOST_DEBUG_BIT,                \
     .mode = BTDM_CONTROLLER_MODE_EFF,                                      \
-    .ble_max_conn = CONFIG_BTDM_CTRL_BLE_MAX_CONN_EFF,                     \
-    .bt_max_acl_conn = CONFIG_BTDM_CTRL_BR_EDR_MAX_ACL_CONN_EFF,           \
+    .ble_max_conn = CONFIG_BTDM_CONTROLLER_BLE_MAX_CONN_EFF,               \
+    .bt_max_acl_conn = CONFIG_BTDM_CONTROLLER_BR_EDR_MAX_ACL_CONN_EFF,     \
     .bt_sco_datapath = CONFIG_BTDM_CTRL_BR_EDR_SCO_DATA_PATH_EFF,          \
     .auto_latency = BTDM_CTRL_AUTO_LATENCY_EFF,                            \
     .bt_legacy_auth_vs_evt = BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF,         \
-    .bt_max_sync_conn = CONFIG_BTDM_CTRL_BR_EDR_MAX_SYNC_CONN_EFF,         \
-    .ble_sca = CONFIG_BTDM_BLE_SLEEP_CLOCK_ACCURACY_INDEX_EFF,             \
-    .pcm_role = CONFIG_BTDM_CTRL_PCM_ROLE_EFF,                             \
-    .pcm_polar = CONFIG_BTDM_CTRL_PCM_POLAR_EFF,                           \
+    .bt_max_sync_conn = CONFIG_BTDM_CONTROLLER_BR_EDR_MAX_SYNC_CONN_EFF,   \
     .magic = ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL,                           \
 };
 
@@ -189,9 +171,6 @@ typedef struct {
      * So, do not modify the value when esp_bt_controller_init()
      */
     uint8_t bt_max_sync_conn;               /*!< BR/EDR maximum ACL connection numbers. Effective in menuconfig */
-    uint8_t ble_sca;                        /*!< BLE low power crystal accuracy index */
-    uint8_t pcm_role;                       /*!< PCM role (master & slave)*/
-    uint8_t pcm_polar;                      /*!< PCM polar trig (falling clk edge & rising clk edge) */
     uint32_t magic;                         /*!< Magic number */
 } esp_bt_controller_config_t;
 
@@ -324,6 +303,7 @@ esp_err_t esp_bt_controller_init(esp_bt_controller_config_t *cfg);
  * @brief  De-initialize BT controller to free resource and delete task.
  *
  * This function should be called only once, after any other BT functions are called.
+ * This function is not whole completed, esp_bt_controller_init cannot called after this function.
  * @return  ESP_OK - success, other - failed
  */
 esp_err_t esp_bt_controller_deinit(void);
@@ -350,12 +330,6 @@ esp_err_t esp_bt_controller_disable(void);
  * @return status value
  */
 esp_bt_controller_status_t esp_bt_controller_get_status(void);
-
-/**
- * @brief  Get BT MAC address.
- * @return Array pointer of length 6 storing MAC address value.
- */
-uint8_t* esp_bt_get_mac(void);
 
 /** @brief esp_vhci_host_callback
  *  used for vhci call host function to notify what host need to do
@@ -442,8 +416,6 @@ esp_err_t esp_bt_controller_mem_release(esp_bt_mode_t mode);
  *      esp_bt_controller_deinit();
  *      esp_bt_mem_release(ESP_BT_MODE_BTDM);
  *
- * @note In case of NimBLE host, to release BSS and data memory to heap, the mode needs to be
- * set to ESP_BT_MODE_BTDM as controller is dual mode.
  * @param mode : the mode whose memory is to be released
  * @return ESP_OK - success, other - failed
  */
@@ -457,7 +429,7 @@ esp_err_t esp_bt_mem_release(esp_bt_mode_t mode);
  * There are currently two options for bluetooth modem sleep, one is ORIG mode, and another is EVED Mode. EVED Mode is intended for BLE only.
  *
  * For ORIG mode:
- * Bluetooth modem sleep is enabled in controller start up by default if CONFIG_BTDM_MODEM_SLEEP is set and "ORIG mode" is selected. In ORIG modem sleep mode, bluetooth controller will switch off some components and pause to work every now and then, if there is no event to process; and wakeup according to the scheduled interval and resume the work. It can also wakeup earlier upon external request using function "esp_bt_controller_wakeup_request".
+ * Bluetooth modem sleep is enabled in controller start up by default if CONFIG_BTDM_CONTROLLER_MODEM_SLEEP is set and "ORIG mode" is selected. In ORIG modem sleep mode, bluetooth controller will switch off some components and pause to work every now and then, if there is no event to process; and wakeup according to the scheduled interval and resume the work. It can also wakeup earlier upon external request using function "esp_bt_controller_wakeup_request".
  *
  * @return
  *                  - ESP_OK : success
@@ -488,7 +460,6 @@ esp_err_t esp_bt_sleep_disable(void);
  * Note that scan duplicate list will be automatically cleared when the maximum amount of device in the filter is reached
  * the amount of device in the filter can be configured in menuconfig.
  *
- * @note This function name is incorrectly spelled, it will be fixed in release 5.x version.
  *
  * @return
  *                  - ESP_OK : success

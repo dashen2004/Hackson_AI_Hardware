@@ -2,11 +2,13 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/random.h>
+
 #include "esp_log.h"
 #include "esp_transport.h"
 #include "esp_transport_tcp.h"
 #include "esp_transport_ws.h"
 #include "esp_transport_utils.h"
+#include "transport_strcasestr.h"
 #include "mbedtls/base64.h"
 #include "mbedtls/sha1.h"
 
@@ -14,13 +16,11 @@ static const char *TAG = "TRANSPORT_WS";
 
 #define DEFAULT_WS_BUFFER (1024)
 #define WS_FIN            0x80
-#define WS_OPCODE_CONT    0x00
 #define WS_OPCODE_TEXT    0x01
 #define WS_OPCODE_BINARY  0x02
 #define WS_OPCODE_CLOSE   0x08
 #define WS_OPCODE_PING    0x09
 #define WS_OPCODE_PONG    0x0a
-
 // Second byte
 #define WS_MASK           0x80
 #define WS_SIZE16         126
@@ -85,7 +85,7 @@ static char *trimwhitespace(const char *str)
 
 static char *get_http_header(const char *buffer, const char *key)
 {
-    char *found = strcasestr(buffer, key);
+    char *found = transport_strcasestr(buffer, key);
     if (found) {
         found += strlen(key);
         char *found_end = strstr(found, "\r\n");
@@ -112,7 +112,9 @@ static int ws_connect(esp_transport_handle_t t, const char *host, int port, int 
     // Size of base64 coded string is equal '((input_size * 4) / 3) + (input_size / 96) + 6' including Z-term
     unsigned char client_key[28] = {0};
 
+    // Default values for backwards compatibility
     const char *user_agent_ptr = (ws->user_agent)?(ws->user_agent):"ESP32 Websocket Client";
+    const char *sub_protocol_ptr = (ws->sub_protocol)?(ws->sub_protocol):"mqtt";
 
     size_t outlen = 0;
     mbedtls_base64_encode(client_key, sizeof(client_key), &outlen, random_key, sizeof(random_key));
@@ -120,26 +122,17 @@ static int ws_connect(esp_transport_handle_t t, const char *host, int port, int 
                          "GET %s HTTP/1.1\r\n"
                          "Connection: Upgrade\r\n"
                          "Host: %s:%d\r\n"
-                         "User-Agent: %s\r\n"
                          "Upgrade: websocket\r\n"
                          "Sec-WebSocket-Version: 13\r\n"
-                         "Sec-WebSocket-Key: %s\r\n",
+                         "Sec-WebSocket-Protocol: %s\r\n"
+                         "Sec-WebSocket-Key: %s\r\n"
+                         "User-Agent: %s\r\n",
                          ws->path,
-                         host, port, user_agent_ptr,
-                         client_key);
+                         host, port, sub_protocol_ptr,
+                         client_key, user_agent_ptr);
     if (len <= 0 || len >= DEFAULT_WS_BUFFER) {
         ESP_LOGE(TAG, "Error in request generation, %d", len);
         return -1;
-    }
-    if (ws->sub_protocol) {
-        ESP_LOGD(TAG, "sub_protocol: %s", ws->sub_protocol);
-        int r = snprintf(ws->buffer + len, DEFAULT_WS_BUFFER - len, "Sec-WebSocket-Protocol: %s\r\n", ws->sub_protocol);
-        len += r;
-        if (r <= 0 || len >= DEFAULT_WS_BUFFER) {
-            ESP_LOGE(TAG, "Error in request generation"
-                          "(snprintf of subprotocol returned %d, desired request len: %d, buffer size: %d", r, len, DEFAULT_WS_BUFFER);
-            return -1;
-        }
     }
     if (ws->headers) {
         ESP_LOGD(TAG, "headers: %s", ws->headers);
@@ -250,6 +243,7 @@ static int _ws_write(esp_transport_handle_t t, int opcode, int mask_flag, const 
         ESP_LOGE(TAG, "Error write header");
         return -1;
     }
+
     if (len == 0) {
         return 0;
     }
@@ -279,13 +273,6 @@ int esp_transport_ws_send_raw(esp_transport_handle_t t, ws_transport_opcodes_t o
 
 static int ws_write(esp_transport_handle_t t, const char *b, int len, int timeout_ms)
 {
-    if (len == 0) {
-        // Default transport write of zero length in ws layer sends out a ping message.
-        // This behaviour could however be altered in IDF 5.0, since a separate API for sending
-        // messages with user defined opcodes has been introduced.
-        ESP_LOGD(TAG, "Write PING message");
-        return _ws_write(t, WS_OPCODE_PING | WS_FIN, WS_MASK, NULL, 0, timeout_ms);
-    }
     return _ws_write(t, WS_OPCODE_BINARY | WS_FIN, WS_MASK, b, len, timeout_ms);
 }
 
@@ -459,14 +446,12 @@ esp_transport_handle_t esp_transport_ws_init(esp_transport_handle_t parent_handl
     ws->path = strdup("/");
     ESP_TRANSPORT_MEM_CHECK(TAG, ws->path, {
         free(ws);
-	esp_transport_destroy(t);
         return NULL;
     });
     ws->buffer = malloc(DEFAULT_WS_BUFFER);
     ESP_TRANSPORT_MEM_CHECK(TAG, ws->buffer, {
         free(ws->path);
         free(ws);
-	esp_transport_destroy(t);
         return NULL;
     });
 
@@ -549,5 +534,3 @@ int esp_transport_ws_get_read_payload_len(esp_transport_handle_t t)
     transport_ws_t *ws = esp_transport_get_context_data(t);
     return ws->frame_state.payload_len;
 }
-
-

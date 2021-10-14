@@ -1,56 +1,54 @@
 menu "Application Level Tracing"
 
-    choice APPTRACE_DESTINATION
+    choice ESP32_APPTRACE_DESTINATION
         prompt "Data Destination"
-        default APPTRACE_DEST_NONE
+        default ESP32_APPTRACE_DEST_NONE
         help
             Select destination for application trace: trace memory or none (to disable).
 
-        config APPTRACE_DEST_TRAX
+        config ESP32_APPTRACE_DEST_TRAX
             bool "Trace memory"
-            select APPTRACE_ENABLE
-        config APPTRACE_DEST_NONE
+            select ESP32_APPTRACE_ENABLE
+        config ESP32_APPTRACE_DEST_NONE
             bool "None"
     endchoice
 
-    config APPTRACE_ENABLE
+    config ESP32_APPTRACE_ENABLE
         bool
-        depends on !ESP32_TRAX && !ESP32S2_TRAX
-        select ESP32_MEMMAP_TRACEMEM
-        select ESP32S2_MEMMAP_TRACEMEM
-        select ESP32_MEMMAP_TRACEMEM_TWOBANKS
-        select ESP32S2_MEMMAP_TRACEMEM_TWOBANKS
+        depends on !ESP32_TRAX
+        select MEMMAP_TRACEMEM
+        select MEMMAP_TRACEMEM_TWOBANKS
         default n
         help
             Enables/disable application tracing module.
 
-    config APPTRACE_LOCK_ENABLE
+    config ESP32_APPTRACE_LOCK_ENABLE
         bool
         default !SYSVIEW_ENABLE
         help
             Enables/disable application tracing module internal sync lock.
 
-    config APPTRACE_ONPANIC_HOST_FLUSH_TMO
+    config ESP32_APPTRACE_ONPANIC_HOST_FLUSH_TMO
         int "Timeout for flushing last trace data to host on panic"
-        depends on APPTRACE_ENABLE
+        depends on ESP32_APPTRACE_ENABLE
         range -1 5000
         default -1
         help
             Timeout for flushing last trace data to host in case of panic. In ms.
             Use -1 to disable timeout and wait forever.
 
-    config APPTRACE_POSTMORTEM_FLUSH_THRESH
+    config ESP32_APPTRACE_POSTMORTEM_FLUSH_TRAX_THRESH
         int "Threshold for flushing last trace data to host on panic"
-        depends on APPTRACE_DEST_TRAX
+        depends on ESP32_APPTRACE_DEST_TRAX
         range 0 16384
         default 0
         help
             Threshold for flushing last trace data to host on panic in post-mortem mode.
             This is minimal amount of data needed to perform flush. In bytes.
 
-    config APPTRACE_PENDING_DATA_SIZE_MAX
+    config ESP32_APPTRACE_PENDING_DATA_SIZE_MAX
         int "Size of the pending data buffer"
-        depends on APPTRACE_DEST_TRAX
+        depends on ESP32_APPTRACE_DEST_TRAX
         default 0
         help
             Size of the buffer for events in bytes. It is useful for buffering events from
@@ -58,10 +56,10 @@ menu "Application Level Tracing"
             events will be discarded when main HW buffer is full.
 
     menu "FreeRTOS SystemView Tracing"
-        depends on APPTRACE_ENABLE
+        depends on ESP32_APPTRACE_ENABLE
         config SYSVIEW_ENABLE
             bool "SystemView Tracing Enable"
-            depends on APPTRACE_ENABLE
+            depends on ESP32_APPTRACE_ENABLE
             default n
             help
                 Enables supporrt for SEGGER SystemView tracing functionality.
@@ -108,14 +106,6 @@ menu "Application Level Tracing"
             default 16
             help
                 Configures maximum supported tasks in sysview debug
-
-        config SYSVIEW_BUF_WAIT_TMO
-            int "Trace buffer wait timeout"
-            depends on SYSVIEW_ENABLE
-            default 500
-            help
-                Configures timeout (in us) to wait for free space in trace buffer.
-                Set to -1 to wait forever and avoid lost events.
 
         config SYSVIEW_EVT_OVERFLOW_ENABLE
             bool "Trace Buffer Overflow Event"
@@ -210,11 +200,10 @@ menu "Application Level Tracing"
 
     endmenu
 
-    config APPTRACE_GCOV_ENABLE
+    config ESP32_GCOV_ENABLE
         bool "GCOV to Host Enable"
-        depends on APPTRACE_ENABLE && !SYSVIEW_ENABLE
-        select ESP_DEBUG_STUBS_ENABLE
-        default n
+        depends on ESP32_DEBUG_STUBS_ENABLE && ESP32_APPTRACE_ENABLE && !SYSVIEW_ENABLE
+        default y
         help
             Enables support for GCOV data transfer to host.
 

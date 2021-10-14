@@ -74,7 +74,7 @@
 #include "lwip/ip_addr.h"
 #include "lwip/sys.h"
 #include <string.h>
-#include "esp32/rom/md5_hash.h"
+#include "rom/md5_hash.h"
 #include "soc/soc_memory_layout.h"
 
 #ifdef LWIP_HOOK_TCP_ISN

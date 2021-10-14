@@ -18,7 +18,7 @@
 #include <stdbool.h>
 
 #include "esp_err.h"
-#include "esp32/rom/spi_flash.h"
+#include "rom/spi_flash.h"
 
 /**
 * @brief This class is used to emulate flash devices.

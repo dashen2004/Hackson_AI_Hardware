@@ -31,9 +31,10 @@ to make ESPNOW data more safe and more reliable.
 ### Configure the project
 
 ```
-idf.py menuconfig
+make menuconfig
 ```
 
+* Set serial port under Serial Flasher Options.
 * Set WiFi mode (station or SoftAP) under Example Configuration Options.
 * Set ESPNOW primary master key under Example Configuration Options. 
   This parameter must be set to the same value for sending and recving devices.
@@ -52,7 +53,7 @@ idf.py menuconfig
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
 ```
-idf.py -p PORT flash monitor
+make -j4 flash monitor
 ```
 
 (To exit the serial monitor, type ``Ctrl-]``.)

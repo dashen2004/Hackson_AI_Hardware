@@ -1,7 +1,7 @@
 menu "FreeRTOS"
 
+    # This is actually also handled in the ESP32 startup code, not only in FreeRTOS.
     config FREERTOS_UNICORE
-        # This config variable is also checked in the ESP32 startup code, not only in FreeRTOS.
         bool "Run FreeRTOS only on first core"
         default n
         help
@@ -13,14 +13,13 @@ menu "FreeRTOS"
             # This invisible config value sets the value of tskNO_AFFINITY in task.h.
             # Intended to be used as a constant from other Kconfig files.
             # Value is (32-bit) INT_MAX.
-
     config FREERTOS_NO_AFFINITY
         hex
         default 0x7FFFFFFF
 
     choice FREERTOS_CORETIMER
         prompt "Xtensa timer to use as the FreeRTOS tick source"
-        default FREERTOS_CORETIMER_0
+        default CONFIG_FREERTOS_CORETIMER_0
         help
             FreeRTOS needs a timer with an associated interrupt to use as
             the main tick source to increase counters, run timers and do
@@ -38,15 +37,6 @@ menu "FreeRTOS"
                 Select this to use timer 1
 
     endchoice
-
-    config FREERTOS_OPTIMIZED_SCHEDULER
-        bool "Enable FreeRTOS pĺatform optimized scheduler"
-        depends on FREERTOS_UNICORE
-        default y
-        help
-            On most platforms there are instructions can speedup the ready task
-            searching. Enabling this option the FreeRTOS with this instructions
-            support will be built.
 
     config FREERTOS_HZ
         int "Tick rate (Hz)"
@@ -174,8 +164,6 @@ menu "FreeRTOS"
 
     config FREERTOS_ISR_STACKSIZE
         int "ISR stack size"
-        range 2096 32768 if ESP32_COREDUMP_DATA_FORMAT_ELF
-        default 2096 if ESP32_COREDUMP_DATA_FORMAT_ELF
         range 1536 32768
         default 1536
         help
@@ -204,7 +192,7 @@ menu "FreeRTOS"
 
             For most uses, the default of 16 is OK.
 
-    config FREERTOS_SUPPORT_STATIC_ALLOCATION
+    config SUPPORT_STATIC_ALLOCATION
         bool "Enable FreeRTOS static allocation API"
         default n
         help
@@ -232,9 +220,9 @@ menu "FreeRTOS"
             applications that simply don't allow any dynamic memory allocation (although FreeRTOS includes allocation
             schemes that can overcome most objections).
 
-    config FREERTOS_ENABLE_STATIC_TASK_CLEAN_UP
+    config ENABLE_STATIC_TASK_CLEAN_UP_HOOK
         bool "Enable static task clean up hook"
-        depends on FREERTOS_SUPPORT_STATIC_ALLOCATION
+        depends on SUPPORT_STATIC_ALLOCATION
         default n
         help
             Enable this option to make FreeRTOS call the static task clean up hook when a task is deleted.
@@ -245,7 +233,7 @@ menu "FreeRTOS"
                     // place clean up code here
                 }
 
-    config FREERTOS_TIMER_TASK_PRIORITY
+    config TIMER_TASK_PRIORITY
         int "FreeRTOS timer task priority"
         range 1 25
         default 1
@@ -256,7 +244,7 @@ menu "FreeRTOS"
 
             Use this constant to define the priority that the timer task will run at.
 
-    config FREERTOS_TIMER_TASK_STACK_DEPTH
+    config TIMER_TASK_STACK_DEPTH
         int "FreeRTOS timer task stack size"
         range 1536 32768
         default 2048
@@ -267,7 +255,7 @@ menu "FreeRTOS"
 
             Use this constant to define the size (in bytes) of the stack allocated for the timer task.
 
-    config FREERTOS_TIMER_QUEUE_LENGTH
+    config TIMER_QUEUE_LENGTH
         int "FreeRTOS timer queue length"
         range 5 20
         default 10
@@ -391,9 +379,38 @@ menu "FreeRTOS"
             FreeRTOS will enter light sleep mode if no tasks need to run for this number
             of ticks.
 
+    menuconfig FREERTOS_DEBUG_INTERNALS
+        bool "Debug FreeRTOS internals"
+        default n
+        help
+            Enable this option to show the menu with internal FreeRTOS debugging features.
+            This option does not change any code by itself, it just shows/hides some options.
+
+    if FREERTOS_DEBUG_INTERNALS
+
+        config FREERTOS_PORTMUX_DEBUG
+            bool "Debug portMUX portENTER_CRITICAL/portEXIT_CRITICAL"
+            depends on FREERTOS_DEBUG_INTERNALS
+            default n
+            help
+                If enabled, debug information (including integrity checks) will be printed
+                to UART for the port-specific MUX implementation.
+
+        if !FREERTOS_UNICORE
+            config FREERTOS_PORTMUX_DEBUG_RECURSIVE
+                bool "Debug portMUX Recursion"
+                depends on FREERTOS_PORTMUX_DEBUG
+                default n
+                help
+                    If enabled, additional debug information will be printed for recursive
+                    portMUX usage.
+        endif #FREERTOS_UNICORE
+
+    endif # FREERTOS_DEBUG_INTERNALS
+
     config FREERTOS_TASK_FUNCTION_WRAPPER
         bool "Enclose all task functions in a wrapper function"
-        depends on COMPILER_OPTIMIZATION_DEFAULT
+        depends on OPTIMIZATION_LEVEL_DEBUG
         default y
         help
             If enabled, all FreeRTOS task functions will be enclosed in a wrapper function.
@@ -416,18 +433,5 @@ menu "FreeRTOS"
             If enabled, context of port*_CRITICAL calls (ISR or Non-ISR)
             would be checked to be in compliance with Vanilla FreeRTOS.
             e.g Calling port*_CRITICAL from ISR context would cause assert failure
-
-    config FREERTOS_DEBUG_OCDAWARE
-        bool
-        help
-            Hidden option, gets selected by CONFIG_ESPxx_DEBUG_OCDAWARE
-
-    config FREERTOS_FPU_IN_ISR
-        bool "Allow use of float inside Level 1 ISR (EXPERIMENTAL)"
-        depends on IDF_TARGET_ESP32
-        default n
-        help
-            When enabled, the usage of float type is allowed inside Level 1
-            ISRs.
 
 endmenu

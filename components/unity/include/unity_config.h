@@ -27,7 +27,6 @@
 
 #define UNITY_EXCLUDE_TIME_H
 
-
 void unity_flush(void);
 void unity_putc(int c);
 void unity_gets(char* dst, size_t len);

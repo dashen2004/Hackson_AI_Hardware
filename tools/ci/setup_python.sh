@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#! /bin/bash
 
 if [ -z ${PYTHON_VER+x} ]; then
     # Use this version of the Python interpreter if it was not defined before
@@ -43,6 +43,3 @@ else
     echo 'No /opt/pyenv/activate exists and no Python interpreter is found!'
     exit 1
 fi
-
-# add esp-idf local package path to PYTHONPATH so it can be imported directly
-export PYTHONPATH="$IDF_PATH/tools:$IDF_PATH/tools/ci/python_packages:$PYTHONPATH"

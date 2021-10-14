@@ -1,2 +1,4 @@
-idf_component_register(SRCS "echo_server.cpp"
-                    INCLUDE_DIRS ".")
+set(COMPONENT_SRCS "echo_server.cpp")
+set(COMPONENT_ADD_INCLUDEDIRS ".")
+
+register_component()

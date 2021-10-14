@@ -13,7 +13,7 @@
 
 static const char *TAG = "example";
 
-void app_main(void)
+void app_main()
 {
     ESP_LOGI(TAG, "OTA Tool Example");
 

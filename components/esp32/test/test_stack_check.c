@@ -1,8 +1,8 @@
 #include "unity.h"
 
-#if CONFIG_COMPILER_STACK_CHECK
+#if CONFIG_STACK_CHECK
 
-static void recur_and_smash(void)
+static void recur_and_smash()
 {
     static int cnt;
     volatile uint8_t buf[50];

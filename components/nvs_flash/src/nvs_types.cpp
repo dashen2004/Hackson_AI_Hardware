@@ -14,7 +14,7 @@
 #include "nvs_types.hpp"
 
 #if defined(ESP_PLATFORM)
-#include <esp32/rom/crc.h>
+#include <rom/crc.h>
 #else
 #include "crc.h"
 #endif

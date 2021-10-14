@@ -129,7 +129,7 @@ int lwip_getaddrinfo(const char *nodename,
        struct addrinfo **res);
 
 #if LWIP_COMPAT_SOCKETS
-#if ESP_SOCKET
+#if ESP_LWIP
 #if LWIP_COMPAT_SOCKET_ADDR == 1
 /* Some libraries have problems with inet_... being macros, so please use this define 
    to declare normal functions */
@@ -156,7 +156,7 @@ static inline int getaddrinfo(const char *nodename, const char *servname, const 
        lwip_getaddrinfo(nodname, servname, hints, res)
 #endif /* LWIP_COMPAT_SOCKET_ADDR == 1 */
 
-#else /* ESP_SOCKET */
+#else /* ESP_LWIP */
 
 /** @ingroup netdbapi */
 #define gethostbyname(name) lwip_gethostbyname(name)
@@ -169,7 +169,7 @@ static inline int getaddrinfo(const char *nodename, const char *servname, const 
 #define getaddrinfo(nodname, servname, hints, res) \
        lwip_getaddrinfo(nodname, servname, hints, res)
 
-#endif /* ESP_SOCKET */
+#endif /* ESP_LWIP */
 #endif /* LWIP_COMPAT_SOCKETS */
 
 #ifdef __cplusplus

@@ -15,22 +15,22 @@ This example should be able to run on any commonly available ESP32 development b
 ### Configure the project
 
 ```
-idf.py menuconfig
+make menuconfig
 ```
 
-* Select `Enable FreeRTOS to collect run time stats` under `Component Config > FreeRTOS` (this should be enabled in the example by default)
+* Set serial port under Serial Flasher Options.
 
-* `Choose the clock source for run time stats` configured under `Component Config > FreeRTOS`. The `esp_timer` should be selected be default. This option will affect the time unit resolution in which the statistics are measured with respect to.
+* Enable FreeRTOS to collect run time stats under `Component Config->FreeRTOS`
+
+* The clock source of reference timer used for FreeRTOS statistics can be configured under `Component Config->FreeRTOS`
 
 ### Build and Flash
 
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
 ```
-idf.py -p PORT flash monitor
+make -j4 flash monitor
 ```
-
-(Replace PORT with the name of the serial port to use.)
 
 (To exit the serial monitor, type ``Ctrl-]``.)
 
@@ -38,10 +38,7 @@ See the Getting Started Guide for full steps to configure and use ESP-IDF to bui
 
 ## Example Output
 
-The example should have the following log output:
-
 ```
-...
 Getting real time stats over 100 ticks
 | Task | Run Time | Percentage
 | stats | 1304 | 0%
@@ -58,15 +55,17 @@ Getting real time stats over 100 ticks
 | ipc1 | 0 | 0%
 | ipc0 | 0 | 0%
 Real time stats obtained
-...
 ```
 
-## Example Breakdown
+- When compiled in dual core mode, the percentage is with respect to the combined run time of both CPUs. Thus, `50%` would indicate full utilization of a single CPU. 
+- In single core mode, the percentage is with respect to a single CPU. Thus, `100%` would indicate full utilization of the CPU.
 
-### Spin tasks
+The unit of `Run Time` is the period of the timer clock source used for FreeRTOS statistics.
 
-During the examples initialization process, multiple `spin` tasks are created. These tasks will simply spin a certain number of CPU cycles to consume CPU time, then block for a predetermined period.
+## Troubleshooting
 
-### Understanding the stats
-
-From the log output, it can be seen that the spin tasks consume nearly an equal amount of time over the specified stats collection period of `print_real_time_stats()`. The real time stats also display the CPU time consumption of other tasks created by default in ESP-IDF (e.g. `IDLE` and `ipc` tasks).
+```
+Getting real time stats over 100 ticks
+Error getting real time stats
+```
+If the above is output when running the example, users should check the return value of `print_real_time_stats()` to determine the reason for failure.

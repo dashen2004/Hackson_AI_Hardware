@@ -25,27 +25,22 @@
  */
 void esp_reent_init(struct _reent* r);
 
-/** 
- * Clean up some of lazily allocated buffers in REENT structures.
- */
-void esp_reent_cleanup(void);
-
 /**
  * Function which sets up syscall table used by newlib functions in ROM.
  *
  * Called from the startup code, not intended to be called from application
  * code.
  */
-void esp_setup_syscall_table(void);
+void esp_setup_syscall_table();
 
 /**
  * Update current microsecond time from RTC
  */
-void esp_set_time_from_rtc(void);
+void esp_set_time_from_rtc();
 
 /*
  * Sync counters RTC and FRC. Update boot_time.
  */
-void esp_sync_counters_rtc_and_frc(void);
+void esp_sync_counters_rtc_and_frc();
 
 #endif //__ESP_NEWLIB_H__

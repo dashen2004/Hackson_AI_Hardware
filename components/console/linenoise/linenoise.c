@@ -129,7 +129,6 @@ static int dumbmode = 0; /* Dumb mode where line editing is disabled. Off by def
 static int history_max_len = LINENOISE_DEFAULT_HISTORY_MAX_LEN;
 static int history_len = 0;
 static char **history = NULL;
-static bool allow_empty = true;
 
 /* The linenoiseState structure represents the state during line editing.
  * We pass this state to functions implementing specific editing
@@ -206,7 +205,7 @@ void linenoiseSetDumbMode(int set) {
 /* Use the ESC [6n escape sequence to query the horizontal cursor position
  * and return it. On error -1 is returned, on success the position of the
  * cursor. */
-static int getCursorPosition(void) {
+static int getCursorPosition() {
     char buf[32];
     int cols, rows;
     unsigned int i = 0;
@@ -229,7 +228,7 @@ static int getCursorPosition(void) {
 
 /* Try to get the number of columns in the current terminal, or assume 80
  * if it fails. */
-static int getColumns(void) {
+static int getColumns() {
     int start, cols;
 
     /* Get the initial position so we can restore it later. */
@@ -888,11 +887,7 @@ static int linenoiseEdit(char *buf, size_t buflen, const char *prompt)
     return l.len;
 }
 
-void linenoiseAllowEmpty(bool val) {
-    allow_empty = val;
-}
-
-int linenoiseProbe(void) {
+int linenoiseProbe() {
     /* Switch to non-blocking mode */
     int flags = fcntl(STDIN_FILENO, F_GETFL);
     flags |= O_NONBLOCK;
@@ -979,9 +974,6 @@ static void sanitize(char* src) {
 char *linenoise(const char *prompt) {
     char *buf = calloc(1, LINENOISE_MAX_LINE);
     int count = 0;
-    if (buf == NULL) {
-        return NULL;
-    }
     if (!dumbmode) {
         count = linenoiseRaw(buf, LINENOISE_MAX_LINE, prompt);
     } else {
@@ -990,9 +982,8 @@ char *linenoise(const char *prompt) {
     if (count > 0) {
         sanitize(buf);
         count = strlen(buf);
-    } else if (count == 0 && allow_empty) {
-        /* will return an empty (0-length) string */
-    } else {
+    }
+    if (count <= 0) {
         free(buf);
         return NULL;
     }
@@ -1009,7 +1000,7 @@ void linenoiseFree(void *ptr) {
 
 /* ================================ History ================================= */
 
-void linenoiseHistoryFree(void) {
+void linenoiseHistoryFree() {
     if (history) {
         for (int j = 0; j < history_len; j++) {
             free(history[j]);
@@ -1108,15 +1099,9 @@ int linenoiseHistorySave(const char *filename) {
  * on error -1 is returned. */
 int linenoiseHistoryLoad(const char *filename) {
     FILE *fp = fopen(filename,"r");
-    if (fp == NULL) {
-        return -1;
-    }
+    char buf[LINENOISE_MAX_LINE];
 
-    char *buf = calloc(1, LINENOISE_MAX_LINE);
-    if (buf == NULL) {
-        fclose(fp);
-        return -1;
-    }
+    if (fp == NULL) return -1;
 
     while (fgets(buf,LINENOISE_MAX_LINE,fp) != NULL) {
         char *p;
@@ -1126,9 +1111,6 @@ int linenoiseHistoryLoad(const char *filename) {
         if (p) *p = '\0';
         linenoiseHistoryAdd(buf);
     }
-
-    free(buf);
     fclose(fp);
-
     return 0;
 }

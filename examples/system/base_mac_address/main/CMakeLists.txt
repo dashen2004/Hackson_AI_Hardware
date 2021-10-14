@@ -1,2 +1,4 @@
-idf_component_register(SRCS "base_mac_address_example_main.c"
-                    INCLUDE_DIRS ".")
+set(COMPONENT_SRCS "base_mac_address_example_main.c")
+set(COMPONENT_ADD_INCLUDEDIRS ".")
+
+register_component()

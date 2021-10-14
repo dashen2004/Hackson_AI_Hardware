@@ -1,3 +1,7 @@
-idf_component_register(SRCS "iperf.c"
-                    INCLUDE_DIRS .
-                    REQUIRES lwip)
+set(COMPONENT_ADD_INCLUDEDIRS .)
+
+set(COMPONENT_SRCS "iperf.c")
+
+set(COMPONENT_REQUIRES lwip)
+
+register_component()

@@ -18,75 +18,61 @@
 #include <sys/errno.h>
 #include <sys/lock.h>
 #include <sys/fcntl.h>
-#include "esp_attr.h"
 #include "esp_vfs.h"
-#include "sdkconfig.h"
+#include "esp_vfs_dev.h"
+#include "esp_attr.h"
+#include "soc/uart_struct.h"
 #include "lwip/sockets.h"
+#include "sdkconfig.h"
 #include "lwip/sys.h"
-
-#ifndef CONFIG_VFS_SUPPORT_IO
-#error This file should only be built when CONFIG_VFS_SUPPORT_IO=y
-#endif
 
 _Static_assert(MAX_FDS >= CONFIG_LWIP_MAX_SOCKETS, "MAX_FDS < CONFIG_LWIP_MAX_SOCKETS");
 
-#ifdef CONFIG_VFS_SUPPORT_SELECT
-
-static void lwip_stop_socket_select(void *sem)
+static void lwip_stop_socket_select()
 {
-    sys_sem_signal(sem); //socket_select will return
+    sys_sem_signal(sys_thread_sem_get()); //socket_select will return
 }
 
-static void lwip_stop_socket_select_isr(void *sem, BaseType_t *woken)
+static void lwip_stop_socket_select_isr(BaseType_t *woken)
 {
-    if (sys_sem_signal_isr(sem) && woken) {
+    if (sys_sem_signal_isr(sys_thread_sem_get()) && woken) {
         *woken = pdTRUE;
     }
 }
 
-static void *lwip_get_socket_select_semaphore(void)
+static void *lwip_get_socket_select_semaphore()
 {
     /* Calling this from the same process as select() will ensure that the semaphore won't be allocated from
      * ISR (lwip_stop_socket_select_isr).
      */
     return (void *) sys_thread_sem_get();
 }
-#else // CONFIG_VFS_SUPPORT_SELECT
 
-int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *errorfds, struct timeval *timeout)
+static int lwip_fcntl_r_wrapper(int fd, int cmd, va_list args)
 {
-    return lwip_select(nfds, readfds, writefds, errorfds, timeout);
-}
-
-#endif // CONFIG_VFS_SUPPORT_SELECT
-
-static int lwip_fcntl_r_wrapper(int fd, int cmd, int arg)
-{
-    return lwip_fcntl(fd, cmd, arg);
+    return lwip_fcntl_r(fd, cmd, va_arg(args, int));
 }
 
 static int lwip_ioctl_r_wrapper(int fd, int cmd, va_list args)
 {
-    return lwip_ioctl(fd, cmd, va_arg(args, void *));
+    return lwip_ioctl_r(fd, cmd, va_arg(args, void *));
 }
 
-void esp_vfs_lwip_sockets_register(void)
+void esp_vfs_lwip_sockets_register()
 {
     esp_vfs_t vfs = {
         .flags = ESP_VFS_FLAG_DEFAULT,
-        .write = &lwip_write,
+        .write = &lwip_write_r,
         .open = NULL,
         .fstat = NULL,
-        .close = &lwip_close,
-        .read = &lwip_read,
+        .close = &lwip_close_r,
+        .read = &lwip_read_r,
         .fcntl = &lwip_fcntl_r_wrapper,
         .ioctl = &lwip_ioctl_r_wrapper,
-#ifdef CONFIG_VFS_SUPPORT_SELECT
-        .socket_select = &lwip_select,
         .get_socket_select_semaphore = &lwip_get_socket_select_semaphore,
+        .socket_select = &lwip_select,
         .stop_socket_select = &lwip_stop_socket_select,
         .stop_socket_select_isr = &lwip_stop_socket_select_isr,
-#endif // CONFIG_VFS_SUPPORT_SELECT
     };
     /* Non-LWIP file descriptors are from 0 to (LWIP_SOCKET_OFFSET-1). LWIP
      * file descriptors are registered from LWIP_SOCKET_OFFSET to

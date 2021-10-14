@@ -1,6 +1,3 @@
-| Supported Targets | ESP32 |
-| ----------------- | ----- |
-
 # BLE peripheral example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -31,6 +28,8 @@ Note :
 ```
 idf.py menuconfig
 ```
+
+* Set serial port under Serial Flasher Options.
 
 * Select I/O capabilities of device from 'Example Configuration > I/O Capability', default is 'Just_works'.
 

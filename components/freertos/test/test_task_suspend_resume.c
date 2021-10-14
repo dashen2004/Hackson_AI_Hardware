@@ -1,7 +1,7 @@
 /* Tests for FreeRTOS task suspend & resume */
 #include <stdio.h>
 #include <string.h>
-#include "sdkconfig.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -14,17 +14,10 @@
 
 #include "driver/timer.h"
 
-#ifndef CONFIG_FREERTOS_UNICORE
 #include "esp_ipc.h"
-#endif
 #include "esp_freertos_hooks.h"
+#include "sdkconfig.h"
 
-
-#ifdef CONFIG_IDF_TARGET_ESP32S2
-#define int_clr_timers int_clr
-#define update update.update
-#define int_st_timers int_st
-#endif
 
 /* Counter task counts a target variable forever */
 static void task_count(void *vp_counter)
@@ -125,7 +118,7 @@ volatile bool timer_isr_fired;
 void IRAM_ATTR timer_group0_isr(void *vp_arg)
 {
     // Clear interrupt
-    timer_group_clr_intr_status_in_isr(TIMER_GROUP_0, TIMER_0);
+    TIMERG0.int_clr_timers.val = TIMERG0.int_st_timers.val;
 
     timer_isr_fired = true;
     TaskHandle_t handle = vp_arg;
@@ -171,7 +164,6 @@ static void test_resume_task_from_isr(int target_core)
 
     vTaskDelay(1);
 
-    timer_deinit(TIMER_GROUP_0, TIMER_0);
     TEST_ASSERT_TRUE(timer_isr_fired);
     TEST_ASSERT_TRUE(resumed);
 }
@@ -199,7 +191,7 @@ static void IRAM_ATTR suspend_scheduler_while_block_set(void* arg)
     xTaskResumeAll();
 }
 
-static void IRAM_ATTR suspend_scheduler_on_both_cpus(void)
+static void IRAM_ATTR suspend_scheduler_on_both_cpus()
 {
     block = true;
     if (suspend_both_cpus) {
@@ -209,7 +201,7 @@ static void IRAM_ATTR suspend_scheduler_on_both_cpus(void)
     vTaskSuspendAll();
 }
 
-static void IRAM_ATTR resume_scheduler_on_both_cpus(void)
+static void IRAM_ATTR resume_scheduler_on_both_cpus()
 {
     block = false;
     xTaskResumeAll();
@@ -294,7 +286,7 @@ TEST_CASE("Test the waiting task not missed due to scheduler suspension on one C
 
 static uint32_t count_tick[2];
 
-static void IRAM_ATTR tick_hook(void)
+static void IRAM_ATTR tick_hook()
 {
     ++count_tick[xPortGetCoreID()];
 }
@@ -314,8 +306,8 @@ static void test_scheduler_suspend2(int cpu)
 
     printf("count_tick[cpu0] = %d, count_tick[cpu1] = %d\n", count_tick[0], count_tick[1]);
 
-    TEST_ASSERT_INT_WITHIN(1, waiting_ms * 2, count_tick[0]);
-    TEST_ASSERT_INT_WITHIN(1, waiting_ms * 2, count_tick[1]);
+    TEST_ASSERT_INT_WITHIN(portTICK_PERIOD_MS * 2, waiting_ms * 2, count_tick[0]);
+    TEST_ASSERT_INT_WITHIN(portTICK_PERIOD_MS * 2, waiting_ms * 2, count_tick[1]);
     printf("\n");
 }
 

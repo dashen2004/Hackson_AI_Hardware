@@ -11,7 +11,6 @@
 #include <errno.h>
 
 #include "adv.h"
-#include "scan.h"
 #include "prov.h"
 #include "beacon.h"
 #include "lpn.h"

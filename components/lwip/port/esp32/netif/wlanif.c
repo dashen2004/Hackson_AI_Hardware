@@ -50,23 +50,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "esp_netif.h"
-#include "esp_netif_net_stack.h"
-#include "esp_compiler.h"
+#include "tcpip_adapter.h"
 
-#if !ESP_L2_TO_L3_COPY
-/**
- * @brief Free resources allocated in L2 layer
- *
- * @param buf memory alloc in L2 layer
- * @note this function is also the callback when invoke pbuf_free
- */
-static void lwip_netif_wifi_free_rx_buffer(struct netif *netif, void *buf)
-{
-    esp_netif_t *esp_netif = esp_netif_get_handle_from_netif_impl(netif);
-    esp_netif_free_rx_buffer(esp_netif, buf);
-}
-#endif
 
 /**
  * In this function, the hardware should be initialized.
@@ -103,7 +88,7 @@ low_level_init(struct netif *netif)
 #endif
 
 #if !ESP_L2_TO_L3_COPY
-    netif->l2_buffer_free_notify = lwip_netif_wifi_free_rx_buffer;
+  netif->l2_buffer_free_notify = esp_wifi_internal_free_rx_buffer;
 #endif
 }
 
@@ -125,17 +110,16 @@ low_level_init(struct netif *netif)
 static err_t ESP_IRAM_ATTR
 low_level_output(struct netif *netif, struct pbuf *p)
 {
-  esp_netif_t *esp_netif = esp_netif_get_handle_from_netif_impl(netif);
-  if (esp_netif == NULL) {
+  wifi_interface_t wifi_if = tcpip_adapter_get_esp_if(netif);
+  struct pbuf *q = p;
+  err_t ret;
+
+  if (wifi_if >= ESP_IF_MAX) {
     return ERR_IF;
   }
 
-  struct pbuf *q = p;
-  esp_err_t ret;
-
   if(q->next == NULL) {
-    ret = esp_netif_transmit_wrap(esp_netif, q->payload, q->len, q);
-
+    ret = esp_wifi_internal_tx(wifi_if, q->payload, q->len);
   } else {
     LWIP_DEBUGF(PBUF_DEBUG, ("low_level_output: pbuf is a list, application may has bug"));
     q = pbuf_alloc(PBUF_RAW_TX, p->tot_len, PBUF_RAM);
@@ -145,20 +129,11 @@ low_level_output(struct netif *netif, struct pbuf *p)
     } else {
       return ERR_MEM;
     }
-    ret = esp_netif_transmit_wrap(esp_netif, q->payload, q->len, q);
-
+    ret = esp_wifi_internal_tx(wifi_if, q->payload, q->len);
     pbuf_free(q);
   }
 
-  if (ret == ESP_OK) {
-    return ERR_OK;
-  } else if (ret == ESP_ERR_NO_MEM) {
-    return ERR_MEM;
-  } else if (ret == ESP_ERR_INVALID_ARG) {
-    return ERR_ARG;
-  } else {
-    return ERR_IF;
-  }
+  return ret;
 }
 
 /**
@@ -171,15 +146,13 @@ low_level_output(struct netif *netif, struct pbuf *p)
  * @param netif the lwip network interface structure for this ethernetif
  */
 void ESP_IRAM_ATTR
-wlanif_input(void *h, void *buffer, size_t len, void* eb)
+wlanif_input(struct netif *netif, void *buffer, u16_t len, void* eb)
 {
-  struct netif * netif = h;
-  esp_netif_t *esp_netif = esp_netif_get_handle_from_netif_impl(netif);
   struct pbuf *p;
 
-  if(unlikely(!buffer || !netif_is_up(netif))) {
+  if(!buffer || !netif_is_up(netif)) {
     if (eb) {
-      esp_netif_free_rx_buffer(esp_netif, eb);
+      esp_wifi_internal_free_rx_buffer(eb);
     }
     return;
   }
@@ -187,16 +160,18 @@ wlanif_input(void *h, void *buffer, size_t len, void* eb)
 #if (ESP_L2_TO_L3_COPY == 1)
   p = pbuf_alloc(PBUF_RAW, len, PBUF_RAM);
   if (p == NULL) {
-      esp_netif_free_rx_buffer(esp_netif, eb);
+    ESP_STATS_DROP_INC(esp.wlanif_input_pbuf_fail);
+    esp_wifi_internal_free_rx_buffer(eb);
     return;
   }
   p->l2_owner = NULL;
   memcpy(p->payload, buffer, len);
-  esp_netif_free_rx_buffer(esp_netif, eb);
+  esp_wifi_internal_free_rx_buffer(eb);
 #else
   p = pbuf_alloc(PBUF_RAW, len, PBUF_REF);
   if (p == NULL){
-    esp_netif_free_rx_buffer(esp_netif, eb);
+    ESP_STATS_DROP_INC(esp.wlanif_input_pbuf_fail);
+    esp_wifi_internal_free_rx_buffer(eb);
     return;
   }
   p->payload = buffer;
@@ -205,7 +180,7 @@ wlanif_input(void *h, void *buffer, size_t len, void* eb)
 #endif
 
   /* full packet send to tcpip_thread to process */
-  if (unlikely(netif->input(p, netif) != ERR_OK)) {
+  if (netif->input(p, netif) != ERR_OK) {
     LWIP_DEBUGF(NETIF_DEBUG, ("ethernetif_input: IP input error\n"));
     pbuf_free(p);
   }
@@ -233,9 +208,7 @@ wlanif_init(struct netif *netif)
   /* Initialize interface hostname */
 
 #if ESP_LWIP
-  if (esp_netif_get_hostname(esp_netif_get_handle_from_netif_impl(netif), &netif->hostname) != ESP_OK) {
-    netif->hostname = CONFIG_LWIP_LOCAL_HOSTNAME;
-  }
+  netif->hostname = "espressif";
 #else
   netif->hostname = "lwip";
 #endif

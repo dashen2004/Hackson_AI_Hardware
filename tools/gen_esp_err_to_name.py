@@ -40,20 +40,13 @@ import textwrap
 import functools
 
 # list files here which should not be parsed
-ignore_files = [os.path.join('components', 'mdns', 'test_afl_fuzz_host', 'esp32_compat.h'),
-                # tcpip_adapter in compatibility mode from 4.1 (errors reused in esp-netif)
-                os.path.join('components', 'tcpip_adapter', 'include', 'tcpip_adapter_types.h')
-                ]
+ignore_files = [os.path.join('components', 'mdns', 'test_afl_fuzz_host', 'esp32_compat.h')]
 
-# add directories here which should not be parsed,
+# add directories here which should not be parsed
 ignore_dirs = os.path.join('examples')
 
 # macros from here have higher priorities in case of collisions
-priority_headers = [os.path.join('components', 'esp_common', 'include', 'esp_err.h')]
-
-# The following headers won't be included. This is useful if they are permanently included from esp_err_to_name.c.in.
-dont_include = [os.path.join('soc', 'soc.h'),
-                os.path.join('esp_err.h')]
+priority_headers = [os.path.join('components', 'esp32', 'include', 'esp_err.h')]
 
 err_dict = collections.defaultdict(list)  # identified errors are stored here; mapped by the error code
 rev_err_dict = dict()  # map of error string to error code
@@ -272,8 +265,7 @@ def generate_c_output(fin, fout):
 
         elif re.match(r'@HEADERS@', line):
             for i in include_list:
-                if i not in dont_include:
-                    fout.write("#if __has_include(\"" + i + "\")\n#include \"" + i + "\"\n#endif\n")
+                fout.write("#if __has_include(\"" + i + "\")\n#include \"" + i + "\"\n#endif\n")
         elif re.match(r'@ERROR_ITEMS@', line):
             last_file = ""
             for k in sorted(err_dict.keys()):
@@ -327,9 +319,8 @@ def main():
         idf_path = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
     parser = argparse.ArgumentParser(description='ESP32 esp_err_to_name lookup generator for esp_err_t')
-    parser.add_argument('--c_input', help='Path to the esp_err_to_name.c.in template input.',
-                        default=idf_path + '/components/esp_common/src/esp_err_to_name.c.in')
-    parser.add_argument('--c_output', help='Path to the esp_err_to_name.c output.', default=idf_path + '/components/esp_common/src/esp_err_to_name.c')
+    parser.add_argument('--c_input', help='Path to the esp_err_to_name.c.in template input.', default=idf_path + '/components/esp32/esp_err_to_name.c.in')
+    parser.add_argument('--c_output', help='Path to the esp_err_to_name.c output.', default=idf_path + '/components/esp32/esp_err_to_name.c')
     parser.add_argument('--rst_output', help='Generate .rst output and save it into this file')
     args = parser.parse_args()
 

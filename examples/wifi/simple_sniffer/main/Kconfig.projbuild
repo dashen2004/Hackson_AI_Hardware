@@ -1,6 +1,6 @@
 menu "Example Configuration"
 
-    config SNIFFER_STORE_HISTORY
+    config STORE_HISTORY
         bool "Store command history into flash"
         default y
         help
@@ -9,8 +9,7 @@ menu "Example Configuration"
 
     choice SNIFFER_PCAP_DESTINATION
         prompt "Select destination to store pcap file"
-        default SNIFFER_PCAP_DESTINATION_SD if IDF_TARGET_ESP32
-        default SNIFFER_PCAP_DESTINATION_JTAG if IDF_TARGET_ESP32S2
+        default SNIFFER_PCAP_DESTINATION_SD
         help
             Select where to store the pcap file.
             Currently support storing files to SD card or to host via JTAG interface.
@@ -31,7 +30,7 @@ menu "Example Configuration"
             help
                 Specify the mount point in the VFS (Virtual File System) for SD card.
 
-        config SNIFFER_PCAP_FILE_NAME_MAX_LEN
+        config PCAP_FILE_NAME_MAX_LEN
             int "Max name length of pcap file"
             default 32
             help

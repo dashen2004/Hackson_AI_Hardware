@@ -18,6 +18,8 @@
 
 #include "esp_wifi.h"
 
+#include "esp_wifi_internal.h"
+
 #include "lwip/err.h"
 
 #ifdef __cplusplus
@@ -27,8 +29,7 @@ extern "C" {
 err_t wlanif_init_ap(struct netif *netif);
 err_t wlanif_init_sta(struct netif *netif);
 
-void wlanif_input(void *netif, void *buffer, size_t len, void* eb);
-err_t wlanif_init(struct netif *netif);
+void wlanif_input(struct netif *netif, void *buffer, u16_t len, void* eb);
 
 wifi_interface_t wifi_get_interface(void *dev);
 

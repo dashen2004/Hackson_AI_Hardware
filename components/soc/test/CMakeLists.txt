@@ -1,5 +1,9 @@
-idf_build_get_property(soc_name IDF_TARGET)
+set(SOC_NAME ${IDF_TARGET})
+if(EXISTS "../${SOC_NAME}/test")
+    set(COMPONENT_SRCDIRS "../${SOC_NAME}/test")
+    set(COMPONENT_ADD_INCLUDEDIRS "../${SOC_NAME}/test")
 
-idf_component_register(SRC_DIRS "."
-                    PRIV_INCLUDE_DIRS "${include_dirs}"
-                    PRIV_REQUIRES unity test_utils)
+    set(COMPONENT_REQUIRES unity test_utils)
+
+    register_component()
+endif()

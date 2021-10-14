@@ -1,4 +1,4 @@
-[mapping:esp_ringbuf]
+[mapping]
 archive: libesp_ringbuf.a
 entries:
     * (noflash_text)

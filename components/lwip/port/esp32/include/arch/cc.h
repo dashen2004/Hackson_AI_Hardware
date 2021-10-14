@@ -41,9 +41,7 @@
 
 #include "arch/sys_arch.h"
 
-#ifndef BYTE_ORDER
 #define BYTE_ORDER LITTLE_ENDIAN
-#endif // BYTE_ORDER
 
 #ifndef CONFIG_LWIP_ESP_LWIP_ASSERT
 #define LWIP_NOASSERT 1
@@ -56,7 +54,7 @@ typedef int16_t  s16_t;
 typedef uint32_t u32_t;
 typedef int32_t  s32_t;
 
-
+typedef unsigned long   mem_ptr_t;
 typedef int sys_prot_t;
 
 #define S16_F "d"

@@ -32,10 +32,9 @@ typedef TaskHandle_t othread_t;
 
 static inline int httpd_os_thread_create(othread_t *thread,
                                  const char *name, uint16_t stacksize, int prio,
-                                 void (*thread_routine)(void *arg), void *arg,
-                                 BaseType_t core_id)
+                                 void (*thread_routine)(void *arg), void *arg)
 {
-    int ret = xTaskCreatePinnedToCore(thread_routine, name, stacksize, arg, prio, thread, core_id);
+    int ret = xTaskCreate(thread_routine, name, stacksize, arg, prio, thread);
     if (ret == pdPASS) {
         return OS_SUCCESS;
     }
@@ -43,7 +42,7 @@ static inline int httpd_os_thread_create(othread_t *thread,
 }
 
 /* Only self delete is supported */
-static inline void httpd_os_thread_delete(void)
+static inline void httpd_os_thread_delete()
 {
     vTaskDelete(xTaskGetCurrentTaskHandle());
 }
@@ -53,7 +52,7 @@ static inline void httpd_os_thread_sleep(int msecs)
     vTaskDelay(msecs / portTICK_RATE_MS);
 }
 
-static inline othread_t httpd_os_thread_handle(void)
+static inline othread_t httpd_os_thread_handle()
 {
     return xTaskGetCurrentTaskHandle();
 }

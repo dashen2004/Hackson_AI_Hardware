@@ -14,7 +14,7 @@ When PPP connection has been established, the IP packet flow from application si
 ### Hardware Required
 
 To run this example, you need an ESP32 dev board (e.g. ESP32-WROVER Kit) or ESP32 core board (e.g. ESP32-DevKitC).
-For test purpose, you also need a cellular modem module. Here we take the [SIM800L](https://www.simcom.com/product/SIM800.html) and [BG96](https://www.quectel.com/product/bg96.htm) as an example.
+For test purpose, you also need a cellular modem module. Here we take the [SIM800L](https://www.simcom.com/product/SIM800.html) and [BG96](https://www.quectel.com/product/lpwa-bg96-cat-m1-nb1-egprs/) as an example.
 You can also try other modules as long as they embedded PPP protocol.
 
 **Note:** Since SIM800L only support **2G** which will **not** work in some countries. And also keep in mind that in some other countries it will stop working soon (many remaining 2G networks will be switched off in the next 2-3 years). So you should **check with your local providers for further details** if you try this example with any 2G modules.
@@ -32,7 +32,7 @@ You can also try other modules as long as they embedded PPP protocol.
 
 ### Configure the project
 
-Open the project configuration menu (`idf.py menuconfig`). Then go into `Example Configuration` menu.
+Enter `make menuconfig` if you are using GNU Make based build system or enter `idf.py menuconfig` if you are using CMake based build system. Then go into `Example Configuration` menu.
 
 - Choose the modem module in `Choose supported modem device(DCE)` option, currently we only support BG96 and SIM800L.
 - Set the access point name in `Set Access Point Name(APN)` option, which should depend on the operator of your SIM card.
@@ -44,7 +44,7 @@ Open the project configuration menu (`idf.py menuconfig`). Then go into `Example
 
 ### Build and Flash
 
-Run `idf.py -p PORT flash monitor` to build and flash the project..
+Enter `make -j4 flash monitor` if you are using GNU Make based build system or enter `idf.py build flash monitor` if you are using CMake based build system.
 
 (To exit the serial monitor, type ``Ctrl-]``.)
 

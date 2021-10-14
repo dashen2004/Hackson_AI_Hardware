@@ -1,6 +1,5 @@
 Bootloader
 =====================
-:link_to_translation:`zh_CN:[中文]`
 
 Bootloader performs the following functions:
 
@@ -21,28 +20,24 @@ The bootloader does not support booting apps from older versions of ESP-IDF. Whe
 
    If testing an OTA update for an existing product in production, always test it using the same ESP-IDF bootloader binary that is deployed in production.
 
-.. only:: esp32
+Before ESP-IDF V2.1
+^^^^^^^^^^^^^^^^^^^
 
-    Before ESP-IDF V2.1
-    ^^^^^^^^^^^^^^^^^^^
+Bootloaders built from very old versions of ESP-IDF (before ESP-IDF V2.1) perform less hardware configuration than newer versions. When using a bootloader from these early ESP-IDF versions and building a new app, enable the config option :ref:`CONFIG_COMPATIBLE_PRE_V2_1_BOOTLOADERS`.
 
-    Bootloaders built from very old versions of ESP-IDF (before ESP-IDF V2.1) perform less hardware configuration than newer versions. When using a bootloader from these early ESP-IDF versions and building a new app, enable the config option :ref:`CONFIG_ESP32_COMPATIBLE_PRE_V2_1_BOOTLOADERS`.
+Before ESP-IDF V3.1
+^^^^^^^^^^^^^^^^^^^
 
-    Before ESP-IDF V3.1
-    ^^^^^^^^^^^^^^^^^^^
-
-    Bootloaders built from versions of ESP-IDF before V3.1 do not support MD5 checksums in the partition table binary. When using a bootloader from these ESP-IDF versions and building a new app, enable the config option :ref:`CONFIG_ESP32_COMPATIBLE_PRE_V3_1_BOOTLOADERS`.
+Bootloaders built from versions of ESP-IDF before V3.1 do not support MD5 checksums in the partition table binary. When using a bootloader from these ESP-IDF versions and building a new app, enable the config option :ref:`CONFIG_ESP32_COMPATIBLE_PRE_V3_1_BOOTLOADERS`.
 
 SPI Flash Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Each ESP-IDF application or bootloader .bin file contains a header with :ref:`CONFIG_ESPTOOLPY_FLASHMODE`, :ref:`CONFIG_ESPTOOLPY_FLASHFREQ`, :ref:`CONFIG_ESPTOOLPY_FLASHSIZE` embedded in it. These are used to configure the SPI flash during boot.
+Each ESP-IDF application or bootloader .bin file contains a header with :ref:`CONFIG_FLASHMODE`, :ref:`CONFIG_ESPTOOLPY_FLASHFREQ`, :ref:`CONFIG_ESPTOOLPY_FLASHSIZE` embedded in it. These are used to configure the SPI flash during boot.
 
 The :first stage bootloader in ROM reads the second stage bootloader header from flash and uses these settings to load it. However, at this time the system clock speed is lower than configured and not all flash modes are supported.  When the second stage bootloader then runs and re-configures the flash, it reads values from the currently selected app binary header not the bootloader header. This allows an OTA update to change the SPI flash settings in use.
 
-.. only:: esp32
-
-   Bootloaders prior to ESP-IDF V4.0 used the bootloader's own header to configure the SPI flash, meaning these values could not be changed in an update. To maintain compatibility with older bootloaders, the app re-initializes the flash settings during app startup using the configuration found in the app header.
+Bootloaders prior to ESP-IDF V4.0 used the bootloader's own header to configure the SPI flash, meaning these values could not be changed in an update. To maintain compatibility with older bootloaders, the app re-initializes the flash settings during app startup using the configuration found in the app header.
 
 FACTORY reset
 ---------------------------
@@ -68,7 +63,7 @@ Partitions of type "app" cannot be specified here.
 Partition table.::
 
 	# Name,   Type, SubType, Offset,   Size, Flags
-	# Note: if you have increased the bootloader size, make sure to update the offsets to avoid overlap
+	# Note: if you change the phy_init or app partition offset, make sure to change the offset in Kconfig.projbuild
 	nvs,      data, nvs,     0x9000,   0x4000
 	otadata,  data, ota,     0xd000,   0x2000
 	phy_init, data, phy,     0xf000,   0x1000
@@ -88,10 +83,6 @@ To trigger a test app you need to set :ref:`CONFIG_BOOTLOADER_APP_TEST`.
 After the GPIO input is deactivated and the device reboots, the normally configured application will boot (factory or any OTA slot). 
 
 :ref:`CONFIG_BOOTLOADER_HOLD_TIME_GPIO` - this is hold time of GPIO for reset/test mode (by default 5 seconds). The GPIO must be held low continuously for this period of time after reset before a factory reset or test partition boot (as applicable) is performed.
-
-Fast boot from Deep Sleep
--------------------------
-The bootloader has the :ref:`CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP` option which allows to reduce the wake-up time (useful to reduce consumption). This option is available when the :ref:`CONFIG_SECURE_BOOT` option is disabled. Reduction of time is achieved due to the lack of image verification. During the first boot, the bootloader stores the address of the application being launched in the RTC FAST memory. And during the awakening, this address is used for booting without any checks, thus fast loading is achieved.
 
 Customer bootloader
 ---------------------

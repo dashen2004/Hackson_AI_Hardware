@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-void esp_vfs_lwip_sockets_register(void);
+void esp_vfs_lwip_sockets_register();
 
 #ifdef __cplusplus
 }

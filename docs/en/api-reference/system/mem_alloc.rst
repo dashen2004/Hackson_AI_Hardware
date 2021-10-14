@@ -8,7 +8,7 @@ ESP-IDF applications use the common computer architecture patterns of *stack* (d
 
 Because ESP-IDF is a multi-threaded RTOS environment, each RTOS task has its own stack. By default, each of these stacks is allocated from the heap when the task is created. (See :cpp:func:`xTaskCreateStatic` for the alternative where stacks are statically allocated.)
 
-Because {IDF_TARGET_NAME} uses multiple types of RAM, it also contains multiple heaps with different capabilities. A capabilities-based memory allocator allows apps to make heap allocations for different purposes.
+Because ESP32 uses multiple types of RAM, it also contains multiple heaps with different capabilities. A capabilities-based memory allocator allows apps to make heap allocations for different purposes.
 
 For most purposes, the standard libc ``malloc()`` and ``free()`` functions can be used for heap allocation without any special consideration.
 
@@ -18,7 +18,7 @@ capabilities-based heap memory allocator. If you want to have memory with certai
 Memory Capabilities
 -------------------
 
-The {IDF_TARGET_NAME} contains multiple types of RAM:
+The ESP32 contains multiple types of RAM:
 
 - DRAM (Data RAM) is memory used to hold data. This is the most common kind of memory accessed as heap.
 - IRAM (Instruction RAM) usually holds executable data only. If accessed as generic memory, all accesses must be :ref:`32-bit aligned<32-Bit Accessible Memory>`.
@@ -26,7 +26,7 @@ The {IDF_TARGET_NAME} contains multiple types of RAM:
 
 For more details on these internal memory types, see :ref:`memory-layout`.
 
-It's also possible to connect external SPI RAM to the {IDF_TARGET_NAME} - :doc:`external RAM </api-guides/external-ram>` can be integrated into the {IDF_TARGET_NAME}'s memory map using the flash cache, and accessed similarly to DRAM.
+It's also possible to connect external SPI RAM to the ESP32 - :doc:`external RAM </api-guides/external-ram>` can be integrated into the ESP32's memory map using the flash cache, and accessed similarly to DRAM.
 
 DRAM uses capability ``MALLOC_CAP_8BIT`` (accessible in single byte reads and writes). When calling ``malloc()``, the ESP-IDF ``malloc()`` implementation internally calls ``heap_caps_malloc(size, MALLOC_CAP_8BIT)`` in order to allocate DRAM that is byte-addressable. To test the free DRAM heap size at runtime, call cpp:func:`heap_caps_get_free_size(MALLOC_CAP_8BIT)`.
 
@@ -41,7 +41,7 @@ DRAM
 
 At startup, the DRAM heap contains all data memory which is not statically allocated by the app. Reducing statically allocated buffers will increase the amount of available free heap.
 
-To find the amount of statically allocated memory, use the :ref:`idf.py size <idf.py-size>` command.
+To find the amount of statically allocated memory, use the :ref:`make size <make-size>` or :ref:`idf.py size <idf.py-size>` (for CMake) command.
 
 .. note:: Due to a technical limitation, the maximum statically allocated DRAM usage is 160KB. The remaining 160KB (for a total of 320KB of DRAM) can only be allocated at runtime as heap.
 
@@ -52,12 +52,12 @@ IRAM
 
 At startup, the IRAM heap contains all instruction memory which is not used by the app executable code.
 
-The :ref:`idf.py size <idf.py-size>` command can be used to find the amount of IRAM used by the app.
+The :ref:`make size <make-size>` and :ref:`idf.py size <idf.py-size>` commands can be used to find the amount of IRAM used by the app.
 
 D/IRAM
 ^^^^^^
 
-Some memory in the {IDF_TARGET_NAME} is available as either DRAM or IRAM. If memory is allocated from a D/IRAM region, the free heap size for both types of memory will decrease.
+Some memory in the ESP32 is available as either DRAM or IRAM. If memory is allocated from a D/IRAM region, the free heap size for both types of memory will decrease.
 
 Heap Sizes
 ^^^^^^^^^^
@@ -95,7 +95,7 @@ Use the ``MALLOC_CAP_DMA`` flag to allocate memory which is suitable for use wit
 
 If a certain memory structure is only addressed in 32-bit units, for example an array of ints or pointers, it can be
 useful to allocate it with the ``MALLOC_CAP_32BIT`` flag. This also allows the allocator to give out IRAM memory; something
-which it can't do for a normal malloc() call. This can help to use all the available memory in the {IDF_TARGET_NAME}.
+which it can't do for a normal malloc() call. This can help to use all the available memory in the ESP32.
 
 Memory allocated with ``MALLOC_CAP_32BIT`` can *only* be accessed via 32-bit reads and writes, any other type of access will
 generate a fatal LoadStoreError exception.
@@ -105,22 +105,13 @@ External SPI Memory
 
 When :doc:`external RAM </api-guides/external-ram>` is enabled, external SPI RAM under 4MiB in size can be allocated using standard ``malloc`` calls, or via ``heap_caps_malloc(MALLOC_CAP_SPIRAM)``, depending on configuration. See :ref:`external_ram_config` for more details.
 
-.. only:: esp32
-
-    To use the region above the 4MiB limit, you can use the :doc:`himem API</api-reference/system/himem>`.
+To use the region above the 4MiB limit, you can use the :doc:`himem API</api-reference/system/himem>`.
 
 
 API Reference - Heap Allocation
 -------------------------------
 
-.. include-build-file:: inc/esp_heap_caps.inc
-
-Thread Safety
-^^^^^^^^^^^^^
-
-Heap functions are thread safe, meaning they can be called from different tasks simultaneously without any limitations.
-
-It is technically possible to call ``malloc``, ``free``, and related functions from interrupt handler (ISR) context. However this is not recommended, as heap function calls may delay other interrupts. It is strongly recommended to refactor applications so that any buffers used by an ISR are pre-allocated outside of the ISR. Support for calling heap functions from ISRs may be removed in a future update.
+.. include:: /_build/inc/esp_heap_caps.inc
 
 Heap Tracing & Debugging
 ------------------------
@@ -134,7 +125,7 @@ The following features are documented on the :doc:`Heap Memory Debugging </api-r
 API Reference - Initialisation
 ------------------------------
 
-.. include-build-file:: inc/esp_heap_caps_init.inc
+.. include:: /_build/inc/esp_heap_caps_init.inc
 
 Implementation Notes
 --------------------
@@ -152,4 +143,4 @@ API Reference - Multi Heap API
 
 (Note: The multi heap API is used internally by the heap capabilities allocator. Most IDF programs will never need to call this API directly.)
 
-.. include-build-file:: inc/multi_heap.inc
+.. include:: /_build/inc/multi_heap.inc

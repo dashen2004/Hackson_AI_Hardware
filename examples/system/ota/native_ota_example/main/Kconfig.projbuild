@@ -1,14 +1,30 @@
 menu "Example Configuration"
 
-    config EXAMPLE_FIRMWARE_UPG_URL
-        string "Firmware Upgrade URL"
-        default "https://192.168.2.106:8070/hello-world.bin"
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "myssid"
         help
-            URL of server which hosts the firmware image.
+            SSID (network name) for the example to connect to.
+
+    config WIFI_PASSWORD
+        string "WiFi Password"
+        default "mypassword"
+        help
+            WiFi password (WPA or WPA2) for the example to use.
+
+            Can be left blank if the network has no security set.
+
+    config FIRMWARE_UPG_URL
+        string "HTTP Server URL"
+        default "https://192.168.0.3:8070/hello-world.bin"
+        help
+            HTTP Server IP to download the image file from.
+
+            See example README.md for details.
 
     config EXAMPLE_FIRMWARE_UPGRADE_URL_FROM_STDIN
         bool
-        default y if EXAMPLE_FIRMWARE_UPG_URL = "FROM_STDIN"
+        default y if FIRMWARE_UPG_URL = "FROM_STDIN"
 
     config EXAMPLE_SKIP_COMMON_NAME_CHECK
         bool "Skip server certificate CN fieldcheck"
@@ -22,7 +38,7 @@ menu "Example Configuration"
         help
             This allows you to skip the firmware version check.
 
-    config EXAMPLE_GPIO_DIAGNOSTIC
+    config GPIO_DIAGNOSTIC
         int "Number of the GPIO input for diagnostic"
         range 0 39
         default 4

@@ -34,7 +34,7 @@ void esp_transport_tcp_set_keep_alive(esp_transport_handle_t t, esp_transport_ke
  *
  * @return  the allocated esp_transport_handle_t, or NULL if the handle can not be allocated
  */
-esp_transport_handle_t esp_transport_tcp_init(void);
+esp_transport_handle_t esp_transport_tcp_init();
 
 
 #ifdef __cplusplus

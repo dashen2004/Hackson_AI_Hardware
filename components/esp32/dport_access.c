@@ -25,18 +25,19 @@
 #include <sdkconfig.h>
 #include "esp_attr.h"
 #include "esp_err.h"
-#include "esp_intr_alloc.h"
-#include "esp32/rom/ets_sys.h"
-#include "esp32/rom/uart.h"
+#include "esp_intr.h"
+#include "rom/ets_sys.h"
+#include "rom/uart.h"
 
 #include "soc/cpu.h"
 #include "soc/dport_reg.h"
-#include "soc/spi_periph.h"
+#include "soc/spi_reg.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
+#include "freertos/portmacro.h"
 
 #include "xtensa/core-macros.h"
 
@@ -143,6 +144,15 @@ void IRAM_ATTR esp_dport_access_stall_other_cpu_end(void)
 #endif /* CONFIG_FREERTOS_UNICORE */
 }
 
+void IRAM_ATTR esp_dport_access_stall_other_cpu_start_wrap(void)
+{
+    DPORT_STALL_OTHER_CPU_START();
+}
+
+void IRAM_ATTR esp_dport_access_stall_other_cpu_end_wrap(void)
+{
+    DPORT_STALL_OTHER_CPU_END();
+}
 
 #ifndef CONFIG_FREERTOS_UNICORE
 static void dport_access_init_core(void *arg)
@@ -164,9 +174,6 @@ static void dport_access_init_core(void *arg)
     dport_access_start[core_id] = 0;
     dport_access_end[core_id] = 0;
     dport_core_state[core_id] = DPORT_CORE_STATE_RUNNING;
-
-    /* If this fails then the minimum stack size for this config is too close to running out */
-    assert(uxTaskGetStackHighWaterMark(NULL) > 128);
 
     vTaskDelete(NULL);
 }

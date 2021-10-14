@@ -21,12 +21,12 @@ extern "C" {
 #endif
 
 /* BLE Mesh Max Connection Count */
-#ifdef CONFIG_BT_BLUEDROID_ENABLED
-#define BLE_MESH_MAX_CONN   CONFIG_BT_ACL_CONNECTIONS
+#ifdef CONFIG_BLUEDROID_ENABLED
+#define BLE_MESH_MAX_CONN   MIN(CONFIG_BT_ACL_CONNECTIONS, CONFIG_BTDM_CONTROLLER_BLE_MAX_CONN)
 #endif
 
-#ifdef CONFIG_BT_NIMBLE_ENABLED
-#define BLE_MESH_MAX_CONN   CONFIG_BT_NIMBLE_MAX_CONNECTIONS
+#ifdef CONFIG_NIMBLE_ENABLED
+#define BLE_MESH_MAX_CONN   CONFIG_NIMBLE_MAX_CONNECTIONS
 #endif
 
 #define BLE_MESH_GAP_ADV_MAX_LEN    31
@@ -324,6 +324,12 @@ struct bt_mesh_gatt_service {
     uint16_t                  attr_count;
     sys_snode_t               node;
 };
+
+struct bt_mesh_ecb_param {
+    uint8_t key[16];
+    uint8_t clear_text[16];
+    uint8_t cipher_text[16];
+} __packed;
 
 typedef struct {
     uint8_t type;

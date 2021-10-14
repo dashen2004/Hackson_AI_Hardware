@@ -18,10 +18,6 @@
 #include "esp_err.h"
 #include "esp_intr_alloc.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * @brief Register a handler for specific RTC_CNTL interrupts
  *
@@ -50,7 +46,3 @@ esp_err_t rtc_isr_register(intr_handler_t handler, void* handler_arg,
  *        handler_arg isn't registered
  */
 esp_err_t rtc_isr_deregister(intr_handler_t handler, void* handler_arg);
-
-#ifdef __cplusplus
-}
-#endif

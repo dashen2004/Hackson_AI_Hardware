@@ -1,5 +1,6 @@
-idf_component_register(SRC_DIRS "."
-                       PRIV_INCLUDE_DIRS "." "include"
-                       PRIV_INCLUDE_DIRS "../private_include"
-                       PRIV_REQUIRES unity test_utils efuse bootloader_support
-                       )
+set(COMPONENT_SRCDIRS ".")
+set(COMPONENT_ADD_INCLUDEDIRS "." "include")
+
+set(COMPONENT_REQUIRES unity test_utils efuse bootloader_support)
+
+register_component()

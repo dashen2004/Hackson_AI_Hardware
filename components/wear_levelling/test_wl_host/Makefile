@@ -80,6 +80,7 @@ $(foreach cxxfile, $(CPPFILES), $(eval $(call COMPILE_CPP, $(cxxfile))))
 TEST_SOURCE_FILES = \
 	test_wl.cpp \
 	main.cpp \
+	test_utils.c
 
 TEST_OBJ_FILES = $(filter %.o, $(TEST_SOURCE_FILES:.cpp=.o) $(TEST_SOURCE_FILES:.c=.o))
 

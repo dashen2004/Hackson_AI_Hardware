@@ -16,21 +16,23 @@
 
 #include "esp_attr.h"
 #include "esp_err.h"
+#include "esp_intr.h"
 #include "esp_intr_alloc.h"
-#include "esp_debug_helpers.h"
+#include "esp_panic.h"
 
-#include "esp32/rom/ets_sys.h"
-#include "esp32/rom/uart.h"
+#include "rom/ets_sys.h"
+#include "rom/uart.h"
 
 #include "soc/cpu.h"
 #include "soc/dport_reg.h"
-#include "soc/gpio_periph.h"
-#include "soc/rtc_periph.h"
+#include "soc/io_mux_reg.h"
+#include "soc/rtc_cntl_reg.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
+#include "freertos/portmacro.h"
 
 
 #define REASON_YIELD            BIT(0)
@@ -44,7 +46,7 @@ static volatile uint32_t reason[ portNUM_PROCESSORS ];
 ToDo: There is a small chance the CPU already has yielded when this ISR is serviced. In that case, it's running the intended task but
 the ISR will cause it to switch _away_ from it. portYIELD_FROM_ISR will probably just schedule the task again, but have to check that.
 */
-static inline void IRAM_ATTR esp_crosscore_isr_handle_yield(void)
+static inline void IRAM_ATTR esp_crosscore_isr_handle_yield()
 {
     portYIELD_FROM_ISR();
 }
@@ -83,7 +85,7 @@ static void IRAM_ATTR esp_crosscore_isr(void *arg) {
 
 //Initialize the crosscore interrupt on this core. Call this once
 //on each active core.
-void esp_crosscore_int_init(void) {
+void esp_crosscore_int_init() {
     portENTER_CRITICAL(&reason_spinlock);
     reason[xPortGetCoreID()]=0;
     portEXIT_CRITICAL(&reason_spinlock);

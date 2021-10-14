@@ -4,6 +4,7 @@
 
 #include <esp_types.h>
 #include <stdio.h>
+#include "rom/ets_sys.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -11,8 +12,12 @@
 #include "freertos/queue.h"
 #include "freertos/xtensa_api.h"
 #include "unity.h"
+#include "soc/uart_reg.h"
+#include "soc/dport_reg.h"
+#include "soc/io_mux_reg.h"
 #include "esp_heap_caps.h"
 
+#include "esp_panic.h"
 #include "sdkconfig.h"
 
 
@@ -20,7 +25,7 @@ static int **allocatedMem;
 static int noAllocated;
 
 
-static int tryAllocMem(void) {
+static int tryAllocMem() {
     int i, j;
     const int allocateMaxK=1024*5; //try to allocate a max of 5MiB
 
@@ -37,7 +42,7 @@ static int tryAllocMem(void) {
 }
 
 
-static void tryAllocMemFree(void) {
+static void tryAllocMemFree() {
     int i, j;
     for (i=0; i<noAllocated; i++) {
         for (j=0; j<1024/4; j++) {
@@ -133,4 +138,3 @@ TEST_CASE("malloc(0) should return a NULL pointer", "[heap]")
     p = malloc(0);
     TEST_ASSERT(p == NULL);
 }
-

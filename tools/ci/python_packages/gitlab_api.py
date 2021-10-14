@@ -101,14 +101,12 @@ class Gitlab(object):
 
         return raw_data_list
 
-    def find_job_id(self, job_name, pipeline_id=None, job_status="success"):
+    def find_job_id(self, job_name, pipeline_id=None):
         """
         Get Job ID from job name of specific pipeline
 
         :param job_name: job name
         :param pipeline_id: If None, will get pipeline id from CI pre-defined variable.
-        :param job_status: status of job. One pipeline could have multiple jobs with same name after retry.
-                           job_status is used to filter these jobs.
         :return: a list of job IDs (parallel job will generate multiple jobs)
         """
         job_id_list = []
@@ -119,7 +117,7 @@ class Gitlab(object):
         for job in jobs:
             match = self.JOB_NAME_PATTERN.match(job.name)
             if match:
-                if match.group(1) == job_name and job.status == job_status:
+                if match.group(1) == job_name:
                     job_id_list.append({"id": job.id, "parallel_num": match.group(3)})
         return job_id_list
 

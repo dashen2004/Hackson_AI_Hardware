@@ -17,24 +17,23 @@
 #include "sdkconfig.h"
 #include "esp_err.h"
 #include "esp_log.h"
-#if CONFIG_IDF_TARGET_ESP32
-#include "esp32/rom/spi_flash.h"
-#include "esp32/rom/crc.h"
-#include "esp32/rom/gpio.h"
-#elif CONFIG_IDF_TARGET_ESP32S2
-#include "esp32s2/rom/spi_flash.h"
-#include "esp32s2/rom/crc.h"
-#include "esp32s2/rom/ets_sys.h"
-#include "esp32s2/rom/gpio.h"
-#endif
+#include "rom/spi_flash.h"
+#include "rom/crc.h"
+#include "rom/ets_sys.h"
+#include "rom/gpio.h"
+#include "esp_flash_data_types.h"
+#include "esp_secure_boot.h"
 #include "esp_flash_partitions.h"
 #include "bootloader_flash.h"
 #include "bootloader_common.h"
+#include "bootloader_config.h"
 #include "bootloader_utility.h"
 #include "soc/gpio_periph.h"
-#include "soc/rtc.h"
 #include "soc/efuse_reg.h"
-#include "soc/soc_memory_layout.h"
+#include "soc/rtc.h"
+#include "soc/spi_reg.h"
+#include "soc/efuse_reg.h"
+#include "soc/apb_ctrl_reg.h"
 #include "esp_image_format.h"
 #include "bootloader_sha.h"
 #include "sys/param.h"
@@ -253,7 +252,7 @@ esp_err_t bootloader_common_get_partition_description(const esp_partition_pos_t 
     return ESP_OK;
 }
 
-void bootloader_common_vddsdio_configure(void)
+void bootloader_common_vddsdio_configure()
 {
 #if CONFIG_BOOTLOADER_VDDSDIO_BOOST_1_9V
     rtc_vddsdio_config_t cfg = rtc_vddsdio_get_config();
@@ -268,6 +267,35 @@ void bootloader_common_vddsdio_configure(void)
 #endif // CONFIG_BOOTLOADER_VDDSDIO_BOOST
 }
 
+#ifdef CONFIG_IDF_TARGET_ESP32
+uint8_t bootloader_common_get_chip_revision(void)
+{
+    uint8_t eco_bit0, eco_bit1, eco_bit2;
+    eco_bit0 = (REG_READ(EFUSE_BLK0_RDATA3_REG) & 0xF000) >> 15;
+    eco_bit1 = (REG_READ(EFUSE_BLK0_RDATA5_REG) & 0x100000) >> 20;
+    eco_bit2 = (REG_READ(APB_CTRL_DATE_REG) & 0x80000000) >> 31;
+    uint32_t combine_value = (eco_bit2 << 2) | (eco_bit1 << 1) | eco_bit0;
+    uint8_t chip_ver = 0;
+    switch (combine_value) {
+    case 0:
+        chip_ver = 0;
+        break;
+    case 1:
+        chip_ver = 1;
+        break;
+    case 3:
+        chip_ver = 2;
+        break;
+    case 7:
+        chip_ver = 3;
+        break;
+    default:
+        chip_ver = 0;
+        break;
+    }
+    return chip_ver;
+}
+#endif
 
 esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hdr, esp_image_type type)
 {
@@ -282,87 +310,7 @@ esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hd
         ESP_LOGE(TAG, "can't run on lower chip revision, expected %d, found %d", revision, img_hdr->min_chip_rev);
         err = ESP_FAIL;
     } else if (revision != img_hdr->min_chip_rev) {
-#ifdef BOOTLOADER_BUILD
         ESP_LOGI(TAG, "chip revision: %d, min. %s chip revision: %d", revision, type == ESP_IMAGE_BOOTLOADER ? "bootloader" : "application", img_hdr->min_chip_rev);
-#endif
     }
     return err;
 }
-
-RESET_REASON bootloader_common_get_reset_reason(int cpu_no)
-{
-    return rtc_get_reset_reason(cpu_no);
-}
-
-#if defined( CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP ) || defined( CONFIG_BOOTLOADER_CUSTOM_RESERVE_RTC )
-
-#define RTC_RETAIN_MEM_ADDR (SOC_RTC_DRAM_HIGH - sizeof(rtc_retain_mem_t))
-
-rtc_retain_mem_t *const rtc_retain_mem = (rtc_retain_mem_t *)RTC_RETAIN_MEM_ADDR;
-
-#if !IS_BOOTLOADER_BUILD
-/* The app needs to be told this memory is reserved, important if configured to use RTC memory as heap.
-
-   Note that keeping this macro here only works when other symbols in this file are referenced by the app, as
-   this feature is otherwise 100% part of the bootloader. However this seems to happen in all apps.
- */
-SOC_RESERVE_MEMORY_REGION(RTC_RETAIN_MEM_ADDR, RTC_RETAIN_MEM_ADDR + sizeof(rtc_retain_mem_t), rtc_retain_mem);
-#endif
-
-static bool check_rtc_retain_mem(void)
-{
-    return crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, sizeof(rtc_retain_mem_t) - sizeof(rtc_retain_mem->crc)) == rtc_retain_mem->crc && rtc_retain_mem->crc != UINT32_MAX;
-}
-
-static void update_rtc_retain_mem_crc(void)
-{
-    rtc_retain_mem->crc = crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, sizeof(rtc_retain_mem_t) - sizeof(rtc_retain_mem->crc));
-}
-
-void bootloader_common_reset_rtc_retain_mem(void)
-{
-    memset(rtc_retain_mem, 0, sizeof(rtc_retain_mem_t));
-}
-
-uint16_t bootloader_common_get_rtc_retain_mem_reboot_counter(void)
-{
-    if (check_rtc_retain_mem()) {
-        return rtc_retain_mem->reboot_counter;
-    }
-    return 0;
-}
-
-esp_partition_pos_t* bootloader_common_get_rtc_retain_mem_partition(void)
-{
-    if (check_rtc_retain_mem()) {
-        return &rtc_retain_mem->partition;
-    }
-    return NULL;
-}
-
-void bootloader_common_update_rtc_retain_mem(esp_partition_pos_t* partition, bool reboot_counter)
-{
-    if (reboot_counter) {
-        if (!check_rtc_retain_mem()) {
-            bootloader_common_reset_rtc_retain_mem();
-        }
-        if (++rtc_retain_mem->reboot_counter == 0) {
-            // do not allow to overflow. Stop it.
-            --rtc_retain_mem->reboot_counter;
-        }
-
-    }
-
-    if (partition != NULL) {
-        rtc_retain_mem->partition.offset = partition->offset;
-        rtc_retain_mem->partition.size   = partition->size;
-    }
-
-    update_rtc_retain_mem_crc();
-}
-
-rtc_retain_mem_t* bootloader_common_get_rtc_retain_mem(void)
-{
-    return rtc_retain_mem;
-}
-#endif

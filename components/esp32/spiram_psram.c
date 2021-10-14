@@ -24,21 +24,21 @@
 #include "esp_types.h"
 #include "esp_log.h"
 #include "spiram_psram.h"
-#include "esp32/rom/ets_sys.h"
-#include "esp32/rom/spi_flash.h"
-#include "esp32/rom/gpio.h"
-#include "esp32/rom/cache.h"
-#include "esp32/rom/efuse.h"
+#include "rom/ets_sys.h"
+#include "rom/spi_flash.h"
+#include "rom/gpio.h"
+#include "rom/cache.h"
+#include "rom/efuse.h"
+#include "soc/io_mux_reg.h"
 #include "soc/dport_reg.h"
-#include "soc/efuse_periph.h"
-#include "soc/spi_caps.h"
+#include "soc/gpio_sig_map.h"
+#include "soc/efuse_reg.h"
 #include "driver/gpio.h"
-#include "driver/spi_common_internal.h"
+#include "driver/spi_common.h"
 #include "driver/periph_ctrl.h"
 #include "bootloader_common.h"
-#include "bootloader_flash_config.h"
 
-#if CONFIG_SPIRAM
+#if CONFIG_SPIRAM_SUPPORT
 #include "soc/rtc.h"
 
 //Commands for PSRAM chip
@@ -120,9 +120,6 @@ typedef enum {
 // For ESP32-PICO chip, the psram share clock with flash. The flash clock pin is fixed, which is IO6.
 #define PICO_PSRAM_CLK_IO          6
 #define PICO_PSRAM_CS_IO           CONFIG_PICO_PSRAM_CS_IO   // Default value is 10
-
-#define PICO_V3_02_PSRAM_CLK_IO    10
-#define PICO_V3_02_PSRAM_CS_IO     9
 
 typedef struct {
     uint8_t flash_clk_io;
@@ -650,7 +647,7 @@ static esp_err_t psram_2t_mode_check(psram_spi_num_t spi_num)
 
 void psram_set_cs_timing(psram_spi_num_t spi_num, psram_clk_mode_t clk_mode)
 {
-    if (clk_mode == PSRAM_CLK_MODE_NORM) {
+    if (clk_mode == PSRAM_CLK_MODE_NORM) { 
         SET_PERI_REG_MASK(SPI_USER_REG(spi_num), SPI_CS_HOLD_M | SPI_CS_SETUP_M);
         // Set cs time.
         SET_PERI_REG_BITS(SPI_CTRL2_REG(spi_num), SPI_HOLD_TIME_V, 1, SPI_HOLD_TIME_S);
@@ -747,7 +744,7 @@ static void IRAM_ATTR psram_gpio_config(psram_io_t *psram_io, psram_cache_mode_t
     gpio_matrix_in(psram_io->psram_spiwp_sd3_io, SPIWP_IN_IDX, 0);
     gpio_matrix_out(psram_io->psram_spihd_sd2_io, SPIHD_OUT_IDX, 0, 0);
     gpio_matrix_in(psram_io->psram_spihd_sd2_io, SPIHD_IN_IDX, 0);
-
+    
     //select pin function gpio
     if ((psram_io->flash_clk_io == SPI_IOMUX_PIN_NUM_CLK) && (psram_io->flash_clk_io != psram_io->psram_clk_io)) {
         //flash clock signal should come from IO MUX.
@@ -778,7 +775,7 @@ static void IRAM_ATTR psram_gpio_config(psram_io_t *psram_io, psram_cache_mode_t
     }
 }
 
-psram_size_t psram_get_size(void)
+psram_size_t psram_get_size()
 {
     if ((PSRAM_SIZE_ID(s_psram_id) == PSRAM_EID_SIZE_64MBITS) || PSRAM_IS_64MBIT_TRIAL(s_psram_id)) {
         return s_2t_mode_enabled ? PSRAM_SIZE_32MBITS : PSRAM_SIZE_64MBITS;
@@ -803,7 +800,7 @@ bool psram_is_32mbit_ver0(void)
  */
 esp_err_t IRAM_ATTR psram_enable(psram_cache_mode_t mode, psram_vaddr_mode_t vaddrmode)   //psram init
 {
-    psram_io_t psram_io={0};
+    psram_io_t psram_io = {0};
     uint32_t chip_ver = REG_GET_FIELD(EFUSE_BLK0_RDATA3_REG, EFUSE_RD_CHIP_VER_PKG);
     uint32_t pkg_ver = chip_ver & 0x7;
     if (pkg_ver == EFUSE_RD_CHIP_VER_PKG_ESP32D2WDQ5) {
@@ -825,16 +822,6 @@ esp_err_t IRAM_ATTR psram_enable(psram_cache_mode_t mode, psram_vaddr_mode_t vad
         s_clk_mode = PSRAM_CLK_MODE_NORM;
         psram_io.psram_clk_io = PICO_PSRAM_CLK_IO;
         psram_io.psram_cs_io  = PICO_PSRAM_CS_IO;
-    } else if (pkg_ver == EFUSE_RD_CHIP_VER_PKG_ESP32PICOV302) {
-        ESP_EARLY_LOGI(TAG, "This chip is ESP32-PICO-V3-02");
-        rtc_vddsdio_config_t cfg = rtc_vddsdio_get_config();
-        if (cfg.tieh != RTC_VDDSDIO_TIEH_3_3V) {
-            ESP_EARLY_LOGE(TAG, "VDDSDIO is not 3.3V");
-            return ESP_FAIL;
-        }
-        s_clk_mode = PSRAM_CLK_MODE_NORM;
-        psram_io.psram_clk_io = PICO_V3_02_PSRAM_CLK_IO;
-        psram_io.psram_cs_io  = PICO_V3_02_PSRAM_CS_IO;
     } else if ((pkg_ver == EFUSE_RD_CHIP_VER_PKG_ESP32D0WDQ6) || (pkg_ver == EFUSE_RD_CHIP_VER_PKG_ESP32D0WDQ5)){
         ESP_EARLY_LOGI(TAG, "This chip is ESP32-D0WD");
         psram_io.psram_clk_io = D0WD_PSRAM_CLK_IO;
@@ -865,7 +852,14 @@ esp_err_t IRAM_ATTR psram_enable(psram_cache_mode_t mode, psram_vaddr_mode_t vad
         psram_io.psram_spiq_sd0_io  = EFUSE_SPICONFIG_RET_SPIQ(spiconfig);
         psram_io.psram_spid_sd1_io  = EFUSE_SPICONFIG_RET_SPID(spiconfig);
         psram_io.psram_spihd_sd2_io = EFUSE_SPICONFIG_RET_SPIHD(spiconfig);
-        psram_io.psram_spiwp_sd3_io = bootloader_flash_get_wp_pin();
+
+        // If flash mode is set to QIO or QOUT, the WP pin is equal the value configured in bootloader.
+        // If flash mode is set to DIO or DOUT, the WP pin should config it via menuconfig.
+        #if CONFIG_FLASHMODE_QIO || CONFIG_FLASHMODE_QOUT
+        psram_io.psram_spiwp_sd3_io = CONFIG_BOOTLOADER_SPI_WP_PIN;
+        #else
+        psram_io.psram_spiwp_sd3_io = CONFIG_SPIRAM_SPIWP_SD3_PIN;
+        #endif
     }
 
     assert(mode < PSRAM_CACHE_MAX && "we don't support any other mode for now.");
@@ -875,7 +869,7 @@ esp_err_t IRAM_ATTR psram_enable(psram_cache_mode_t mode, psram_vaddr_mode_t vad
     CLEAR_PERI_REG_MASK(SPI_USER_REG(PSRAM_SPI_1), SPI_USR_PREP_HOLD_M);
 
     psram_spi_init(PSRAM_SPI_1, mode);
-
+    
     switch (mode) {
         case PSRAM_CACHE_F80M_S80M:
             gpio_matrix_out(psram_io.psram_clk_io, SPICLK_OUT_IDX, 0, 0);
@@ -960,7 +954,7 @@ esp_err_t IRAM_ATTR psram_enable(psram_cache_mode_t mode, psram_vaddr_mode_t vad
         gpio_matrix_out(PSRAM_INTERNAL_IO_29, SIG_GPIO_OUT_IDX, 0, 0);
         gpio_matrix_out(psram_io.psram_clk_io, SPICLK_OUT_IDX, 0, 0);
     }
-
+    
     // Update cs timing according to psram driving method.
     psram_set_cs_timing(PSRAM_SPI_1, s_clk_mode);
     psram_set_cs_timing(_SPI_CACHE_PORT, s_clk_mode);
@@ -1074,4 +1068,4 @@ static void IRAM_ATTR psram_cache_init(psram_cache_mode_t psram_cache_mode, psra
     CLEAR_PERI_REG_MASK(SPI_PIN_REG(0), SPI_CS1_DIS_M); //ENABLE SPI0 CS1 TO PSRAM(CS0--FLASH; CS1--SRAM)
 }
 
-#endif // CONFIG_SPIRAM
+#endif // CONFIG_SPIRAM_SUPPORT

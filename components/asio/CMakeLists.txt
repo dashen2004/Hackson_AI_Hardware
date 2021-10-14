@@ -1,3 +1,6 @@
-idf_component_register(SRCS "asio/asio/src/asio.cpp"
-                    INCLUDE_DIRS "asio/asio/include" "port/include"
-                    REQUIRES lwip)
+set(COMPONENT_ADD_INCLUDEDIRS asio/asio/include port/include)
+set(COMPONENT_SRCS "asio/asio/src/asio.cpp")
+
+set(COMPONENT_REQUIRES lwip)
+
+register_component()

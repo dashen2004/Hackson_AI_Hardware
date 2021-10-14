@@ -30,9 +30,6 @@
 
 /* ----------------------- Platform includes --------------------------------*/
 #include "port.h"
-#include "mbconfig.h"
-
-#if MB_MASTER_RTU_ENABLED || MB_SLAVE_RTU_ENABLED
 
 static const UCHAR aucCRCHi[] = {
     0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
@@ -99,5 +96,3 @@ usMBCRC16( UCHAR * pucFrame, USHORT usLen )
     }
     return ( USHORT )( ucCRCHi << 8 | ucCRCLo );
 }
-
-#endif

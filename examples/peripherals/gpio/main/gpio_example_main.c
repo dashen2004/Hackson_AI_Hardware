@@ -57,7 +57,7 @@ static void gpio_task_example(void* arg)
     }
 }
 
-void app_main(void)
+void app_main()
 {
     gpio_config_t io_conf;
     //disable interrupt

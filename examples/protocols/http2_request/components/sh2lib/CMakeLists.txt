@@ -1,4 +1,8 @@
-idf_component_register(SRCS "sh2lib.c"
-                    INCLUDE_DIRS .
-                    REQUIRES nghttp
-                    PRIV_REQUIRES lwip esp-tls)
+set(COMPONENT_ADD_INCLUDEDIRS .)
+
+set(COMPONENT_SRCS "sh2lib.c")
+
+set(COMPONENT_REQUIRES nghttp)
+set(COMPONENT_PRIV_REQUIRES lwip esp-tls)
+
+register_component()

@@ -1,6 +1,3 @@
-| Supported Targets | ESP32 |
-| ----------------- | ----- |
-
 # PCNT Example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -23,15 +20,17 @@ Pin connection:
 ### Configure the project
 
 ```
-idf.py menuconfig
+make menuconfig
 ```
+
+* Set serial port under Serial Flasher Options.
 
 ### Build and Flash
 
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
 ```
-idf.py -p PORT flash monitor
+make -j4 flash monitor
 ```
 
 (To exit the serial monitor, type ``Ctrl-]``.)
@@ -69,7 +68,7 @@ Current counter value :-1
 
 * program upload failure
 
-    * Hardware connection is not correct: run `idf.py -p PORT monitor`, and reboot your board to see if there are any output logs.
+    * Hardware connection is not correct: run `make monitor`, and reboot your board to see if there are any output logs.
     * The baud rate for downloading is too high: lower your baud rate in the `menuconfig` menu, and try again.
 
 For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.

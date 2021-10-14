@@ -1,9 +1,6 @@
 #include "asio.hpp"
 #include <string>
 #include <iostream>
-#include "protocol_examples_common.h"
-#include "esp_event.h"
-#include "nvs_flash.h"
 
 using asio::ip::tcp;
 
@@ -30,7 +27,6 @@ private:
         {
           if (!ec)
           {
-            data_[length] = 0;
             std::cout << data_ << std::endl;
             do_write(length);
           }
@@ -83,24 +79,15 @@ private:
 };
 
 
-extern "C" void app_main(void)
+void asio_main()
 {
-    ESP_ERROR_CHECK(nvs_flash_init());
-    esp_netif_init();
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
-     * Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
-    ESP_ERROR_CHECK(example_connect());
-
-    /* This helper function configures blocking UART I/O */
-    ESP_ERROR_CHECK(example_configure_stdin_stdout());
 
     asio::io_context io_context;
 
     server s(io_context, std::atoi(CONFIG_EXAMPLE_PORT));
 
+    std::cout << "ASIO engine is up and running" << std::endl;
+
     io_context.run();
+
 }

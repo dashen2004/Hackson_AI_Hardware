@@ -30,7 +30,6 @@
 #define _ENDIAN_H_
 
 #include <stdint.h>
-#include <sys/types.h>
 #include "byteswap.h"
 
 #ifndef BIG_ENDIAN
@@ -83,7 +82,9 @@ typedef	__uint64_t	uint64_t;
  * Host to big endian, host to little endian, big endian to host, and little
  * endian to host byte order functions as detailed in byteorder(9).
  */
-#if BYTE_ORDER == _LITTLE_ENDIAN
+#if 1 //BYTE_ORDER == _LITTLE_ENDIAN
+#define __bswap16     __bswap_16
+#define __bswap32     __bswap_32
 #define	htobe16(x)	bswap16((x))
 #define	htobe32(x)	bswap32((x))
 #define	htobe64(x)	bswap64((x))
@@ -97,6 +98,10 @@ typedef	__uint64_t	uint64_t;
 #define	le16toh(x)	((uint16_t)(x))
 #define	le32toh(x)	((uint32_t)(x))
 #define	le64toh(x)	((uint64_t)(x))
+
+#ifndef htons
+#define htons htobe16
+#endif //htons
 
 #else /* _BYTE_ORDER != _LITTLE_ENDIAN */
 #define	htobe16(x)	((uint16_t)(x))

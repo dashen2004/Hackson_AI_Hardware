@@ -11,7 +11,12 @@
                                  |_| XML parser
 
    Copyright (c) 1997-2000 Thai Open Source Software Center Ltd
-   Copyright (c) 2000-2017 Expat development team
+   Copyright (c) 2001-2003 Fred L. Drake, Jr. <fdrake@users.sourceforge.net>
+   Copyright (c) 2004-2006 Karl Waclawek <karl@waclawek.net>
+   Copyright (c) 2005-2007 Steven Solie <ssolie@users.sourceforge.net>
+   Copyright (c) 2016-2019 Sebastian Pipping <sebastian@pipping.org>
+   Copyright (c) 2017      Rhodri James <rhodri@wildebeest.org.uk>
+   Copyright (c) 2019      Zhongyuan Zhou <zhouzhongyuan@huawei.com>
    Licensed under the MIT license:
 
    Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -38,25 +43,20 @@
 #include <expat.h>
 
 #ifdef XML_LARGE_SIZE
-# if defined(XML_USE_MSC_EXTENSIONS) && _MSC_VER < 1400
-#  define XML_FMT_INT_MOD "I64"
-# else
 #  define XML_FMT_INT_MOD "ll"
-# endif
 #else
-# define XML_FMT_INT_MOD "l"
+#  define XML_FMT_INT_MOD "l"
 #endif
 
 #ifdef XML_UNICODE_WCHAR_T
-# include <wchar.h>
-# define XML_FMT_STR "ls"
+#  include <wchar.h>
+#  define XML_FMT_STR "ls"
 #else
-# define XML_FMT_STR "s"
+#  define XML_FMT_STR "s"
 #endif
 
 static void XMLCALL
-startElement(void *userData, const XML_Char *name, const XML_Char **atts)
-{
+startElement(void *userData, const XML_Char *name, const XML_Char **atts) {
   int i;
   int *depthPtr = (int *)userData;
   (void)atts;
@@ -68,8 +68,7 @@ startElement(void *userData, const XML_Char *name, const XML_Char **atts)
 }
 
 static void XMLCALL
-endElement(void *userData, const XML_Char *name)
-{
+endElement(void *userData, const XML_Char *name) {
   int *depthPtr = (int *)userData;
   (void)name;
 
@@ -77,8 +76,7 @@ endElement(void *userData, const XML_Char *name)
 }
 
 int
-main(int argc, char *argv[])
-{
+main(int argc, char *argv[]) {
   char buf[BUFSIZ];
   XML_Parser parser = XML_ParserCreate(NULL);
   int done;
@@ -91,14 +89,14 @@ main(int argc, char *argv[])
   do {
     size_t len = fread(buf, 1, sizeof(buf), stdin);
     done = len < sizeof(buf);
-    if (XML_Parse(parser, buf, len, done) == XML_STATUS_ERROR) {
-      fprintf(stderr,
-              "%" XML_FMT_STR " at line %" XML_FMT_INT_MOD "u\n",
+    if (XML_Parse(parser, buf, (int)len, done) == XML_STATUS_ERROR) {
+      fprintf(stderr, "%" XML_FMT_STR " at line %" XML_FMT_INT_MOD "u\n",
               XML_ErrorString(XML_GetErrorCode(parser)),
               XML_GetCurrentLineNumber(parser));
+      XML_ParserFree(parser);
       return 1;
     }
-  } while (!done);
+  } while (! done);
   XML_ParserFree(parser);
   return 0;
 }

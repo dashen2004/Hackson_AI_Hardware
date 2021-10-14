@@ -22,11 +22,10 @@
 #include <string.h>
 #include "esp_err.h"
 #include "esp_attr.h"
-#include "sys/queue.h"
+#include "rom/queue.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "soc/soc_memory_layout.h"
 
 #include "pthread_internal.h"
 #include "esp_pthread.h"
@@ -168,16 +167,16 @@ esp_err_t esp_pthread_get_cfg(esp_pthread_cfg_t *p)
     return ESP_ERR_NOT_FOUND;
 }
 
-static int get_default_pthread_core(void)
+static int get_default_pthread_core()
 {
-    return CONFIG_PTHREAD_TASK_CORE_DEFAULT == -1 ? tskNO_AFFINITY : CONFIG_PTHREAD_TASK_CORE_DEFAULT;
+    return CONFIG_ESP32_PTHREAD_TASK_CORE_DEFAULT == -1 ? tskNO_AFFINITY : CONFIG_ESP32_PTHREAD_TASK_CORE_DEFAULT;
 }
 
-esp_pthread_cfg_t esp_pthread_get_default_config(void)
+esp_pthread_cfg_t esp_pthread_get_default_config()
 {
     esp_pthread_cfg_t cfg = {
-        .stack_size = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT,
-        .prio = CONFIG_PTHREAD_TASK_PRIO_DEFAULT,
+        .stack_size = CONFIG_ESP32_PTHREAD_TASK_STACK_SIZE_DEFAULT,
+        .prio = CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT,
         .inherit_cfg = false,
         .thread_name = NULL,
         .pin_to_core = get_default_pthread_core()
@@ -233,10 +232,10 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
         return ENOMEM;
     }
 
-    uint32_t stack_size = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT;
-    BaseType_t prio = CONFIG_PTHREAD_TASK_PRIO_DEFAULT;
+    uint32_t stack_size = CONFIG_ESP32_PTHREAD_TASK_STACK_SIZE_DEFAULT;
+    BaseType_t prio = CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT;
     BaseType_t core_id = get_default_pthread_core();
-    const char *task_name = CONFIG_PTHREAD_TASK_NAME_DEFAULT;
+    const char *task_name = CONFIG_ESP32_PTHREAD_TASK_NAME_DEFAULT;
 
     esp_pthread_cfg_t *pthread_cfg = pthread_getspecific(s_pthread_cfg_key);
     if (pthread_cfg) {
@@ -256,7 +255,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                 task_name = pthread_cfg->thread_name;
             }
         } else if (pthread_cfg->thread_name == NULL) {
-            task_name = CONFIG_PTHREAD_TASK_NAME_DEFAULT;
+            task_name = CONFIG_ESP32_PTHREAD_TASK_NAME_DEFAULT;
         } else {
             task_name = pthread_cfg->thread_name;
         }
@@ -461,8 +460,7 @@ void pthread_exit(void *value_ptr)
         vTaskSuspend(NULL);
     }
 
-    // Should never be reached
-    abort();
+    ESP_LOGV(TAG, "%s EXIT", __FUNCTION__);
 }
 
 int pthread_cancel(pthread_t thread)
@@ -504,13 +502,13 @@ int pthread_once(pthread_once_t *once_control, void (*init_routine)(void))
     }
 
     uint32_t res = 1;
-#if defined(CONFIG_SPIRAM)
+#if defined(CONFIG_SPIRAM_SUPPORT)
     if (esp_ptr_external_ram(once_control)) {
         uxPortCompareSetExtram((uint32_t *) &once_control->init_executed, 0, &res);
     } else {
 #endif
         uxPortCompareSet((uint32_t *) &once_control->init_executed, 0, &res);
-#if defined(CONFIG_SPIRAM)
+#if defined(CONFIG_SPIRAM_SUPPORT)
     }
 #endif
     // Check if compare and set was successful
@@ -767,7 +765,7 @@ int pthread_attr_init(pthread_attr_t *attr)
 {
     if (attr) {
         /* Nothing to allocate. Set everything to default */
-        attr->stacksize   = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT;
+        attr->stacksize   = CONFIG_ESP32_PTHREAD_TASK_STACK_SIZE_DEFAULT;
         attr->detachstate = PTHREAD_CREATE_JOINABLE;
         return 0;
     }
@@ -778,7 +776,7 @@ int pthread_attr_destroy(pthread_attr_t *attr)
 {
     if (attr) {
         /* Nothing to deallocate. Reset everything to default */
-        attr->stacksize   = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT;
+        attr->stacksize   = CONFIG_ESP32_PTHREAD_TASK_STACK_SIZE_DEFAULT;
         attr->detachstate = PTHREAD_CREATE_JOINABLE;
         return 0;
     }
@@ -828,9 +826,4 @@ int pthread_attr_setdetachstate(pthread_attr_t *attr, int detachstate)
         return 0;
     }
     return EINVAL;
-}
-
-/* Hook function to force linking this file */
-void pthread_include_pthread_impl(void)
-{
 }
