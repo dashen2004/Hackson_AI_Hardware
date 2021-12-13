@@ -41,7 +41,7 @@ static struct example_info_store {
     .tid = 0x0,
 };
 
-static nvs_handle   NVS_HANDLE;
+static nvs_handle_t NVS_HANDLE;
 static const char * NVS_KEY = "onoff_client";
 
 static esp_ble_mesh_client_t onoff_client;

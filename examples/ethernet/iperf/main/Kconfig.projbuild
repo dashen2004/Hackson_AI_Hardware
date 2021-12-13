@@ -1,6 +1,17 @@
 menu "Example Configuration"
 
-    config STORE_HISTORY
+    config EXAMPLE_GPIO_RANGE_MIN
+        int
+        default 0
+
+    config EXAMPLE_GPIO_RANGE_MAX
+        int
+        default 33 if IDF_TARGET_ESP32
+        default 46 if IDF_TARGET_ESP32S2
+        default 19 if IDF_TARGET_ESP32C3
+        default 48 if IDF_TARGET_ESP32S3
+
+    config EXAMPLE_STORE_HISTORY
         bool "Store command history in flash"
         default y
         help
@@ -8,105 +19,214 @@ menu "Example Configuration"
             command history. If this option is enabled, initalizes a FAT filesystem
             and uses it to store command history.
 
-    menu "Etherent PHY Device"
-        choice PHY_MODEL
-            prompt "Ethernet PHY Device"
-            default PHY_IP101
+    config EXAMPLE_USE_SPI_ETHERNET
+        bool
+
+    choice EXAMPLE_ETHERNET_TYPE
+        prompt "Ethernet Type"
+        default EXAMPLE_USE_INTERNAL_ETHERNET if IDF_TARGET_ESP32
+        default EXAMPLE_USE_W5500
+        help
+            Select which kind of Ethernet will be used in the example.
+
+        config EXAMPLE_USE_INTERNAL_ETHERNET
+            depends on IDF_TARGET_ESP32
+            select ETH_USE_ESP32_EMAC
+            bool "Internal EMAC"
             help
-                Select the PHY driver to use for the example.
-            config PHY_IP101
+                Select internal Ethernet MAC controller.
+
+        config EXAMPLE_USE_DM9051
+            bool "DM9051 Module"
+            select EXAMPLE_USE_SPI_ETHERNET
+            select ETH_USE_SPI_ETHERNET
+            select ETH_SPI_ETHERNET_DM9051
+            help
+                Select external SPI-Ethernet module (DM9051).
+
+        config EXAMPLE_USE_W5500
+            bool "W5500 Module"
+            select EXAMPLE_USE_SPI_ETHERNET
+            select ETH_USE_SPI_ETHERNET
+            select ETH_SPI_ETHERNET_W5500
+            help
+                Select external SPI-Ethernet module (W5500).
+
+        config EXAMPLE_USE_KSZ8851SNL
+            bool "KSZ8851SNL Module"
+            select EXAMPLE_USE_SPI_ETHERNET
+            select ETH_USE_SPI_ETHERNET
+            select ETH_SPI_ETHERNET_KSZ8851SNL
+            help
+                Select external SPI-Ethernet module (KSZ8851SNL).
+
+        config EXAMPLE_USE_ENC28J60
+            bool "ENC28J60 Module"
+            select EXAMPLE_USE_SPI_ETHERNET
+            select ETH_USE_SPI_ETHERNET
+            select ETH_SPI_ETHERNET_ENC28J60
+            help
+                Select external SPI-Ethernet module (ENC28J60).
+    endchoice # EXAMPLE_ETHERNET_TYPE
+
+    if EXAMPLE_USE_INTERNAL_ETHERNET
+        choice EXAMPLE_ETH_PHY_MODEL
+            prompt "Ethernet PHY Device"
+            default EXAMPLE_ETH_PHY_IP101
+            help
+                Select the Ethernet PHY device to use in the example.
+
+            config EXAMPLE_ETH_PHY_IP101
                 bool "IP101"
                 help
                     IP101 is a single port 10/100 MII/RMII/TP/Fiber Fast Ethernet Transceiver.
                     Goto http://www.icplus.com.tw/pp-IP101G.html for more information about it.
-            config PHY_TLK110
-                bool "TLK110"
-                help
-                    TLK110 is an Industrial 10/100Mbps Ethernet Physical Layer Transceiver.
-                    Goto http://www.ti.com/product/TLK110 for information about it.
-            config PHY_LAN8720
-                bool "LAN8720"
-                help
-                    LAN8720 is a small footprint RMII 10/100 Ethernet Transceiver with HP Auto-MDIX Support.
-                    Goto https://www.microchip.com/LAN8720A for more information about it.
-        endchoice
 
-        config PHY_ADDRESS
-            int "Ethernet PHY Address"
-            default 1
-            range 0 31
-            help
-                PHY Address of your PHY device. It dependens on your schematic design.
-
-        choice PHY_CLOCK_MODE
-            prompt "Ethernet PHY Clock Mode"
-            default PHY_CLOCK_GPIO0_IN
-            help
-                Select external (input on GPIO0) or internal (output on GPIO0, GPIO16 or GPIO17) RMII clock.
-            config PHY_CLOCK_GPIO0_IN
-                bool "GPIO0 Input"
+            config EXAMPLE_ETH_PHY_RTL8201
+                bool "RTL8201/SR8201"
                 help
-                    Input of 50MHz RMII clock on GPIO0.
-            config PHY_CLOCK_GPIO0_OUT
-                bool "GPIO0 Output(READ HELP)"
-                help
-                    GPIO0 can be set to output a pre-divided PLL clock (test only!).
-                    Enabling this option will configure GPIO0 to output a 50MHz clock.
-                    In fact this clock doesn't have directly relationship with EMAC peripheral.
-                    Sometimes this clock won't work well with your PHY chip. You might need to
-                    add some extra devices after GPIO0 (e.g. inverter).
-                    Note that outputting RMII clock on GPIO0 is an experimental practice.
-                    If you want the Ethernet to work with WiFi, don't select GPIO0 output mode for stability.
-            config PHY_CLOCK_GPIO16_OUT
-                bool "GPIO16 Output"
-                help
-                    Output the internal 50MHz RMII clock on GPIO16.
-            config PHY_CLOCK_GPIO17_OUT
-                bool "GPIO17 Output (inverted)"
-                help
-                    Output the internal 50MHz RMII clock on GPIO17 (inverted signal).
-        endchoice
+                    RTL8201F/SR8201F is a single port 10/100Mb Ethernet Transceiver with auto MDIX.
+                    Goto http://www.corechip-sz.com/productsview.asp?id=22 for more information about it.
 
-        config PHY_CLOCK_MODE
-            int
-            default 0 if PHY_CLOCK_GPIO0_IN
-            default 1 if PHY_CLOCK_GPIO0_OUT
-            default 2 if PHY_CLOCK_GPIO16_OUT
-            default 3 if PHY_CLOCK_GPIO17_OUT
-
-        config PHY_USE_POWER_PIN
-            bool "Use PHY Power (enable / disable) pin"
-            default y
-            help
-                Use a GPIO "power pin" to power the PHY on/off during operation.
-                When using GPIO0 to input RMII clock, the reset process will be interfered by this clock.
-                So we need another GPIO to control the switch on / off of the RMII clock.
-
-        if PHY_USE_POWER_PIN
-            config PHY_POWER_PIN
-                int "PHY Power GPIO"
-                default 5
-                range 0 33
-                depends on PHY_USE_POWER_PIN
+            config EXAMPLE_ETH_PHY_LAN87XX
+                bool "LAN87xx"
                 help
-                    GPIO number to use for powering on/off the PHY.
-        endif
-    endmenu
+                    Below chips are supported:
+                    LAN8710A is a small footprint MII/RMII 10/100 Ethernet Transceiver with HP Auto-MDIX and
+                        flexPWR® Technology.
+                    LAN8720A is a small footprint RMII 10/100 Ethernet Transceiver with HP Auto-MDIX Support.
+                    LAN8740A/LAN8741A is a small footprint MII/RMII 10/100 Energy Efficient Ethernet Transceiver
+                        with HP Auto-MDIX and flexPWR® Technology.
+                    LAN8742A is a small footprint RMII 10/100 Ethernet Transceiver with HP Auto-MDIX and
+                        flexPWR® Technology.
+                    Goto https://www.microchip.com for more information about them.
 
-    menu "Etherent SMI interface"
-        config PHY_SMI_MDC_PIN
-            int "SMI MDC Pin Number"
+            config EXAMPLE_ETH_PHY_DP83848
+                bool "DP83848"
+                help
+                    DP83848 is a single port 10/100Mb/s Ethernet Physical Layer Transceiver.
+                    Goto http://www.ti.com/product/DP83848J for more information about it.
+
+            config EXAMPLE_ETH_PHY_KSZ8041
+                bool "KSZ8041"
+                help
+                    The KSZ8041 is a single supply 10Base-T/100Base-TX Physical Layer Transceiver.
+                    Goto https://www.microchip.com/wwwproducts/en/KSZ8041 for more information about it.
+
+            config EXAMPLE_ETH_PHY_KSZ8081
+                bool "KSZ8081"
+                help
+                    The KSZ8081 is a single supply 10Base-T/100Base-TX Physical Layer Transceiver.
+                    Goto https://www.microchip.com/wwwproducts/en/KSZ8081 for more information about it.
+        endchoice # EXAMPLE_ETH_PHY_MODEL
+
+        config EXAMPLE_ETH_MDC_GPIO
+            int "SMI MDC GPIO number"
+            range EXAMPLE_GPIO_RANGE_MIN EXAMPLE_GPIO_RANGE_MAX
             default 23
-            range 0 33
             help
-                GPIO number used for SMI clock signal.
+                Set the GPIO number used by SMI MDC.
 
-        config PHY_SMI_MDIO_PIN
-            int "SMI MDIO Pin Number"
+        config EXAMPLE_ETH_MDIO_GPIO
+            int "SMI MDIO GPIO number"
+            range EXAMPLE_GPIO_RANGE_MIN EXAMPLE_GPIO_RANGE_MAX
             default 18
-            range 0 33
             help
-                GPIO number used for SMI data signal.
-    endmenu
+                Set the GPIO number used by SMI MDIO.
+    endif # EXAMPLE_USE_INTERNAL_ETHERNET
 
+    if EXAMPLE_USE_SPI_ETHERNET
+        config EXAMPLE_ETH_SPI_HOST
+            int "SPI Host Number"
+            range 0 2
+            default 1
+            help
+                Set the SPI host used to communicate with the SPI Ethernet Controller.
+
+        config EXAMPLE_ETH_SPI_SCLK_GPIO
+            int "SPI SCLK GPIO number"
+            range EXAMPLE_GPIO_RANGE_MIN EXAMPLE_GPIO_RANGE_MAX
+            default 14 if IDF_TARGET_ESP32
+            default 12 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+            default 6 if IDF_TARGET_ESP32C3
+            help
+                Set the GPIO number used by SPI SCLK.
+
+        config EXAMPLE_ETH_SPI_MOSI_GPIO
+            int "SPI MOSI GPIO number"
+            range EXAMPLE_GPIO_RANGE_MIN EXAMPLE_GPIO_RANGE_MAX
+            default 13 if IDF_TARGET_ESP32
+            default 11 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+            default 7 if IDF_TARGET_ESP32C3
+            help
+                Set the GPIO number used by SPI MOSI.
+
+        config EXAMPLE_ETH_SPI_MISO_GPIO
+            int "SPI MISO GPIO number"
+            range EXAMPLE_GPIO_RANGE_MIN EXAMPLE_GPIO_RANGE_MAX
+            default 12 if IDF_TARGET_ESP32
+            default 13 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+            default 2 if IDF_TARGET_ESP32C3
+            help
+                Set the GPIO number used by SPI MISO.
+
+        config EXAMPLE_ETH_SPI_CS_GPIO
+            int "SPI CS GPIO number"
+            range EXAMPLE_GPIO_RANGE_MIN EXAMPLE_GPIO_RANGE_MAX
+            default 15 if IDF_TARGET_ESP32
+            default 10 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3
+            help
+                Set the GPIO number used by SPI CS.
+
+        config EXAMPLE_ETH_SPI_CLOCK_MHZ
+            int "SPI clock speed (MHz)"
+            range 5 80
+            default 8 if EXAMPLE_USE_ENC28J60
+            default 12 if IDF_TARGET_ESP32 || IDF_TARGET_ESP32C3
+            default 36 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+            help
+                Set the clock speed (MHz) of SPI interface.
+
+        config EXAMPLE_ETH_SPI_INT_GPIO
+            int "Interrupt GPIO number"
+            range EXAMPLE_GPIO_RANGE_MIN EXAMPLE_GPIO_RANGE_MAX
+            default 4 if IDF_TARGET_ESP32 || IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3
+            help
+                Set the GPIO number used by the SPI Ethernet module interrupt line.
+    endif # EXAMPLE_USE_SPI_ETHERNET
+
+    config EXAMPLE_ETH_PHY_RST_GPIO
+        int "PHY Reset GPIO number"
+        range -1 EXAMPLE_GPIO_RANGE_MAX
+        default 5
+        help
+            Set the GPIO number used to reset PHY chip.
+            Set to -1 to disable PHY chip hardware reset.
+
+    config EXAMPLE_ETH_PHY_ADDR
+        int "PHY Address"
+        range 0 31
+        default 1
+        help
+            Set PHY address according your board schematic.
+
+    if EXAMPLE_USE_ENC28J60
+        choice EXAMPLE_ENC28J60_DUPLEX_MODE
+            prompt "Duplex Mode"
+            default EXAMPLE_ENC28J60_DUPLEX_HALF
+            help
+                Select ENC28J60 Duplex operation mode.
+
+            config EXAMPLE_ENC28J60_DUPLEX_FULL
+                bool "Full Duplex"
+                help
+                    Set ENC28J60 to Full Duplex mode. Do not forget to manually set the remote node (switch, router
+                    or Ethernet controller) to full-duplex operation mode too.
+
+            config EXAMPLE_ENC28J60_DUPLEX_HALF
+                bool "Half Duplex"
+                help
+                    Set ENC28J60 to Half Duplex mode.
+        endchoice # EXAMPLE_ENC28J60_DUPLEX_MODE
+    endif # ETH_SPI_ETHERNET_ENC28J60
 endmenu

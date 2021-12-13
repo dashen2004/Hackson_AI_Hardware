@@ -13,128 +13,59 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "esp_netif.h"
+#include "protocol_examples_common.h"
 
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
+#include "addr_from_stdin.h"
 
-
-/* The examples use simple WiFi configuration that you can set via
-   'make menuconfig'.
-   If you'd rather not, just change the below entries to strings with
-   the config you want - ie #define EXAMPLE_WIFI_SSID "mywifissid"
-*/
-#define EXAMPLE_WIFI_SSID CONFIG_WIFI_SSID
-#define EXAMPLE_WIFI_PASS CONFIG_WIFI_PASSWORD
-
-#ifdef CONFIG_EXAMPLE_IPV4
+#if defined(CONFIG_EXAMPLE_IPV4)
 #define HOST_IP_ADDR CONFIG_EXAMPLE_IPV4_ADDR
-#else
+#elif defined(CONFIG_EXAMPLE_IPV6)
 #define HOST_IP_ADDR CONFIG_EXAMPLE_IPV6_ADDR
+#else
+#define HOST_IP_ADDR ""
 #endif
 
 #define PORT CONFIG_EXAMPLE_PORT
 
-/* FreeRTOS event group to signal when we are connected & ready to make a request */
-static EventGroupHandle_t wifi_event_group;
-
-const int IPV4_GOTIP_BIT = BIT0;
-const int IPV6_GOTIP_BIT = BIT1;
-
 static const char *TAG = "example";
 static const char *payload = "Message from ESP32 ";
 
-static esp_err_t event_handler(void *ctx, system_event_t *event)
-{
-    switch (event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        ESP_LOGI(TAG, "SYSTEM_EVENT_STA_START");
-        break;
-    case SYSTEM_EVENT_STA_CONNECTED:
-        /* enable ipv6 */
-        tcpip_adapter_create_ip6_linklocal(TCPIP_ADAPTER_IF_STA);
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        xEventGroupSetBits(wifi_event_group, IPV4_GOTIP_BIT);
-        ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP");
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        /* This is a workaround as ESP32 WiFi libs don't currently auto-reassociate. */
-        esp_wifi_connect();
-        xEventGroupClearBits(wifi_event_group, IPV4_GOTIP_BIT);
-        xEventGroupClearBits(wifi_event_group, IPV6_GOTIP_BIT);
-        break;
-    case SYSTEM_EVENT_AP_STA_GOT_IP6:
-        xEventGroupSetBits(wifi_event_group, IPV6_GOTIP_BIT);
-        ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP6");
-
-        char *ip6 = ip6addr_ntoa(&event->event_info.got_ip6.ip6_info.ip);
-        ESP_LOGI(TAG, "IPv6: %s", ip6);
-    default:
-        break;
-    }
-    return ESP_OK;
-}
-
-static void initialise_wifi(void)
-{
-    tcpip_adapter_init();
-    wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = EXAMPLE_WIFI_SSID,
-            .password = EXAMPLE_WIFI_PASS,
-        },
-    };
-    ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-}
-
-static void wait_for_ip()
-{
-    uint32_t bits = IPV4_GOTIP_BIT | IPV6_GOTIP_BIT ;
-
-    ESP_LOGI(TAG, "Waiting for AP connection...");
-    xEventGroupWaitBits(wifi_event_group, bits, false, true, portMAX_DELAY);
-    ESP_LOGI(TAG, "Connected to AP");
-}
 
 static void udp_client_task(void *pvParameters)
 {
     char rx_buffer[128];
-    char addr_str[128];
-    int addr_family;
-    int ip_protocol;
+    char host_ip[] = HOST_IP_ADDR;
+    int addr_family = 0;
+    int ip_protocol = 0;
 
     while (1) {
 
-#ifdef CONFIG_EXAMPLE_IPV4
-        struct sockaddr_in destAddr;
-        destAddr.sin_addr.s_addr = inet_addr(HOST_IP_ADDR);
-        destAddr.sin_family = AF_INET;
-        destAddr.sin_port = htons(PORT);
+#if defined(CONFIG_EXAMPLE_IPV4)
+        struct sockaddr_in dest_addr;
+        dest_addr.sin_addr.s_addr = inet_addr(HOST_IP_ADDR);
+        dest_addr.sin_family = AF_INET;
+        dest_addr.sin_port = htons(PORT);
         addr_family = AF_INET;
         ip_protocol = IPPROTO_IP;
-        inet_ntoa_r(destAddr.sin_addr, addr_str, sizeof(addr_str) - 1);
-#else // IPV6
-        struct sockaddr_in6 destAddr;
-        inet6_aton(HOST_IP_ADDR, &destAddr.sin6_addr);
-        destAddr.sin6_family = AF_INET6;
-        destAddr.sin6_port = htons(PORT);
+#elif defined(CONFIG_EXAMPLE_IPV6)
+        struct sockaddr_in6 dest_addr = { 0 };
+        inet6_aton(HOST_IP_ADDR, &dest_addr.sin6_addr);
+        dest_addr.sin6_family = AF_INET6;
+        dest_addr.sin6_port = htons(PORT);
+        dest_addr.sin6_scope_id = esp_netif_get_netif_impl_index(EXAMPLE_INTERFACE);
         addr_family = AF_INET6;
         ip_protocol = IPPROTO_IPV6;
-        inet6_ntoa_r(destAddr.sin6_addr, addr_str, sizeof(addr_str) - 1);
+#elif defined(CONFIG_EXAMPLE_SOCKET_IP_INPUT_STDIN)
+        struct sockaddr_storage dest_addr = { 0 };
+        ESP_ERROR_CHECK(get_addr_from_stdin(PORT, SOCK_DGRAM, &ip_protocol, &addr_family, &dest_addr));
 #endif
 
         int sock = socket(addr_family, SOCK_DGRAM, ip_protocol);
@@ -142,22 +73,22 @@ static void udp_client_task(void *pvParameters)
             ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
             break;
         }
-        ESP_LOGI(TAG, "Socket created");
+        ESP_LOGI(TAG, "Socket created, sending to %s:%d", HOST_IP_ADDR, PORT);
 
         while (1) {
 
-            int err = sendto(sock, payload, strlen(payload), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+            int err = sendto(sock, payload, strlen(payload), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
             if (err < 0) {
-                ESP_LOGE(TAG, "Error occured during sending: errno %d", errno);
+                ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
                 break;
             }
             ESP_LOGI(TAG, "Message sent");
 
-            struct sockaddr_in sourceAddr; // Large enough for both IPv4 or IPv6
-            socklen_t socklen = sizeof(sourceAddr);
-            int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&sourceAddr, &socklen);
+            struct sockaddr_storage source_addr; // Large enough for both IPv4 or IPv6
+            socklen_t socklen = sizeof(source_addr);
+            int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
 
-            // Error occured during receiving
+            // Error occurred during receiving
             if (len < 0) {
                 ESP_LOGE(TAG, "recvfrom failed: errno %d", errno);
                 break;
@@ -165,8 +96,12 @@ static void udp_client_task(void *pvParameters)
             // Data received
             else {
                 rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
+                ESP_LOGI(TAG, "Received %d bytes from %s:", len, host_ip);
                 ESP_LOGI(TAG, "%s", rx_buffer);
+                if (strncmp(rx_buffer, "OK: ", 4) == 0) {
+                    ESP_LOGI(TAG, "Received expected message, reconnecting");
+                    break;
+                }
             }
 
             vTaskDelay(2000 / portTICK_PERIOD_MS);
@@ -181,11 +116,17 @@ static void udp_client_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
-void app_main()
+void app_main(void)
 {
-    ESP_ERROR_CHECK( nvs_flash_init() );
-    initialise_wifi();
-    wait_for_ip();
+    ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+     * Read "Establishing Wi-Fi or Ethernet Connection" section in
+     * examples/protocols/README.md for more information about this function.
+     */
+    ESP_ERROR_CHECK(example_connect());
 
     xTaskCreate(udp_client_task, "udp_client", 4096, NULL, 5, NULL);
 }

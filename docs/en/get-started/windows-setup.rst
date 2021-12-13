@@ -4,6 +4,11 @@ Standard Setup of Toolchain for Windows
 
 :link_to_translation:`zh_CN:[中文]`
 
+.. only:: esp32
+
+    .. note::
+        Currently only 64-bit versions of Windows are supported. 32-bit Windows can use the :doc:`Legacy GNU Make Build System<../get-started-legacy/windows-setup>`.
+
 Introduction
 ============
 
@@ -11,10 +16,17 @@ ESP-IDF requires some prerequisite tools to be installed so you can build firmwa
 
 For this Getting Started we're going to use the Command Prompt, but after ESP-IDF is installed you can use :doc:`Eclipse <eclipse-setup>` or another graphical IDE with CMake support instead.
 
-.. note::
-    Limitation: the installation path of Python or ESP-IDF must not contain white spaces or parentheses.
+.. only:: esp32
 
-    Limitation: the installation path of Python or ESP-IDF should not contain special characters (non-ASCII) unless the operating system is configured with "Unicode UTF-8" support.
+    .. note::
+        Previous versions of ESP-IDF used the :doc:`Legacy GNU Make Build System<../get-started-legacy/windows-setup>` and MSYS2_ Unix compatibility environment. This is no longer required, ESP-IDF can be used from the Windows Command Prompt.
+
+.. note::
+    Limitations: 
+    - The installation path of ESP-IDF and ESP-IDF Tools must not be longer than 90 characters. Too long installation paths might result in a failed build.
+    - The installation path of Python or ESP-IDF must not contain white spaces or parentheses.
+    - The installation path of Python or ESP-IDF should not contain special characters (non-ASCII) unless the operating system is configured with "Unicode UTF-8" support.
+    
     System Administrator can enable the support via Control Panel - Change date, time, or number formats - Administrative tab - Change system locale - check the option "Beta: Use Unicode UTF-8 for worldwide language support" - Ok and reboot the computer.
 
 .. _get-started-windows-tools-installer:
@@ -22,7 +34,7 @@ For this Getting Started we're going to use the Command Prompt, but after ESP-ID
 ESP-IDF Tools Installer
 =======================
 
-The easiest way to install ESP-IDF's prerequisites is to download one of ESP-IDF Tools Installers from this URL: https://dl.espressif.com/dl/esp-idf/?idf=3.3
+The easiest way to install ESP-IDF's prerequisites is to download one of ESP-IDF Tools Installers from this URL: https://dl.espressif.com/dl/esp-idf/?idf=4.4
 
 What is the usecase for Online and Offline Installer
 ----------------------------------------------------
@@ -101,6 +113,14 @@ If the ESP-IDF Tools Installer has finished successfully, then the development e
 
 Related Documents
 =================
+
+For advanced users who want to customize the install process:
+
+.. toctree::
+    :maxdepth: 1
+
+    windows-setup-update
+
 
 .. _MSYS2: https://www.msys2.org/
 .. _CMake: https://cmake.org/download/

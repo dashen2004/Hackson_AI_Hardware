@@ -1,16 +1,8 @@
-// Copyright 2017-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <string.h>
 #include <errno.h>
@@ -1017,7 +1009,7 @@ int btc_ble_mesh_client_model_init(esp_ble_mesh_model_t *model)
         return -EINVAL;
     }
 
-    __ASSERT(model && model->op, "%s, Invalid parameter", __func__);
+    __ASSERT(model && model->op, "Invalid parameter");
     esp_ble_mesh_model_op_t *op = model->op;
     while (op != NULL && op->opcode != 0) {
         op->param_cb = (esp_ble_mesh_cb_t)btc_ble_mesh_client_model_op_cb;
@@ -2209,26 +2201,6 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
         break;
     }
 #endif /* CONFIG_BLE_MESH_GATT_PROXY_CLIENT */
-#if CONFIG_BLE_MESH_SUPPORT_BLE_ADV
-    case BTC_BLE_MESH_ACT_START_BLE_ADVERTISING: {
-        struct bt_mesh_ble_adv_param *set = (struct bt_mesh_ble_adv_param *)&arg->start_ble_advertising.param;
-        struct bt_mesh_ble_adv_data *data = NULL;
-        if (arg->start_ble_advertising.data.adv_data_len ||
-            arg->start_ble_advertising.data.scan_rsp_data_len) {
-            data = (struct bt_mesh_ble_adv_data *)&arg->start_ble_advertising.data;
-        }
-        act = ESP_BLE_MESH_START_BLE_ADVERTISING_COMP_EVT;
-        param.start_ble_advertising_comp.err_code =
-            bt_mesh_start_ble_advertising(set, data, &param.start_ble_advertising_comp.index);
-        break;
-    }
-    case BTC_BLE_MESH_ACT_STOP_BLE_ADVERTISING:
-        act = ESP_BLE_MESH_STOP_BLE_ADVERTISING_COMP_EVT;
-        param.stop_ble_advertising_comp.index = arg->stop_ble_advertising.index;
-        param.stop_ble_advertising_comp.err_code =
-            bt_mesh_stop_ble_advertising(arg->stop_ble_advertising.index);
-        break;
-#endif /* CONFIG_BLE_MESH_SUPPORT_BLE_ADV */
     case BTC_BLE_MESH_ACT_MODEL_SUBSCRIBE_GROUP_ADDR:
         act = ESP_BLE_MESH_MODEL_SUBSCRIBE_GROUP_ADDR_COMP_EVT;
         param.model_sub_group_addr_comp.element_addr = arg->model_sub_group_addr.element_addr;

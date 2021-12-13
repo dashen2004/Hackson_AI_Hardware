@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -u
 set -e
@@ -7,7 +7,7 @@ echo "Checking if IDF version in esp_idf_version.h matches 'git describe' output
 
 function get_ver_from_header() {
     # Get the 3rd word from '#define ESP_IDF_VERSION_X <number>' line.
-    grep -E "^#define ${1}" components/esp32/include/esp_idf_version.h | awk '{print $3;}'
+    grep -E "^#define ${1}" components/esp_common/include/esp_idf_version.h | awk '{print $3;}'
 }
 
 function get_ver_from_make() {
@@ -43,7 +43,7 @@ version_from_git="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[4]:-0}"
 
 echo "From esp_idf_version.h: ${version_from_header}"
 echo "From version.mk: ${version_from_make}"
-echo "From version.cmake: ${version_from_cmake}" 
+echo "From version.cmake: ${version_from_cmake}"
 echo "From git describe: ${version_from_git}"
 
 if [[ "${version_from_header}" != "${version_from_git}" ]]; then

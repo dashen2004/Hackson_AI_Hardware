@@ -15,26 +15,12 @@
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
 #include "esp_log.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "nvs_flash.h"
 
 #define DEFAULT_SCAN_LIST_SIZE CONFIG_EXAMPLE_SCAN_LIST_SIZE
 
 static const char *TAG = "scan";
-static void perform_scan(void);
-static bool got_scan_done_event= false;
-
-static esp_err_t event_handler(void *ctx, system_event_t *event)
-{
-    switch(event->event_id) {
-    case SYSTEM_EVENT_SCAN_DONE:
-        got_scan_done_event = true;
-        break;
-    default:
-        break;
-    }
-    return ESP_OK;
-}
 
 static void print_auth_mode(int authmode)
 {
@@ -56,6 +42,12 @@ static void print_auth_mode(int authmode)
         break;
     case WIFI_AUTH_WPA2_ENTERPRISE:
         ESP_LOGI(TAG, "Authmode \tWIFI_AUTH_WPA2_ENTERPRISE");
+        break;
+    case WIFI_AUTH_WPA3_PSK:
+        ESP_LOGI(TAG, "Authmode \tWIFI_AUTH_WPA3_PSK");
+        break;
+    case WIFI_AUTH_WPA2_WPA3_PSK:
+        ESP_LOGI(TAG, "Authmode \tWIFI_AUTH_WPA2_WPA3_PSK");
         break;
     default:
         ESP_LOGI(TAG, "Authmode \tWIFI_AUTH_UNKNOWN");
@@ -114,13 +106,25 @@ static void print_cipher_type(int pairwise_cipher, int group_cipher)
     }
 }
 
-/* Initialise a wifi_ap_record_t, get it populated and display scanned data */
-static void perform_scan(void)
+/* Initialize Wi-Fi as sta and set scan method */
+static void wifi_scan(void)
 {
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
+    assert(sta_netif);
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
     uint16_t number = DEFAULT_SCAN_LIST_SIZE;
     wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE];
     uint16_t ap_count = 0;
     memset(ap_info, 0, sizeof(ap_info));
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    esp_wifi_scan_start(NULL, true);
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
     ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
@@ -133,34 +137,10 @@ static void perform_scan(void)
         }
         ESP_LOGI(TAG, "Channel \t\t%d\n", ap_info[i].primary);
     }
+
 }
 
-/* Initialize Wi-Fi as sta and start scan */
-static void init_wifi(void)
-{
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    esp_wifi_scan_start(NULL, true);
-
-    while (1) {
-        if (got_scan_done_event == true) {
-            perform_scan();
-            got_scan_done_event = false;
-            break;
-        } else {
-            vTaskDelay(100 / portTICK_RATE_MS);
-        }
-    }
-}
-
-void app_main()
+void app_main(void)
 {
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -170,5 +150,5 @@ void app_main()
     }
     ESP_ERROR_CHECK( ret );
 
-    init_wifi();
+    wifi_scan();
 }

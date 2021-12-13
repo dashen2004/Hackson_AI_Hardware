@@ -134,6 +134,13 @@ export COMMON_MAKEFILES
 ifndef BUILD_DIR_BASE
 BUILD_DIR_BASE := $(PROJECT_PATH)/build
 endif
+
+ifneq ("$(BUILD_DIR_BASE)","$(subst :,,$(BUILD_DIR_BASE))")
+$(error BUILD_DIR_BASE ($(BUILD_DIR_BASE)) cannot contain colons. If setting this path on Windows, use MSYS Unix-style /c/dir instead of C:/dir)
+endif
+
+BUILD_DIR_BASE := $(abspath $(BUILD_DIR_BASE))
+
 export BUILD_DIR_BASE
 
 # Component directories. These directories are searched for components (either the directory is a component,
@@ -219,6 +226,66 @@ endif
 TEST_COMPONENT_PATHS := $(foreach comp,$(TEST_COMPONENTS_LIST),$(firstword $(foreach dir,$(COMPONENT_DIRS),$(wildcard $(dir)/$(comp)/test))))
 TEST_COMPONENT_NAMES := $(foreach comp,$(TEST_COMPONENT_PATHS),$(lastword $(subst /, ,$(dir $(comp))))_test)
 
+# Set default values that were not previously defined
+CC ?= gcc
+LD ?= ld
+AR ?= ar
+OBJCOPY ?= objcopy
+OBJDUMP ?= objdump
+SIZE ?= size
+
+# Set host compiler and binutils
+HOSTCC := $(CC)
+HOSTLD := $(LD)
+HOSTAR := $(AR)
+HOSTOBJCOPY := $(OBJCOPY)
+HOSTSIZE := $(SIZE)
+export HOSTCC HOSTLD HOSTAR HOSTOBJCOPY SIZE
+
+# Set variables common to both project & component (includes config)
+include $(IDF_PATH)/make/common.mk
+
+# Notify users when some of the required python packages are not installed
+.PHONY: check_python_dependencies
+check_python_dependencies:
+ifndef IS_BOOTLOADER_BUILD
+	$(PYTHON) $(IDF_PATH)/tools/check_python_dependencies.py
+endif
+
+# include the config generation targets (dependency: COMPONENT_PATHS)
+#
+# (bootloader build doesn't need this, config is exported from top-level)
+ifndef IS_BOOTLOADER_BUILD
+include $(IDF_PATH)/make/project_config.mk
+endif
+
+#####################################################################
+# If SDKCONFIG_MAKEFILE hasn't been generated yet (detected if no
+# CONFIG_IDF_TARGET), stop the Makefile pass now to allow config to
+# be created. make will build SDKCONFIG_MAKEFILE and restart,
+# reevaluating everything from the top.
+#
+# This is important so config is present when the
+# component_project_vars.mk files are generated.
+#
+# (After both files exist, if SDKCONFIG_MAKEFILE is updated then the
+# normal dependency relationship will trigger a regeneration of
+# component_project_vars.mk)
+#
+#####################################################################
+ifndef CONFIG_IDF_TARGET
+ifdef IS_BOOTLOADER_BUILD  # we expect config to always have been expanded by top level project
+$(error "Internal error: config has not been passed correctly to bootloader subproject")
+endif
+ifdef MAKE_RESTARTS
+$(warning "Config was not evaluated after the first pass of 'make'")
+endif
+else  # CONFIG_IDF_TARGET
+#####################################################################
+# Config is valid, can include rest of the Project Makefile
+#####################################################################
+
+
 # Initialise project-wide variables which can be added to by
 # each component.
 #
@@ -250,36 +317,43 @@ COMPONENT_INCLUDES += $(abspath $(BUILD_DIR_BASE)/include/)
 
 export COMPONENT_INCLUDES
 
-# Set variables common to both project & component
-include $(IDF_PATH)/make/common.mk
-
 all:
-ifdef CONFIG_SECURE_BOOT_ENABLED
+ifdef CONFIG_SECURE_BOOT
 	@echo "(Secure boot enabled, so bootloader not flashed automatically. See 'make bootloader' output)"
 ifndef CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES
+ifdef SECURE_SIGNED_APPS_ECDSA_SCHEME
 	@echo "App built but not signed. Sign app & partition data before flashing, via espsecure.py:"
-	@echo "espsecure.py sign_data --keyfile KEYFILE $(APP_BIN)"
-	@echo "espsecure.py sign_data --keyfile KEYFILE $(PARTITION_TABLE_BIN)"
+	@echo "espsecure.py sign_data --version 1 --keyfile KEYFILE $(APP_BIN)"
+	@echo "espsecure.py sign_data --version 1 --keyfile KEYFILE $(PARTITION_TABLE_BIN)"
+else
+	@echo "App built but not signed. Sign app & partition data before flashing, via espsecure.py:"
+	@echo "espsecure.py sign_data --version 2 --keyfile KEYFILE $(APP_BIN)"
+endif
 endif
 	@echo "To flash app & partition table, run 'make flash' or:"
 else
+ifdef CONFIG_APP_BUILD_GENERATE_BINARIES
 	@echo "To flash all build output, run 'make flash' or:"
 endif
+endif
+ifdef CONFIG_APP_BUILD_GENERATE_BINARIES
 	@echo $(ESPTOOLPY_WRITE_FLASH) $(ESPTOOL_ALL_FLASH_ARGS)
+else
+	@echo "Binary is not available for flashing"
+endif
 
 
 # If we have `version.txt` then prefer that for extracting IDF version
 ifeq ("$(wildcard ${IDF_PATH}/version.txt)","")
-IDF_VER_T := $(shell cd ${IDF_PATH} && git describe --always --dirty)
+IDF_VER_T := $(shell cd ${IDF_PATH} && git describe --always --dirty --match v*.*)
 else
-IDF_VER_T := `cat ${IDF_PATH}/version.txt`
+IDF_VER_T := $(shell cat ${IDF_PATH}/version.txt)
 endif
 IDF_VER := $(shell echo "$(IDF_VER_T)"  | cut -c 1-31)
 
 # Set default LDFLAGS
 EXTRA_LDFLAGS ?=
 LDFLAGS ?= -nostdlib \
-	-u call_user_start_cpu0	\
 	$(EXTRA_LDFLAGS) \
 	-Wl,--gc-sections	\
 	-Wl,-static	\
@@ -318,7 +392,7 @@ COMMON_WARNING_FLAGS = -Wall -Werror=all \
 	-Wextra \
 	-Wno-unused-parameter -Wno-sign-compare
 
-ifdef CONFIG_DISABLE_GCC8_WARNINGS
+ifdef CONFIG_COMPILER_DISABLE_GCC8_WARNINGS
 COMMON_WARNING_FLAGS += -Wno-parentheses \
 	-Wno-sizeof-pointer-memaccess \
 	-Wno-clobbered \
@@ -334,12 +408,13 @@ COMMON_WARNING_FLAGS += -Wno-parentheses \
 	-Wno-int-in-bool-context
 endif
 
-ifdef CONFIG_WARN_WRITE_STRINGS
+ifdef CONFIG_COMPILER_WARN_WRITE_STRINGS
 COMMON_WARNING_FLAGS += -Wwrite-strings
-endif #CONFIG_WARN_WRITE_STRINGS
+endif #CONFIG_COMPILER_WARN_WRITE_STRINGS
 
 # Flags which control code generation and dependency generation, both for C and C++
 COMMON_FLAGS = \
+	-Wno-frame-address \
 	-ffunction-sections -fdata-sections \
 	-fstrict-volatile-bitfields \
 	-mlongcalls \
@@ -347,27 +422,65 @@ COMMON_FLAGS = \
 
 ifndef IS_BOOTLOADER_BUILD
 # stack protection (only one option can be selected in menuconfig)
-ifdef CONFIG_STACK_CHECK_NORM
+ifdef CONFIG_COMPILER_STACK_CHECK_MODE_NORM
 COMMON_FLAGS += -fstack-protector
 endif
-ifdef CONFIG_STACK_CHECK_STRONG
+ifdef CONFIG_COMPILER_STACK_CHECK_MODE_STRONG
 COMMON_FLAGS += -fstack-protector-strong
 endif
-ifdef CONFIG_STACK_CHECK_ALL
+ifdef CONFIG_COMPILER_STACK_CHECK_MODE_ALL
 COMMON_FLAGS += -fstack-protector-all
 endif
-endif
+
+# Placing jump tables in flash would cause issues with code that required
+# to be placed in IRAM
+COMMON_FLAGS += -fno-jump-tables
+COMMON_FLAGS += -fno-tree-switch-conversion
 
 # Optimization flags are set based on menuconfig choice
-ifdef CONFIG_OPTIMIZATION_LEVEL_RELEASE
-OPTIMIZATION_FLAGS = -Os
-else
+ifdef CONFIG_COMPILER_OPTIMIZATION_SIZE
+OPTIMIZATION_FLAGS = -Os -freorder-blocks
+endif
+
+ifdef CONFIG_COMPILER_OPTIMIZATION_DEFAULT
 OPTIMIZATION_FLAGS = -Og
 endif
 
-ifdef CONFIG_OPTIMIZATION_ASSERTIONS_DISABLED
+ifdef CONFIG_COMPILER_OPTIMIZATION_NONE
+OPTIMIZATION_FLAGS = -O0
+endif
+
+ifdef CONFIG_COMPILER_OPTIMIZATION_PERF
+OPTIMIZATION_FLAGS = -O2
+endif
+
+ifdef CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE
 CPPFLAGS += -DNDEBUG
 endif
+
+else # IS_BOOTLOADER_BUILD
+
+ifdef CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE
+OPTIMIZATION_FLAGS = -Os -freorder-blocks
+endif
+
+ifdef CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG
+OPTIMIZATION_FLAGS = -Og
+endif
+
+ifdef CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_NONE
+OPTIMIZATION_FLAGS = -O0
+endif
+
+ifdef CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF
+OPTIMIZATION_FLAGS = -O2
+endif
+
+endif # IS_BOOTLOADER_BUILD
+
+
+# IDF uses some GNU extension from libc
+CPPFLAGS += -D_GNU_SOURCE
 
 # Enable generation of debugging symbols
 # (we generate even in Release mode, as this has no impact on final binary size.)
@@ -391,70 +504,47 @@ CXXFLAGS ?=
 EXTRA_CXXFLAGS ?=
 CXXFLAGS := $(strip \
 	-std=gnu++11 \
-	-fno-rtti \
 	$(OPTIMIZATION_FLAGS) $(DEBUG_FLAGS) \
 	$(COMMON_FLAGS) \
 	$(COMMON_WARNING_FLAGS) \
 	$(CXXFLAGS) \
 	$(EXTRA_CXXFLAGS))
 
-ifdef CONFIG_CXX_EXCEPTIONS
+ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
 CXXFLAGS += -fexceptions
 else
 CXXFLAGS += -fno-exceptions
 endif
 
-ARFLAGS := cru
+ifdef CONFIG_COMPILER_CXX_RTTI
+CXXFLAGS += -frtti
+else
+CXXFLAGS += -fno-rtti
+LDFLAGS += -fno-rtti
+endif
+
+ARFLAGS := cr
 
 export CFLAGS CPPFLAGS CXXFLAGS ARFLAGS
 
-# Set default values that were not previously defined
-CC ?= gcc
-LD ?= ld
-AR ?= ar
-OBJCOPY ?= objcopy
-OBJDUMP ?= objdump
-SIZE ?= size
-
-# Set host compiler and binutils
-HOSTCC := $(CC)
-HOSTLD := $(LD)
-HOSTAR := $(AR)
-HOSTOBJCOPY := $(OBJCOPY)
-HOSTSIZE := $(SIZE)
-export HOSTCC HOSTLD HOSTAR HOSTOBJCOPY SIZE
-
 # Set target compiler. Defaults to whatever the user has
 # configured as prefix + ye olde gcc commands
-CC := $(call dequote,$(CONFIG_TOOLPREFIX))gcc
-CXX := $(call dequote,$(CONFIG_TOOLPREFIX))c++
-LD := $(call dequote,$(CONFIG_TOOLPREFIX))ld
-AR := $(call dequote,$(CONFIG_TOOLPREFIX))ar
-OBJCOPY := $(call dequote,$(CONFIG_TOOLPREFIX))objcopy
-OBJDUMP := $(call dequote,$(CONFIG_TOOLPREFIX))objdump
-SIZE := $(call dequote,$(CONFIG_TOOLPREFIX))size
+CC := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))gcc
+CXX := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))c++
+LD := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))ld
+AR := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))ar
+OBJCOPY := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))objcopy
+OBJDUMP := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))objdump
+SIZE := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))size
 export CC CXX LD AR OBJCOPY OBJDUMP SIZE
 
 COMPILER_VERSION_STR := $(shell $(CC) -dumpversion)
 COMPILER_VERSION_NUM := $(subst .,,$(COMPILER_VERSION_STR))
-GCC_NOT_5_2_0 := $(shell expr $(COMPILER_VERSION_STR) != "5.2.0")
-export COMPILER_VERSION_STR COMPILER_VERSION_NUM GCC_NOT_5_2_0
-
-CPPFLAGS += -DGCC_NOT_5_2_0=$(GCC_NOT_5_2_0)
-export CPPFLAGS
-
 
 # the app is the main executable built by the project
 APP_ELF:=$(BUILD_DIR_BASE)/$(PROJECT_NAME).elf
 APP_MAP:=$(APP_ELF:.elf=.map)
 APP_BIN:=$(APP_ELF:.elf=.bin)
-
-# once we know component paths, we can include the config generation targets
-#
-# (bootloader build doesn't need this, config is exported from top-level)
-ifndef IS_BOOTLOADER_BUILD
-include $(IDF_PATH)/make/project_config.mk
-endif
 
 # include linker script generation utils makefile
 include $(IDF_PATH)/make/ldgen.mk
@@ -464,7 +554,9 @@ $(eval $(call ldgen_create_commands))
 # Include any Makefile.projbuild file letting components add
 # configuration at the project level
 define includeProjBuildMakefile
-$(if $(V),$$(info including $(1)/Makefile.projbuild...))
+ifeq ("$(V)","1")
+$$(info including $(1)/Makefile.projbuild...)
+endif
 COMPONENT_PATH := $(1)
 include $(1)/Makefile.projbuild
 endef
@@ -482,23 +574,25 @@ $(APP_ELF): $(foreach libcomp,$(COMPONENT_LIBRARIES),$(BUILD_DIR_BASE)/$(libcomp
 	$(summary) LD $(patsubst $(PWD)/%,%,$@)
 	$(CC) $(LDFLAGS) -o $@ -Wl,-Map=$(APP_MAP)
 
+ifdef CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME
+SECURE_APPS_SIGNING_SCHEME = "1"
+else ifdef CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME
+SECURE_APPS_SIGNING_SCHEME = "2"
+endif
+
 app: $(APP_BIN) partition_table_get_info
-ifeq ("$(CONFIG_SECURE_BOOT_ENABLED)$(CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES)","y") # secure boot enabled, but remote sign app image
+ifeq ("$(CONFIG_APP_BUILD_GENERATE_BINARIES)","y")
+ifeq ("$(CONFIG_SECURE_BOOT)$(CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES)","y") # secure boot enabled, but remote sign app image
 	@echo "App built but not signed. Signing step via espsecure.py:"
-	@echo "espsecure.py sign_data --keyfile KEYFILE $(APP_BIN)"
+	@echo "espsecure.py sign_data --version $(SECURE_APPS_SIGNING_SCHEME) --keyfile KEYFILE $(APP_BIN)"
 	@echo "Then flash app command is:"
 	@echo $(ESPTOOLPY_WRITE_FLASH) $(APP_OFFSET) $(APP_BIN)
 else
 	@echo "App built. Default flash app command is:"
 	@echo $(ESPTOOLPY_WRITE_FLASH) $(APP_OFFSET) $(APP_BIN)
 endif
-
-.PHONY: check_python_dependencies
-
-# Notify users when some of the required python packages are not installed
-check_python_dependencies:
-ifndef IS_BOOTLOADER_BUILD
-	$(PYTHON) $(IDF_PATH)/tools/check_python_dependencies.py
+else
+	@echo "Application in not built and cannot be flashed."
 endif
 
 all_binaries: $(APP_BIN)
@@ -522,11 +616,14 @@ endef
 define GenerateComponentTargets
 .PHONY: component-$(2)-build component-$(2)-clean
 
+COMPONENT_$(2)_BUILDTARGET ?= build
+COMPONENT_$(2)_CLEANTARGET ?= clean
+
 component-$(2)-build: check-submodules $(call prereq_if_explicit, component-$(2)-clean) | $(BUILD_DIR_BASE)/$(2)
-	$(call ComponentMake,$(1),$(2)) build
+	$(call ComponentMake,$(1),$(2)) $$(COMPONENT_$(2)_BUILDTARGET)
 
 component-$(2)-clean: | $(BUILD_DIR_BASE)/$(2) $(BUILD_DIR_BASE)/$(2)/component_project_vars.mk
-	$(call ComponentMake,$(1),$(2)) clean
+	$(call ComponentMake,$(1),$(2)) $$(COMPONENT_$(2)_CLEANTARGET)
 
 $(BUILD_DIR_BASE)/$(2):
 	@mkdir -p $(BUILD_DIR_BASE)/$(2)
@@ -644,7 +741,7 @@ print_flash_cmd: partition_table_get_info blank_ota_data
 # The output normally looks as follows
 #     xtensa-esp32-elf-gcc (crosstool-NG crosstool-ng-1.22.0-80-g6c4433a) 5.2.0
 # The part in brackets is extracted into TOOLCHAIN_COMMIT_DESC variable
-ifdef CONFIG_TOOLPREFIX
+ifdef CONFIG_SDK_TOOLPREFIX
 ifndef MAKE_RESTARTS
 
 TOOLCHAIN_HEADER := $(shell $(CC) --version | head -1)
@@ -683,4 +780,7 @@ $(info WARNING: Failed to find Xtensa toolchain, may need to alter PATH or set o
 endif # TOOLCHAIN_COMMIT_DESC
 
 endif #MAKE_RESTARTS
-endif #CONFIG_TOOLPREFIX
+endif #CONFIG_SDK_TOOLPREFIX
+
+#####################################################################
+endif #CONFIG_IDF_TARGET

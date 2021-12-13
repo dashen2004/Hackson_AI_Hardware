@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2017 Nordic Semiconductor ASA
- * Copyright (c) 2015-2016 Intel Corporation
- * Additional Copyright (c) 2018 Espressif Systems (Shanghai) PTE LTD
+ * SPDX-FileCopyrightText: 2017 Nordic Semiconductor ASA
+ * SPDX-FileCopyrightText: 2015-2016 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -19,7 +19,6 @@
 #include "device/controller.h"
 
 #include "mbedtls/aes.h"
-#include "bt_common.h"
 
 #include <tinycrypt/aes.h>
 #include <tinycrypt/constants.h>
@@ -184,7 +183,7 @@ static bool valid_adv_param(const struct bt_mesh_adv_param *param)
     }
 
     if (param->interval_min > param->interval_max ||
-            param->interval_min < 0x0010 || param->interval_max > 0x4000) {
+            param->interval_min < 0x0020 || param->interval_max > 0x4000) {
         return false;
     }
 
@@ -285,31 +284,21 @@ static int start_le_scan(uint8_t scan_type, uint16_t interval, uint16_t window,
 
 static void bt_mesh_scan_result_callback(tBTA_DM_SEARCH_EVT event, tBTA_DM_SEARCH *p_data)
 {
+    struct net_buf_simple buf = {0};
     bt_mesh_addr_t addr = {0};
-    uint8_t adv_type = 0U;
-    int8_t rssi = 0;
 
     BT_DBG("%s, event %d", __func__, event);
 
     if (event == BTA_DM_INQ_RES_EVT) {
-        /* TODO: How to process scan response here? */
+        /* TODO: How to process scan response here? PS: p_data->inq_res.scan_rsp_len */
         addr.type = p_data->inq_res.ble_addr_type;
         memcpy(addr.val, p_data->inq_res.bd_addr, BLE_MESH_ADDR_LEN);
-        rssi = p_data->inq_res.rssi;
-        adv_type = p_data->inq_res.ble_evt_type;
 
-        /* scan rsp len: p_data->inq_res.scan_rsp_len */
-        struct net_buf_simple *buf = bt_mesh_alloc_buf(p_data->inq_res.adv_data_len);
-        if (!buf) {
-            BT_ERR("%s, Out of memory", __func__);
-            return;
-        }
-        net_buf_simple_add_mem(buf, p_data->inq_res.p_eir, p_data->inq_res.adv_data_len);
+        net_buf_simple_init_with_data(&buf, p_data->inq_res.p_eir, p_data->inq_res.adv_data_len);
 
-        if (bt_mesh_scan_dev_found_cb != NULL) {
-            bt_mesh_scan_dev_found_cb(&addr, rssi, adv_type, buf);
+        if (bt_mesh_scan_dev_found_cb) {
+            bt_mesh_scan_dev_found_cb(&addr, p_data->inq_res.rssi, p_data->inq_res.ble_evt_type, &buf);
         }
-        bt_mesh_free(buf);
     } else if (event == BTA_DM_INQ_CMPL_EVT) {
         BT_INFO("Scan completed, number of scan response %d", p_data->inq_cmpl.num_resps);
     } else {
@@ -513,7 +502,7 @@ int bt_le_update_white_list(struct bt_mesh_white_list *wl)
     }
 
     if (BTM_BleUpdateAdvWhitelist(wl->add_remove, wl->remote_bda,
-            (tBTM_ADD_WHITELIST_CBACK *)wl->update_wl_comp_cb) == false) {
+            wl->addr_type, (tBTM_ADD_WHITELIST_CBACK *)wl->update_wl_comp_cb) == false) {
         return -EIO;
     }
 
@@ -1102,7 +1091,7 @@ int bt_mesh_gatts_service_start(struct bt_mesh_gatt_service *svc)
 
 int bt_mesh_gatts_set_local_device_name(const char *name)
 {
-    BLE_MESH_BTM_CHECK_STATUS(BTM_SetLocalDeviceName((char *)name));
+    BTM_SetLocalDeviceName((char *)name);
 
     return 0;
 }
@@ -1218,7 +1207,7 @@ int bt_mesh_gattc_conn_create(const bt_mesh_addr_t *addr, uint16_t service_uuid)
     BTA_DmSetBlePrefConnParams(bt_mesh_gattc_info[i].addr.val, 0x18, 0x18, 0x00, 0x64);
 
     BTA_GATTC_Open(bt_mesh_gattc_if, bt_mesh_gattc_info[i].addr.val,
-                   bt_mesh_gattc_info[i].addr.type, true, BTA_GATT_TRANSPORT_LE);
+                   bt_mesh_gattc_info[i].addr.type, true, BTA_GATT_TRANSPORT_LE, FALSE);
 
     return 0;
 }
@@ -1879,59 +1868,36 @@ int bt_mesh_dh_key_gen(const uint8_t remote_pk[64], bt_mesh_dh_key_cb_t cb, cons
     return 0;
 }
 
-#if CONFIG_MBEDTLS_HARDWARE_AES
-static void ecb_encrypt(uint8_t const *const key_le, uint8_t const *const clear_text_le,
-                        uint8_t *const cipher_text_le, uint8_t *const cipher_text_be)
-{
-    struct bt_mesh_ecb_param ecb = {0};
-    mbedtls_aes_context aes_ctx = {0};
-
-    aes_ctx.key_bytes = 16;
-    mem_rcopy(&aes_ctx.key[0], key_le, 16);
-    mem_rcopy(&ecb.clear_text[0], clear_text_le, sizeof(ecb.clear_text));
-    mbedtls_aes_crypt_ecb(&aes_ctx, MBEDTLS_AES_ENCRYPT, &ecb.clear_text[0], &ecb.cipher_text[0]);
-
-    if (cipher_text_le) {
-        mem_rcopy(cipher_text_le, &ecb.cipher_text[0],
-                  sizeof(ecb.cipher_text));
-    }
-
-    if (cipher_text_be) {
-        memcpy(cipher_text_be, &ecb.cipher_text[0],
-               sizeof(ecb.cipher_text));
-    }
-}
-
-static void ecb_encrypt_be(uint8_t const *const key_be, uint8_t const *const clear_text_be,
-                           uint8_t *const cipher_text_be)
-{
-    struct bt_mesh_ecb_param ecb = {0};
-    mbedtls_aes_context aes_ctx = {0};
-
-    aes_ctx.key_bytes = 16;
-    memcpy(&aes_ctx.key[0], key_be, 16);
-    memcpy(&ecb.clear_text[0], clear_text_be, sizeof(ecb.clear_text));
-    mbedtls_aes_crypt_ecb(&aes_ctx, MBEDTLS_AES_ENCRYPT, &ecb.clear_text[0], &ecb.cipher_text[0]);
-
-    memcpy(cipher_text_be, &ecb.cipher_text[0], sizeof(ecb.cipher_text));
-}
-#endif /* CONFIG_MBEDTLS_HARDWARE_AES */
-
 int bt_mesh_encrypt_le(const uint8_t key[16], const uint8_t plaintext[16],
                        uint8_t enc_data[16])
 {
-#if CONFIG_MBEDTLS_HARDWARE_AES
-    BT_DBG("key %s plaintext %s", bt_hex(key, 16), bt_hex(plaintext, 16));
-
-    ecb_encrypt(key, plaintext, enc_data, NULL);
-
-    BT_DBG("enc_data %s", bt_hex(enc_data, 16));
-    return 0;
-#else /* CONFIG_MBEDTLS_HARDWARE_AES */
-    struct tc_aes_key_sched_struct s = {0};
     uint8_t tmp[16] = {0};
 
     BT_DBG("key %s plaintext %s", bt_hex(key, 16), bt_hex(plaintext, 16));
+
+#if CONFIG_MBEDTLS_HARDWARE_AES
+    mbedtls_aes_context ctx = {0};
+
+    mbedtls_aes_init(&ctx);
+
+    sys_memcpy_swap(tmp, key, 16);
+
+    if (mbedtls_aes_setkey_enc(&ctx, tmp, 128) != 0) {
+        mbedtls_aes_free(&ctx);
+        return -EINVAL;
+    }
+
+    sys_memcpy_swap(tmp, plaintext, 16);
+
+    if (mbedtls_aes_crypt_ecb(&ctx, MBEDTLS_AES_ENCRYPT,
+                              tmp, enc_data) != 0) {
+        mbedtls_aes_free(&ctx);
+        return -EINVAL;
+    }
+
+    mbedtls_aes_free(&ctx);
+#else /* CONFIG_MBEDTLS_HARDWARE_AES */
+    struct tc_aes_key_sched_struct s = {0};
 
     sys_memcpy_swap(tmp, key, 16);
 
@@ -1944,30 +1910,39 @@ int bt_mesh_encrypt_le(const uint8_t key[16], const uint8_t plaintext[16],
     if (tc_aes_encrypt(enc_data, tmp, &s) == TC_CRYPTO_FAIL) {
         return -EINVAL;
     }
+#endif /* CONFIG_MBEDTLS_HARDWARE_AES */
 
     sys_mem_swap(enc_data, 16);
 
     BT_DBG("enc_data %s", bt_hex(enc_data, 16));
 
     return 0;
-#endif /* CONFIG_MBEDTLS_HARDWARE_AES */
 }
 
 int bt_mesh_encrypt_be(const uint8_t key[16], const uint8_t plaintext[16],
                        uint8_t enc_data[16])
 {
-#if CONFIG_MBEDTLS_HARDWARE_AES
     BT_DBG("key %s plaintext %s", bt_hex(key, 16), bt_hex(plaintext, 16));
 
-    ecb_encrypt_be(key, plaintext, enc_data);
+#if CONFIG_MBEDTLS_HARDWARE_AES
+    mbedtls_aes_context ctx = {0};
 
-    BT_DBG("enc_data %s", bt_hex(enc_data, 16));
+    mbedtls_aes_init(&ctx);
 
-    return 0;
+    if (mbedtls_aes_setkey_enc(&ctx, key, 128) != 0) {
+        mbedtls_aes_free(&ctx);
+        return -EINVAL;
+    }
+
+    if (mbedtls_aes_crypt_ecb(&ctx, MBEDTLS_AES_ENCRYPT,
+                              plaintext, enc_data) != 0) {
+        mbedtls_aes_free(&ctx);
+        return -EINVAL;
+    }
+
+    mbedtls_aes_free(&ctx);
 #else /* CONFIG_MBEDTLS_HARDWARE_AES */
     struct tc_aes_key_sched_struct s = {0};
-
-    BT_DBG("key %s plaintext %s", bt_hex(key, 16), bt_hex(plaintext, 16));
 
     if (tc_aes128_set_encrypt_key(&s, key) == TC_CRYPTO_FAIL) {
         return -EINVAL;
@@ -1976,11 +1951,11 @@ int bt_mesh_encrypt_be(const uint8_t key[16], const uint8_t plaintext[16],
     if (tc_aes_encrypt(enc_data, plaintext, &s) == TC_CRYPTO_FAIL) {
         return -EINVAL;
     }
+#endif /* CONFIG_MBEDTLS_HARDWARE_AES */
 
     BT_DBG("enc_data %s", bt_hex(enc_data, 16));
 
     return 0;
-#endif /* CONFIG_MBEDTLS_HARDWARE_AES */
 }
 
 #if defined(CONFIG_BLE_MESH_USE_DUPLICATE_SCAN)

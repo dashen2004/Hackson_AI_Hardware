@@ -1,5 +1,5 @@
 #include_next <setjmp.h>
-#include "esp_panic.h"
+#include "esp_debug_helpers.h"
 
 /*
  * This is the middle layer of setjmp to be used with the unity.

@@ -6,29 +6,30 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
-#include "string.h"
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-
 #include "esp_system.h"
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
-
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "protocol_examples_common.h"
 
-#ifdef CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL_FROM_STDIN
-#include "esp_vfs_dev.h"
-#include "driver/uart.h"
+#if CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
+#include "esp_efuse.h"
 #endif
 
 #if CONFIG_EXAMPLE_CONNECT_WIFI
 #include "esp_wifi.h"
+#endif
+
+#if CONFIG_BT_BLE_ENABLED || CONFIG_BT_NIMBLE_ENABLED
+#include "ble_api.h"
 #endif
 
 static const char *TAG = "advanced_https_ota_example";
@@ -36,73 +37,6 @@ extern const uint8_t server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
 extern const uint8_t server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
 
 #define OTA_URL_SIZE 256
-
-/* FreeRTOS event group to signal when we are connected & ready to make a request */
-static EventGroupHandle_t wifi_event_group;
-
-/* The event group allows multiple bits for each event,
-   but we only care about one event - are we connected
-   to the AP with an IP? */
-const int CONNECTED_BIT = BIT0;
-
-#ifdef CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL_FROM_STDIN
-static esp_err_t example_configure_stdin_stdout(void)
-{
-    // Initialize VFS & UART so we can use std::cout/cin
-    setvbuf(stdin, NULL, _IONBF, 0);
-    setvbuf(stdout, NULL, _IONBF, 0);
-    /* Install UART driver for interrupt-driven reads and writes */
-    ESP_ERROR_CHECK( uart_driver_install( (uart_port_t)CONFIG_CONSOLE_UART_NUM,
-            256, 0, 0, NULL, 0) );
-    /* Tell VFS to use UART driver */
-    esp_vfs_dev_uart_use_driver(CONFIG_CONSOLE_UART_NUM);
-    esp_vfs_dev_uart_port_set_rx_line_endings(CONFIG_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CR);
-    /* Move the caret to the beginning of the next line on '\n' */
-    esp_vfs_dev_uart_port_set_tx_line_endings(CONFIG_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CRLF);
-    return ESP_OK;
-}
-#endif
-
-static esp_err_t event_handler(void *ctx, system_event_t *event)
-{
-    switch (event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        /* This is a workaround as ESP32 WiFi libs don't currently
-           auto-reassociate. */
-        esp_wifi_connect();
-        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    default:
-        break;
-    }
-    return ESP_OK;
-}
-
-static void initialise_wifi(void)
-{
-    tcpip_adapter_init();
-    wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = CONFIG_WIFI_SSID,
-            .password = CONFIG_WIFI_PASSWORD,
-        },
-    };
-    ESP_LOGI(TAG, "Setting WiFi configuration SSID %s", wifi_config.sta.ssid);
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-}
 
 static esp_err_t validate_image_header(esp_app_desc_t *new_app_info)
 {
@@ -122,25 +56,43 @@ static esp_err_t validate_image_header(esp_app_desc_t *new_app_info)
         return ESP_FAIL;
     }
 #endif
+
+#ifdef CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
+    /**
+     * Secure version check from firmware image header prevents subsequent download and flash write of
+     * entire firmware image. However this is optional because it is also taken care in API
+     * esp_https_ota_finish at the end of OTA update procedure.
+     */
+    const uint32_t hw_sec_version = esp_efuse_read_secure_version();
+    if (new_app_info->secure_version < hw_sec_version) {
+        ESP_LOGW(TAG, "New firmware security version is less than eFuse programmed, %d < %d", new_app_info->secure_version, hw_sec_version);
+        return ESP_FAIL;
+    }
+#endif
+
     return ESP_OK;
 }
 
-void advanced_ota_example_task(void * pvParameter)
+static esp_err_t _http_client_init_cb(esp_http_client_handle_t http_client)
+{
+    esp_err_t err = ESP_OK;
+    /* Uncomment to add custom headers to HTTP request */
+    // err = esp_http_client_set_header(http_client, "Custom-Header", "Value");
+    return err;
+}
+
+void advanced_ota_example_task(void *pvParameter)
 {
     ESP_LOGI(TAG, "Starting Advanced OTA example");
 
-    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                        false, true, portMAX_DELAY);
-    ESP_LOGI(TAG, "Connected to WiFi network! Attempting to connect to server...");
-    
     esp_err_t ota_finish_err = ESP_OK;
     esp_http_client_config_t config = {
-        .url = CONFIG_FIRMWARE_UPGRADE_URL,
+        .url = CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL,
         .cert_pem = (char *)server_cert_pem_start,
         .timeout_ms = CONFIG_EXAMPLE_OTA_RECV_TIMEOUT,
         .keep_alive_enable = true,
     };
-    
+
 #ifdef CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL_FROM_STDIN
     char url_buf[OTA_URL_SIZE];
     if (strcmp(config.url, "FROM_STDIN") == 0) {
@@ -161,8 +113,13 @@ void advanced_ota_example_task(void * pvParameter)
 
     esp_https_ota_config_t ota_config = {
         .http_config = &config,
+        .http_client_init_cb = _http_client_init_cb, // Register a callback to be invoked after esp_http_client is initialized
+#ifdef CONFIG_EXAMPLE_ENABLE_PARTIAL_HTTP_DOWNLOAD
+        .partial_http_download = true,
+        .max_http_request_size = CONFIG_EXAMPLE_HTTP_REQUEST_SIZE,
+#endif
     };
-    
+
     esp_https_ota_handle_t https_ota_handle = NULL;
     esp_err_t err = esp_https_ota_begin(&ota_config, &https_ota_handle);
     if (err != ESP_OK) {
@@ -196,24 +153,28 @@ void advanced_ota_example_task(void * pvParameter)
     if (esp_https_ota_is_complete_data_received(https_ota_handle) != true) {
         // the OTA image was not completely received and user can customise the response to this situation.
         ESP_LOGE(TAG, "Complete data was not received.");
+    } else {
+        ota_finish_err = esp_https_ota_finish(https_ota_handle);
+        if ((err == ESP_OK) && (ota_finish_err == ESP_OK)) {
+            ESP_LOGI(TAG, "ESP_HTTPS_OTA upgrade successful. Rebooting ...");
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            esp_restart();
+        } else {
+            if (ota_finish_err == ESP_ERR_OTA_VALIDATE_FAILED) {
+                ESP_LOGE(TAG, "Image validation failed, image is corrupted");
+            }
+            ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed 0x%x", ota_finish_err);
+            vTaskDelete(NULL);
+        }
     }
 
 ota_end:
-    ota_finish_err = esp_https_ota_finish(https_ota_handle);
-    if ((err == ESP_OK) && (ota_finish_err == ESP_OK)) {
-        ESP_LOGI(TAG, "ESP_HTTPS_OTA upgrade successful. Rebooting ...");
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        esp_restart();
-    } else {
-        if (ota_finish_err == ESP_ERR_OTA_VALIDATE_FAILED) {
-            ESP_LOGE(TAG, "Image validation failed, image is corrupted");
-        }
-        ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed %d", ota_finish_err);
-        vTaskDelete(NULL);
-    }
+    esp_https_ota_abort(https_ota_handle);
+    ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed");
+    vTaskDelete(NULL);
 }
 
-void app_main()
+void app_main(void)
 {
     // Initialize NVS.
     esp_err_t err = nvs_flash_init();
@@ -227,15 +188,53 @@ void app_main()
     }
     ESP_ERROR_CHECK( err );
 
-    initialise_wifi();
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+     * Read "Establishing Wi-Fi or Ethernet Connection" section in
+     * examples/protocols/README.md for more information about this function.
+    */
+    ESP_ERROR_CHECK(example_connect());
+
+#if defined(CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE)
+    /**
+     * We are treating successful WiFi connection as a checkpoint to cancel rollback
+     * process and mark newly updated firmware image as active. For production cases,
+     * please tune the checkpoint behavior per end application requirement.
+     */
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    esp_ota_img_states_t ota_state;
+    if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK) {
+        if (ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+            if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) {
+                ESP_LOGI(TAG, "App is valid, rollback cancelled successfully");
+            } else {
+                ESP_LOGE(TAG, "Failed to cancel rollback");
+            }
+        }
+    }
+#endif
 
 #if CONFIG_EXAMPLE_CONNECT_WIFI
+#if !CONFIG_BT_ENABLED
     /* Ensure to disable any WiFi power save mode, this allows best throughput
      * and hence timings for overall OTA operation.
      */
     esp_wifi_set_ps(WIFI_PS_NONE);
+#else
+    /* WIFI_PS_MIN_MODEM is the default mode for WiFi Power saving. When both
+     * WiFi and Bluetooth are running, WiFI modem has to go down, hence we
+     * need WIFI_PS_MIN_MODEM. And as WiFi modem goes down, OTA download time
+     * increases.
+     */
+    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+#endif // CONFIG_BT_ENABLED
 #endif // CONFIG_EXAMPLE_CONNECT_WIFI
+
+#if CONFIG_BT_BLE_ENABLED || CONFIG_BT_NIMBLE_ENABLED
+    esp_ble_helper_init();
+#endif
 
     xTaskCreate(&advanced_ota_example_task, "advanced_ota_example_task", 1024 * 8, NULL, 5, NULL);
 }
-

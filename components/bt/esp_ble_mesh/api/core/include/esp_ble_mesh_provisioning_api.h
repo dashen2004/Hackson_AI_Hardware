@@ -1,16 +1,8 @@
-// Copyright 2017-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #ifndef _ESP_BLE_MESH_PROVISIONING_API_H_
 #define _ESP_BLE_MESH_PROVISIONING_API_H_
@@ -244,7 +236,7 @@ esp_err_t esp_ble_mesh_provisioner_prov_disable(esp_ble_mesh_prov_bearer_t beare
 esp_err_t esp_ble_mesh_provisioner_add_unprov_dev(esp_ble_mesh_unprov_dev_add_t *add_dev,
                                                   esp_ble_mesh_dev_add_flag_t flags);
 
-/** @brief Provision an unprovisioned device with fixed unicast address.
+/** @brief Provision an unprovisioned device and assign a fixed unicast address for it in advance.
  *
  *  @param[in] uuid:         Device UUID of the unprovisioned device
  *  @param[in] addr:         Device address of the unprovisioned device
@@ -258,7 +250,7 @@ esp_err_t esp_ble_mesh_provisioner_add_unprov_dev(esp_ble_mesh_unprov_dev_add_t 
  *  @note: 1. Currently address type only supports public address and static random address.
  *         2. Bearer must be equal to ESP_BLE_MESH_PROV_ADV or ESP_BLE_MESH_PROV_GATT, since
  *            Provisioner will start to provision a device immediately once this function is
- *            invked. And the input bearer must be identical with the one within the parameters
+ *            invoked. And the input bearer must be identical with the one within the parameters
  *            of the ESP_BLE_MESH_PROVISIONER_RECV_UNPROV_ADV_PKT_EVT event.
  *         3. If this function is used by a Provisioner to provision devices, the application
  *            should take care of the assigned unicast address and avoid overlap of the unicast

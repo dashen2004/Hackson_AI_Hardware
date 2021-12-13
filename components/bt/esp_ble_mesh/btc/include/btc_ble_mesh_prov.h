@@ -1,16 +1,8 @@
-// Copyright 2017-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #ifndef _BTC_BLE_MESH_PROV_H_
 #define _BTC_BLE_MESH_PROV_H_
@@ -83,8 +75,6 @@ typedef enum {
     BTC_BLE_MESH_ACT_PROXY_CLIENT_SET_FILTER_TYPE,
     BTC_BLE_MESH_ACT_PROXY_CLIENT_ADD_FILTER_ADDR,
     BTC_BLE_MESH_ACT_PROXY_CLIENT_REMOVE_FILTER_ADDR,
-    BTC_BLE_MESH_ACT_START_BLE_ADVERTISING,
-    BTC_BLE_MESH_ACT_STOP_BLE_ADVERTISING,
     BTC_BLE_MESH_ACT_MODEL_SUBSCRIBE_GROUP_ADDR,
     BTC_BLE_MESH_ACT_MODEL_UNSUBSCRIBE_GROUP_ADDR,
     BTC_BLE_MESH_ACT_DEINIT_MESH,
@@ -305,13 +295,6 @@ typedef union {
         uint16_t  addr_num;
         uint16_t *addr;
     } proxy_client_remove_filter_addr;
-    struct ble_mesh_start_ble_advertising_args {
-        esp_ble_mesh_ble_adv_param_t param;
-        esp_ble_mesh_ble_adv_data_t  data;
-    } start_ble_advertising;
-    struct ble_mesh_stop_ble_advertising_args {
-        uint8_t index;
-    } stop_ble_advertising;
     struct ble_mesh_model_sub_group_addr_args {
         uint16_t element_addr;
         uint16_t company_id;

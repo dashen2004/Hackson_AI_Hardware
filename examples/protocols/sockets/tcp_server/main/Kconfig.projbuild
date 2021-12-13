@@ -1,30 +1,13 @@
 menu "Example Configuration"
 
-    config WIFI_SSID
-        string "WiFi SSID"
-        default "myssid"
-        help
-            SSID (network name) for the example to connect to.
+    config EXAMPLE_IPV4
+        bool "IPV4"
+        default y
 
-    config WIFI_PASSWORD
-        string "WiFi Password"
-        default "mypassword"
-        help
-            WiFi password (WPA or WPA2) for the example to use.
-            Can be left blank if the network has no security set.
-
-    choice EXAMPLE_IP_MODE
-        prompt "IP Version"
-        help
-            Example can use either IPV4 or IPV6.
-
-        config EXAMPLE_IPV4
-            bool "IPV4"
-
-        config EXAMPLE_IPV6
-            bool "IPV6"
-
-    endchoice
+    config EXAMPLE_IPV6
+        bool "IPV6"
+        default n
+        select EXAMPLE_CONNECT_IPV6
 
     config EXAMPLE_PORT
         int "Port"
@@ -33,4 +16,21 @@ menu "Example Configuration"
         help
             Local port the example server will listen on.
 
+    config EXAMPLE_KEEPALIVE_IDLE
+        int "TCP keep-alive idle time(s)"
+        default 5
+        help
+            Keep-alive idle time. In idle time without receiving any data from peer, will send keep-alive probe packet
+
+    config EXAMPLE_KEEPALIVE_INTERVAL
+        int "TCP keep-alive interval time(s)"
+        default 5
+        help
+            Keep-alive probe packet interval time.
+
+    config EXAMPLE_KEEPALIVE_COUNT
+        int "TCP keep-alive packet retry send counts"
+        default 3
+        help
+            Keep-alive probe packet retry count.
 endmenu

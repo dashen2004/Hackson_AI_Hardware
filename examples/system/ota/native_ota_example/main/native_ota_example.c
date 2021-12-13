@@ -6,33 +6,22 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
-#include "string.h"
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/event_groups.h"
-
 #include "esp_system.h"
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
 #include "esp_flash_partitions.h"
 #include "esp_partition.h"
-
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
+#include "protocol_examples_common.h"
 #include "errno.h"
 
-#ifdef CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL_FROM_STDIN
-#include "esp_vfs_dev.h"
-#include "driver/uart.h"
-#endif
-
-#define EXAMPLE_WIFI_SSID CONFIG_WIFI_SSID
-#define EXAMPLE_WIFI_PASS CONFIG_WIFI_PASSWORD
-#define EXAMPLE_SERVER_URL CONFIG_FIRMWARE_UPG_URL
 #if CONFIG_EXAMPLE_CONNECT_WIFI
 #include "esp_wifi.h"
 #endif
@@ -48,80 +37,13 @@ extern const uint8_t server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
 
 #define OTA_URL_SIZE 256
 
-/* FreeRTOS event group to signal when we are connected & ready to make a request */
-static EventGroupHandle_t wifi_event_group;
-
-/* The event group allows multiple bits for each event,
-   but we only care about one event - are we connected
-   to the AP with an IP? */
-const int CONNECTED_BIT = BIT0;
-
-#ifdef CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL_FROM_STDIN
-static esp_err_t example_configure_stdin_stdout(void)
-{
-    // Initialize VFS & UART so we can use std::cout/cin
-    setvbuf(stdin, NULL, _IONBF, 0);
-    setvbuf(stdout, NULL, _IONBF, 0);
-    /* Install UART driver for interrupt-driven reads and writes */
-    ESP_ERROR_CHECK( uart_driver_install( (uart_port_t)CONFIG_CONSOLE_UART_NUM,
-            256, 0, 0, NULL, 0) );
-    /* Tell VFS to use UART driver */
-    esp_vfs_dev_uart_use_driver(CONFIG_CONSOLE_UART_NUM);
-    esp_vfs_dev_uart_port_set_rx_line_endings(CONFIG_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CR);
-    /* Move the caret to the beginning of the next line on '\n' */
-    esp_vfs_dev_uart_port_set_tx_line_endings(CONFIG_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CRLF);
-    return ESP_OK;
-}
-#endif
-
-static esp_err_t event_handler(void *ctx, system_event_t *event)
-{
-    switch (event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        /* This is a workaround as ESP32 WiFi libs don't currently
-           auto-reassociate. */
-        esp_wifi_connect();
-        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    default:
-        break;
-    }
-    return ESP_OK;
-}
-
-static void initialise_wifi(void)
-{
-    tcpip_adapter_init();
-    wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = EXAMPLE_WIFI_SSID,
-            .password = EXAMPLE_WIFI_PASS,
-        },
-    };
-    ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-}
-
 static void http_cleanup(esp_http_client_handle_t client)
 {
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
 }
 
-static void __attribute__((noreturn)) task_fatal_error()
+static void __attribute__((noreturn)) task_fatal_error(void)
 {
     ESP_LOGE(TAG, "Exiting task due to fatal error...");
     (void)vTaskDelete(NULL);
@@ -158,7 +80,7 @@ static void ota_example_task(void *pvParameter)
     esp_ota_handle_t update_handle = 0 ;
     const esp_partition_t *update_partition = NULL;
 
-    ESP_LOGI(TAG, "Starting OTA example...");
+    ESP_LOGI(TAG, "Starting OTA example");
 
     const esp_partition_t *configured = esp_ota_get_boot_partition();
     const esp_partition_t *running = esp_ota_get_running_partition();
@@ -171,15 +93,8 @@ static void ota_example_task(void *pvParameter)
     ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
              running->type, running->subtype, running->address);
 
-    /* Wait for the callback to set the CONNECTED_BIT in the
-       event group.
-    */
-    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                        false, true, portMAX_DELAY);
-    ESP_LOGI(TAG, "Connect to Wifi ! Start to Connect to Server....");
-    
     esp_http_client_config_t config = {
-        .url = EXAMPLE_SERVER_URL,
+        .url = CONFIG_EXAMPLE_FIRMWARE_UPG_URL,
         .cert_pem = (char *)server_cert_pem_start,
         .timeout_ms = CONFIG_EXAMPLE_OTA_RECV_TIMEOUT,
         .keep_alive_enable = true,
@@ -217,9 +132,9 @@ static void ota_example_task(void *pvParameter)
     esp_http_client_fetch_headers(client);
 
     update_partition = esp_ota_get_next_update_partition(NULL);
+    assert(update_partition != NULL);
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
              update_partition->subtype, update_partition->address);
-    assert(update_partition != NULL);
 
     int binary_file_length = 0;
     /*deal with all receive packet*/
@@ -269,22 +184,25 @@ static void ota_example_task(void *pvParameter)
 
                     image_header_was_checked = true;
 
-                    err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
+                    err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
                     if (err != ESP_OK) {
                         ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
                         http_cleanup(client);
+                        esp_ota_abort(update_handle);
                         task_fatal_error();
                     }
                     ESP_LOGI(TAG, "esp_ota_begin succeeded");
                 } else {
                     ESP_LOGE(TAG, "received package is not fit len");
                     http_cleanup(client);
+                    esp_ota_abort(update_handle);
                     task_fatal_error();
                 }
             }
             err = esp_ota_write( update_handle, (const void *)ota_write_data, data_read);
             if (err != ESP_OK) {
                 http_cleanup(client);
+                esp_ota_abort(update_handle);
                 task_fatal_error();
             }
             binary_file_length += data_read;
@@ -308,6 +226,7 @@ static void ota_example_task(void *pvParameter)
     if (esp_http_client_is_complete_data_received(client) != true) {
         ESP_LOGE(TAG, "Error in receiving complete file");
         http_cleanup(client);
+        esp_ota_abort(update_handle);
         task_fatal_error();
     }
 
@@ -315,8 +234,9 @@ static void ota_example_task(void *pvParameter)
     if (err != ESP_OK) {
         if (err == ESP_ERR_OTA_VALIDATE_FAILED) {
             ESP_LOGE(TAG, "Image validation failed, image is corrupted");
+        } else {
+            ESP_LOGE(TAG, "esp_ota_end failed (%s)!", esp_err_to_name(err));
         }
-        ESP_LOGE(TAG, "esp_ota_end failed (%s)!", esp_err_to_name(err));
         http_cleanup(client);
         task_fatal_error();
     }
@@ -335,9 +255,9 @@ static void ota_example_task(void *pvParameter)
 static bool diagnostic(void)
 {
     gpio_config_t io_conf;
-    io_conf.intr_type    = GPIO_PIN_INTR_DISABLE;
+    io_conf.intr_type    = GPIO_INTR_DISABLE;
     io_conf.mode         = GPIO_MODE_INPUT;
-    io_conf.pin_bit_mask = (1ULL << CONFIG_GPIO_DIAGNOSTIC);
+    io_conf.pin_bit_mask = (1ULL << CONFIG_EXAMPLE_GPIO_DIAGNOSTIC);
     io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     io_conf.pull_up_en   = GPIO_PULLUP_ENABLE;
     gpio_config(&io_conf);
@@ -345,13 +265,13 @@ static bool diagnostic(void)
     ESP_LOGI(TAG, "Diagnostics (5 sec)...");
     vTaskDelay(5000 / portTICK_PERIOD_MS);
 
-    bool diagnostic_is_ok = gpio_get_level(CONFIG_GPIO_DIAGNOSTIC);
+    bool diagnostic_is_ok = gpio_get_level(CONFIG_EXAMPLE_GPIO_DIAGNOSTIC);
 
-    gpio_reset_pin(CONFIG_GPIO_DIAGNOSTIC);
+    gpio_reset_pin(CONFIG_EXAMPLE_GPIO_DIAGNOSTIC);
     return diagnostic_is_ok;
 }
 
-void app_main()
+void app_main(void)
 {
     uint8_t sha_256[HASH_LEN] = { 0 };
     esp_partition_t partition;
@@ -401,7 +321,14 @@ void app_main()
     }
     ESP_ERROR_CHECK( err );
 
-    initialise_wifi();
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+     * Read "Establishing Wi-Fi or Ethernet Connection" section in
+     * examples/protocols/README.md for more information about this function.
+     */
+    ESP_ERROR_CHECK(example_connect());
 
 #if CONFIG_EXAMPLE_CONNECT_WIFI
     /* Ensure to disable any WiFi power save mode, this allows best throughput

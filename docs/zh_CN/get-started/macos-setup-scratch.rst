@@ -1,77 +1,85 @@
-**********************************
+***********************************************
 从零开始设置 macOS 环境下的工具链
-**********************************
+***********************************************
+
 :link_to_translation:`en:[English]`
 
-.. note::
-    
-    安装工具链的标准流程可以通过阅读文档 :doc:`在 MacOS 上安装 ESP32 工具链 <macos-setup>` 来获得， :ref:`工具链的自定义设置 <get-started-customized-setup>` 章节会介绍哪些情况下我们必须要重新定义工具链。
+软件包管理器
+===============
 
-安装必要的工具
+从零开始设置工具链，您需要安装 MacPorts_ 或 Homebrew_ 软件包管理器。或者，您也可以直接下载 :doc:`预编译的工具链 <macos-setup>`。
+
+MacPorts 需要完整的 XCode 软件，而 Homebrew 只需要安装 XCode 命令行工具即可。
+
+.. _Homebrew: https://brew.sh/
+.. _MacPorts: https://www.macports.org/install.php
+
+请参考 :ref:`工具链自定义设置 <get-started-customized-setup>` 章节，查看可能需要从头开始设置工具链的情况。
+
+安装准备
 =====================
 
 - 安装 pip::
 
-    sudo easy_install pip
+	sudo easy_install pip
 
-.. note::
+- 安装 pyserial::
 
-    ``pip`` 稍后将用于安装 :ref:`必要的 Python 软件包 <get-started-get-packages>`。
+	pip install --user pyserial
+
+- 安装 CMake 和 Ninja 编译工具：
+
+	- 若有 Homebrew，您可以运行::
+
+		brew install cmake ninja dfu-util
+
+	- 若有 MacPorts，您可以运行::
+
+		sudo port install cmake ninja dfu-util
 
 从源代码编译工具链
-==================
+=================================
 
-- 安装依赖:
+安装依赖项：
 
-  - 安装 MacPorts_ 或者 homebrew_ 包管理器。MacPorts 需要安装完整的 XCode 软件，但是 homebrew 只需要安装 XCode 命令行工具即可。
-    
-    .. _homebrew: https://brew.sh/
-    .. _MacPorts: https://www.macports.org/install.php
+- 对于 MacPorts::
 
-  - 对于 MacPorts::
+	sudo port install gsed gawk binutils gperf grep gettext wget libtool autoconf automake make
 
-        sudo port install gsed gawk binutils gperf grep gettext wget libtool autoconf automake
+- 对于 Homebrew::
 
-  - 对于 homebrew::
+	brew install gnu-sed gawk binutils gperftools gettext wget help2man libtool autoconf automake make
 
-        brew install gnu-sed gawk binutils gperftools gettext wget help2man libtool autoconf automake
-
-创建大小写敏感的文件系统镜像::
+创建一个文件系统镜像（区分大小写）::
 
     hdiutil create ~/esp/crosstool.dmg -volname "ctng" -size 10g -fs "Case-sensitive HFS+"
 
 挂载::
 
-    hdiutil mount ~/esp/crosstool.dmg
+	hdiutil mount ~/esp/crosstool.dmg
 
-创建指向你工作目录的符号链接::
+创建指向您工作目录的符号链接::
 
     mkdir -p ~/esp
     ln -s /Volumes/ctng ~/esp/ctng-volume
 
-进入新创建的工作目录::
+前往新创建的目录::
 
-    cd ~/esp/ctng-volume
+	cd ~/esp/ctng-volume
 
-下载 ``crosstool-NG`` 然后编译:
+下载并编译 ``crosstool-NG``:
 
-.. include:: /_build/inc/scratch-build-code.inc
+.. include-build-file:: inc/scratch-build-code.inc
 
 编译工具链::
 
-    ./ct-ng xtensa-esp32-elf
-    ./ct-ng build
-    chmod -R u+w builds/xtensa-esp32-elf
+	./ct-ng {IDF_TARGET_TOOLCHAIN_PREFIX}
+	./ct-ng build
+	chmod -R u+w builds/{IDF_TARGET_TOOLCHAIN_PREFIX}
 
-编译得到的工具链会被保存到 ``~/esp/ctng-volume/crosstool-NG/builds/xtensa-esp32-elf``。根据 :ref:`Mac OS 下设置环境变量的标准方法 <setup-macos-toolchain-add-it-to-path>` 中的介绍，将工具链添加到 ``PATH`` 中。
+编译得到的工具链会被保存到 ``~/esp/ctng-volume/crosstool-NG/builds/{IDF_TARGET_TOOLCHAIN_PREFIX}``。使用工具链前，请将 ``~/esp/ctng-volume/crosstool-NG/builds/{IDF_TARGET_TOOLCHAIN_PREFIX}/bin`` 添加至 ``PATH`` 环境变量。
 
-停用 Python 2 
-====================
+后续步骤
+==========
 
-Python 2 已经 `结束生命周期 <https://www.python.org/doc/sunset-python-2/>`_，ESP-IDF 很快将不再支持 Python 2。请安装 Python 3.6 或以上版本。可参考上面列出的 macOS 安装说明。
-
-
-下一步
-======
-
-继续设置开发环境，请前往 :ref:`获取 ESP-IDF <get-started-get-esp-idf>` 章节。
+请前往 :ref:`get-started-get-esp-idf` 章节继续设置开发环境。

@@ -14,7 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import sys
+from typing import Dict
 
 try:
     import idf_size
@@ -23,19 +26,22 @@ except ImportError:
     import idf_size
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    # Should deliver a RuntimeError as the 'test' header doesn't exist
     try:
         idf_size.scan_to_header([], 'test')
-    except RuntimeError:
-        pass
+    except RuntimeError as e:
+        assert "Didn't find line" in str(e)
 
+    # Should deliver a RuntimeError as there's no content under the heading
     try:
-        idf_size.load_memory_config(["Memory Configuration"])
+        idf_size.load_segments(['Memory Configuration'])
         pass
-    except RuntimeError:
-        pass
+    except RuntimeError as e:
+        assert 'End of file' in str(e)
 
-    try:
-        idf_size.print_summary({"iram0_0_seg": {"length":0}, "dram0_0_seg": {"length":0}}, {})
-    except ZeroDivisionError:
-        pass
+    segments = {'iram0_0_seg': {'origin': 0, 'length': 0},
+                'dram0_0_seg': {'origin': 0, 'length': 0}}
+    sections = {}  # type: Dict
+
+    print(idf_size.get_summary('a.map', segments, sections, 'esp32'), end='')

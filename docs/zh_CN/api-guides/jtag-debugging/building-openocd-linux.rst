@@ -3,7 +3,7 @@ Linux 环境下从源码编译 OpenOCD
 ******************************
 :link_to_translation:`en:[English]`
 
-除了从 `Espressif 官方 <https://github.com/espressif/openocd-esp32/releases>`_ 直接下载 OpenOCD 可执行文件，你还可以选择从源码编译得到 OpenOCD。如果想要快速设置 OpenOCD 而不是自行编译，请备份好当前文件，前往 :doc:`setup-openocd-linux` 章节查阅。
+除了从 `Espressif 官方 <https://github.com/espressif/openocd-esp32/releases>`_ 直接下载 OpenOCD 可执行文件，你还可以选择从源码编译得到 OpenOCD。如果想要快速设置 OpenOCD 而不是自行编译，请备份好当前文件，前往 :ref:`jtag-debugging-setup-openocd` 章节查阅。
 
 
 .. highlight:: bash
@@ -11,7 +11,7 @@ Linux 环境下从源码编译 OpenOCD
 下载 OpenOCD 源码
 =================
 
-支持 ESP32 的 OpenOCD 源代码可以从乐鑫官方的 GitHub 获得，网址为 https://github.com/espressif/openocd-esp32。请使用以下命令来下载源代码::
+支持 {IDF_TARGET_NAME} 的 OpenOCD 源代码可以从乐鑫官方的 GitHub 获得，网址为 https://github.com/espressif/openocd-esp32。请使用以下命令来下载源代码::
 
     cd ~/esp
     git clone --recursive https://github.com/espressif/openocd-esp32.git
@@ -73,4 +73,4 @@ Linux 环境下从源码编译 OpenOCD
 下一步
 ======
 
-想要进一步配置调试环境，请前往 :ref:`jtag-debugging-configuring-esp32-target` 章节。
+想要进一步配置调试环境，请前往 :ref:`jtag-debugging-configuring-target` 章节。

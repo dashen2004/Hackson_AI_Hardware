@@ -9,7 +9,7 @@ nvs:
     sub module: NVS
     sub module abbr: NVS
 partition:
-    module: System    
+    module: System
     module abbr: SYS
     sub module: Misc
     sub module abbr: MISC
@@ -78,6 +78,11 @@ spi_flash_write:
     module abbr: DRV
     sub module: SPI
     sub module abbr: SPI
+flash_encryption:
+    module: Driver
+    module abbr: DRV
+    sub module: SPI
+    sub module abbr: SPI
 esp32:
     module: System
     module abbr: SYS
@@ -123,5 +128,8 @@ misc:
     module abbr: SYS
     sub module: Misc
     sub module abbr: MISC
-
-
+wifi_init:
+    module: System
+    module abbr: SYS
+    sub module: Misc
+    sub module abbr: MISC

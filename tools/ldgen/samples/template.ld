@@ -89,7 +89,7 @@ SECTIONS
     _iram_text_start = ABSOLUTE(.);
 
     mapping[iram0_text]
-    
+
     _iram_text_end = ABSOLUTE(.);
   } > iram0_0_seg
 
@@ -134,7 +134,6 @@ SECTIONS
 
     . = ALIGN (8);
     _bss_end = ABSOLUTE(.);
-    _heap_start = ABSOLUTE(.);
   } >dram0_0_seg
 
   .flash.rodata :

@@ -23,8 +23,17 @@
 
 static const char *TAG = "cmd_i2ctools";
 
+#if CONFIG_IDF_TARGET_ESP32S3
+static gpio_num_t i2c_gpio_sda = 1;
+static gpio_num_t i2c_gpio_scl = 2;
+#elif CONFIG_IDF_TARGET_ESP32C3
+static gpio_num_t i2c_gpio_sda = 5;
+static gpio_num_t i2c_gpio_scl = 6;
+#else
 static gpio_num_t i2c_gpio_sda = 18;
 static gpio_num_t i2c_gpio_scl = 19;
+#endif
+
 static uint32_t i2c_frequency = 100000;
 static i2c_port_t i2c_port = I2C_NUM_0;
 
@@ -34,21 +43,11 @@ static esp_err_t i2c_get_port(int port, i2c_port_t *i2c_port)
         ESP_LOGE(TAG, "Wrong port number: %d", port);
         return ESP_FAIL;
     }
-    switch (port) {
-    case 0:
-        *i2c_port = I2C_NUM_0;
-        break;
-    case 1:
-        *i2c_port = I2C_NUM_1;
-        break;
-    default:
-        *i2c_port = I2C_NUM_0;
-        break;
-    }
+    *i2c_port = port;
     return ESP_OK;
 }
 
-static esp_err_t i2c_master_driver_initialize()
+static esp_err_t i2c_master_driver_initialize(void)
 {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
@@ -56,7 +55,8 @@ static esp_err_t i2c_master_driver_initialize()
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_io_num = i2c_gpio_scl,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = i2c_frequency
+        .master.clk_speed = i2c_frequency,
+        // .clk_flags = 0,          /*!< Optional, you can use I2C_SCLK_SRC_FLAG_* flags to choose i2c source clock here. */
     };
     return i2c_param_config(i2c_port, &conf);
 }
@@ -113,8 +113,8 @@ static void register_i2cconfig(void)
 
 static int do_i2cdetect_cmd(int argc, char **argv)
 {
-    i2c_master_driver_initialize();
     i2c_driver_install(i2c_port, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    i2c_master_driver_initialize();
     uint8_t address;
     printf("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\r\n");
     for (int i = 0; i < 128; i += 16) {
@@ -184,8 +184,8 @@ static int do_i2cget_cmd(int argc, char **argv)
     }
     uint8_t *data = malloc(len);
 
-    i2c_master_driver_initialize();
     i2c_driver_install(i2c_port, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    i2c_master_driver_initialize();
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
     if (data_addr != -1) {
@@ -262,8 +262,8 @@ static int do_i2cset_cmd(int argc, char **argv)
     /* Check data: "-d" option */
     int len = i2cset_args.data->count;
 
-    i2c_master_driver_initialize();
     i2c_driver_install(i2c_port, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    i2c_master_driver_initialize();
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, chip_addr << 1 | WRITE_BIT, ACK_CHECK_EN);
@@ -328,8 +328,8 @@ static int do_i2cdump_cmd(int argc, char **argv)
         ESP_LOGE(TAG, "Wrong read size. Only support 1,2,4");
         return 1;
     }
-    i2c_master_driver_initialize();
     i2c_driver_install(i2c_port, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    i2c_master_driver_initialize();
     uint8_t data_addr;
     uint8_t data[4];
     int32_t block[16];

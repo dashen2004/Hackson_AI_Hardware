@@ -3,29 +3,21 @@
 # For Espressif's public projects please use '../../espressif/proj', not a '../proj'
 #
 
-[submodule "components/esp32/lib"]
-	path = components/esp32/lib
-	url = ../../espressif/esp32-wifi-lib.git
-
 [submodule "components/esptool_py/esptool"]
 	path = components/esptool_py/esptool
 	url = ../../espressif/esptool.git
 
-[submodule "components/bt/lib"]
-	path = components/bt/lib
-	url = ../../espressif/esp32-bt-lib.git
+[submodule "components/bt/controller/lib_esp32"]
+	path = components/bt/controller/lib_esp32
+        url = ../../espressif/esp32-bt-lib.git
 
-[submodule "components/micro-ecc/micro-ecc"]
-	path = components/micro-ecc/micro-ecc
+[submodule "components/bootloader/subproject/components/micro-ecc/micro-ecc"]
+	path = components/bootloader/subproject/components/micro-ecc/micro-ecc
 	url = ../../kmackay/micro-ecc.git
 
 [submodule "components/coap/libcoap"]
 	path = components/coap/libcoap
 	url = ../../obgm/libcoap.git
-
-[submodule "components/aws_iot/aws-iot-device-sdk-embedded-C"]
-	path = components/aws_iot/aws-iot-device-sdk-embedded-C
-	url = ../../espressif/aws-iot-device-sdk-embedded-C.git
 
 [submodule "components/nghttp/nghttp2"]
 	path = components/nghttp/nghttp2
@@ -75,6 +67,46 @@
 	path = examples/build_system/cmake/import_lib/main/lib/tinyxml2
 	url = ../../leethomason/tinyxml2.git
 
-[submodule "components/nimble/nimble"]
-	path = components/nimble/nimble
+[submodule "components/bt/host/nimble/nimble"]
+	path = components/bt/host/nimble/nimble
 	url = ../../espressif/esp-nimble.git
+
+[submodule "components/cbor/tinycbor"]
+	path = components/cbor/tinycbor
+	url = ../../intel/tinycbor.git
+
+[submodule "components/esp_wifi/lib"]
+	path = components/esp_wifi/lib
+	url = ../../espressif/esp32-wifi-lib.git
+
+[submodule "components/tinyusb/tinyusb"]
+	path = components/tinyusb/tinyusb
+	url = ../../espressif/tinyusb.git
+
+[submodule "examples/peripherals/secure_element/atecc608_ecdsa/components/esp-cryptoauthlib"]
+	path = examples/peripherals/secure_element/atecc608_ecdsa/components/esp-cryptoauthlib
+	url = ../../espressif/esp-cryptoauthlib.git
+
+[submodule "components/cmock/CMock"]
+	path = components/cmock/CMock
+	url = ../../ThrowTheSwitch/CMock.git
+
+[submodule "components/openthread/openthread"]
+	path = components/openthread/openthread
+	url = ../../espressif/openthread.git
+
+[submodule "components/bt/controller/lib_esp32c3_family"]
+	path = components/bt/controller/lib_esp32c3_family
+	url = ../../espressif/esp32c3-bt-lib.git
+
+[submodule "components/esp_phy/lib"]
+	path = components/esp_phy/lib
+	url = ../../espressif/esp-phy-lib.git
+
+[submodule "components/openthread/lib"]
+	path = components/openthread/lib
+	url = ../../espressif/esp-thread-lib.git
+
+[submodule "components/ieee802154/lib"]
+	path = components/ieee802154/lib
+	url = ../../espressif/esp-ieee802154-lib.git

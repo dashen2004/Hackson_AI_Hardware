@@ -9,7 +9,7 @@
 
 /****************************************************************************
 * This is a demo for bluetooth config wifi connection to ap. You can config ESP32 to connect a softap
-* or config ESP32 as a softap to be connected by other device. APP can be downloaded from github 
+* or config ESP32 as a softap to be connected by other device. APP can be downloaded from github
 * android source code: https://github.com/EspressifApp/EspBlufi
 * iOS source code: https://github.com/EspressifApp/EspBlufiForiOS
 ****************************************************************************/
@@ -22,54 +22,17 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "esp_bt.h"
 
 #include "esp_blufi_api.h"
-#include "esp_bt_defs.h"
-#include "esp_gap_ble_api.h"
-#include "esp_bt_main.h"
-#include "esp_bt_device.h"
 #include "blufi_example.h"
 
+#include "esp_blufi.h"
+
 static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param);
-
-#define BLUFI_DEVICE_NAME            "BLUFI_DEVICE"
-static uint8_t example_service_uuid128[32] = {
-    /* LSB <--------------------------------------------------------------------------------> MSB */
-    //first uuid, 16bit, [12],[13] is the value
-    0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
-};
-
-//static uint8_t test_manufacturer[TEST_MANUFACTURER_DATA_LEN] =  {0x12, 0x23, 0x45, 0x56};
-static esp_ble_adv_data_t example_adv_data = {
-    .set_scan_rsp = false,
-    .include_name = true,
-    .include_txpower = true,
-    .min_interval = 0x0006, //slave connection min interval, Time = min_interval * 1.25 msec
-    .max_interval = 0x0010, //slave connection max interval, Time = max_interval * 1.25 msec
-    .appearance = 0x00,
-    .manufacturer_len = 0,
-    .p_manufacturer_data =  NULL,
-    .service_data_len = 0,
-    .p_service_data = NULL,
-    .service_uuid_len = 16,
-    .p_service_uuid = example_service_uuid128,
-    .flag = 0x6,
-};
-
-static esp_ble_adv_params_t example_adv_params = {
-    .adv_int_min        = 0x100,
-    .adv_int_max        = 0x100,
-    .adv_type           = ADV_TYPE_IND,
-    .own_addr_type      = BLE_ADDR_TYPE_PUBLIC,
-    //.peer_addr            =
-    //.peer_addr_type       =
-    .channel_map        = ADV_CHNL_ALL,
-    .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
-};
 
 #define WIFI_LIST_NUM   10
 
@@ -91,18 +54,13 @@ static uint8_t gl_sta_bssid[6];
 static uint8_t gl_sta_ssid[32];
 static int gl_sta_ssid_len;
 
-/* connect infor*/
-static uint8_t server_if;
-static uint16_t conn_id;
-static esp_err_t example_net_event_handler(void *ctx, system_event_t *event)
+static void ip_event_handler(void* arg, esp_event_base_t event_base,
+                                int32_t event_id, void* event_data)
 {
     wifi_mode_t mode;
 
-    switch (event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP: {
+    switch (event_id) {
+    case IP_EVENT_STA_GOT_IP: {
         esp_blufi_extra_info_t info;
 
         xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
@@ -120,13 +78,30 @@ static esp_err_t example_net_event_handler(void *ctx, system_event_t *event)
         }
         break;
     }
-    case SYSTEM_EVENT_STA_CONNECTED:
+    default:
+        break;
+    }
+    return;
+}
+
+static void wifi_event_handler(void* arg, esp_event_base_t event_base,
+                                int32_t event_id, void* event_data)
+{
+    wifi_event_sta_connected_t *event;
+    wifi_mode_t mode;
+
+    switch (event_id) {
+    case WIFI_EVENT_STA_START:
+        esp_wifi_connect();
+        break;
+    case WIFI_EVENT_STA_CONNECTED:
         gl_sta_connected = true;
-        memcpy(gl_sta_bssid, event->event_info.connected.bssid, 6);
-        memcpy(gl_sta_ssid, event->event_info.connected.ssid, event->event_info.connected.ssid_len);
-        gl_sta_ssid_len = event->event_info.connected.ssid_len;
-        break; 
-    case SYSTEM_EVENT_STA_DISCONNECTED:
+        event = (wifi_event_sta_connected_t*) event_data;
+        memcpy(gl_sta_bssid, event->bssid, 6);
+        memcpy(gl_sta_ssid, event->ssid, event->ssid_len);
+        gl_sta_ssid_len = event->ssid_len;
+        break;
+    case WIFI_EVENT_STA_DISCONNECTED:
         /* This is a workaround as ESP32 WiFi libs don't currently
            auto-reassociate. */
         gl_sta_connected = false;
@@ -136,7 +111,7 @@ static esp_err_t example_net_event_handler(void *ctx, system_event_t *event)
         esp_wifi_connect();
         xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
         break;
-    case SYSTEM_EVENT_AP_START:
+    case WIFI_EVENT_AP_START:
         esp_wifi_get_mode(&mode);
 
         /* TODO: get config or information of softap, then set to report extra_info */
@@ -150,7 +125,7 @@ static esp_err_t example_net_event_handler(void *ctx, system_event_t *event)
             BLUFI_INFO("BLUFI BLE is not connected yet\n");
         }
         break;
-    case SYSTEM_EVENT_SCAN_DONE: {
+    case WIFI_EVENT_SCAN_DONE: {
         uint16_t apCount = 0;
         esp_wifi_scan_get_ap_num(&apCount);
         if (apCount == 0) {
@@ -191,14 +166,19 @@ static esp_err_t example_net_event_handler(void *ctx, system_event_t *event)
     default:
         break;
     }
-    return ESP_OK;
+    return;
 }
 
 static void initialise_wifi(void)
 {
-    tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_netif_init());
     wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK( esp_event_loop_init(example_net_event_handler, NULL) );
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
+    assert(sta_netif);
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL));
+
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
@@ -221,8 +201,7 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     case ESP_BLUFI_EVENT_INIT_FINISH:
         BLUFI_INFO("BLUFI init finish\n");
 
-        esp_ble_gap_set_device_name(BLUFI_DEVICE_NAME);
-        esp_ble_gap_config_adv_data(&example_adv_data);
+        esp_blufi_adv_start();
         break;
     case ESP_BLUFI_EVENT_DEINIT_FINISH:
         BLUFI_INFO("BLUFI deinit finish\n");
@@ -230,16 +209,14 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     case ESP_BLUFI_EVENT_BLE_CONNECT:
         BLUFI_INFO("BLUFI ble connect\n");
         ble_is_connected = true;
-        server_if = param->connect.server_if;
-        conn_id = param->connect.conn_id;
-        esp_ble_gap_stop_advertising();
+        esp_blufi_adv_stop();
         blufi_security_init();
         break;
     case ESP_BLUFI_EVENT_BLE_DISCONNECT:
         BLUFI_INFO("BLUFI ble disconnect\n");
         ble_is_connected = false;
         blufi_security_deinit();
-        esp_ble_gap_start_advertising(&example_adv_params);
+        esp_blufi_adv_start();
         break;
     case ESP_BLUFI_EVENT_SET_WIFI_OPMODE:
         BLUFI_INFO("BLUFI Set WIFI opmode %d\n", param->wifi_mode.op_mode);
@@ -283,7 +260,7 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     }
     case ESP_BLUFI_EVENT_RECV_SLAVE_DISCONNECT_BLE:
         BLUFI_INFO("blufi close a gatt connection");
-        esp_blufi_close(server_if, conn_id);
+        esp_blufi_disconnect();
         break;
     case ESP_BLUFI_EVENT_DEAUTHENTICATE_STA:
         /* TODO */
@@ -380,18 +357,7 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     }
 }
 
-static void example_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
-{
-    switch (event) {
-    case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
-        esp_ble_gap_start_advertising(&example_adv_params);
-        break;
-    default:
-        break;
-    }
-}
-
-void app_main()
+void app_main(void)
 {
     esp_err_t ret;
 
@@ -419,33 +385,11 @@ void app_main()
         return;
     }
 
-    ret = esp_bluedroid_init();
+    ret = esp_blufi_host_and_cb_init(&example_callbacks);
     if (ret) {
-        BLUFI_ERROR("%s init bluedroid failed: %s\n", __func__, esp_err_to_name(ret));
+        BLUFI_ERROR("%s initialise failed: %s\n", __func__, esp_err_to_name(ret));
         return;
     }
-
-    ret = esp_bluedroid_enable();
-    if (ret) {
-        BLUFI_ERROR("%s init bluedroid failed: %s\n", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    BLUFI_INFO("BD ADDR: "ESP_BD_ADDR_STR"\n", ESP_BD_ADDR_HEX(esp_bt_dev_get_address()));
 
     BLUFI_INFO("BLUFI VERSION %04x\n", esp_blufi_get_version());
-
-    ret = esp_ble_gap_register_callback(example_gap_event_handler);
-    if(ret){
-        BLUFI_ERROR("%s gap register failed, error code = %x\n", __func__, ret);
-        return;
-    }
-
-    ret = esp_blufi_register_callbacks(&example_callbacks);
-    if(ret){
-        BLUFI_ERROR("%s blufi register failed, error code = %x\n", __func__, ret);
-        return;
-    }
-
-    esp_blufi_profile_init();
 }

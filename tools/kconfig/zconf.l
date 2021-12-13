@@ -13,9 +13,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <wordexp.h>
 
 #include "lkc.h"
+#include "expand_env.h"
 
 #define START_STRSIZE	16
 
@@ -281,6 +281,7 @@ FILE *zconf_fopen(const char *name)
 	FILE *f;
 
 	f = fopen(name, "r");
+
 	if (!f && name != NULL && name[0] != '/') {
 		env = getenv(SRCTREE);
 		if (env) {
@@ -302,14 +303,14 @@ void zconf_initscan(const char *name)
 	current_buf = xmalloc(sizeof(*current_buf));
 	memset(current_buf, 0, sizeof(*current_buf));
 
-	current_file = file_lookup(name);
+	current_file = file_lookup(name, false);
 	current_file->lineno = 1;
 }
 
-void zconf_nextfile(const char *name)
+void zconf_nextfile(const char *name, bool relative)
 {
 	struct file *iter;
-	struct file *file = file_lookup(name);
+	struct file *file = file_lookup(name, relative);
 	struct buffer *buf = xmalloc(sizeof(*buf));
 	memset(buf, 0, sizeof(*buf));
 
@@ -348,19 +349,33 @@ void zconf_nextfile(const char *name)
 	current_file = file;
 }
 
-void zconf_nextfiles(const char *wildcard)
+void zconf_nextfiles(const char *expression, bool relative)
 {
-	wordexp_t p;
-	char **w;
-	int i;
+	/* Expand environment variables in 'expression' */
+	char* str = expand_environment(expression, zconf_curname(), zconf_lineno());
 
-	wordexp(wildcard, &p, 0);
-	w = p.we_wordv;
+	/* zconf_nextfile() processes files in LIFO order, so to keep the
+	   files in the order provided we need to process the list backwards
+	*/
+	if (str != NULL && strlen(str)) {
+		char* pos = str + strlen(str); // start at null terminator
 
-	for (i = p.we_wordc - 1; i >= 0; i--)
-		zconf_nextfile(w[i]);
+		while (pos != str) {
+			pos--;
+			if(*pos == ' ') {
+				*pos = '\0'; // split buffer into multiple c-strings
+				if (strlen(pos + 1)) {
+					zconf_nextfile(pos + 1, relative);
+				}
+			}
+		}
 
-	wordfree(&p);
+		if (strlen(str)) { // re-check as first character may have been a space
+			zconf_nextfile(str, relative);
+		}
+	}
+
+	free_expanded(str);
 }
 
 static void zconf_endfile(void)

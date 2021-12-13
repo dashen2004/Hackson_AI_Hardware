@@ -1,16 +1,8 @@
-// Copyright 2017-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #ifndef _ESP_BLE_MESH_DEFS_H_
 #define _ESP_BLE_MESH_DEFS_H_
@@ -21,16 +13,6 @@
 #include "mesh_common.h"
 #include "proxy_server.h"
 #include "provisioner_main.h"
-
-#ifdef CONFIG_BLUEDROID_ENABLED
-#include "esp_bt_defs.h"
-#include "esp_bt_main.h"
-#define ESP_BLE_HOST_STATUS_ENABLED ESP_BLUEDROID_STATUS_ENABLED
-#define ESP_BLE_HOST_STATUS_CHECK(status) ESP_BLUEDROID_STATUS_CHECK(status)
-#else
-#define ESP_BLE_HOST_STATUS_ENABLED 0
-#define ESP_BLE_HOST_STATUS_CHECK(status)  do {} while (0)
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -487,11 +469,11 @@ typedef struct {
 struct esp_ble_mesh_model {
     /** Model ID */
     union {
-        const uint16_t model_id;
+        const uint16_t model_id; /*!< 16-bit model identifier */
         struct {
-            uint16_t company_id;
-            uint16_t model_id;
-        } vnd;
+            uint16_t company_id; /*!< 16-bit company identifier */
+            uint16_t model_id; /*!< 16-bit model identifier */
+        } vnd; /*!< Structure encapsulating a model ID with a company ID */
     };
 
     /** Internal information, mainly for persistent storage */
@@ -730,7 +712,7 @@ typedef struct {
 typedef struct {
     union {
         struct {
-            esp_ble_mesh_bd_addr_t addr;             /*!< Device address */
+            esp_ble_mesh_bd_addr_t addr;         /*!< Device address */
             esp_ble_mesh_addr_type_t addr_type;  /*!< Device address type */
         };
         uint8_t uuid[16];                   /*!< Device UUID */
@@ -799,36 +781,6 @@ typedef enum {
     PROXY_FILTER_WHITELIST,
     PROXY_FILTER_BLACKLIST,
 } esp_ble_mesh_proxy_filter_type_t;
-
-/** Count for sending BLE advertising packet infinitely */
-#define ESP_BLE_MESH_BLE_ADV_INFINITE   0xFFFF
-
-/*!< This enum value is the priority of BLE advertising packet */
-typedef enum {
-    ESP_BLE_MESH_BLE_ADV_PRIO_LOW,
-    ESP_BLE_MESH_BLE_ADV_PRIO_HIGH,
-} esp_ble_mesh_ble_adv_priority_t;
-
-/** Context of BLE advertising parameters. */
-typedef struct {
-    uint16_t interval;                  /*!< BLE advertising interval */
-    uint8_t  adv_type;                  /*!< BLE advertising type */
-    uint8_t  own_addr_type;             /*!< Own address type */
-    uint8_t  peer_addr_type;            /*!< Peer address type */
-    uint8_t  peer_addr[BD_ADDR_LEN];    /*!< Peer address */
-    uint16_t duration;                  /*!< Duration is milliseconds */
-    uint16_t period;                    /*!< Period in milliseconds */
-    uint16_t count;                     /*!< Number of advertising duration */
-    uint8_t  priority:2;                /*!< Priority of BLE advertising packet */
-} esp_ble_mesh_ble_adv_param_t;
-
-/** Context of BLE advertising data. */
-typedef struct {
-    uint8_t adv_data_len;       /*!< Advertising data length */
-    uint8_t adv_data[31];       /*!< Advertising data */
-    uint8_t scan_rsp_data_len;  /*!< Scan response data length */
-    uint8_t scan_rsp_data[31];  /*!< Scan response data */
-} esp_ble_mesh_ble_adv_data_t;
 
 /*!< Provisioner heartbeat filter type */
 #define ESP_BLE_MESH_HEARTBEAT_FILTER_ACCEPTLIST    0x00
@@ -925,8 +877,6 @@ typedef enum {
     ESP_BLE_MESH_PROXY_CLIENT_SET_FILTER_TYPE_COMP_EVT,         /*!< Proxy Client set filter type completion event */
     ESP_BLE_MESH_PROXY_CLIENT_ADD_FILTER_ADDR_COMP_EVT,         /*!< Proxy Client add filter address completion event */
     ESP_BLE_MESH_PROXY_CLIENT_REMOVE_FILTER_ADDR_COMP_EVT,      /*!< Proxy Client remove filter address completion event */
-    ESP_BLE_MESH_START_BLE_ADVERTISING_COMP_EVT,                /*!< Start BLE advertising completion event */
-    ESP_BLE_MESH_STOP_BLE_ADVERTISING_COMP_EVT,                 /*!< Stop BLE advertising completion event */
     ESP_BLE_MESH_MODEL_SUBSCRIBE_GROUP_ADDR_COMP_EVT,           /*!< Local model subscribes group address completion event */
     ESP_BLE_MESH_MODEL_UNSUBSCRIBE_GROUP_ADDR_COMP_EVT,         /*!< Local model unsubscribes group address completion event */
     ESP_BLE_MESH_DEINIT_MESH_COMP_EVT,                          /*!< De-initialize BLE Mesh stack completion event */
@@ -1509,20 +1459,6 @@ typedef union {
         uint8_t conn_handle;                    /*!< Proxy connection handle */
         uint16_t net_idx;                       /*!< Corresponding NetKey Index */
     } proxy_client_remove_filter_addr_comp;     /*!< Event parameter of ESP_BLE_MESH_PROXY_CLIENT_REMOVE_FILTER_ADDR_COMP_EVT */
-    /**
-     * @brief ESP_BLE_MESH_START_BLE_ADVERTISING_COMP_EVT
-     */
-    struct ble_mesh_start_ble_advertising_comp_param {
-        int err_code;                           /*!< Indicate the result of starting BLE advertising */
-        uint8_t index;                          /*!< Index of the BLE advertising */
-    } start_ble_advertising_comp;               /*!< Event parameter of ESP_BLE_MESH_START_BLE_ADVERTISING_COMP_EVT */
-    /**
-     * @brief ESP_BLE_MESH_STOP_BLE_ADVERTISING_COMP_EVT
-     */
-    struct ble_mesh_stop_ble_advertising_comp_param {
-        int err_code;                           /*!< Indicate the result of stopping BLE advertising */
-        uint8_t index;                          /*!< Index of the BLE advertising */
-    } stop_ble_advertising_comp;                /*!< Event parameter of ESP_BLE_MESH_STOP_BLE_ADVERTISING_COMP_EVT */
     /**
      * @brief ESP_BLE_MESH_MODEL_SUBSCRIBE_GROUP_ADDR_COMP_EVT
      */
@@ -2202,6 +2138,11 @@ typedef union {
     } light_ctl_temp_delta_uv;  /*!< The Light CTL Temperature & Delta UV states */
     struct {
         uint16_t lightness;     /*!< The value of the Light HSL Lightness state */
+        uint16_t hue;           /*!< The value of the Light HSL Hue state */
+        uint16_t saturation;    /*!< The value of the Light HSL Saturation state */
+    } light_hsl;                /*!< The Light HSL composite state */
+    struct {
+        uint16_t lightness;     /*!< The value of the Light HSL Lightness state */
     } light_hsl_lightness;      /*!< The Light HSL Lightness state */
     struct {
         uint16_t hue;           /*!< The value of the Light HSL Hue state */
@@ -2227,6 +2168,7 @@ typedef enum {
     ESP_BLE_MESH_LIGHT_LIGHTNESS_LINEAR_STATE,
     ESP_BLE_MESH_LIGHT_CTL_LIGHTNESS_STATE,
     ESP_BLE_MESH_LIGHT_CTL_TEMP_DELTA_UV_STATE,
+    ESP_BLE_MESH_LIGHT_HSL_STATE,
     ESP_BLE_MESH_LIGHT_HSL_LIGHTNESS_STATE,
     ESP_BLE_MESH_LIGHT_HSL_HUE_STATE,
     ESP_BLE_MESH_LIGHT_HSL_SATURATION_STATE,

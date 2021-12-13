@@ -27,10 +27,12 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
+#include "protocol_examples_common.h"
+#include "esp_netif.h"
 
 #include "lwip/err.h"
 #include "lwip/sockets.h"
@@ -39,23 +41,7 @@
 #include "lwip/dns.h"
 
 #include "esp_tls.h"
-
-/* The examples use simple WiFi configuration that you can set via
-   'make menuconfig'.
-
-   If you'd rather not, just change the below entries to strings with
-   the config you want - ie #define EXAMPLE_WIFI_SSID "mywifissid"
-*/
-#define EXAMPLE_WIFI_SSID CONFIG_WIFI_SSID
-#define EXAMPLE_WIFI_PASS CONFIG_WIFI_PASSWORD
-
-/* FreeRTOS event group to signal when we are connected & ready to make a request */
-static EventGroupHandle_t wifi_event_group;
-
-/* The event group allows multiple bits for each event,
-   but we only care about one event - are we connected
-   to the AP with an IP? */
-const int CONNECTED_BIT = BIT0;
+#include "esp_crt_bundle.h"
 
 /* Constants that aren't configurable in menuconfig */
 #define WEB_SERVER "www.howsmyssl.com"
@@ -64,10 +50,10 @@ const int CONNECTED_BIT = BIT0;
 
 static const char *TAG = "example";
 
-static const char *REQUEST = "GET " WEB_URL " HTTP/1.0\r\n"
-    "Host: "WEB_SERVER"\r\n"
-    "User-Agent: esp-idf/1.0 esp32\r\n"
-    "\r\n";
+static const char REQUEST[] = "GET " WEB_URL " HTTP/1.1\r\n"
+                             "Host: "WEB_SERVER"\r\n"
+                             "User-Agent: esp-idf/1.0 esp32\r\n"
+                             "\r\n";
 
 /* Root cert for howsmyssl.com, taken from server_root_cert.pem
 
@@ -81,137 +67,156 @@ static const char *REQUEST = "GET " WEB_URL " HTTP/1.0\r\n"
 */
 extern const uint8_t server_root_cert_pem_start[] asm("_binary_server_root_cert_pem_start");
 extern const uint8_t server_root_cert_pem_end[]   asm("_binary_server_root_cert_pem_end");
-    
-static esp_err_t event_handler(void *ctx, system_event_t *event)
-{
-    switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        /* This is a workaround as ESP32 WiFi libs don't currently
-           auto-reassociate. */
-        esp_wifi_connect();
-        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    default:
-        break;
-    }
-    return ESP_OK;
-}
-
-static void initialise_wifi(void)
-{
-    tcpip_adapter_init();
-    wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = EXAMPLE_WIFI_SSID,
-            .password = EXAMPLE_WIFI_PASS,
-        },
-    };
-    ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-}
-
-static void https_get_task(void *pvParameters)
+#ifdef CONFIG_ESP_TLS_CLIENT_SESSION_TICKETS
+esp_tls_client_session_t *tls_client_session = NULL;
+#endif
+static void https_get_request(esp_tls_cfg_t cfg)
 {
     char buf[512];
     int ret, len;
 
-    while(1) {
-        /* Wait for the callback to set the CONNECTED_BIT in the
-           event group.
-        */
-        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                            false, true, portMAX_DELAY);
-        ESP_LOGI(TAG, "Connected to AP");
-        esp_tls_cfg_t cfg = {
-            .cacert_pem_buf  = server_root_cert_pem_start,
-            .cacert_pem_bytes = server_root_cert_pem_end - server_root_cert_pem_start,
-        };
-        
-        struct esp_tls *tls = esp_tls_conn_http_new(WEB_URL, &cfg);
-        
-        if(tls != NULL) {
-            ESP_LOGI(TAG, "Connection established...");
-        } else {
-            ESP_LOGE(TAG, "Connection failed...");
+    struct esp_tls *tls = esp_tls_conn_http_new(WEB_URL, &cfg);
+
+    if (tls != NULL) {
+        ESP_LOGI(TAG, "Connection established...");
+    } else {
+        ESP_LOGE(TAG, "Connection failed...");
+        goto exit;
+    }
+
+#ifdef CONFIG_ESP_TLS_CLIENT_SESSION_TICKETS
+    /* The TLS session is successfully established, now saving the session ctx for reuse */
+    if (tls_client_session == NULL) {
+        tls_client_session = esp_tls_get_client_session(tls);
+    }
+#endif
+    size_t written_bytes = 0;
+    do {
+        ret = esp_tls_conn_write(tls,
+                                 REQUEST + written_bytes,
+                                 sizeof(REQUEST) - written_bytes);
+        if (ret >= 0) {
+            ESP_LOGI(TAG, "%d bytes written", ret);
+            written_bytes += ret;
+        } else if (ret != ESP_TLS_ERR_SSL_WANT_READ  && ret != ESP_TLS_ERR_SSL_WANT_WRITE) {
+            ESP_LOGE(TAG, "esp_tls_conn_write  returned: [0x%02X](%s)", ret, esp_err_to_name(ret));
             goto exit;
         }
-        
-        size_t written_bytes = 0;
-        do {
-            ret = esp_tls_conn_write(tls, 
-                                     REQUEST + written_bytes, 
-                                     strlen(REQUEST) - written_bytes);
-            if (ret >= 0) {
-                ESP_LOGI(TAG, "%d bytes written", ret);
-                written_bytes += ret;
-            } else if (ret != MBEDTLS_ERR_SSL_WANT_READ  && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-                ESP_LOGE(TAG, "esp_tls_conn_write  returned 0x%x", ret);
-                goto exit;
-            }
-        } while(written_bytes < strlen(REQUEST));
+    } while (written_bytes < sizeof(REQUEST));
 
-        ESP_LOGI(TAG, "Reading HTTP response...");
+    ESP_LOGI(TAG, "Reading HTTP response...");
 
-        do
-        {
-            len = sizeof(buf) - 1;
-            bzero(buf, sizeof(buf));
-            ret = esp_tls_conn_read(tls, (char *)buf, len);
-            
-            if(ret == MBEDTLS_ERR_SSL_WANT_WRITE  || ret == MBEDTLS_ERR_SSL_WANT_READ)
-                continue;
-            
-            if(ret < 0)
-           {
-                ESP_LOGE(TAG, "esp_tls_conn_read  returned -0x%x", -ret);
-                break;
-            }
+    do {
+        len = sizeof(buf) - 1;
+        bzero(buf, sizeof(buf));
+        ret = esp_tls_conn_read(tls, (char *)buf, len);
 
-            if(ret == 0)
-            {
-                ESP_LOGI(TAG, "connection closed");
-                break;
-            }
-
-            len = ret;
-            ESP_LOGD(TAG, "%d bytes read", len);
-            /* Print response directly to stdout as it is read */
-            for(int i = 0; i < len; i++) {
-                putchar(buf[i]);
-            }
-        } while(1);
-
-    exit:
-        esp_tls_conn_delete(tls);    
-        putchar('\n'); // JSON output doesn't have a newline at end
-
-        static int request_count;
-        ESP_LOGI(TAG, "Completed %d requests", ++request_count);
-
-        for(int countdown = 10; countdown >= 0; countdown--) {
-            ESP_LOGI(TAG, "%d...", countdown);
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        if (ret == ESP_TLS_ERR_SSL_WANT_WRITE  || ret == ESP_TLS_ERR_SSL_WANT_READ) {
+            continue;
         }
-        ESP_LOGI(TAG, "Starting again!");
+
+        if (ret < 0) {
+            ESP_LOGE(TAG, "esp_tls_conn_read  returned [-0x%02X](%s)", -ret, esp_err_to_name(ret));
+            break;
+        }
+
+        if (ret == 0) {
+            ESP_LOGI(TAG, "connection closed");
+            break;
+        }
+
+        len = ret;
+        ESP_LOGD(TAG, "%d bytes read", len);
+        /* Print response directly to stdout as it is read */
+        for (int i = 0; i < len; i++) {
+            putchar(buf[i]);
+        }
+        putchar('\n'); // JSON output doesn't have a newline at end
+    } while (1);
+
+exit:
+    esp_tls_conn_delete(tls);
+    for (int countdown = 10; countdown >= 0; countdown--) {
+        ESP_LOGI(TAG, "%d...", countdown);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
-void app_main()
+static void https_get_request_using_crt_bundle(void)
+{
+    ESP_LOGI(TAG, "https_request using crt bundle");
+    esp_tls_cfg_t cfg = {
+        .crt_bundle_attach = esp_crt_bundle_attach,
+    };
+    https_get_request(cfg);
+}
+
+
+
+static void https_get_request_using_cacert_buf(void)
+{
+    ESP_LOGI(TAG, "https_request using cacert_buf");
+    esp_tls_cfg_t cfg = {
+        .cacert_buf = (const unsigned char *) server_root_cert_pem_start,
+        .cacert_bytes = server_root_cert_pem_end - server_root_cert_pem_start,
+    };
+    https_get_request(cfg);
+}
+
+static void https_get_request_using_global_ca_store(void)
+{
+    esp_err_t esp_ret = ESP_FAIL;
+    ESP_LOGI(TAG, "https_request using global ca_store");
+    esp_ret = esp_tls_set_global_ca_store(server_root_cert_pem_start, server_root_cert_pem_end - server_root_cert_pem_start);
+    if (esp_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Error in setting the global ca store: [%02X] (%s),could not complete the https_request using global_ca_store", esp_ret, esp_err_to_name(esp_ret));
+        return;
+    }
+    esp_tls_cfg_t cfg = {
+        .use_global_ca_store = true,
+    };
+    https_get_request(cfg);
+    esp_tls_free_global_ca_store();
+}
+
+#ifdef CONFIG_ESP_TLS_CLIENT_SESSION_TICKETS
+static void https_get_request_using_already_saved_session(void)
+{
+    ESP_LOGI(TAG, "https_request using saved client session");
+    esp_tls_cfg_t cfg = {
+        .client_session = tls_client_session,
+    };
+    https_get_request(cfg);
+    free(tls_client_session);
+    tls_client_session = NULL;
+}
+#endif
+
+static void https_request_task(void *pvparameters)
+{
+    ESP_LOGI(TAG, "Start https_request example");
+
+    https_get_request_using_crt_bundle();
+    https_get_request_using_cacert_buf();
+    https_get_request_using_global_ca_store();
+#ifdef CONFIG_ESP_TLS_CLIENT_SESSION_TICKETS
+    https_get_request_using_already_saved_session();
+#endif
+    ESP_LOGI(TAG, "Finish https_request example");
+    vTaskDelete(NULL);
+}
+
+void app_main(void)
 {
     ESP_ERROR_CHECK( nvs_flash_init() );
-    initialise_wifi();
-    xTaskCreate(&https_get_task, "https_get_task", 8192, NULL, 5, NULL);
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+     * Read "Establishing Wi-Fi or Ethernet Connection" section in
+     * examples/protocols/README.md for more information about this function.
+     */
+    ESP_ERROR_CHECK(example_connect());
+
+    xTaskCreate(&https_request_task, "https_get_task", 8192, NULL, 5, NULL);
 }

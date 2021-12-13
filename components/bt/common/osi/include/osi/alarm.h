@@ -20,7 +20,6 @@
 #define _ALARM_H_
 
 #include <stdint.h>
-#include <stdbool.h>
 #include "esp_timer.h"
 
 typedef struct alarm_t osi_alarm_t;
@@ -78,8 +77,8 @@ period_ms_t osi_alarm_get_remaining_ms(const osi_alarm_t *alarm);
 
 uint32_t osi_time_get_os_boottime_ms(void);
 
-// This function returns whether the alarm which encapsulated 
-// a one-shot timer is active or not
+// This function returns whether the given |alarm| is active or not.
+// Return true if active, false otherwise.
 bool osi_alarm_is_active(osi_alarm_t *alarm);
 
 #endif /*_ALARM_H_*/

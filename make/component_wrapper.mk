@@ -91,7 +91,9 @@ COMPONENT_SUBMODULES ?=
 COMPILING_COMPONENT_PATH := $(COMPONENT_PATH)
 
 define includeCompBuildMakefile
-$(if $(V),$(info including $(1)/Makefile.componentbuild...))
+ifeq ("$(V)","1")
+$$(info including $(1)/Makefile.componentbuild...)
+endif
 COMPONENT_PATH := $(1)
 include $(1)/Makefile.componentbuild
 endef
@@ -199,6 +201,12 @@ component_project_vars.mk::
 	@echo 'COMPONENT_LIBRARIES += $(COMPONENT_NAME)' >> $@
 	@echo 'COMPONENT_LDFRAGMENTS += $(call MakeVariablePath,$(abspath $(addprefix $(COMPONENT_PATH)/,$(COMPONENT_ADD_LDFRAGMENTS))))' >> $@
 	@echo 'component-$(COMPONENT_NAME)-build: $(addprefix component-,$(addsuffix -build,$(COMPONENT_DEPENDS)))' >> $@
+ifdef COMPONENT_OWNBUILDTARGET
+	@echo 'COMPONENT_$(COMPONENT_NAME)_BUILDTARGET := $(COMPONENT_OWNBUILDTARGET)' >> $@
+endif
+ifdef COMPONENT_OWNCLEANTARGET
+	@echo 'COMPONENT_$(COMPONENT_NAME)_CLEANTARGET := $(COMPONENT_OWNCLEANTARGET)' >> $@
+endif
 ################################################################################
 # 5) Where COMPONENT_OWNBUILDTARGET / COMPONENT_OWNCLEANTARGET
 # is not set by component.mk, define default build, clean, etc. targets
@@ -340,4 +348,3 @@ component_project_vars.mk:: # no need to add variables via component.mk
 	@echo '# COMPONENT_CONFIG_ONLY target sets no variables here' > $@
 
 endif  # COMPONENT_CONFIG_ONLY
-

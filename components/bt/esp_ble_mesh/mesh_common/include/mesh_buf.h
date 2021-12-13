@@ -3,8 +3,8 @@
  */
 
 /*
- * Copyright (c) 2015 Intel Corporation
- * Additional Copyright (c) 2018 Espressif Systems (Shanghai) PTE LTD
+ * SPDX-FileCopyrightText: 2015 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -1756,4 +1756,3 @@ static inline size_t net_buf_frags_len(struct net_buf *buf)
 #endif
 
 #endif /* _BLE_MESH_BUF_H_ */
-

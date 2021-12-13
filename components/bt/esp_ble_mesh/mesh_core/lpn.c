@@ -1,7 +1,7 @@
 /*  Bluetooth Mesh */
 
 /*
- * Copyright (c) 2017 Intel Corporation
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,6 +11,7 @@
 
 #include "crypto.h"
 #include "adv.h"
+#include "scan.h"
 #include "mesh.h"
 #include "transport.h"
 #include "access.h"

@@ -58,7 +58,7 @@ static struct example_info_store {
     .vnd_tid = 0,
 };
 
-static nvs_handle   NVS_HANDLE;
+static nvs_handle_t NVS_HANDLE;
 static const char * NVS_KEY = "vendor_client";
 
 static struct esp_ble_mesh_key {

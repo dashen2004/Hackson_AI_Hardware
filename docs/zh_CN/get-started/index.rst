@@ -1,279 +1,734 @@
 ***********
 快速入门
 ***********
+
+{IDF_TARGET_CORE_NUM:default="2", esp32s2="1", esp32c3="1"}
+
+{IDF_TARGET_FEATURES:default="WiFi/BT/BLE, silicon revision 1, 2MB external flash", esp32="WiFi/BT/BLE, silicon revision 1, 2MB external flash", esp32s2="WiFi, silicon revision 0, 2MB external flash", esp32s3="This is esp32s3 chip with 2 CPU core(s), WiFi/BLE, silicon revision 0, 2MB external flash", esp32c3="WiFi/BLE, silicon revision 0, 2MB external flash"}
+
+{IDF_TARGET_HEAP_SIZE:default="298968", esp32="298968", esp32s2="253900", esp32s3="390684", esp32c3="337332"}
+
+
 :link_to_translation:`en:[English]`
 
-本文档旨在指导用户创建 ESP32 的软件环境。本文将通过一个简单的例子来说明如何使用 ESP-IDF (Espressif IoT Development Framework)，包括配置、编译、下载固件到开发板等步骤。
+.. 请保证 README.md 文件与该文件保持同步
 
-.. include:: /_build/inc/version-note.inc
+本文档旨在指导用户搭建 {IDF_TARGET_NAME} 硬件开发的软件环境，通过一个简单的示例展示如何使用 ESP-IDF (Espressif IoT Development Framework) 配置菜单，并编译、下载固件至 {IDF_TARGET_NAME} 开发板等步骤。
+
+.. include-build-file:: inc/version-note.inc
 
 概述
-======
+============
 
-ESP32 是一套 Wi-Fi (2.4 GHz) 和蓝牙 (4.2) 双模解决方案，集成了高性能的 CPU 内核、超低功耗协处理器和丰富的外设。ESP32 采用 40 nm 工艺制成，具有最佳的功耗性能、射频性能、稳定性、通用性和可靠性，适用于各种应用和不同功耗需求。
+{IDF_TARGET_NAME} SoC 芯片支持以下功能：
 
-乐鑫为用户提供完整的软、硬件资源进行 ESP32 设备的开发。乐鑫所研发的软件开发环境 ESP-IDF 能够帮助用户快速开发物联网 (IoT) 应用，满足用户对于 Wi-Fi、蓝牙、低功耗等性能的需求。
+.. only:: esp32
+
+    * 2.4 GHz Wi-Fi
+    * 蓝牙
+    * 高性能 Xtensa® 32 位 LX6 双核处理器
+    * 超低功耗协处理器
+    * 多种外设
+
+.. only:: esp32s2
+
+    * 2.4 GHz Wi-Fi
+    * 高性能 Xtensa® 32 位 LX7 单核处理器
+    * 运行 RISC-V 或 FSM 内核的超低功耗协处理器
+    * 多种外设
+    * 内置安全硬件
+    * USB OTG 接口
+
+.. only:: esp32s3
+
+    * 2.4 GHz Wi-Fi
+    * 低功耗蓝牙
+    * 高性能 Xtensa® 32 位 LX7 双核处理器
+    * 运行 RISC-V 或 FSM 内核的超低功耗协处理器
+    * 多种外设
+    * 内置安全硬件
+    * USB OTG 接口
+    * USB 串口/JTAG 控制器
+
+.. only:: esp32c3
+
+    * 2.4 GHz Wi-Fi
+    * 低功耗蓝牙
+    * 高性能 32 位 RISC-V 单核处理器
+    * 多种外设
+    * 内置安全硬件
+
+{IDF_TARGET_NAME} 采用 40 nm 工艺制成，具有最佳的功耗性能、射频性能、稳定性、通用性和可靠性，适用于各种应用场景和不同功耗需求。
+
+乐鑫为用户提供完整的软、硬件资源，进行 {IDF_TARGET_NAME} 硬件设备的开发。其中，乐鑫的软件开发环境 ESP-IDF 旨在协助用户快速开发物联网 (IoT) 应用，可满足用户对 Wi-Fi、蓝牙、低功耗等方面的要求。
+
 
 准备工作
-=========
+=============
 
-开发 ESP32 应用程序需要准备：
+硬件：
 
+* 一款 **{IDF_TARGET_NAME}** 开发板
+* **USB 数据线**  (A 转 Micro-B)
+* 电脑（Windows、Linux 或 Mac OS）
 
-* **电脑**：安装 Windows、Linux 或者 Mac 操作系统
-* **工具链**：用于编译 ESP32 **应用程序**
-* **ESP-IDF**：包含 ESP32 API 和用于操作 **工具链** 的脚本
-* **文本编辑器**：编写 C 语言程序，例如 `Eclipse <http://www.eclipse.org/>`_
-* **ESP32 开发板** 和将其连接到 **电脑** 的 **USB 线**
+软件：
+
+您可以选择下载并手动安装以下软件：
+
+    * 设置 **工具链**，用于编译 {IDF_TARGET_NAME} 代码；
+    * **编译构建工具** —— CMake 和 Ninja 编译构建工具，用于编译 {IDF_TARGET_NAME} **应用程序**；
+    * 获取 **ESP-IDF** 软件开发框架。该框架已经基本包含 {IDF_TARGET_NAME} 使用的 API（软件库和源代码）和运行 **工具链** 的脚本；
+
+或者，您也可以通过以下集成开发环境 (IDE) 中的官方插件完成安装流程：
+
+    * `Eclipse 插件 <https://github.com/espressif/idf-eclipse-plugin>`_ (`安装 <https://github.com/espressif/idf-eclipse-plugin#installing-idf-plugin-using-update-site-url>`__)
+    * `VS Code 插件 <https://github.com/espressif/vscode-esp-idf-extension>`_ (`安装 <https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/tutorial/install.md>`__)
 
 .. figure:: ../../_static/what-you-need.png
     :align: center
-    :alt: Development of applications for ESP32
+    :alt: {IDF_TARGET_NAME} 应用程序开发
     :figclass: align-center
 
-    开发应用程序
+    {IDF_TARGET_NAME} 应用程序开发
 
-开发环境的准备工作包括以下三部分：
 
-1. 设置 **工具链**
-2. 从 GitHub 上获取 **ESP-IDF**
-3. 安装和配置 **Eclipse**
+开发板简介
+===========================
 
-如果你偏好使用其它编辑器，可以跳过最后一步。
+请点击下方连接，了解有关开发板的详细信息。
 
-环境设置好后，就可以开始开发应用程序了。整个过程可以概括为如下四步：
+.. only:: esp32
 
-1. 配置 **工程** 并编写代码
-2. 编译 **工程** 并链接成一个 **应用程序**
-3. 烧写 **应用程序** 到 **ESP32**
-4. 监视/调试 **应用程序**
+    .. toctree::
+        :maxdepth: 1
 
-下文将全程指导你操作完成这些步骤。
+        ESP32-DevKitC <../hw-reference/esp32/get-started-devkitc>
+        ESP-WROVER-KIT <../hw-reference/esp32/get-started-wrover-kit>
+        ESP32-PICO-KIT <../hw-reference/esp32/get-started-pico-kit>
+        ESP32-Ethernet-Kit <../hw-reference/esp32/get-started-ethernet-kit>
+        ESP32-DevKit-S(-R) <../hw-reference/esp32/user-guide-devkits-r-v1.1>
+        ESP32-PICO-KIT-1 <../hw-reference/esp32/get-started-pico-kit-1>
+        ESP32-PICO-DevKitM-2 <../hw-reference/esp32/get-started-pico-devkitm-2>
+        ESP32-DevKitM-1 <../hw-reference/esp32/user-guide-devkitm-1>
 
-开发板指南
-==========
+.. only:: esp32s2
 
-如果你有下列任一 ESP32 开发板，请点击对应的链接，对照指南进行操作就可以让你的板子跑起来。
+    .. toctree::
+        :maxdepth: 1
 
-.. toctree::
-    :maxdepth: 1
+        ESP32-S2-Saola-1 <../hw-reference/esp32s2/user-guide-saola-1-v1.2>
+        ESP32-S2-DevKitM-1(U) <../hw-reference/esp32s2/user-guide-devkitm-1-v1>
+        ESP32-S2-DevKitC-1 <../hw-reference/esp32s2/user-guide-s2-devkitc-1>
+        ESP32-S2-Kaluga-Kit <../hw-reference/esp32s2/user-guide-esp32-s2-kaluga-1-kit>
 
-    ESP32 DevKitC <../get-started/get-started-devkitc>
-    ESP-WROVER-KIT <../get-started/get-started-wrover-kit>
-    ESP32-PICO-KIT <../get-started/get-started-pico-kit>
+.. only:: esp32c3
 
-如果你使用其它开发板，请查看下面的内容。
+    .. toctree::
+        :maxdepth: 1
 
-.. _get-started-setup-toolchain:
+        ESP32-C3-DevKitM-1 <../hw-reference/esp32c3/user-guide-devkitm-1>
+        ESP32-C3-DevKitC-02 <../hw-reference/esp32c3/user-guide-devkitc-02>
 
-设置工具链
-===============
 
-用 ESP32 进行开发最快的方法是安装预编译的工具链。请根据你的操作系点击对应的链接，并按照链接中的指导进行安装。
+.. only:: esp32s3
+
+    .. toctree::
+        :maxdepth: 1
+
+        ESP32-S3-DevKitC-1 <../hw-reference/esp32s3/user-guide-devkitc-1>
+
+
+.. _get-started-step-by-step:
+
+详细安装步骤
+=========================
+
+请根据下方详细步骤，完成安装过程。
+
+设置开发环境
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* :ref:`get-started-get-prerequisites` （:doc:`Windows <windows-setup>` 、:doc:`Linux <linux-setup>` 和 :doc:`macOS <macos-setup>`）
+* :ref:`get-started-get-esp-idf`
+* :ref:`get-started-set-up-tools`
+* :ref:`get-started-set-up-env`
+
+创建您的第一个工程
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* :ref:`get-started-start-project`
+* :ref:`get-started-connect`
+* :ref:`get-started-configure`
+* :ref:`get-started-build`
+* :ref:`get-started-flash`
+* :ref:`get-started-build-monitor`
+
+
+.. _get-started-get-prerequisites:
+
+第一步：安装准备
+=============================
+
+在正式开始创建工程前，请先完成工具的安装，具体步骤见下：
 
 .. toctree::
     :hidden:
 
     Windows <windows-setup>
     Linux <linux-setup>
-    MacOS <macos-setup>
+    macOS <macos-setup>
 
 +-------------------+-------------------+-------------------+
 | |windows-logo|    | |linux-logo|      | |macos-logo|      |
 +-------------------+-------------------+-------------------+
-| `Windows`_        | `Linux`_          | `Mac OS`_         |
+| `Windows`_        | `Linux`_          | `macOS`_          |
 +-------------------+-------------------+-------------------+
 
 .. |windows-logo| image:: ../../_static/windows-logo.png
-    :target: windows-setup.html
+    :target: ../get-started/windows-setup.html
 
 .. |linux-logo| image:: ../../_static/linux-logo.png
-    :target: linux-setup.html
+    :target: ../get-started/linux-setup.html
 
 .. |macos-logo| image:: ../../_static/macos-logo.png
-    :target: macos-setup.html
+    :target: ../get-started/macos-setup.html
 
-.. _Windows: windows-setup.html
-.. _Linux: linux-setup.html
-.. _Mac OS: macos-setup.html
+.. _Windows: ../get-started/windows-setup.html
+.. _Linux: ../get-started/linux-setup.html
+.. _macOS: ../get-started/macos-setup.html
 
 .. note::
 
-    我们使用 ``~/esp`` 目录来安装预编译的工具链、ESP-IDF 和示例程序。你也可以使用其它目录，但是需要注意调整相应的指令。
-
-你可以安装预编译的工具链或者自定义你的环境，这完全取决于个人经验和偏好。如果你要自定义环境，请参考 :ref:`get-started-customized-setup`。
-
-工具链设置完成后，就可以 :ref:`get-started-get-esp-idf` 了。
+    在本文档中，Linux 和 macOS 操作系统中 ESP-IDF 的默认安装路径为 ``~/esp``；Windows 操作系统中的默认安装路径为 ``%userprofile%\esp``。您也可以将 ESP-IDF 安装在任何其他路径下，但请注意在使用命令行时进行相应替换。注意，ESP-IDF 不支持带有空格的路径。
 
 .. _get-started-get-esp-idf:
 
-获取 ESP-IDF
-=================
+第二步：获取 ESP-IDF
+=================================
 
-.. highlight:: bash
+在围绕 {IDF_TARGET_NAME} 构建应用程序之前，请先获取乐鑫提供的软件库文件 `ESP-IDF 仓库 <https://github.com/espressif/esp-idf>`_。
 
-工具链（包括用于编译和构建应用程序的程序）安装完后，你还需要 ESP32 相关的 API/库。API/库在 `ESP-IDF 仓库 <https://github.com/espressif/esp-idf>`_ 中。
+获取 ESP-IDF 的本地副本：打开终端，切换到您要保存 ESP-IDF 的工作目录，使用 ``git clone`` 命令克隆远程仓库。针对不同操作系统的详细步骤，请见下文。
 
-获取本地副本：打开终端，切换到你要存放 ESP-IDF 的工作目录，使用 ``git clone`` 命令克隆远程仓库:
+Linux 和 macOS 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. include:: /_build/inc/git-clone-bash.inc
+打开终端，后运行以下命令：
 
-ESP-IDF 将会被下载到 ``~/esp/esp-idf`` 目录下。
+.. include-build-file:: inc/git-clone-bash.inc
 
-有关在给定情况下使用哪个 ESP-IDF 版本的信息，请参阅 :doc:`/versions` 。
+ESP-IDF 将下载至 ``~/esp/esp-idf``。
+
+请前往 :doc:`/versions`，查看 ESP-IDF 不同版本的具体适用场景。
+
+Windows 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+除了安装必要工具外，第一步中介绍的 :ref:`get-started-windows-tools-installer` 也能同时下载 ESP-IDF 本地副本。
+
+请前往 :doc:`/versions`，查看 ESP-IDF 不同版本的具体适用场景。
+
+除了使用 ESP-IDF 工具安装器，您也可以参考 :ref:`指南 <get-esp-idf-windows-command-line>` 手动下载 ESP-IDF。
+
+.. _get-started-set-up-tools:
+
+第三步：设置工具
+=================================
+
+除了 ESP-IDF 本身，您还需要安装 ESP-IDF 使用的各种工具，比如编译器、调试器、Python 包等。
+
+Windows 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+请根据第一步中对 Windows (:ref:`get-started-windows-tools-installer`) 的介绍，安装所有必需工具。
+
+除了使用 ESP-IDF 工具安装器，您也可以通过 **命令提示符** 窗口手动安装这些工具。具体步骤见下：
+
+.. code-block:: batch
+
+    cd %userprofile%\esp\esp-idf
+    install.bat {IDF_TARGET_PATH_NAME}
+
+或使用 Windows PowerShell
+
+.. code-block:: powershell
+
+    cd ~/esp/esp-idf
+    ./install.ps1 {IDF_TARGET_PATH_NAME}
+
+Linux 和 macOS 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+    cd ~/esp/esp-idf
+    ./install.sh {IDF_TARGET_PATH_NAME}
+
+或使用 Fish shell
+
+.. code-block:: fish
+
+    cd ~/esp/esp-idf
+    ./install.fish {IDF_TARGET_PATH_NAME}
 
 .. note::
+    通过一次性指定多个目标，可为多个目标芯片同时安装工具，如运行 ``./install.sh esp32,esp32c3,esp32s3``。
+    通过运行 ``./install.sh`` 或 ``./install.sh all`` 可一次性为所有支持的目标芯片安装工具。
 
-    注意这里有个 ``--recursive`` 选项。如果你克隆 ESP-IDF 时没有带这个选项，你还需要运行额外的命令来获取子模块： ::
+下载工具备选方案
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        cd esp-idf
-        git submodule update --init
+ESP-IDF 工具安装器会下载 Github 发布版本中附带的一些工具，如果访问 Github 较为缓慢，则可以设置一个环境变量，实现优先选择 Espressif 的下载服务器进行 Github 资源下载。
 
-.. include:: /_build/inc/git-clone-notes.inc
+.. 注解:: 该设置只影响从 Github 发布版本中下载的单个工具，它并不会改变访问任何 Git 仓库的 URL。
 
-.. _get-started-setup-path:
+Windows 操作系统
+-----------------
 
-设置 ESP-IDF 路径
-=====================
+如果希望在运行 ESP-IDF 工具安装器时优先选择 Espressif 下载服务器，请在 **Select Components** 窗口中的 **Optimization** 部分勾选 **Use Espressif download mirror instead of GitHub** 选项。
 
-工具链程序使用环境变量 ``IDF_PATH`` 来访问 ESP-IDF。这个变量应该设置在你的 PC 中，否则工程将不能编译。你可以在每次 PC 重启时手工设置，也可以通过在用户配置文件中定义 ``IDF_PATH`` 变量来永久性设置。要永久性设置，请参考 :doc:`add-idf_path-to-profile` 文档中 :ref:`Windows <add-idf_path-to-profile-windows>` 或 :ref:`Linux and MacOS <add-idf_path-to-profile-linux-macos>` 相关的指导进行操作。
+Linux 和 macOS 操作系统
+--------------------------
 
-.. _get-started-get-packages:
+要在安装工具时优先选择 Espressif 下载服务器，请在运行 ``install.sh`` 时使用以下命令：
 
-安装依赖的 Python 软件包
-====================================
+.. code-block:: bash
 
-ESP-IDF 所依赖的 Python 软件包位于 ``$IDF_PATH/requirements.txt`` 文件中，您可以通过运行以下命令来安装它们：
+    cd ~/esp/esp-idf
+    export IDF_GITHUB_ASSETS="dl.espressif.com/github_assets"
+    ./install.sh
 
-.. code:: bash
+自定义工具安装路径
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    python -m pip install --user -r $IDF_PATH/requirements.txt
+本步骤中介绍的脚本将 ESP-IDF 所需的编译工具默认安装在用户的根目录中，即 Linux 和 macOS 系统中的 ``$HOME/.espressif`` 和 Windows 系统的 ``%USERPROFILE%\.espressif``。此外，您可以将工具安装到其他目录中，但请在运行安装脚本前，重新设置环境变量 ``IDF_TOOLS_PATH``。注意，请确保您的用户已经具备了读写该路径的权限。
 
-.. note::
+如果修改了 ``IDF_TOOLS_PATH`` 变量，请确保该变量在每次执行安装脚本 (``install.bat``、``install.ps1`` 或 ``install.sh``) 和导出脚本 (``export.bat``、``export.ps1`` 或 ``export.sh``) 均保持一致。
 
-    请调用 ESP-IDF 使用的相同版本的 Python 解释器，解释器的版本号可以通过运行命令 ``python --version`` 来获得，根据结果，您可能要使用 ``python2``, ``python2.7`` 或者类似的名字而不是 ``python``,例如::
+.. _get-started-set-up-env:
 
-        python2.7 -m pip install --user -r $IDF_PATH/requirements.txt
+
+第四步：设置环境变量
+=======================================
+
+此时，您刚刚安装的工具尚未添加至 PATH 环境变量，无法通过“命令窗口”使用这些工具。因此，必须设置一些环境变量，这可以通过 ESP-IDF 提供的另一个脚本完成。
+
+Windows 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Windows 安装器（:ref:`get-started-windows-tools-installer` ）可在“开始”菜单创建一个 "ESP-IDF Command Prompt" 快捷方式。该快捷方式可以打开命令提示符窗口，并设置所有环境变量。您可以点击该快捷方式，然后继续下一步。
+
+此外，如果您希望在当下命令提示符窗口使用 ESP-IDF，请使用下方代码：
+
+.. code-block:: batch
+
+    %userprofile%\esp\esp-idf\export.bat
+
+或使用 Windows PowerShell
+
+.. code-block:: powershell
+
+    .$HOME/esp/esp-idf/export.ps1
+
+.. _get-started-export:
+
+Linux 和 macOS 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+请在需要运行 ESP-IDF 的终端窗口运行以下命令：
+
+.. code-block:: bash
+
+    . $HOME/esp/esp-idf/export.sh
+
+对于 fish shell（仅支持 fish 3.0.0 及以上版本），请运行以下命令：
+
+.. code-block:: bash
+
+    . $HOME/esp/esp-idf/export.fish
+
+注意，命令开始的 "." 与路径之间应有一个空格！
+
+如果您需要经常运行 ESP-IDF，您可以为执行 ``export.sh`` 创建一个别名，具体步骤如下：
+
+1. 复制并粘贴以下命令到 shell 配置文件中（``.profile``， ``.bashrc``， ``.zprofile`` 等）
+    
+   .. code-block:: bash
+
+        alias get_idf='. $HOME/esp/esp-idf/export.sh'
+
+2. 通过重启终端窗口或运行 ``source [path to profile]``，如 ``source ~/.bashrc`` 来刷新配置文件。
+
+现在您可以在任何终端窗口中运行 ``get_idf`` 来设置或刷新 esp-idf 环境。
+
+这里不建议您直接将 ``export.sh`` 添加到 shell 的配置文件。因为这会导致在每个终端会话中都激活 IDF 虚拟环境（包括无需使用 IDF 的情况），从而破坏使用虚拟环境的目的，并可能影响其他软件的使用。
 
 .. _get-started-start-project:
 
-创建一个工程
-===============
+第五步：开始创建工程
+========================================
 
-现在可以开始创建 ESP32 应用程序了。为了快速开始，我们这里以 IDF 的 :idf:`examples` 目录下的 :example:`get-started/hello_world` 工程为例进行说明。
+现在，您可以开始准备开发 {IDF_TARGET_NAME} 应用程序了。您可以从 ESP-IDF 中 :idf:`examples` 目录下的 :example:`get-started/hello_world` 工程开始。
 
-将 :example:`get-started/hello_world` 拷贝到 ``~/esp`` 目录： ::
+将 :example:`get-started/hello_world` 工程复制至您本地的 ``~/esp`` 目录下：
+
+Linux 和 macOS 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
 
     cd ~/esp
     cp -r $IDF_PATH/examples/get-started/hello_world .
 
-ESP-IDF 的 :idf:`examples` 目录下有一系列示例工程，都可以按照上面的方法进行创建。
+Windows 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: batch
+
+    cd %userprofile%\esp
+    xcopy /e /i %IDF_PATH%\examples\get-started\hello_world hello_world
+
+ESP-IDF 的 :idf:`examples` 目录下有一系列示例工程，都可以按照上面的方法进行创建。您可以按照上述方法复制并运行其中的任何示例，也可以直接编译示例，无需进行复制。
 
 .. important::
 
-    esp-idf 构建系统不支持在路径中存在空格。
+    ESP-IDF 编译系统不支持带有空格的路径。
 
 .. _get-started-connect:
 
-连接
-=======
+第六步：连接设备
+==========================================
 
-还有几个步骤就完成了。在继续后续操作前，先将 ESP32 开发板连接到 PC，然后检查串口号，看看它能否正常通信。如果你不知道如何操作，请查看 Establish Serial Connection with ESP32 中的相关指导。请注意一下端口号，我们在下一步中会用到。
+现在，请将您的 {IDF_TARGET_NAME} 开发板连接到 PC，并查看开发板使用的串口。
+
+通常，串口在不同操作系统下显示的名称有所不同：
+
+- **Windows 操作系统：** ``COM1`` 等
+- **Linux 操作系统：** 以 ``/dev/tty`` 开始
+- **macOS 操作系统：** 以 ``/dev/cu.`` 开始
+
+有关如何查看串口名称的详细信息，请见 :doc:`establish-serial-connection`。
+
+.. note::
+
+    请记住串口名，您会在下面的步骤中用到。
+
 
 .. _get-started-configure:
 
-配置
-=========
+第七步：配置
+=========================
 
-在终端窗口中，输入 ``cd ~/esp/hello_world`` 进入 ``hello_world`` 所在目录，然后启动工程配置工具 ``menuconfig``： ::
+请进入 :ref:`get-started-start-project` 中提到的 ``hello_world`` 目录，并运行工程配置工具 ``menuconfig``。
+
+Linux 和 macOS 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
 
     cd ~/esp/hello_world
-    make menuconfig
+    idf.py set-target {IDF_TARGET_PATH_NAME}
+    idf.py menuconfig
+
+Windows 操作系统
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: batch
+
+    cd %userprofile%\esp\hello_world
+    idf.py set-target {IDF_TARGET_PATH_NAME}
+    idf.py menuconfig
+
+打开一个新项目后，应首先设置“目标”芯片 ``idf.py set-target {IDF_TARGET_PATH_NAME}``。注意，此操作将清除并初始化项目之前的编译和配置（如有）。 您也可以直接将“目标”配置为环境变量（此时可跳过该步骤）。更多信息，请见 :ref:`selecting-idf-target`。
 
 如果之前的步骤都正确，则会显示下面的菜单：
 
 .. figure:: ../../_static/project-configuration.png
     :align: center
-    :alt: Project configuration - Home window
+    :alt: 工程配置 — 主窗口
     :figclass: align-center
 
-    工程配置 - 主窗口
+    工程配置 — 主窗口
 
-在菜单中，进入 ``Serial flasher config`` > ``Default serial port`` 配置串口（工程将会加载到该串口上）。输入回车确认选择，选择 ``< Save >`` 保存配置，然后选择 ``< Exit >`` 退出应用程序。
+您可以通过此菜单设置项目的具体变量，包括 Wi-Fi 网络名称、密码和处理器速度等. ``hello_world`` 示例项目会以默认配置运行，因此可以跳过使用 ``menuconfig`` 进行项目配置这一步骤。
+
+.. only:: esp32
+
+    .. attention::
+
+        如果您使用的是 ESP32-DevKitC（板载 ESP32-SOLO-1 模组）或 ESP32-DevKitM-1（板载 ESP32-MINI-1(1U) 模组），请在烧写示例程序前，前往 ``menuconfig`` 中使能单核模式（:ref:`CONFIG_FREERTOS_UNICORE`）。
+
+.. 注解::
+
+    您终端窗口中显示出的菜单颜色可能会与上图不同。您可以通过选项 ``--style`` 来改变外观。更多信息，请运行 ``idf.py menuconfig --help`` 命令。
+
+.. _get-started-build:
+
+第八步：编译工程
+=========================
+
+请使用以下命令，编译烧录工程：
+
+.. code-block:: batch
+
+    idf.py build
+
+运行以上命令可以编译应用程序和所有 ESP-IDF 组件，接着生成 bootloader、分区表和应用程序二进制文件。
+
+.. code-block:: none
+
+    $ idf.py build
+    Running cmake in directory /path/to/hello_world/build
+    Executing "cmake -G Ninja --warn-uninitialized /path/to/hello_world"...
+    Warn about uninitialized values.
+    -- Found Git:/usr/bin/git (found version "2.17.0")
+    -- Building empty aws_iot component due to configuration
+    -- Component names: ...
+    -- Component paths: ...
+
+    ... (more lines of build system output)
+
+    [527/527] Generating hello_world.bin
+    esptool.py v2.3.1
+
+    Project build complete. To flash, run this command:
+    ../../../components/esptool_py/esptool/esptool.py -p (PORT) -b 921600 write_flash --flash_mode dio --flash_size detect --flash_freq 40m 0x10000 build/hello_world.bin  build 0x1000 build/bootloader/bootloader.bin 0x8000 build/partition_table/partition-table.bin
+    or run 'idf.py -p PORT flash'
+
+如果一切正常，编译完成后将生成 .bin 文件。
+
+
+.. _get-started-flash:
+
+第九步：烧录到设备
+=============================
+
+请使用以下命令，将刚刚生成的二进制文件 (bootloader.bin, partition-table.bin 和 hello_world.bin) 烧录至您的 {IDF_TARGET_NAME} 开发板：
+
+.. code-block:: bash
+
+    idf.py -p PORT [-b BAUD] flash
+
+请将 PORT 替换为 {IDF_TARGET_NAME} 开发板的串口名称，具体可见 :ref:`get-started-connect`。
+
+您还可以将 BAUD 替换为您希望的烧录波特率。默认波特率为 ``460800``。
+
+更多有关 idf.py 参数的详情，请见 :ref:`idf.py`。
 
 .. note::
 
-   在 Windows 系统中，端口号的名称类似 COM1，在 MacOS 中以 ``/dev/cu.`` 开始，而在 Linux 系统中，以 ``/dev/tty`` 开始。
-   （详细内容可以参考章节 :doc:`establish-serial-connection`。）
-
-下面是一些使用 ``menuconfig`` 的小技巧：
-
-* 使用 up & down 组合键在菜单中上下移动
-* 使用 Enter 键进入一个子菜单，Escape 键退出子菜单或退出整个菜单
-* 输入 ``?`` 查看帮助信息，Enter 键退出帮助屏幕
-* 使用空格键或 ``Y`` 和 ``N`` 键来使能 (Yes) 和禁止 (No) 带有复选框 "``[*]``" 的配置项
-* 当光标在某个配置项上面高亮时，输入 ``?`` 可以直接查看该项的帮助信息
-* 输入 ``/`` 搜索配置项
-
-.. attention::
-
-    如果 ESP32-DevKitC 板载的是 ESP32-SOLO-1 模组，请务必在烧写示例程序之前在 menuconfig 中使能单核模式（:ref:`CONFIG_FREERTOS_UNICORE`）。
+    勾选 ``flash`` 选项将自动编译并烧录工程，因此无需再运行 ``idf.py build``。
 
 
-.. _get-started-build-flash:
+烧录过程中可能遇到的问题
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+{IDF_TARGET_STRAP_GPIO:default="GPIO0", esp32="GPIO0", esp32s2="GPIO0", esp32s3="GPIO0", esp32c3="GPIO9"}
 
-编译和烧写
-===============
+如果在运行给定命令时出现如“连接失败”这样的错误，原因之一则可能是运行 ``esptool.py`` 出现错误。``esptool.py`` 是构建系统调用的程序，用于重置芯片、与 ROM 引导加载器交互以及烧录固件的工具。解决该问题的一个简单的方法就是按照以下步骤进行手动复位。如果问题仍未解决，请参考 `Troubleshooting <https://github.com/espressif/esptool#bootloader-wont-respond>`_ 获取更多信息。
 
-现在可以编译和烧写应用程序了，执行指令： ::
+``esptool.py`` 通过使 USB 转串口转接器芯片（如 FTDI 或 CP210x）的 DTR 和 RTS 控制线生效来自动复位 {IDF_TARGET_NAME}（请参考 :doc:`establish-serial-connection` 获取更多详细信息)。DTR 和 RTS 控制线又连接到 {IDF_TARGET_NAME} 的 ``{IDF_TARGET_STRAP_GPIO}`` 和 ``CHIP_PU`` (EN) 管脚上，因此 DTR 和 RTS 的电压电平变化会使 {IDF_TARGET_NAME} 进入固件下载模式。相关示例可查看 ESP32 DevKitC 开发板的 `原理图 <https://dl.espressif.com/dl/schematics/esp32_devkitc_v4-sch-20180607a.pdf>`_。
 
-    make flash
+一般来说，使用官方的 esp-idf 开发板不会出现问题。但是，``esptool.py`` 在以下情况下不能自动重置硬件。
 
-这条命令会编译应用程序和所有的 ESP-IDF 组件，生成 bootloader、分区表和应用程序 bin 文件，并将这些 bin 文件烧写到 ESP32 板子上。
+- 您的硬件没有连接到 ``{IDF_TARGET_STRAP_GPIO}`` 和 ``CIHP_PU`` 的 DTR 和 RTS 控制线。
+- DTR 和 RTS 控制线的配置方式不同
+- 根本没有这样的串行控制线路
 
-.. highlight:: none
+根据您硬件的种类，也可以将您 {IDF_TARGET_NAME} 开发板手动设置成固件下载模式（复位）。
 
-::
+- 对于 Espressif 的开发板，您可以参考对应开发板的入门指南或用户指南。例如，可以通过按住 **Boot** 按钮 (``{IDF_TARGET_STRAP_GPIO}``) 再按住 **EN** 按钮(``CHIP_PU``) 来手动复位 esp-idf 开发板。
+- 对于其他类型的硬件，可以尝试将 ``{IDF_TARGET_STRAP_GPIO}`` 拉低。
 
-    esptool.py v2.0-beta2
-    Flashing binaries to serial port /dev/ttyUSB0 (app at offset 0x10000)...
-    esptool.py v2.0-beta2
-    Connecting........___
-    Uploading stub...
-    Running stub...
-    Stub running...
-    Changing baud rate to 921600
-    Changed.
-    Attaching SPI flash...
-    Configuring flash size...
-    Auto-detected Flash size: 4MB
-    Flash params set to 0x0220
-    Compressed 11616 bytes to 6695...
-    Wrote 11616 bytes (6695 compressed) at 0x00001000 in 0.1 seconds (effective 920.5 kbit/s)...
-    Hash of data verified.
-    Compressed 408096 bytes to 171625...
-    Wrote 408096 bytes (171625 compressed) at 0x00010000 in 3.9 seconds (effective 847.3 kbit/s)...
-    Hash of data verified.
-    Compressed 3072 bytes to 82...
-    Wrote 3072 bytes (82 compressed) at 0x00008000 in 0.0 seconds (effective 8297.4 kbit/s)...
-    Hash of data verified.
 
-    Leaving...
-    Hard resetting...
+常规操作
+~~~~~~~~~~~~~~~~
 
-如果没有任何问题，在编译过程结束后将能看到类似上面的消息。最后，板子将会复位，应用程序 "hello_world" 开始启动。
+在烧录过程中，您会看到类似如下的输出日志：
 
-如果你想使用 Eclipse IDE 而不是运行 ``make``，请参考 :doc:`Eclipse guide <eclipse-setup>`。
+.. only:: esp32
+
+    .. code-block:: none
+
+        ...
+        esptool.py --chip esp32 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x1000 bootloader/bootloader.bin 0x10000 hello_world.bin
+        esptool.py v3.0-dev
+        Serial port /dev/ttyUSB0
+        Connecting........_
+        Chip is ESP32D0WDQ6 (revision 0)
+        Features: WiFi, BT, Dual Core, Coding Scheme None
+        Crystal is 40MHz
+        MAC: 24:0a:c4:05:b9:14
+        Uploading stub...
+        Running stub...
+        Stub running...
+        Changing baud rate to 460800
+        Changed.
+        Configuring flash size...
+        Compressed 3072 bytes to 103...
+        Writing at 0x00008000... (100 %)
+        Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.0 seconds (effective 5962.8 kbit/s)...
+        Hash of data verified.
+        Compressed 26096 bytes to 15408...
+        Writing at 0x00001000... (100 %)
+        Wrote 26096 bytes (15408 compressed) at 0x00001000 in 0.4 seconds (effective 546.7 kbit/s)...
+        Hash of data verified.
+        Compressed 147104 bytes to 77364...
+        Writing at 0x00010000... (20 %)
+        Writing at 0x00014000... (40 %)
+        Writing at 0x00018000... (60 %)
+        Writing at 0x0001c000... (80 %)
+        Writing at 0x00020000... (100 %)
+        Wrote 147104 bytes (77364 compressed) at 0x00010000 in 1.9 seconds (effective 615.5 kbit/s)...
+        Hash of data verified.
+
+        Leaving...
+        Hard resetting via RTS pin...
+        Done
+
+.. only:: esp32s2
+
+    .. code-block:: none
+
+        ...
+        esptool.py --chip esp32s2 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x1000 bootloader/bootloader.bin 0x10000 hello_world.bin
+        esptool.py v3.0-dev
+        Serial port /dev/ttyUSB0
+        Connecting....
+        Chip is ESP32-S2
+        Features: WiFi
+        Crystal is 40MHz
+        MAC: 18:fe:34:72:50:e3
+        Uploading stub...
+        Running stub...
+        Stub running...
+        Changing baud rate to 460800
+        Changed.
+        Configuring flash size...
+        Compressed 3072 bytes to 103...
+        Writing at 0x00008000... (100 %)
+        Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.0 seconds (effective 3851.6 kbit/s)...
+        Hash of data verified.
+        Compressed 22592 bytes to 13483...
+        Writing at 0x00001000... (100 %)
+        Wrote 22592 bytes (13483 compressed) at 0x00001000 in 0.3 seconds (effective 595.1 kbit/s)...
+        Hash of data verified.
+        Compressed 140048 bytes to 70298...
+        Writing at 0x00010000... (20 %)
+        Writing at 0x00014000... (40 %)
+        Writing at 0x00018000... (60 %)
+        Writing at 0x0001c000... (80 %)
+        Writing at 0x00020000... (100 %)
+        Wrote 140048 bytes (70298 compressed) at 0x00010000 in 1.7 seconds (effective 662.5 kbit/s)...
+        Hash of data verified.
+
+        Leaving...
+        Hard resetting via RTS pin...
+        Done
+
+.. only:: esp32s3
+
+    .. code-block:: none
+
+        ...
+        esptool.py esp32s3 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 2MB 0x0 bootloader/bootloader.bin 0x10000 hello_world.bin 0x8000 partition_table/partition-table.bin
+        esptool.py v3.2-dev
+        Serial port /dev/ttyUSB0
+        Connecting....
+        Chip is ESP32-S3
+        Features: WiFi, BLE
+        Crystal is 40MHz
+        MAC: 7c:df:a1:e0:00:64
+        Uploading stub...
+        Running stub...
+        Stub running...
+        Changing baud rate to 460800
+        Changed.
+        Configuring flash size...
+        Flash will be erased from 0x00000000 to 0x00004fff...
+        Flash will be erased from 0x00010000 to 0x00039fff...
+        Flash will be erased from 0x00008000 to 0x00008fff...
+        Compressed 18896 bytes to 11758...
+        Writing at 0x00000000... (100 %)
+        Wrote 18896 bytes (11758 compressed) at 0x00000000 in 0.5 seconds (effective 279.9 kbit/s)...
+        Hash of data verified.
+        Compressed 168208 bytes to 88178...
+        Writing at 0x00010000... (16 %)
+        Writing at 0x0001a80f... (33 %)
+        Writing at 0x000201f1... (50 %)
+        Writing at 0x00025dcf... (66 %)
+        Writing at 0x0002d0be... (83 %)
+        Writing at 0x00036c07... (100 %)
+        Wrote 168208 bytes (88178 compressed) at 0x00010000 in 2.4 seconds (effective 569.2 kbit/s)...
+        Hash of data verified.
+        Compressed 3072 bytes to 103...
+        Writing at 0x00008000... (100 %)
+        Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.1 seconds (effective 478.9 kbit/s)...
+        Hash of data verified.
+
+        Leaving...
+        Hard resetting via RTS pin...
+        Done
+
+
+.. only:: esp32c3
+
+    .. code-block:: none
+
+        ...
+        esptool.py --chip esp32c3 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x0 bootloader/bootloader.bin 0x10000 hello_world.bin
+        esptool.py v3.0
+        Serial port /dev/ttyUSB0
+        Connecting....
+        Chip is ESP32-C3
+        Features: Wi-Fi
+        Crystal is 40MHz
+        MAC: 7c:df:a1:40:02:a4
+        Uploading stub...
+        Running stub...
+        Stub running...
+        Changing baud rate to 460800
+        Changed.
+        Configuring flash size...
+        Compressed 3072 bytes to 103...
+        Writing at 0x00008000... (100 %)
+        Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.0 seconds (effective 4238.1 kbit/s)...
+        Hash of data verified.
+        Compressed 18960 bytes to 11311...
+        Writing at 0x00000000... (100 %)
+        Wrote 18960 bytes (11311 compressed) at 0x00000000 in 0.3 seconds (effective 584.9 kbit/s)...
+        Hash of data verified.
+        Compressed 145520 bytes to 71984...
+        Writing at 0x00010000... (20 %)
+        Writing at 0x00014000... (40 %)
+        Writing at 0x00018000... (60 %)
+        Writing at 0x0001c000... (80 %)
+        Writing at 0x00020000... (100 %)
+        Wrote 145520 bytes (71984 compressed) at 0x00010000 in 2.3 seconds (effective 504.4 kbit/s)...
+        Hash of data verified.
+
+        Leaving...
+        Hard resetting via RTS pin...
+        Done        
+
+
+如果一切顺利，烧录完成后，开发板将会复位，应用程序 "hello_world" 开始运行。
+
+如果您希望使用 Eclipse 或是 VS Code IDE，而非 ``idf.py``，请参考 :doc:`Eclipse 指南 <eclipse-setup>`，以及 :doc:`VS Code 指南 <vscode-setup>`。
+
 
 .. _get-started-build-monitor:
 
-监视器
-=======
+第十步：监视器
+===============
 
-如果要查看 "hello_world" 程序是否真的在运行，输入命令 ``make monitor``。这个命令会启动 IDF Monitor 程序： ::
+您可以使用 ``idf.py -p PORT monitor`` 命令，监视 “hello_world” 工程的运行情况。注意，不要忘记将 PORT 替换为您的串口名称。
 
-    $ make monitor
-    MONITOR
+运行该命令后，:doc:`IDF 监视器 <../api-guides/tools/idf-monitor>` 应用程序将启动：::
+
+    $ idf.py -p /dev/ttyUSB0 monitor
+    Running idf_monitor in directory [...]/esp/hello_world/build
+    Executing "python [...]/esp-idf/tools/idf_monitor.py -b 115200 [...]/esp/hello_world/build/hello_world.elf"...
     --- idf_monitor on /dev/ttyUSB0 115200 ---
     --- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H ---
     ets Jun  8 2016 00:22:57
@@ -282,42 +737,69 @@ ESP-IDF 的 :idf:`examples` 目录下有一系列示例工程，都可以按照�
     ets Jun  8 2016 00:22:57
     ...
 
-在启动消息和诊断消息后，你就能看到 "Hello world!" 程序所打印的消息： ::
+此时，您就可以在启动日志和诊断日志之后，看到打印的 “Hello world!” 了。
 
-    ...
-    Hello world!
-    Restarting in 10 seconds...
-    I (211) cpu_start: Starting scheduler on APP CPU.
-    Restarting in 9 seconds...
-    Restarting in 8 seconds...
-    Restarting in 7 seconds...
+.. code-block:: none
 
-要退出监视器，请使用快捷键 ``Ctrl+]``。
+    	...
+    	Hello world!
+    	Restarting in 10 seconds...
+    	This is {IDF_TARGET_PATH_NAME} chip with {IDF_TARGET_CORE_NUM} CPU core(s), {IDF_TARGET_FEATURES}
+	Minimum free heap size: {IDF_TARGET_HEAP_SIZE} bytes
+    	Restarting in 9 seconds...
+    	Restarting in 8 seconds...
+    	Restarting in 7 seconds...
 
-如果串口打印的不是上面显示的消息而是类似下面的乱码:
+您可使用快捷键 ``Ctrl+]``，退出 IDF 监视器。
 
-.. figure:: ../../_static/get-started-garbled-output.png
-    :align: center
-    :alt: Garbled output
-    :figclass: align-center
+.. only:: esp32
 
-或者监视器程序启动失败，那么可能你的开发板用的是 26 MHz 晶振，而 ESP-IDF 默认的是 40 MHz 晶振。请退出监视器，回到 :ref:`配置 <get-started-configure>`，将 :ref:`CONFIG_ESP32_XTAL_FREQ_SEL` 改为 26 MHz，然后再次 :ref:`编译和烧写 <get-started-build-flash>`。请在 ``make menuconfig`` 的 Component config --> ESP32-specific --> Main XTAL frequency 中配置。
+    如果 IDF 监视器在烧录后很快发生错误，或打印信息全是乱码（如下），很有可能是因为您的开发板采用了 26 MHz 晶振，而 ESP-IDF 默认支持大多数开发板使用的 40 MHz 晶振。
 
-要一次性执行 ``make flash`` 和 ``make monitor``，输入 ``make flash monitor``。参考文档 :doc:`IDF Monitor <idf-monitor>` 里的快捷键和更多内容。
+    .. figure:: ../../_static/get-started-garbled-output.png
+        :align: center
+        :alt: 乱码输出
+        :figclass: align-center
 
-你已完成 ESP32 的入门！
+    此时，您可以：
 
-现在你可以尝试其他的示例工程 :idf:`examples`，或者直接开发自己的应用程序。
+    1. 退出监视器。
+    2. 打开 :ref:`menuconfig <get-started-configure>`。
+    3. 进入 ``Component config`` --> ``ESP32-specific`` --> ``Main XTAL frequency`` 进行配置，将 :ref:`CONFIG_ESP32_XTAL_FREQ_SEL` 设置为 26 MHz。
+    4. 然后，请重新 :ref:`编译和烧录 <get-started-flash>` 应用程序。
+
+.. note::
+
+    您也可以运行以下命令，一次性执行构建、烧录和监视过程：
+
+    ``idf.py -p PORT flash monitor``
+
+此外，
+
+- 请前往 :doc:`IDF 监视器 <../api-guides/tools/idf-monitor>`，了解更多使用 IDF 监视器的快捷键和其他详情。
+- 请前往 :ref:`idf.py`，查看更多 ``idf.py`` 命令和选项。
+
+**恭喜，您已完成 {IDF_TARGET_NAME} 的入门学习！**
+
+现在，您可以尝试一些其他 :idf:`examples`，或者直接开发自己的应用程序。
+
+.. 重要::
+
+	一些示例程序不支持 {IDF_TARGET_NAME}，因为 {IDF_TARGET_NAME} 中不包含所需的硬件。
+
+	在编译示例程序前请查看 README 文件中 ``Supported Targets`` 表格。如果表格中包含 {IDF_TARGET_NAME}， 或者不存在这个表格，那么即表示 {IDF_TARGET_NAME} 支持这个示例程序。
+
 
 更新 ESP-IDF
-=============
+================
 
-使用 ESP-IDF 一段时间后，你可能想要进行升级来获得新的性能或者对 bug 进行修复。最简单的更新方式是删除已有的 ``esp-idf`` 文件夹然后再克隆一个，即重复 :ref:`get-started-get-esp-idf` 里的操作。
+乐鑫会不时推出更新版本的 ESP-IDF，修复 bug 或提供新的功能。因此，您在使用时，也应注意更新您本地的版本。最简单的方法是：直接删除您本地的 ``esp-idf`` 文件夹，然后按照 :ref:`get-started-get-esp-idf` 中的指示，重新完成克隆。
 
-然后 :doc:`add-idf_path-to-profile`，这样工具链脚本就能够知道这一版本的 ESP-IDF 的具体位置。
+此外，您可以仅更新变更部分。具体方式，请前往 :ref:`更新 <updating>` 章节查看。
 
-另外一种方法是只更新有改动的部分。:ref:`更新步骤取决于现在用的ESP-IDF版本 <updating>`。
+注意，更新完成后，请再次运行安装脚本，以防新版 ESP-IDF 所需的工具也有所更新。具体请参考 :ref:`get-started-set-up-tools`。
 
+一旦重新安装好工具，请使用导出脚本更新环境，具体请参考 :ref:`get-started-set-up-env`。
 
 相关文档
 =================
@@ -325,12 +807,12 @@ ESP-IDF 的 :idf:`examples` 目录下有一系列示例工程，都可以按照�
 .. toctree::
     :maxdepth: 1
 
-    add-idf_path-to-profile
     establish-serial-connection
-    make-project
     eclipse-setup
-    idf-monitor
+    vscode-setup
+    ../api-guides/tools/idf-monitor
     toolchain-setup-scratch
+    :esp32: ../get-started-legacy/index
 
 .. _Stable version: https://docs.espressif.com/projects/esp-idf/zh_CN/stable/
 .. _Releases page: https://github.com/espressif/esp-idf/releases

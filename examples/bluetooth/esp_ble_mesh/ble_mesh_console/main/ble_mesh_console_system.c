@@ -62,7 +62,7 @@ static void register_restart(void)
 
 static int free_mem(int argc, char **argv)
 {
-    printf("%d\n", esp_get_free_heap_size());
+    printf("freeheap:%d\n", esp_get_free_heap_size());
     return 0;
 }
 
@@ -179,5 +179,3 @@ static void register_make(void)
     };
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 }
-
-

@@ -2,6 +2,8 @@
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
 
+**Note:** This example uses an internal implementation of the [modem component](components/modem) that will not be maintained in `v5.0` and this example will be migrated to [esp-modem component](https://components.espressif.com/component/espressif/esp_modem).
+
 ## Overview
 
 A general PPP application consists of two parts: PPP server which is provided by cellular modem module and PPP client which is provided by ESP32 in this example.
@@ -32,7 +34,7 @@ You can also try other modules as long as they embedded PPP protocol.
 
 ### Configure the project
 
-Enter `make menuconfig` if you are using GNU Make based build system or enter `idf.py menuconfig` if you are using CMake based build system. Then go into `Example Configuration` menu.
+Open the project configuration menu (`idf.py menuconfig`). Then go into `Example Configuration` menu.
 
 - Choose the modem module in `Choose supported modem device(DCE)` option, currently we only support BG96 and SIM800L.
 - Set the access point name in `Set Access Point Name(APN)` option, which should depend on the operator of your SIM card.
@@ -44,7 +46,7 @@ Enter `make menuconfig` if you are using GNU Make based build system or enter `i
 
 ### Build and Flash
 
-Enter `make -j4 flash monitor` if you are using GNU Make based build system or enter `idf.py build flash monitor` if you are using CMake based build system.
+Run `idf.py -p PORT flash monitor` to build and flash the project..
 
 (To exit the serial monitor, type ``Ctrl-]``.)
 
@@ -52,7 +54,7 @@ See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/l
 
 ## Example Output
 
-The example will get module and operator's information after start up, and then go into PPP mode to start mqtt client operations. This example will also send a short message to someone's phone if you have enabled this feature in menuconfig.
+The example will get module and operator's information after start up, and then go into PPP mode to start mqtt client operations. This example will also send a short message to someone's phone if you have enabled this feature in menuconfig. The PPP connection will get restarted after 60 seconds.
 
 ### BG96 Output
 

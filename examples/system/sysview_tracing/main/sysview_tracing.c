@@ -26,7 +26,7 @@ typedef struct {
 } example_event_data_t;
 
 
-#if CONFIG_SYSVIEW_ENABLE
+#if CONFIG_APPTRACE_SV_ENABLE
 #if !CONFIG_USE_CUSTOM_EVENT_ID
 
 #define SYSVIEW_EXAMPLE_SEND_EVENT_ID     0
@@ -67,7 +67,7 @@ static void example_sysview_event_send(uint32_t id, uint32_t val)
 {
     U8  aPacket[SEGGER_SYSVIEW_INFO_SIZE + SEGGER_SYSVIEW_QUANTA_U32];
 
-    U8* pPayload = SEGGER_SYSVIEW_PREPARE_PACKET(aPacket);
+    U8 *pPayload = SEGGER_SYSVIEW_PREPARE_PACKET(aPacket);
     pPayload = SEGGER_SYSVIEW_EncodeU32(pPayload, val);   // Add the parameter to the packet
     SEGGER_SYSVIEW_SendPacket(&aPacket[0], pPayload, s_example_sysview_module.EventOffset + id);
 }
@@ -107,32 +107,6 @@ static void example_timer_init(int timer_group, int timer_idx, uint32_t period)
     timer_enable_intr(timer_group, timer_idx);
 }
 
-static void example_timer_rearm(int timer_group, int timer_idx)
-{
-    if (timer_group == 0) {
-        if (timer_idx == 0) {
-            TIMERG0.int_clr_timers.t0 = 1;
-            TIMERG0.hw_timer[0].update = 1;
-            TIMERG0.hw_timer[0].config.alarm_en = 1;
-        } else {
-            TIMERG0.int_clr_timers.t1 = 1;
-            TIMERG0.hw_timer[1].update = 1;
-            TIMERG0.hw_timer[1].config.alarm_en = 1;
-        }
-    }
-    if (timer_group == 1) {
-        if (timer_idx == 0) {
-            TIMERG1.int_clr_timers.t0 = 1;
-            TIMERG1.hw_timer[0].update = 1;
-            TIMERG1.hw_timer[0].config.alarm_en = 1;
-        } else {
-            TIMERG1.int_clr_timers.t1 = 1;
-            TIMERG1.hw_timer[1].update = 1;
-            TIMERG1.hw_timer[1].config.alarm_en = 1;
-        }
-    }
-}
-
 static void example_timer_isr(void *arg)
 {
     example_event_data_t *tim_arg = (example_event_data_t *)arg;
@@ -152,7 +126,8 @@ static void example_timer_isr(void *arg)
         }
     }
     // re-start timer
-    example_timer_rearm(tim_arg->group, tim_arg->timer);
+    timer_group_clr_intr_status_in_isr(tim_arg->group, tim_arg->timer);
+    timer_group_enable_alarm_in_isr(tim_arg->group, tim_arg->timer);
 }
 
 static void example_task(void *p)
@@ -181,7 +156,7 @@ static void example_task(void *p)
     }
 }
 
-void app_main()
+void app_main(void)
 {
     static example_event_data_t event_data[portNUM_PROCESSORS] = {
         {
@@ -190,22 +165,34 @@ void app_main()
         },
 #if CONFIG_FREERTOS_UNICORE == 0
         {
-            .group = TIMER_GROUP_1,
-            .timer = TIMER_1,
+            .group = TIMER_GROUP_0,
+            .timer = TIMER_0,
         },
 #endif
     };
 
-#if CONFIG_SYSVIEW_ENABLE && CONFIG_USE_CUSTOM_EVENT_ID
+#if CONFIG_APPTRACE_SV_ENABLE && CONFIG_USE_CUSTOM_EVENT_ID
     // Currently OpenOCD does not support requesting module info from target. So do the following...
-    // Give SystemView tracing module some time to handle START command from host,
-    // after that data can be sent to the host using onboard API, so user module description does not need to be requested by OpenOCD itself.
-    vTaskDelay(1);
+    // Wait untill SystemView module receives START command from host,
+    // after that data can be sent to the host using onboard API,
+    // so user module description does not need to be requested by OpenOCD itself.
+    while (!SEGGER_SYSVIEW_Started()) {
+        vTaskDelay(1);
+    }
     SEGGER_SYSVIEW_RegisterModule(&s_example_sysview_module);
 #endif
 
+#if !CONFIG_APPTRACE_SV_TS_SOURCE_TIMER_10
     example_timer_init(TIMER_GROUP_1, TIMER_0, 2000);
-    example_timer_init(TIMER_GROUP_1, TIMER_1, 4000);
+#else
+#warning "Timer (Group 1, Timer 0) is used by sysview module itself!"
+#endif
+
+#if !CONFIG_APPTRACE_SV_TS_SOURCE_TIMER_00
+    example_timer_init(TIMER_GROUP_0, TIMER_0, 4000);
+#else
+#warning "Timer (Group 0, Timer 0) is used by sysview module itself!"
+#endif
 
     xTaskCreatePinnedToCore(example_task, "svtrace0", 2048, &event_data[0], 3, &event_data[0].thnd, 0);
     ESP_LOGI(TAG, "Created task %p", event_data[0].thnd);
