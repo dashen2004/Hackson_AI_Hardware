@@ -1,0 +1,7 @@
+menu "cli"
+
+    config QM_CLI
+        bool "QM cli support"
+        default "n"
+        
+endmenu

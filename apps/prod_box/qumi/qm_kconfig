@@ -1,0 +1,11 @@
+mainmenu "QUMIOS Development Framework Configuration"
+
+menu "components"
+
+
+    source "utility/cli/qm_kconfig"   
+
+
+
+endmenu
+
