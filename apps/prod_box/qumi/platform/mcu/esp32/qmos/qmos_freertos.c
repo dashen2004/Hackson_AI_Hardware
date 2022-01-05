@@ -103,18 +103,45 @@ int qm_sem_wait(qm_sem_t *sem, unsigned int ms)
     return ret == pdPASS ? 0 : -1;
 }
 
-void qm_sem_signal(qm_sem_t *sem)
+int qm_sem_signal(qm_sem_t *sem)
 {
     if (sem == NULL) {
         return;
     }
 
     xSemaphoreGive(sem->hdl);
+    return 0;
 }
 
 int qm_sem_is_valid(qm_sem_t *sem)
 {
     return sem && sem->hdl != NULL;
+}
+
+int qm_event_new(qm_event_t *event, unsigned int flags)
+{
+
+
+}
+
+int qm_event_free(qm_event_t *event)
+{
+
+
+
+}
+
+
+int qm_event_get(qm_event_t *event, unsigned int flags, unsigned char opt, unsigned int *actl_flags, unsigned int timeout)
+{
+
+}
+
+int qm_event_set(qm_event_t *event, unsigned int flags, unsigned char opt)
+{
+
+
+
 }
 
 int qm_queue_new(qm_queue_t *queue, void *buf, unsigned int size, int max_msg)
@@ -145,11 +172,6 @@ int qm_queue_recv(qm_queue_t *queue, unsigned int ms, void *msg,
 int qm_queue_is_valid(qm_queue_t *queue)
 {
     return queue && queue->hdl != NULL;
-}
-
-void *qm_queue_buf_ptr(qm_queue_t *queue)
-{
-    return NULL;
 }
 
 #define QM_TIMER_MAX_NUM  10
@@ -260,6 +282,44 @@ int qm_timer_change(qm_timer_t *timer, int ms)
     return  0;
 }
 
+int qm_workqueue_create(qm_workqueue_t *workqueue, int pri, int stack_size)
+{
+
+
+
+}
+
+int qm_work_init(qm_work_t *work, void (*fn)(void *), void *arg, int dly)
+{
+
+
+}
+
+int qm_work_destroy(qm_work_t *work)
+{
+
+
+}
+
+int qm_work_run(qm_workqueue_t *workqueue, qm_work_t *work)
+{
+
+
+}
+
+int qm_work_sched(qm_work_t *work)
+{
+
+
+}
+
+int qm_work_cancel(qm_work_t *work)
+{
+
+
+
+}
+
 void *qm_zalloc(unsigned int size)
 {
     return calloc(size, 1);
@@ -282,15 +342,6 @@ void qm_free(void *mem)
 
 static struct timeval sys_start_time;
 
-long long qm_now(void)
-{
-    struct timeval tv;
-    long long ns;
-    gettimeofday(&tv, NULL);
-    timersub(&tv, &sys_start_time, &tv);
-    ns = tv.tv_sec * 1000000LL + tv.tv_usec;
-    return ns * 1000LL;
-}
 
 long long qm_now_ms(void)
 {

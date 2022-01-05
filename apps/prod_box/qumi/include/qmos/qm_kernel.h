@@ -10,6 +10,12 @@ extern "C" {
 #define QM_NO_WAIT         0x0
 #define QM_DEFAULT_APP_PRI 32
 
+#define QM_EVENT_OR               0x00u
+#define QM_EVENT_OR_CLEAR         0x01u
+#define QM_EVENT_AND              0x02u
+#define QM_EVENT_AND_CLEAR        0x03u
+
+
 typedef struct {
     void *hdl;
 } qm_hdl_t;
@@ -17,6 +23,7 @@ typedef struct {
 typedef qm_hdl_t qm_task_t;
 typedef qm_hdl_t qm_mutex_t;
 typedef qm_hdl_t qm_sem_t;
+typedef qm_hdl_t qm_event_t;
 typedef qm_hdl_t qm_queue_t;
 typedef qm_hdl_t qm_timer_t;
 
@@ -155,6 +162,63 @@ int qm_sem_signal(qm_sem_t *sem);
  * @return  0: valid, -1: invalid.
  */
 int qm_sem_is_valid(qm_sem_t *sem);
+
+/**
+ * This function will create an event with an initialization flag set.
+ * This function should not be called from interrupt context.
+ *
+ * @param[in]  event    event object pointer.
+ * @param[in]  flags    initialization flag set(provided by caller).
+ *
+ * @return  0: success.
+ */
+
+int qm_event_new(qm_event_t *event, unsigned int flags);
+
+/**
+ * This function will free an event.
+ * This function shoud not be called from interrupt context.
+ *
+ * @param[in]  event    memory refered by hdl pointer in event will be freed.
+ *
+ * @return  0: success.
+ */
+
+int qm_event_free(qm_event_t *event);
+
+/**
+ * This function will try to get flag set from given event, if the request flag
+ * set is satisfied, it will return immediately, if the request flag set is not
+ * satisfied with timeout(RHINO_WAIT_FOREVER,0xFFFFFFFF), the caller task will be
+ * pended on event until the flag is satisfied, if the request flag is not 
+ * satisfied with timeout(RHINO_NO_WAIT, 0x0), it will also return immediately.
+ * Note, this function should not be called from interrupt context because it has
+ * possible to lead context switch and an interrupt has no TCB to save context.
+ *
+ * @param[in]  event        event object pointer.
+ * @param[in]  flags        request flag set.
+ * @param[in]  opt          operation type, such as AND,OR,AND_CLEAR,OR_CLEAR.
+ * @param[out] actl_flags   the internal flags value hold by event.
+ * @param[in]  timeout      max wait time in millisecond.
+ *
+ * @return  0: success.
+ */
+
+int qm_event_get(qm_event_t *event, unsigned int flags, unsigned char opt,
+                       unsigned int *actl_flags, unsigned int timeout);
+
+/**
+* This function will set flag set to given event, and it will check if any task
+* which is pending on the event should be waken up. 
+*
+* @param[in]  event    event object pointer.
+* @param[in]  flags    flag set to be set into event.
+* @param[in]  opt      operation type, such as AND,OR.
+*
+* @return  0: success.
+*/
+
+int qm_event_set(qm_event_t *event, unsigned int flags, unsigned char opt);
 
 /**
  * This function will create a queue.
