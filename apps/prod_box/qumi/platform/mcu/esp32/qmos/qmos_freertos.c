@@ -4,6 +4,7 @@
 #include <freertos/semphr.h>
 #include <freertos/queue.h>
 #include <freertos/timers.h>
+#include <freertos/event_groups.h>
 #include "esp_system.h"
 #include <sys/time.h>
 
@@ -19,25 +20,25 @@ const char *qm_version_get(void)
     return "V1.0.0";
 }
 
-int qm_task_new(const char *name, void (*fn)(void *), void *arg,
-                 int stack_size)
+int qm_task_new(qm_task_t *task, const char *name, void (*fn)(void *), void *arg,
+                     int stack_size, int prio)
 {
     TaskHandle_t xHandle = NULL;
 	stack_size /= sizeof(StackType_t);
-	xTaskCreate( fn, name, stack_size, arg, tskIDLE_PRIORITY+5, &xHandle );
+	xTaskCreate( fn, name, stack_size, arg, prio, &xHandle );
+
+    task->hdl = xHandle;
 
     return xHandle ? 0 : -1;
 }
 
-int qm_task_new_ext(qm_task_t *task, const char *name, void (*fn)(void *), void *arg,
-                     int stack_size, int prio)
+int qm_task_exit(qm_task_t *task)
 {
-    return qm_task_new(name, fn, arg, stack_size);
-}
-
-void qm_task_exit(int code)
-{
-    vTaskDelete(NULL);
+    if(task == NULL){
+        return -1;
+    }
+    vTaskDelete(task->hdl);
+    return 0;
 }
 
 int qm_mutex_new(qm_mutex_t *mutex)
@@ -47,9 +48,10 @@ int qm_mutex_new(qm_mutex_t *mutex)
     return mux != NULL ? 0 : -1;
 }
 
-void qm_mutex_free(qm_mutex_t *mutex)
+int qm_mutex_free(qm_mutex_t *mutex)
 {
     vSemaphoreDelete(mutex->hdl);
+    return 0;
 }
 
 int qm_mutex_lock(qm_mutex_t *mutex, unsigned int ms)
@@ -84,13 +86,14 @@ int qm_sem_new(qm_sem_t *sem, int count)
     return 0;
 }
 
-void qm_sem_free(qm_sem_t *sem)
+int qm_sem_free(qm_sem_t *sem)
 {
     if (sem == NULL) {
         return;
     }
 
     vSemaphoreDelete(sem->hdl);
+    return 0;
 }
 
 int qm_sem_wait(qm_sem_t *sem, unsigned int ms)
@@ -118,43 +121,70 @@ int qm_sem_is_valid(qm_sem_t *sem)
     return sem && sem->hdl != NULL;
 }
 
-int qm_event_new(qm_event_t *event, unsigned int flags)
+int qm_event_new(qm_event_t *event)
 {
+    EventGroupHandle_t event_group = NULL;
+    event_group = xEventGroupCreate();
+    if(event_group == NULL){
+        return -1;
+    }
 
-
+    event->hdl = (void*)event_group;
+    return 0;
 }
 
 int qm_event_free(qm_event_t *event)
 {
-
-
-
+    EventGroupHandle_t event_group = (EventGroupHandle_t*)event;
+    vEventGroupDelete(event_group);
+    return 0;
 }
 
-
-int qm_event_get(qm_event_t *event, unsigned int flags, unsigned char opt, unsigned int *actl_flags, unsigned int timeout)
+int qm_event_get(qm_event_t *event, unsigned int wait_event_bits, unsigned char opt, unsigned int *actl_event_bits, unsigned int timeout)
 {
+    EventBits_t event_bits = 0;
 
+    EventGroupHandle_t event_group = (EventGroupHandle_t*)event;
+    if(opt == QM_EVENT_OR){
+        event_bits = xEventGroupWaitBits(event_group, (EventBits_t)wait_event_bits, 0, 0, timeout/portTICK_PERIOD_MS);
+
+    }else if(opt == QM_EVENT_OR_CLEAR){
+        event_bits = xEventGroupWaitBits(event_group, (EventBits_t)wait_event_bits, 1, 0, timeout/portTICK_PERIOD_MS);
+
+    }else if(opt == QM_EVENT_AND){
+        event_bits = xEventGroupWaitBits(event_group, (EventBits_t)wait_event_bits, 0, 1, timeout/portTICK_PERIOD_MS);
+        
+    }else if(opt == QM_EVENT_AND_CLEAR){
+        event_bits = xEventGroupWaitBits(event_group, (EventBits_t)wait_event_bits, 1, 1, timeout/portTICK_PERIOD_MS);
+    }else{
+        return -1;
+    }
+
+    return 0;
 }
 
-int qm_event_set(qm_event_t *event, unsigned int flags, unsigned char opt)
+int qm_event_set(qm_event_t *event, unsigned int event_bits)
 {
-
-
-
+    EventGroupHandle_t event_group = (EventGroupHandle_t*)event;
+    xEventGroupSetBits( event_group, (EventBits_t)event_bits );
+    return 0;
 }
 
-int qm_queue_new(qm_queue_t *queue, void *buf, unsigned int size, int max_msg)
+int qm_queue_new(qm_queue_t *queue, unsigned int queue_len, unsigned int queue_size)
 {
     xQueueHandle q;
-    q = xQueueCreate(size / max_msg, max_msg);
+    q = xQueueCreate(queue_len, queue_size);
+    if(q == NULL){
+        return -1;
+    }
     queue->hdl = q;
     return 0;
 }
 
-void qm_queue_free(qm_queue_t *queue)
+int qm_queue_free(qm_queue_t *queue)
 {
     vQueueDelete(queue->hdl);
+    return 0;
 }
 
 int qm_queue_send(qm_queue_t *queue, void *msg, unsigned int size)
@@ -162,8 +192,7 @@ int qm_queue_send(qm_queue_t *queue, void *msg, unsigned int size)
     return xQueueSend(queue->hdl, msg, portMAX_DELAY) == pdPASS ? 0 : -1;
 }
 
-int qm_queue_recv(qm_queue_t *queue, unsigned int ms, void *msg,
-                   unsigned int *size)
+int qm_queue_recv(qm_queue_t *queue, void *msg, unsigned int *size, unsigned int ms)
 {
     return xQueueReceive(queue->hdl, msg, ms == QM_WAIT_FOREVER ? portMAX_DELAY : ms2tick(ms))
            == pdPASS ? 0 : -1;
@@ -179,7 +208,7 @@ int qm_queue_is_valid(qm_queue_t *queue)
 typedef struct 
 {
     qm_timer_t *timer;
-    qm_time_callback_t cb;
+    qm_timer_cb_t cb;
     void *arg;
     int is_used;
 }qm_timer_info_t;
@@ -211,7 +240,7 @@ static void timer_callback(TimerHandle_t timer)
     }
 }
 
-int qm_timer_new(qm_timer_t *timer, qm_time_callback_t cb,
+int qm_timer_new(qm_timer_t *timer, qm_timer_cb_t cb,
                   void *arg, int ms, int repeat)
 {
     int index = 0;
@@ -282,44 +311,6 @@ int qm_timer_change(qm_timer_t *timer, int ms)
     return  0;
 }
 
-int qm_workqueue_create(qm_workqueue_t *workqueue, int pri, int stack_size)
-{
-
-
-
-}
-
-int qm_work_init(qm_work_t *work, void (*fn)(void *), void *arg, int dly)
-{
-
-
-}
-
-int qm_work_destroy(qm_work_t *work)
-{
-
-
-}
-
-int qm_work_run(qm_workqueue_t *workqueue, qm_work_t *work)
-{
-
-
-}
-
-int qm_work_sched(qm_work_t *work)
-{
-
-
-}
-
-int qm_work_cancel(qm_work_t *work)
-{
-
-
-
-}
-
 void *qm_zalloc(unsigned int size)
 {
     return calloc(size, 1);
@@ -353,9 +344,10 @@ long long qm_now_ms(void)
     return ms;
 }
 
-void qm_msleep(int ms)
+int qm_msleep(int ms)
 {
-    return vTaskDelay(ms/portTICK_PERIOD_MS);
+    vTaskDelay(ms/portTICK_PERIOD_MS);
+    return 0;
 }
 
 void qm_init(void)

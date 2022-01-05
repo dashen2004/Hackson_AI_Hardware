@@ -168,12 +168,11 @@ int qm_sem_is_valid(qm_sem_t *sem);
  * This function should not be called from interrupt context.
  *
  * @param[in]  event    event object pointer.
- * @param[in]  flags    initialization flag set(provided by caller).
  *
  * @return  0: success.
  */
 
-int qm_event_new(qm_event_t *event, unsigned int flags);
+int qm_event_new(qm_event_t *event);
 
 /**
  * This function will free an event.
@@ -196,16 +195,16 @@ int qm_event_free(qm_event_t *event);
  * possible to lead context switch and an interrupt has no TCB to save context.
  *
  * @param[in]  event        event object pointer.
- * @param[in]  flags        request flag set.
+ * @param[in]  wait_event_bits        request flag set.
  * @param[in]  opt          operation type, such as AND,OR,AND_CLEAR,OR_CLEAR.
- * @param[out] actl_flags   the internal flags value hold by event.
+ * @param[out] actl_event_bits   the internal flags value hold by event.
  * @param[in]  timeout      max wait time in millisecond.
  *
  * @return  0: success.
  */
 
-int qm_event_get(qm_event_t *event, unsigned int flags, unsigned char opt,
-                       unsigned int *actl_flags, unsigned int timeout);
+int qm_event_get(qm_event_t *event, unsigned int wait_event_bits, unsigned char opt,
+                       unsigned int *actl_event_bits, unsigned int timeout);
 
 /**
 * This function will set flag set to given event, and it will check if any task
@@ -218,7 +217,7 @@ int qm_event_get(qm_event_t *event, unsigned int flags, unsigned char opt,
 * @return  0: success.
 */
 
-int qm_event_set(qm_event_t *event, unsigned int flags, unsigned char opt);
+int qm_event_set(qm_event_t *event, unsigned int event_bits);
 
 /**
  * This function will create a queue.
