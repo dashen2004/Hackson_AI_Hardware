@@ -1,12 +1,8 @@
-#ifndef __QM_QUEUE_KERNEL_H__
-#define __QM_QUEUE_KERNEL_H__
+#ifndef __QM_WORK_QUEUE_H__
+#define __QM_WORK_QUEUE_H__
 
-
-#include "qm_utils_list.h"
 #include "qm_kernel.h"
 #include "qm_types.h"
-
-
 
 #ifndef CONFIG_QM_DEFAULT_WORKQUEUE_TASK_SIZE
 #define CONFIG_QM_DEFAULT_WORKQUEUE_TASK_SIZE     5*1024
@@ -27,8 +23,9 @@ typedef struct {
     work_fn_t fn;
     uint32_t dly;
     qm_timer_t timer;
-    uint8_t exist;
     void *wq;
+    uint8_t exist;
+    uint8_t dyn;
 }qm_work_t;
 
 typedef struct {
@@ -105,9 +102,7 @@ int32_t qm_work_on_cancel(qm_work_t *work);
  *
  * @return  0: success.
  */
-int32_t workqueue_on_init(void);
-
-
+int32_t qm_work_on_init(void);
 
 #endif
 

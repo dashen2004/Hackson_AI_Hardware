@@ -24,4 +24,8 @@ void app_main()
     ret = nvs_flash_init();
   }
 
+
+  extern void qm_work_test(void);
+  qm_work_test();
+
 }

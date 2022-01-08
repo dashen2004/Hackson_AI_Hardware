@@ -89,7 +89,7 @@ int qm_sem_new(qm_sem_t *sem, int count)
 int qm_sem_free(qm_sem_t *sem)
 {
     if (sem == NULL) {
-        return;
+        return -1;
     }
 
     vSemaphoreDelete(sem->hdl);
@@ -109,7 +109,7 @@ int qm_sem_wait(qm_sem_t *sem, unsigned int ms)
 int qm_sem_signal(qm_sem_t *sem)
 {
     if (sem == NULL) {
-        return;
+        return -1;
     }
 
     xSemaphoreGive(sem->hdl);
@@ -159,6 +159,8 @@ int qm_event_get(qm_event_t *event, unsigned int wait_event_bits, unsigned char 
     }else{
         return -1;
     }
+
+    *actl_event_bits = event_bits;
 
     return 0;
 }
@@ -267,7 +269,7 @@ int qm_timer_new(qm_timer_t *timer, qm_timer_cb_t cb,
 int qm_timer_free(qm_timer_t *timer)
 {
     int index = 0;
-    if(timer == NULL){
+    if(timer == NULL || timer->hdl == NULL){
         return -1;
     }
 
@@ -281,7 +283,7 @@ int qm_timer_free(qm_timer_t *timer)
 
 int qm_timer_start(qm_timer_t *timer)
 {
-    if(timer == NULL){
+    if(timer == NULL || timer->hdl == NULL){
         return -1;
     }
 
@@ -292,7 +294,7 @@ int qm_timer_start(qm_timer_t *timer)
 
 int qm_timer_stop(qm_timer_t *timer)
 {
-    if(timer == NULL){
+    if(timer == NULL || timer->hdl == NULL){
         return -1;
     }
 
@@ -302,7 +304,7 @@ int qm_timer_stop(qm_timer_t *timer)
 
 int qm_timer_change(qm_timer_t *timer, int ms)
 {
-    if(timer == NULL){
+    if(timer == NULL || timer->hdl == NULL){
         return -1;
     };
 
