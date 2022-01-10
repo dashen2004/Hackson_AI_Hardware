@@ -66,6 +66,7 @@ static void qm_work_handle(qm_workqueue_t *wq, qm_work_t *work)
 
     if(work->dyn){
         qm_free(work);
+        work = NULL;
     }
 }
 

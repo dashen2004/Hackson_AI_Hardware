@@ -37,6 +37,7 @@ int32_t qm_post_delayed_action(void **handle, void (*fn)(void *), void *arg, int
 __exit:
     if(work){
         qm_free(work);
+        work = NULL;
     }
     return ret;
 }
@@ -56,5 +57,6 @@ int32_t qm_cancel_delayed_action(void *handle)
         qm_timer_free(&work->timer);
     }
     qm_free(work);
+    work = NULL;
     return ret;
 }
