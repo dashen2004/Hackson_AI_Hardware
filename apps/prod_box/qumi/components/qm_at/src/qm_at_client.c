@@ -401,7 +401,7 @@ int32_t at_client_obj_wait_connect(qm_at_client_t *client, uint32_t timeout)
  * @return >0: send data size
  *         =0: send failed
  */
-int32_t qm_at_client_obj_send(qm_at_client_t *client, const char *buf, uint32_t size)
+int32_t qm_at_client_obj_send(qm_at_client_t *client, char *buf, uint32_t size)
 {
     int32_t len;
 
@@ -428,8 +428,6 @@ int32_t qm_at_client_obj_send(qm_at_client_t *client, const char *buf, uint32_t 
 
 static qm_err_t qm_at_client_getchar(qm_at_client_t *client, char *ch, int32_t timeout)
 {
-    qm_err_t result = QM_EOK;
-
     if(client->channel.recv(ch, 1, timeout) != 1){
         return QM_ETIMEOUT;
     }else{
@@ -779,8 +777,8 @@ static void client_parser(void *arg)
 qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
 {
     int idx = 0;
-    int result = QM_EOK;
     qm_at_client_t *client = NULL;
+    qm_task_t client_task = {0};
 
     if(param == NULL){
         return NULL;
@@ -791,7 +789,7 @@ qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
     if (idx >= CONFIG_QM_AT_CLIENT_NUM_MAX)
     {
         QM_LOGE(LOG_TAG, "AT client initialize failed! Check the maximum number(%d) of AT client.", CONFIG_QM_AT_CLIENT_NUM_MAX);
-        return -QM_EFULL;
+        return NULL;
     }
 
     client = &at_client_table[idx];
@@ -808,7 +806,7 @@ qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
     qm_mutex_new(&client->lock);
     qm_sem_new(&client->resp_notice, 0);
 
-    qm_task_new("at_client", client->parser_entry, (void*)client, 6*1024);
+    qm_task_new(&client_task, "at_client", client->parser_entry, (void*)client, CONFIG_QM_AT_CLIENT_TASK_SIZE, CONFIG_QM_AT_CLIENT_TASK_PRIO);
 
     return client;
 }

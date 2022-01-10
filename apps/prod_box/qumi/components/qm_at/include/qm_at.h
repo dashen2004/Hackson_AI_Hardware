@@ -5,7 +5,7 @@
 #include <qmos/qm_kernel.h>
 
 #define CONFIG_QM_AT_SERVER   1
-#define CONFIG_QM_AT_CLIENT   0
+#define CONFIG_QM_AT_CLIENT   1
 
 #define CONFIG_QM_AT_PRINT_RAW_CMD  1
 
@@ -22,6 +22,14 @@ extern "C" {
 
 #ifndef CONFIG_QM_AT_SERVER_TASK_PRIO  
 #define CONFIG_QM_AT_SERVER_TASK_PRIO           20    
+#endif
+
+#ifndef CONFIG_QM_AT_CLIENT_TASK_SIZE  
+#define CONFIG_QM_AT_CLIENT_TASK_SIZE           6*1024    
+#endif
+
+#ifndef CONFIG_QM_AT_CLIENT_TASK_PRIO  
+#define CONFIG_QM_AT_CLIENT_TASK_PRIO           20    
 #endif
 
 #ifndef CONFIG_QM_AT_CHANNEL_NUM
@@ -85,7 +93,17 @@ typedef enum {
     QM_AT_CMD_TYPE_EXE = 4,
 }qm_at_cmd_type_t;
 
-#if CONFIG_QM_AT_SERVER
+typedef struct{
+
+    uint8_t channel_type;
+    char *recv_buf;
+    uint32_t recv_buf_len;
+    uint32_t cur_recv_len;
+    int (*send)(char *buf, int size);
+    int (*recv)(char *buf, int size, int timeout);
+
+}qm_at_channel_t;
+
 typedef enum
 {
     QM_AT_RESULT_OK = 0,                  /* AT result is no error */
@@ -95,6 +113,8 @@ typedef enum
     QM_AT_RESULT_CHECK_FAILE = -4,        /* AT command expression format is error */
     QM_AT_RESULT_PARSE_FAILE = -5,        /* AT command arguments parse is error */
 }qm_at_result_t;
+
+#if CONFIG_QM_AT_SERVER
 
 typedef struct
 {
@@ -122,17 +142,6 @@ typedef struct{
     int (*recv)(char *buf, int size, int timeout);
 
 }qm_at_server_param_t;
-
-typedef struct{
-
-    uint8_t channel_type;
-    char *recv_buf;
-    uint32_t recv_buf_len;
-    uint32_t cur_recv_len;
-    int (*send)(char *buf, int size);
-    int (*recv)(char *buf, int size, int timeout);
-
-}qm_at_channel_t;
 
 typedef struct
 {
@@ -264,7 +273,7 @@ qm_at_client_t *qm_at_client_get_first(void);
 int32_t qm_at_client_obj_wait_connect(qm_at_client_t *client, uint32_t timeout);
 
 /* AT client send or receive data */
-int32_t qm_at_client_obj_send(qm_at_client_t *client, const char *buf, uint32_t size);
+int32_t qm_at_client_obj_send(qm_at_client_t *client, char *buf, uint32_t size);
 int32_t qm_at_client_obj_recv(qm_at_client_t *client, char *buf, uint32_t size, int32_t timeout);
 
 /* set AT client a line end sign */

@@ -1,6 +1,7 @@
 #include "qm_at.h"
 #include "qmos/qm_types.h"
 
+#if CONFIG_QM_AT_SERVER 
 
 static qm_at_result_t at_exec(void *channel);
 static qm_at_result_t ate_setup(void *channel, const char *args);
@@ -40,3 +41,5 @@ int32_t qm_at_base_cmd_init(void)
 {
     return qm_at_register_commands(base_at_cmd, QM_BASE_AT_CMD_NUM);
 }
+
+#endif

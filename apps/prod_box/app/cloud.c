@@ -1,0 +1,232 @@
+#include "cloud.h"
+#include "qm_iot_export.h"
+#include "qm_iot_import.h"
+#include "user_debug.h"
+#include "qmos/qm.h"
+#include <qmos/qm_kernel.h>
+#include "qm_kvmgr.h"
+#include "sys_notify.h"
+
+#include "esp_wifi.h"
+
+#define xjiang_log(M, ...) custom_log("cloud", M, ##__VA_ARGS__)
+
+int xjiang_login = 0;
+int xjiang_cloud_start = 0;
+int device_info_check_ret = 0;
+static int is_netconfig = 0;
+
+
+#define RETRY_INTERVAL_MAX_MS  60000
+
+static int retry_interval_ms = 500;
+static int retry_interval_max_ms = RETRY_INTERVAL_MAX_MS;
+static void retry_interval_ms_set(int interval_ms, int interval_max_ms);
+static int retry_interval_ms_get(void);
+
+static void cloud_thread(void *arg);
+static void cloud_dynreg_thread(void *arg);
+
+static void network_handle(void *arg);
+
+int is_netconfig_get(void)
+{
+    return is_netconfig;
+}
+
+int is_xjiang_login(void)
+{
+    return xjiang_login;
+}
+
+static void cloud_event_monitor( int event )
+{
+    switch(event){
+
+        case EVENT_VALUE_LOGIN:
+            xjiang_login = 1;
+
+            retry_interval_ms_set(500, RETRY_INTERVAL_MAX_MS);
+
+        break;
+
+        case EVENT_VALUE_LOGOUT:
+            xjiang_log("Device Logout");
+            xjiang_login = 0;
+        break;
+        
+        case EVENT_VALUE_TOKEN_REPORT_SUC:
+
+            xjiang_log("report token success");
+            
+        break;
+
+        case EVENT_VALUE_RESET: //just got reset response from cloud without any other operation
+            xjiang_log("iot reset");
+
+        break;
+        
+        default:
+        break;
+    }
+
+}
+
+
+void user_report_reply_event_handler(int devid, int id, int code, const char* payload, int payload_len)
+{
+     xjiang_log("report reply id: %d, code: %d", id, code);
+}
+
+void user_property_set_event_handler(int devid, const char* payload, int payload_len)
+{
+    xjiang_log("set: %.*s", payload_len, payload);
+
+}
+
+int user_event_notify_handler(int devid, int event, const char* payload, int payload_len)
+{
+    int err_code = 0;
+
+    if(payload){
+        xjiang_log("notify: %.*s", payload_len, payload);
+    }
+
+    xjiang_log("event notify: %d", event);
+    switch ( event ){
+
+        case EVENT_VALUE_BIND_NOTIFY:
+
+            xjiang_log("device bind");
+            is_netconfig = 0;
+            
+        break;
+
+        case EVENT_VALUE_UNBIND_NOTIFY:
+            xjiang_log("device unbind");
+
+        break;
+
+        default:
+        break;
+    }
+    
+    return err_code;
+}
+
+static void network_status_changed_handler(network_status_t status, void* arg)
+{
+    qm_task_t cloud_task = {0};
+    switch(status){
+
+        case NETWORK_STATUS_UP:
+
+        if(!xjiang_cloud_start){
+            qm_task_new(&cloud_task, "cloud", cloud_thread, NULL, 6*1024, 20);
+            xjiang_cloud_start = 1;
+        }
+
+        break;
+
+        case NETWORK_STATUS_DOWN:
+
+        break;
+
+        default:
+        break;
+    }
+
+}
+
+
+static void retry_interval_ms_set(int interval_ms, int interval_max_ms)
+{
+    retry_interval_ms = interval_ms;
+    retry_interval_max_ms = interval_max_ms;
+}
+
+static int retry_interval_ms_get(void)
+{
+    if (RETRY_INTERVAL_MAX_MS > retry_interval_ms) {
+        retry_interval_ms *= 2;
+    } else {
+        retry_interval_ms = RETRY_INTERVAL_MAX_MS;
+    }
+    return retry_interval_ms;
+}
+
+
+static void cloud_thread(void *arg)
+{
+    int rc = 0;
+    int ret = 0;
+    int invalid = 0;
+    int id = 0;
+    uint32_t pid;
+    iot_dev_meta_info_t dev_meta_info = {0};
+
+    int device_id_len = DEVICE_ID_LEN;
+    int device_secret_len = DEVICE_SECRET_LEN;
+
+    ret = hal_get_product_id(&dev_meta_info.product_id);
+    if(ret != 0){
+        xjiang_log( "product id is invalid");
+        invalid = 1;
+    }
+    ret = hal_get_device_id(dev_meta_info.device_id, &device_id_len);
+    if(ret != 0){
+        xjiang_log( "device id is invalid");
+        invalid = 1;
+    }
+    ret = hal_get_device_secret(dev_meta_info.device_secret, &device_secret_len);
+    if(ret != 0){
+        xjiang_log( "device secret is invalid");
+        invalid = 1;
+    }
+
+    if(invalid){
+        while(1){
+            qm_msleep(1000);
+        }
+    }
+
+    xjiang_log( "pi[%u]", dev_meta_info.product_id );
+    xjiang_log( "di[%s]", dev_meta_info.device_id );
+    xjiang_log( "ds[%s]", dev_meta_info.device_secret );
+
+    id = cloud_open(IOT_DEV_TYPE_MASTER, &dev_meta_info);
+    app_version_set(APP_VERSION);
+
+    retry_interval_ms_set(500, RETRY_INTERVAL_MAX_MS);
+
+    while(1){
+
+        rc = cloud_connect();
+        if( rc < 0 ){
+            qm_msleep(retry_interval_ms_get());
+        }else{
+            break;
+        }
+    }
+
+    while(1){
+        cloud_loop();
+    }
+}
+
+
+void xjiang_cloud_init(void)
+{
+    iot_event_regist_cb( cloud_event_monitor );
+
+    xjiang_log("SDK verison %s",sdk_version_get());
+    xjiang_log("app verison %s",APP_VERSION);
+
+    iot_event_register(IOT_EVENT_PROPERTY_SET, user_property_set_event_handler);
+    iot_event_register(IOT_EVENT_REPORT_REPLY, user_report_reply_event_handler);
+    iot_event_register(IOT_EVENT_NOTIFY, user_event_notify_handler);
+
+    system_notify_register(notify_NETWORK_STATUS_CHANGED, network_status_changed_handler, NULL);
+
+
+}
