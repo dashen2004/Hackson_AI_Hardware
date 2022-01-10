@@ -107,6 +107,8 @@ static int is_led_active(void)
 void led_blink(led_type_t type, led_blink_t blink)
 {
     qm_err_t ret = QM_EOK;
+    led_ctrl[type].active = 0;
+
     if(blink == LED_BLINK_FAST){
         led_ctrl[type].count = 0;
     }else if(blink == LED_BLINK_SLOW){
@@ -114,22 +116,30 @@ void led_blink(led_type_t type, led_blink_t blink)
     }
 
     led_ctrl[type].active = 1;
-
     if(!is_led_active()){
         ret = qm_timer_start(&led_timer);
         if(ret != QM_EOK){
             return;
         }
     }
-
+    led_ctrl[type].status = 1;
     gpio_ext_set(g_led_info[type].gpio_pin, 1);
 }
 
+
+void led_all_off(void)
+{
+    int i = 0;
+    for(i = 0; i < LED_TYPE_MAX; i++){
+        gpio_ext_set(g_led_info[i].gpio_pin, 0);
+    }
+}
 
 void led_init(void)
 {
     qm_err_t ret = QM_EOK;
     memset(&led_ctrl, 0, sizeof(led_ctrl_t));
+    led_all_off();
     ret = qm_timer_new(&led_timer, led_timeout, NULL, LED_BLINK_FAST_MS, 1);
     if(ret != QM_EOK){
         return;

@@ -149,7 +149,7 @@ uint8_t wk_read_sreg(uint8_t uart_num, uint8_t port, uint8_t sreg)
 //************************************************************/
 void wk_write_sfifo(uint8_t uart_num, uint8_t port, uint8_t *dat, uint8_t num)
 {
-    uint8_t cmd, i;
+    uint8_t cmd = 0;
     cmd = 0x80 | ((port - 1) << 4) | (num - 1);
     uart_send_bytes(uart_num, &cmd, 1);  //写指令,对于指令构成见数据手册
     uart_send_bytes(uart_num, dat, num); //写数据
@@ -164,7 +164,7 @@ void wk_write_sfifo(uint8_t uart_num, uint8_t port, uint8_t *dat, uint8_t num)
 //***************************************************************************************/
 void wk_read_sfifo(uint8_t uart_num, uint8_t port, uint8_t *rec, uint8_t num)
 {
-    uint8_t n = 0, cmd = 0;
+    uint8_t cmd = 0;
     cmd = 0xc0 | ((port - 1) << 4) | (num - 1);
     uart_send_bytes(uart_num, &cmd, 1);
     uart_rec_bytes(uart_num, rec, num);
