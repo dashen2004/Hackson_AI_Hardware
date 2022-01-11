@@ -81,7 +81,7 @@ void hal_srandom(uint32_t seed)
     hal_srand(seed);
 }
 
-uint32_t hal_random(uint32_t region)
+uint32_t hal_random_get(uint32_t region)
 {
     return (region > 0) ? (hal_rand() % region) : 0;
 }

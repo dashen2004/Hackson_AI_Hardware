@@ -74,7 +74,7 @@ static void at_client_product_task(void *arg)
     qm_at_response_t *resp = NULL;
     int test = 0;
 
-     vTaskDelay(3000/portTICK_PERIOD_MS);
+    vTaskDelay(3000/portTICK_PERIOD_MS);
 
     resp = qm_at_client_create_resp(64, 0, 5000);
 

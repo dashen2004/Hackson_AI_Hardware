@@ -73,15 +73,29 @@ static void cloud_event_monitor( int event )
 }
 
 
-void user_report_reply_event_handler(int devid, int id, int code, const char* payload, int payload_len)
+void prodtst_set_handler(int devid, const char* payload, int payload_len)
+{
+    xjiang_log("set: %.*s", payload_len, payload);
+}
+
+void prodtst_report_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
 {
      xjiang_log("report reply id: %d, code: %d", id, code);
 }
 
-void user_property_set_event_handler(int devid, const char* payload, int payload_len)
+void prodtst_config_handler(int devid, const char* payload, int payload_len)
 {
-    xjiang_log("set: %.*s", payload_len, payload);
+    xjiang_log("config: %.*s", payload_len, payload);
+}
 
+void prodtst_test_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
+{
+    xjiang_log("report reply id: %d, code: %d", id, code);
+}
+
+void prodtst_get_handler(int devid, const char* payload, int payload_len)
+{
+    xjiang_log("get: %.*s", payload_len, payload);
 }
 
 int user_event_notify_handler(int devid, int event, const char* payload, int payload_len)
@@ -222,8 +236,12 @@ void xjiang_cloud_init(void)
     xjiang_log("SDK verison %s",sdk_version_get());
     xjiang_log("app verison %s",APP_VERSION);
 
-    iot_event_register(IOT_EVENT_PROPERTY_SET, user_property_set_event_handler);
-    iot_event_register(IOT_EVENT_REPORT_REPLY, user_report_reply_event_handler);
+    iot_event_register(IOT_EVENT_PRODTST_SET, prodtst_set_handler);
+    iot_event_register(IOT_EVENT_PRODTST_REPORT_REPLY, prodtst_report_reply_handler);
+    iot_event_register(IOT_EVENT_PRODTST_CONFIG, prodtst_config_handler);
+    iot_event_register(IOT_EVENT_PRODTST_TEST_REPLY, prodtst_test_reply_handler);
+    iot_event_register(IOT_EVENT_PRODTST_GET, prodtst_get_handler);
+
     iot_event_register(IOT_EVENT_NOTIFY, user_event_notify_handler);
 
     system_notify_register(notify_NETWORK_STATUS_CHANGED, network_status_changed_handler, NULL);

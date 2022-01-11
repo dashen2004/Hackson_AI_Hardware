@@ -292,6 +292,81 @@ static int32_t payload_creat(int devid, msg_type_t msg_type, char *id, char *met
         break;
 #endif
 
+#ifdef PRODTST_SUPPORT
+
+        case MSG_TYPE_PRODTST_REPORT:
+
+            if(payload == NULL || payload_len == 0){
+                err_code = PARAM_ERR;
+                goto exit;
+            }
+            
+            len = MAX_JSON_DATA_LEN + payload_len;
+            *out_len = len;
+            if(out == NULL){
+                goto exit;
+            }
+            
+            if(payload == NULL || payload_len == 0){
+                err_code = PARAM_ERR;
+                goto exit;
+            }
+
+            hal_snprintf(out_buf, len, MQTT_REPORT_FORMAT, devid, "prodtst_report", id, payload);
+            *out_len = strlen(out_buf);
+                       
+        break;
+
+        case MSG_TYPE_PRODTST_SET_REPLY:
+            
+            len = MAX_JSON_DATA_LEN;
+            *out_len = len;
+            if(out == NULL){
+                goto exit;
+            }
+            
+            hal_snprintf(out_buf, len, MQTT_GENERIC_REPLY_FORMAT, devid, "prodtst_set_reply", id, code);
+            *out_len = strlen(out_buf);
+           
+        break;
+
+        case MSG_TYPE_PRODTST_TEST:
+
+            if(payload == NULL || payload_len == 0){
+                err_code = PARAM_ERR;
+                goto exit;
+            }
+            
+            len = MAX_JSON_DATA_LEN + payload_len;
+            *out_len = len;
+            if(out == NULL){
+                goto exit;
+            }
+            
+            if(payload == NULL || payload_len == 0){
+                err_code = PARAM_ERR;
+                goto exit;
+            }
+
+            hal_snprintf(out_buf, len, MQTT_REPORT_FORMAT, devid, "prodtst_test_report", id, payload);
+            *out_len = strlen(out_buf);
+                       
+        break;
+        
+        case MSG_TYPE_PRODTST_GET_REPLY:
+            
+            len = MAX_JSON_DATA_LEN;
+            *out_len = len;
+            if(out == NULL){
+                goto exit;
+            }
+            
+            hal_snprintf(out_buf, len, MQTT_GENERIC_REPLY_FORMAT, devid, "prodtst_get_reply", id, code);
+            *out_len = strlen(out_buf);
+           
+        break;
+#endif
+
         case MSG_TYPE_TOKEN_REPORT:
             
             if(payload == NULL || payload_len == 0){

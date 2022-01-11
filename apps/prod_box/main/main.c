@@ -16,16 +16,21 @@ int user_debug_enabled = 1;
 
 void app_main()
 {
-  // Initialize NVS
-  esp_err_t ret = nvs_flash_init();
-  if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
-  {
-    ESP_ERROR_CHECK(nvs_flash_erase());
-    ret = nvs_flash_init();
-  }
+    // Initialize NVS
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+
+    network_init();
+
+    extern void qm_work_test(void);
+    qm_work_test();
 
 
-  extern void qm_work_test(void);
-  qm_work_test();
+    extern void xjiang_cloud_init(void);
+    xjiang_cloud_init();
 
 }

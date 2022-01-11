@@ -115,7 +115,7 @@ uint32_t hal_uptime_ms(void);
 void hal_sleep_ms(_IN_ uint32_t ms);
 
 /**
- * @brief Set seed for a sequence of pseudo-random integers, which will be returned by hal_random()
+ * @brief Set seed for a sequence of pseudo-random integers, which will be returned by hal_random_get()
  *
  * @param [in] seed @n A start point for the random number sequence
  * @return None.
@@ -132,7 +132,7 @@ void hal_srandom(_IN_ uint32_t seed);
  * @see None.
  * @note None.
  */
-uint32_t hal_random(_IN_ uint32_t region);
+uint32_t hal_random_get(_IN_ uint32_t region);
 
 /**
  * @brief Writes formatted data to stream.

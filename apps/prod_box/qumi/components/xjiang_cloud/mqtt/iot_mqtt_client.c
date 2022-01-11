@@ -2042,7 +2042,7 @@ static int iot_mc_handle_reconnect(iot_mc_client_t *pClient)
     }
 
     interval_ms = pClient->reconnect_param.reconnect_time_interval_ms;
-    interval_ms += hal_random(pClient->reconnect_param.reconnect_time_interval_ms);
+    interval_ms += hal_random_get(pClient->reconnect_param.reconnect_time_interval_ms);
     if (IOT_MC_RECONNECT_INTERVAL_MAX_MS < interval_ms) {
         interval_ms = IOT_MC_RECONNECT_INTERVAL_MAX_MS;
     }

@@ -14,6 +14,11 @@ typedef enum {
     IOT_EVENT_RAWDATA_REPLY,
     IOT_EVENT_PROPERTY_SET,
     IOT_EVENT_REPORT_REPLY,
+    IOT_EVENT_PRODTST_SET,
+    IOT_EVENT_PRODTST_REPORT_REPLY,
+    IOT_EVENT_PRODTST_GET,
+    IOT_EVENT_PRODTST_CONFIG,
+    IOT_EVENT_PRODTST_TEST_REPLY,
     IOT_EVENT_TOKEN_REPLY,
     IOT_EVENT_RESET_REPLY,
     IOT_EVENT_NOTIFY,
@@ -38,6 +43,13 @@ DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_RAWDATA_REPLY,        int (*cb)(const int, 
 DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PROPERTY_SET,         int (*cb)(const int, const char *, const int))
 DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_REPORT_REPLY,         int (*cb)(const int, const int, const int, const char *, const int))
 DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_NOTIFY,               int (*cb)(const int, const int, const char *, const int))
+
+
+DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_SET,                int (*cb)(const int, const char *, const int))
+DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_REPORT_REPLY,       int (*cb)(const int, const int, const int, const char *, const int))
+DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_CONFIG,             int (*cb)(const int, const char *, const int))
+DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_TEST_REPLY,         int (*cb)(const int, const int, const int, const char *, const int))
+DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_GET,                int (*cb)(const int, const char *, const int))
 
 
 void *iot_event_callback(int evt);

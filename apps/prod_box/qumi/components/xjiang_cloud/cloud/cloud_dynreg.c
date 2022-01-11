@@ -119,7 +119,7 @@ int32_t cloud_device_dynreg(dev_dynreg_info_t *dynreg_info)
 
     hal_srandom(hal_uptime_ms());
 
-    nonce = hal_random(DEVICE_DYNREG_NONCE_MAX);
+    nonce = hal_random_get(DEVICE_DYNREG_NONCE_MAX);
     timestamp = hal_uptime_ms();
 
     hal_snprintf(str_nonce, 12, "%d", nonce);

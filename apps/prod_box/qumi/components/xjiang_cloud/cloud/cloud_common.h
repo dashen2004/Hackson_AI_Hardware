@@ -11,9 +11,10 @@
 
 //#define TEST_CLOUD
 #define OTA_SUPPORT
-#define STANDARD_SUPPORT
-#define RAW_SUPPORT
-#define DYN_REG_SUPPORT
+//#define STANDARD_SUPPORT
+//#define RAW_SUPPORT
+//#define DYN_REG_SUPPORT
+#define PRODTST_SUPPORT
 //#define MCU_OTA_SUPPORT
 //#define DEVICE_GATEWAY_SUPPORT
 
