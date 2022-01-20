@@ -171,7 +171,7 @@ int32_t qm_at_server_send(void *channel, const char *buf, uint32_t size)
         return -QM_EINVAL;
     }
 
-    return at_channel->send(buf, size);
+    return at_channel->send(at_channel->handle, buf, size);
 }
 
 /**
@@ -202,7 +202,7 @@ int32_t qm_at_server_recv(void *channel, char *buf, uint32_t size, int32_t timeo
     {
         if (read_idx < size){
             /* check get data value */
-            recv_len = at_channel->recv(&ch, 1, timeout);
+            recv_len = at_channel->recv(at_channel->handle, &ch, 1, timeout);
             if (recv_len > 0){
                 buf[read_idx++] = ch;
             }else{
@@ -448,7 +448,7 @@ static void at_server_parser(void* arg)
 
     while (1)
     {
-        ret = at_channel->recv(&ch, 1, QM_WAIT_FOREVER);
+        ret = at_channel->recv(at_channel->handle, &ch, 1, QM_WAIT_FOREVER);
         if(ret != 1){
             continue;
         }

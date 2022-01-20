@@ -99,8 +99,9 @@ typedef struct{
     char *recv_buf;
     uint32_t recv_buf_len;
     uint32_t cur_recv_len;
-    int (*send)(char *buf, int size);
-    int (*recv)(char *buf, int size, int timeout);
+    void *handle;
+    int (*send)(void *handle, char *buf, int size);
+    int (*recv)(void *handle, char *buf, int size, int timeout);
 
 }qm_at_channel_t;
 
@@ -138,6 +139,7 @@ typedef struct{
     uint8_t channel_type;
     char *recv_buf;
     uint32_t recv_buf_len;
+    void *handle;
     int (*send)(char *buf, int size);
     int (*recv)(char *buf, int size, int timeout);
 
@@ -204,8 +206,9 @@ typedef struct{
     uint8_t channel_type;
     char *recv_buf;
     uint32_t recv_buf_len;
-    int (*send)(char *buf, int size);
-    int (*recv)(char *buf, int size, int timeout);
+    void *handle;
+    int (*send)(void *handle, char *buf, int size);
+    int (*recv)(void *handle, char *buf, int size, int timeout);
 
 }qm_at_client_param_t;
 
@@ -229,6 +232,7 @@ typedef struct qm_at_client
 
     qm_sem_t resp_notice;
     qm_mutex_t lock;
+    qm_task_t task;
 
     void (*parser_entry)(void *arg);
 
@@ -263,7 +267,7 @@ int32_t qm_at_register_commands(qm_at_cmd_t *cmd_tbl, uint16_t cmd_num);
 
 /* AT client initialize and start*/
 qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param);
-
+int32_t qm_at_client_deinit(qm_at_client_t *client);
 /* ========================== multiple AT client function ============================ */
 
 /* get first AT client object */

@@ -136,9 +136,6 @@ static void wifi_sta_init(void)
 
 static void wifi_init(void)
 {
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL) );
-
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
@@ -146,10 +143,10 @@ static void wifi_init(void)
     ESP_ERROR_CHECK(esp_wifi_start() );
 }
 
+
+
 void network_init(void)
 {
-    wifi_init();
-
-    wifi_sta_init();
-
+    tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL) );
 }

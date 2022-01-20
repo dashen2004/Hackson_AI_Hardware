@@ -15,8 +15,8 @@
 static void *product_uart_channel = NULL;
 static char product_uart_buf[BUF_SIZE];
 
-static int product_uart_send(char *buf, int len);
-static int product_uart_recv(char *buf, int len, int timeout);
+static int product_uart_send(void *handle, char *buf, int len);
+static int product_uart_recv(void *handle, char *buf, int len, int timeout);
 
 
 static qm_at_server_param_t at_server_param = {
@@ -24,17 +24,18 @@ static qm_at_server_param_t at_server_param = {
     AT_CHANNEL_UART,
     product_uart_buf,
     BUF_SIZE,
+    NULL,
     product_uart_send,
     product_uart_recv,
 };
 
 
-static int product_uart_send(char *data, int len)
+static int product_uart_send(void *handle, char *data, int len)
 {
     return uart_write_bytes(UART_NUM_1, data, len);
 }
 
-static int product_uart_recv(char *data, int len, int timeout)
+static int product_uart_recv(void *handle, char *data, int len, int timeout)
 {
     return uart_read_bytes(UART_NUM_1, (uint8_t*)data, len, timeout / portTICK_RATE_MS);
 }
@@ -64,6 +65,7 @@ static qm_at_client_param_t at_client_param = {
     AT_CHANNEL_UART,
     product_uart_buf,
     BUF_SIZE,
+    NULL,
     product_uart_send,
     product_uart_recv,
 };
