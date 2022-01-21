@@ -428,8 +428,8 @@ int32_t qm_at_client_obj_send(qm_at_client_t *client, char *buf, uint32_t size)
 
 static qm_err_t qm_at_client_getchar(qm_at_client_t *client, char *ch, int32_t timeout)
 {
-    if(client->channel.recv(client->channel.handle, 1, timeout) != 1){
-        return QM_ETIMEOUT;
+    if(client->channel.recv(client->channel.handle, ch, 1, timeout) != 1){
+        return -QM_ETIMEOUT;
     }else{
         return QM_EOK;
     }

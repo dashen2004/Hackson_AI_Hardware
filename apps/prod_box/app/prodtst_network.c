@@ -5,6 +5,8 @@
 #include "lwip/netdb.h"
 #include "lwip/err.h"
 
+#include "qm_kernel.h"
+
 #define LOG_TAG  "prodtst network"
 
 /** @defgroup group_platform_network network
@@ -30,10 +32,10 @@ int32_t prodtst_tcp_establish(const char *host, uint16_t port)
 
     QM_LOGI(LOG_TAG, "host name: %s", host);
     hostent_content = gethostbyname( host );
-    if(hostent_content==NULL)
+    if(hostent_content == NULL)
     {
-        platform_log("gethostbyname err");
-       return 0;
+        QM_LOGE(LOG_TAG, "gethostbyname err");
+        return 0;
     }
 
     fd = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -120,12 +122,12 @@ int32_t prodtst_tcp_read(int fd, char *buf, uint32_t len, uint32_t timeout_ms)
     fd_set sets = {0};
     struct timeval timeout = {0};
 
-    t_end = hal_uptime_ms() + timeout_ms;
+    t_end = qm_now_ms() + timeout_ms;
     len_recv = 0;
     err_code = 0;
 
     do {
-        t_left = _platform_time_left(t_end, hal_uptime_ms());
+        t_left = _platform_time_left(t_end, qm_now_ms());
         FD_ZERO(&sets);
         FD_SET(fd, &sets);
 
@@ -159,11 +161,11 @@ int32_t prodtst_tcp_read(int fd, char *buf, uint32_t len, uint32_t timeout_ms)
             } else if (0 == ret) {
                 break;
             } else {
-                    pQM_LOGE(LOG_TAG, "select-recv fail");
+                    QM_LOGE(LOG_TAG, "select-recv fail");
                     err_code = -2;
                     break;
         }
-    } while ((len_recv < len) && (_platform_time_left(t_end, hal_uptime_ms()) > 0));
+    } while ((len_recv < len) && (_platform_time_left(t_end, qm_now_ms()) > 0));
 
     /* priority to return data bytes if any data be received from TCP connection. */
     /* It will get error code on next calling */

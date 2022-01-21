@@ -80,6 +80,7 @@ typedef struct{
     char *name;
     char *cmd;
     int timeout;
+    int recv_size;
     int (*parser)(void *rsp, char **data);
 }prodtst_cmd_t;
 
@@ -87,11 +88,13 @@ typedef struct{
     char *platform;
     char *module_name;
     char *module_type;
-    prodtst_cmd_t *generic_cmd;
-    prodtst_cmd_t *specific_cmd;
-    prodtst_adapter_t *adapter;
-    int buf_size;
+    int recv_size;
     int obj_num;
+    prodtst_cmd_t *generic_cmd;
+    int generic_cmd_num;
+    prodtst_cmd_t *specific_cmd;
+    int specific_cmd_num;
+    prodtst_adapter_t *adapter;
 }prodtst_testsuite_t;
 
 typedef struct{

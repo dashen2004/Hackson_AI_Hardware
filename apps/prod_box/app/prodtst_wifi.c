@@ -5,6 +5,7 @@
 #include "esp_event_loop.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "lwip/inet.h"
 #include "qm_log.h"
 #include "qm_errno.h"
 #include "prodtst_core.h"
@@ -28,6 +29,8 @@ typedef struct{
     int fd;
     uint32_t ip;
 }wifi_handle_t;
+
+static wifi_handle_t* wifi_handle_get(void);
 
 static wifi_handle_t g_wifi_handle[CONFIG_QM_PRODTST_OBJ_NUM] = {0};
 
@@ -121,14 +124,16 @@ static int wifi_handle_reset(wifi_handle_t *handle)
 static int wifi_handle_init(void)
 {
     for(int i = 0; i < CONFIG_QM_PRODTST_OBJ_NUM; i++){
-        g_wifi_handlep[i].fd = -1;
+        g_wifi_handle[i].fd = -1;
     }
+    return QM_EOK;
 }
 
 static int wifi_prodtst_deinit(void)
 {
     esp_wifi_stop();
     esp_wifi_deinit();
+    return QM_EOK;
 }
 
 
@@ -140,17 +145,17 @@ static int channel_send(void *handle, char *buf, int size)
         return -QM_EINVAL;
     }
 
-    ret = send(wifi_handle->fd, buf, size);
+    ret = prodtst_tcp_write(wifi_handle->fd, buf, size, 0);
     if(ret > 0){
         return ret;
     }else{
         close(wifi_handle->fd);
-        wifi_handle->fd = -1
+        wifi_handle->fd = -1;
         return -QM_EIO;
     }
 }
 
-static int channel_recv(void *handle, char *buf, int size, int timeout);
+static int channel_recv(void *handle, char *buf, int size, int timeout)
 {
     int ret = 0;
     wifi_handle_t *wifi_handle = (wifi_handle_t*)handle;
@@ -158,24 +163,26 @@ static int channel_recv(void *handle, char *buf, int size, int timeout);
         return -QM_EINVAL;
     }
 
-    ret = recv(wifi_handle->fd, buf, size, timeout);
+    ret = prodtst_tcp_read(wifi_handle->fd, buf, size, timeout);
     if(ret > 0){
         return ret;
     }else{
         close(wifi_handle->fd);
-        wifi_handle->fd = -1
         return -QM_EIO;
+        wifi_handle->fd = -1;
     }
 }
 
 static int channel_establish(void *param, void **handle)
 {
     int fd = 0;
+    qm_err_t ret = QM_EOK;
     wifi_handle_t *wifi_handle = NULL;
 
     wifi_handle = wifi_handle_get();
     if(wifi_handle == NULL){
         QM_LOGE(LOG_TAG, "device num is exceed");
+        return -QM_EINVAL;
     }
 
     QM_LOGI(LOG_TAG, "tcp connecting...");
