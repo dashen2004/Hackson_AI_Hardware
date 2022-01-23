@@ -124,7 +124,7 @@ int prodtst_stop(void)
     }
 
     QM_LOGI(LOG_TAG, "prodtst stop success");
-    
+
     return ret;
 }
 
@@ -447,11 +447,21 @@ static void prodtst_core_task(void *arg)
         }
 
         switch(notify.event){
+
+            case PRODTST_EVENT_CONFIG:
+
+
+            //int prodtst_start(prodtst_info_t *info)
+
+            break;
+
             case PRODTST_EVENT_DEVICE_FOUND:
 
 
             break;
 
+
+ 
 
 
             default:

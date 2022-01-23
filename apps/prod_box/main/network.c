@@ -119,8 +119,8 @@ static void wifi_sta_init(void)
 {
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = "xjiang",
-            .password = "asdf062516",
+            .ssid = CONFIG_QM_PRODTST_SSID,
+            .password = CONFIG_QM_PRODTST_PASSWD,
             /* Setting a password implies station will connect to all security modes including WEP/WPA.
              * However these modes are deprecated and not advisable to be used. Incase your Access point
              * doesn't support WPA2, these mode can be enabled by commenting below line */
@@ -148,5 +148,6 @@ static void wifi_init(void)
 void network_init(void)
 {
     tcpip_adapter_init();
+    wifi_init();
     ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL) );
 }

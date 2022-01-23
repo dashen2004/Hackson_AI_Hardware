@@ -25,10 +25,7 @@ void app_main()
     }
 
     network_init();
-
-    extern void qm_work_test(void);
-    qm_work_test();
-
+    
 
     extern void xjiang_cloud_init(void);
     xjiang_cloud_init();

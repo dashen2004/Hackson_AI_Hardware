@@ -61,11 +61,14 @@ int prodtst_wifi_ap_event_handler(uint32_t ip)
 
 static int wifi_init(void)
 {
+
+#if 0
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA) );
     ESP_ERROR_CHECK(esp_wifi_start() );
+#endif
 
     wifi_handle_init();
 

@@ -98,6 +98,16 @@ void prodtst_get_handler(int devid, const char* payload, int payload_len)
     xjiang_log("get: %.*s", payload_len, payload);
 }
 
+void prodtst_result_handler(int devid, const char* payload, int payload_len)
+{
+    xjiang_log("result: %.*s", payload_len, payload);
+}
+
+void prodtst_special_handler(int devid, const char* payload, int payload_len)
+{
+    xjiang_log("special: %.*s", payload_len, payload);
+}
+
 int user_event_notify_handler(int devid, int event, const char* payload, int payload_len)
 {
     int err_code = 0;
@@ -241,6 +251,8 @@ void xjiang_cloud_init(void)
     iot_event_register(IOT_EVENT_PRODTST_CONFIG, prodtst_config_handler);
     iot_event_register(IOT_EVENT_PRODTST_TEST_REPLY, prodtst_test_reply_handler);
     iot_event_register(IOT_EVENT_PRODTST_GET, prodtst_get_handler);
+    iot_event_register(IOT_EVENT_PRODTST_RESULT, prodtst_result_handler);
+    iot_event_register(IOT_EVENT_PRODTST_SPECIAL, prodtst_special_handler);
 
     iot_event_register(IOT_EVENT_NOTIFY, user_event_notify_handler);
 

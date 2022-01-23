@@ -19,7 +19,13 @@ static iot_event_map_t g_iot_event_map[] = {
     {IOT_EVENT_TOKEN_REPLY, NULL},
     {IOT_EVENT_RESET_REPLY, NULL},
     {IOT_EVENT_NOTIFY, NULL},
-    
+    {IOT_EVENT_PRODTST_SET, NULL},
+    {IOT_EVENT_PRODTST_REPORT_REPLY, NULL},
+    {IOT_EVENT_PRODTST_GET, NULL},
+    {IOT_EVENT_PRODTST_CONFIG, NULL},
+    {IOT_EVENT_PRODTST_TEST_REPLY, NULL},
+    {IOT_EVENT_PRODTST_RESULT, NULL},
+    {IOT_EVENT_PRODTST_SPECIAL, NULL}
 };
 
 void *iot_event_callback(int evt)
@@ -66,5 +72,7 @@ DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_REPORT_REPLY,       int (*callback)(
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_CONFIG,             int (*callback)(const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_TEST_REPLY,         int (*callback)(const int, const int, const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_GET,                int (*callback)(const int, const char *, const int))
+DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_RESULT,             int (*callback)(const int, const char *, const int))
+DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_SPECIAL,            int (*callback)(const int, const char *, const int))
 
 
