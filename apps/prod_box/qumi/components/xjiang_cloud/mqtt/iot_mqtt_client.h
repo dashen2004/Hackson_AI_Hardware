@@ -10,7 +10,7 @@ extern "C" {
 
 #ifndef IOT_MC_SUB_NUM_MAX
 /* maximum number of successful subscribe */
-#define IOT_MC_SUB_NUM_MAX                     (8)
+#define IOT_MC_SUB_NUM_MAX                     (16)
 #endif
 
 #ifndef IOT_MC_SUB_REQUEST_NUM_MAX

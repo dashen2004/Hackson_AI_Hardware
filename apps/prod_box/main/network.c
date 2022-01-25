@@ -148,6 +148,7 @@ static void wifi_init(void)
 void network_init(void)
 {
     tcpip_adapter_init();
-    wifi_init();
     ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL) );
+
+    wifi_init();
 }

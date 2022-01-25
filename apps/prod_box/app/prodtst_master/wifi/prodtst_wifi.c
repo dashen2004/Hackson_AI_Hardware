@@ -9,7 +9,7 @@
 #include "qm_log.h"
 #include "qm_errno.h"
 #include "prodtst_core.h"
-#include "prodtst_network.h"
+#include "prodtst_tcp_mgr.h"
 
 #define LOG_TAG  "prodtst wifi"
 
@@ -27,7 +27,7 @@
 
 typedef struct{
     int fd;
-    uint32_t ip;
+    prodtst_ip_info_t ip_info;
 }wifi_handle_t;
 
 static wifi_handle_t* wifi_handle_get(void);
@@ -39,24 +39,17 @@ static int wifi_handle_init(void);
 
 int prodtst_wifi_ap_event_handler(uint32_t ip)
 {
-    char *ip_str = {0};
-    char * str = NULL;
+    char *ip_str = NULL;
+    prodtst_ip_info_t ip_info = {0};
 
     wifi_handle_t *wifi_handle = wifi_handle_get();
     if(wifi_handle == NULL){
         QM_LOGE(LOG_TAG, "device num is exceed");
         return -QM_EFULL;
     }
-
-    ip_str = (char*)qm_malloc(16);
-    if(ip_str == NULL){
-        return -QM_ENOMEM;
-    }
-
-    str = inet_ntoa(ip);
-    memcpy(ip_str, str, strlen(str));
-
-    return prodtst_device_notify(ip_str);
+    ip_str = inet_ntoa(ip);
+    QM_LOGI(LOG_TAG, "device found ip: %s\n", ip_str);
+    return prodtst_ip_notify(ip_str);
 }
 
 static int wifi_init(void)
@@ -99,7 +92,10 @@ static int wifi_prodtst_init(void *param)
 
     QM_LOGI(LOG_TAG, "softap finished. SSID:%s, password:%s, channel:%d, max connection:%d",
              CONFIG_QM_PRODTST_AP_SSID, CONFIG_QM_PRODTST_AP_PASSWD, CONFIG_QM_PRODTST_WIFI_CHANNEL, 1);
-    
+
+
+    prodtst_tcp_mgr_init();
+
     return QM_EOK;
 }
 
@@ -136,6 +132,7 @@ static int wifi_prodtst_deinit(void)
 {
     esp_wifi_stop();
     esp_wifi_deinit();
+    prodtst_tcp_mgr_deinit();
     return QM_EOK;
 }
 
@@ -171,8 +168,8 @@ static int channel_recv(void *handle, char *buf, int size, int timeout)
         return ret;
     }else{
         close(wifi_handle->fd);
-        return -QM_EIO;
         wifi_handle->fd = -1;
+        return -QM_EIO;
     }
 }
 

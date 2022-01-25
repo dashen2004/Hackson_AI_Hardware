@@ -240,6 +240,10 @@ static void prodtst_device_task(void *arg)
     if(ret != QM_EOK){
         goto __exit;
     }
+    if(prodtst_obj->param){
+        qm_free(prodtst_obj->param);
+        prodtst_obj->param = NULL;
+    }
 
     testsuite = prodtst_testsuite_get();
 
@@ -287,6 +291,12 @@ __exit:
         qm_free(at_param.recv_buf);
         at_param.recv_buf = NULL;
     }
+    
+    if(prodtst_obj->param){
+        qm_free(prodtst_obj->param);
+        prodtst_obj->param = NULL;
+    }
+    
     if(prodtst_obj->at_client){
         qm_at_client_deinit(prodtst_obj->at_client);
     }
@@ -402,7 +412,7 @@ static int prodtst_device_deinit(prodtst_obj_t *prodtst_obj)
     return ret;
 }
 
-int prodtst_device_notify(void *param)
+int prodtst_found_notify(void *param)
 {
     prodtst_notify_t notify = {0};
     if(param == NULL){
@@ -410,28 +420,97 @@ int prodtst_device_notify(void *param)
     }
 
     notify.event = PRODTST_EVENT_DEVICE_FOUND;
-    notify.data = param;
+    notify.dat.device_info.param = param;
 
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 }
 
-int prodtst_cloud_notify(unsigned char *uuid, int event, int type, void *data, int len)
+int prodtst_ip_notify(char *ip)
+{
+    uint8_t *data = NULL;
+    if(ip == NULL){
+        return -QM_EINVAL;
+    }
+
+    data = (uint8_t*)qm_malloc(strlen(ip)+1);
+    if(data == NULL){
+        return -QM_ENOMEM;
+    }
+    memset(data, 0, strlen(ip)+1);
+    memcpy(data, ip, strlen(ip));
+
+    return prodtst_found_notify(data);
+}
+
+int prodtst_data_notify(int event, char* type, char *uuid, uint8_t *data, int len)
+{
+    prodtst_notify_t notify = {0};
+    if(type == NULL){
+        return -QM_EINVAL;
+    }
+
+    if(strlen(type) > PRODTST_DATA_TYPE_MAX_LEN){
+        return -QM_EINVAL;
+    }
+
+    if(data == NULL || len <= 0){
+        return -QM_EINVAL;
+    }
+
+    if(uuid == NULL){
+        return -QM_EINVAL;
+    }
+
+    notify.event = event;
+
+    notify.dat.data_info.data = (uint8_t*)qm_malloc(len);
+    if(notify.dat.data_info.data == NULL){
+        return -QM_ENOMEM;
+    }
+
+    memcpy(notify.dat.data_info.data, data, len);
+    memcpy(notify.dat.data_info.uuid, uuid, 16);
+
+    memcpy(notify.dat.data_info.type, type, strlen(type));
+    
+    return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
+}
+
+
+int prodtst_config_notify(char *platform, char *module_name, char *module_type)
+{
+    prodtst_notify_t notify = {0};
+    if(platform == NULL || module_name == NULL || module_type == NULL){
+        return -QM_EINVAL;
+    }
+    if(strlen(platform)    > PRODTST_PLATFORM_MAX_LEN    || 
+       strlen(module_name) > PRODTST_MOUDLE_NAME_MAX_LEN ||
+       strlen(module_type) > PRODTST_MOUDLE_TYPE_MAX_LEN){
+        return -QM_EINVAL;
+    }
+
+    notify.event = PRODTST_EVENT_CONFIG;
+    memcpy(notify.dat.config_info.platform, platform, strlen(platform));
+    memcpy(notify.dat.config_info.module_name, module_name, strlen(module_name));
+    memcpy(notify.dat.config_info.module_type, module_type, strlen(module_type));
+    
+    return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
+}
+
+int prodtst_finish_notify(char *uuid, int result)
 {
     prodtst_notify_t notify = {0};
     if(uuid == NULL){
         return -QM_EINVAL;
     }
 
-    memcpy(notify.uuid, uuid, 16);
-    
-    notify.event = event;
-    notify.type = type;
-    notify.data = data;
-    notify.len = len;
-    
-    return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
-}
+    notify.event = PRODTST_EVENT_FINISH;
+    notify.dat.finish_info.result = result;
+    memcpy(notify.dat.finish_info.uuid, uuid, 16);
 
+    return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
+
+}
 
 static void prodtst_core_task(void *arg)
 {

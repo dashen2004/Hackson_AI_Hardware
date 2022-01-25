@@ -16,7 +16,7 @@
 #define GUIDER_TS_LEN               (16)
 
 
-//#define IOT_WITHOUT_TLS
+#define IOT_WITHOUT_TLS
 #define MQTT_DIRECT
 
 

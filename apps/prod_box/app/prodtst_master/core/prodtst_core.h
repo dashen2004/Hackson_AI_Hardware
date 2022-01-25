@@ -5,7 +5,6 @@
 #include "qm_kernel.h"
 #include "prodtst_adapter.h"
 
-
 #ifndef CONFIG_QM_PRODTST_TASK_PRIO  
 #define CONFIG_QM_PRODTST_TASK_PRIO           19    
 #endif
@@ -29,6 +28,14 @@
 #ifndef CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT
 #define CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT   2000
 #endif
+
+
+
+#define PRODTST_DATA_TYPE_MAX_LEN      (8)
+#define PRODTST_PLATFORM_MAX_LEN       (8) 
+#define PRODTST_MOUDLE_NAME_MAX_LEN    (8) 
+#define PRODTST_MOUDLE_TYPE_MAX_LEN    (8) 
+
 
 
 typedef enum{
@@ -102,6 +109,8 @@ typedef struct{
     prodtst_state_t state;
     qm_task_t task;
     qm_queue_t notify;
+    qm_mutex_t lock;
+    void *stream;
     void *param;
     void *channel_handle;
     qm_at_client_t *at_client;
@@ -124,15 +133,44 @@ typedef struct{
     char *module_type;
 }prodtst_info_t;
 
+typedef struct{
+    char ip[16];
+    uint16_t port;
+}prodtst_ip_info_t;
 
 typedef struct{
-    unsigned char uuid[16];
-    int event;
-    int type;
-    void *data;
-    int len;
-}prodtst_notify_t;
+    char platform[PRODTST_PLATFORM_MAX_LEN+1];
+    char module_name[PRODTST_MOUDLE_NAME_MAX_LEN+1];
+    char module_type[PRODTST_MOUDLE_TYPE_MAX_LEN+1];
+}prodtst_config_info_t;
 
+typedef struct{
+    int type;
+    uint8_t uuid[16];
+    uint8_t *data;
+    
+    int len;
+}prodtst_data_info_t;
+
+typedef struct{
+    uint8_t uuid[16];
+    int result;
+}prodtst_finish_info_t;
+
+typedef struct{
+    void *param;
+}prodtst_device_info_t;
+
+typedef struct{
+    int event;
+    union{
+        prodtst_ip_info_t ip_info;
+        prodtst_config_info_t config_info;
+        prodtst_data_info_t data_info;
+        prodtst_finish_info_t finish_info;
+        prodtst_device_info_t device_info;
+    }dat;
+}prodtst_notify_t;
 
 
 int prodtst_init(void);
@@ -141,8 +179,13 @@ int prodtst_start(prodtst_info_t *info);
 int prodtst_stop(void);
 
 
-int prodtst_device_notify(void *param);
-int prodtst_cloud_notify(unsigned char *uuid, int event, int type, void *data, int len);
+/********prodtst notify********/
+int prodtst_found_notify(void *param);
+int prodtst_ip_notify(char *ip);
+int prodtst_data_notify(int event, char* type, char *uuid, uint8_t *data, int len);
+int prodtst_config_notify(char *platform, char *module_name, char *module_type);
+int prodtst_finish_notify(char *uuid, int result);
+/*****************************/
 
 int prodtst_device_num_get(void);
 

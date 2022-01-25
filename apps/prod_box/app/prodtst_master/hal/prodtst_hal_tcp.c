@@ -1,13 +1,14 @@
-#include "prodtst_network.h"
+#include "prodtst_hal_tcp.h"
 #include "qm_log.h"
 
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
 #include "lwip/err.h"
-
+#include "sys/socket.h"
+#include "errno.h"
 #include "qm_kernel.h"
 
-#define LOG_TAG  "prodtst network"
+#define LOG_TAG  "prodtst tcp"
 
 /** @defgroup group_platform_network network
  *  @{
@@ -42,20 +43,26 @@ int32_t prodtst_tcp_establish(const char *host, uint16_t port)
     if (fd < 0) {
         QM_LOGE(LOG_TAG, "socket creat err");
         return 0;
-     }
+    }
 
-     addr.sin_family = AF_INET;
-     addr.sin_addr.s_addr = *(uint32_t *) (*hostent_content->h_addr_list);
-     addr.sin_port = htons(port);
+        // Marking the socket as non-blocking
+    int flags = fcntl(fd, F_GETFL);
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        QM_LOGI(LOG_TAG, "[sock=%d]: %s\n error=%d: %s", fd, "Unable to set socket non blocking", errno, strerror(errno));
+    }
 
-     QM_LOGI(LOG_TAG, "ip %s port %d fd %d\n", inet_ntoa(addr.sin_addr), port, fd);
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = *(uint32_t *) (*hostent_content->h_addr_list);
+    addr.sin_port = htons(port);
 
-     err = connect( fd, (struct sockaddr *) &addr, sizeof(addr) );
-     if (err < 0) {
-         QM_LOGE(LOG_TAG, "ERROR: Failed to connect socket %d.", fd);
-         close(fd);
-         return 0;
-       }
+    QM_LOGI(LOG_TAG, "ip %s port %d fd %d\n", inet_ntoa(addr.sin_addr), port, fd);
+
+    err = connect( fd, (struct sockaddr *) &addr, sizeof(addr) );
+    if (err < 0) {
+        QM_LOGE(LOG_TAG, "ERROR: Failed to connect socket %d.", fd);
+        close(fd);
+        return 0;
+    }
 
     return fd;
 }
@@ -110,9 +117,37 @@ int32_t prodtst_tcp_destroy(int fd)
 
 int32_t prodtst_tcp_write(int fd, const char *buf, uint32_t len, uint32_t timeout_ms)
 {
-    return send(fd, buf, len , 0);    
+    int to_write = len;
+    while (to_write > 0) {
+        int written = send(fd, buf + (len - to_write), to_write, 0);
+        if (written < 0 && errno != EINPROGRESS && errno != EAGAIN && errno != EWOULDBLOCK) {
+            QM_LOGE(LOG_TAG, "[sock=%d]: %s\n error=%d: %s", fd, "Error occurred during sending", errno, strerror(errno));
+            return -1;
+        }
+        to_write -= written;
+    }
+    return len;  
 }
 
+
+int32_t prodtst_tcp_try_read(int fd, char *buf, uint32_t len)
+{
+    int ret = recv(fd, buf, len, 0);
+    if (ret < 0) {
+        if (errno == EINPROGRESS || errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;   // Not an error
+        }
+        if (errno == ENOTCONN) {
+            QM_LOGE(LOG_TAG, "[sock=%d]: Connection closed", fd);
+            return -2;  // Socket has been disconnected
+        }
+
+        QM_LOGE(LOG_TAG, "[sock=%d]: %s\n error=%d: %s", fd, "Error occurred during receiving", errno, strerror(errno));
+        return -1;
+    }
+
+    return ret;
+}
 
 int32_t prodtst_tcp_read(int fd, char *buf, uint32_t len, uint32_t timeout_ms)
 {

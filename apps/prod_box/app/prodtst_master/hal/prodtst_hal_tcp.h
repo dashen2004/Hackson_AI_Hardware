@@ -1,5 +1,5 @@
-#ifndef __PRODTST_NETWORK_H__
-#define __PRODTST_NETWORK_H__
+#ifndef __PRODTST_HAL_TCP_H__
+#define __PRODTST_HAL_TCP_H__
 
 #include "qm_types.h"
 
@@ -68,9 +68,23 @@ int32_t prodtst_tcp_write(int fd, const char *buf, uint32_t len, uint32_t timeou
  */
 int32_t prodtst_tcp_read(int fd, char *buf, uint32_t len, uint32_t timeout_ms);
 
+/**
+ * @brief Read data from the specific TCP connection with timeout parameter.
+ *        The API will return immediately if 'len' be received from the specific TCP connection.
+ *
+ * @param [in] fd @n A descriptor identifying a TCP connection.
+ * @param [out] buf @n A pointer to a buffer to receive incoming data.
+ * @param [out] len @n The length, in bytes, of the data pointed to by the 'buf' parameter.
+ *
+ * @retval       -2 : TCP connection error occur.
+ * @retval       -1 : TCP connection be closed by remote server.
+ * @retval        0 : No any data be received in 'timeout_ms' timeout period.
+ * @retval (0, len] : The total number of bytes be received in 'timeout_ms' timeout period.
 
+ * @see None.
+ */
+int32_t prodtst_tcp_try_read(int fd, char *buf, uint32_t len);
 
 
 
 #endif
-

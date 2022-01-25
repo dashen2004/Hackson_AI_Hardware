@@ -3,12 +3,12 @@
 #include "cloudapi.h"
 #include "iot_device.h"
 
-#define QM_KV_PRODUCT_SUPPORT
+//#define QM_KV_PRODUCT_SUPPORT
 
 #ifndef QM_KV_PRODUCT_SUPPORT
-static uint32_t PRODUCT_ID = 1257157481;
-static char DEVICE_ID[DEVICE_ID_LEN+1] = "D0t281";
-static char DEVICE_SECRET[DEVICE_SECRET_LEN+1] = "9bf878a229dd4a2bbcf6d2da1b8f8197";
+static uint32_t PRODUCT_ID = 158689;
+static char DEVICE_ID[DEVICE_ID_LEN+1] = "cE5ww5";
+static char DEVICE_SECRET[DEVICE_SECRET_LEN+1] = "80cec92c26da40cf85f716668feeb4c4";
 
 #ifdef DYN_REG_SUPPORT
 static char PRODUCT_SECRET[PRODUCT_SECRET_LEN+1] = "b81c7d2aa2e04a4391a8129e9af2517c";
