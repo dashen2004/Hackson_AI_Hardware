@@ -145,14 +145,7 @@ static int channel_send(void *handle, char *buf, int size)
         return -QM_EINVAL;
     }
 
-    ret = prodtst_tcp_write(wifi_handle->fd, buf, size, 0);
-    if(ret > 0){
-        return ret;
-    }else{
-        close(wifi_handle->fd);
-        wifi_handle->fd = -1;
-        return -QM_EIO;
-    }
+    return prodtst_tcp_mgr_write(wifi_handle->fd, buf, size);
 }
 
 static int channel_recv(void *handle, char *buf, int size, int timeout)
@@ -163,14 +156,7 @@ static int channel_recv(void *handle, char *buf, int size, int timeout)
         return -QM_EINVAL;
     }
 
-    ret = prodtst_tcp_read(wifi_handle->fd, buf, size, timeout);
-    if(ret > 0){
-        return ret;
-    }else{
-        close(wifi_handle->fd);
-        wifi_handle->fd = -1;
-        return -QM_EIO;
-    }
+    return prodtst_tcp_mgr_read(wifi_handle->fd, buf, size, timeout);
 }
 
 static int channel_establish(void *param, void **handle)
@@ -187,7 +173,7 @@ static int channel_establish(void *param, void **handle)
 
     QM_LOGI(LOG_TAG, "tcp connecting...");
 
-    fd = prodtst_tcp_establish(param, CONFIG_QM_PRODTST_TCP_PORT);
+    fd = prodtst_tcp_mgr_establish(param, CONFIG_QM_PRODTST_TCP_PORT);
     if(fd >= 0){
         QM_LOGI(LOG_TAG, "tcp connected, fd: %d", fd);
         wifi_handle->fd = fd;
@@ -214,7 +200,7 @@ static int channel_destroy(void *handle)
         return -QM_EINVAL;
     }
 
-    prodtst_tcp_destroy(wifi_handle->fd);
+    prodtst_tcp_mgr_destroy(wifi_handle->fd);
     wifi_handle_reset(wifi_handle);
 
     QM_LOGI(LOG_TAG, "tcp closed");

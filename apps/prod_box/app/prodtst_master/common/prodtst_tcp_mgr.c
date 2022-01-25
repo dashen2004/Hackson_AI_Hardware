@@ -65,6 +65,16 @@ static void prodtst_tcp_info_init(void)
     }
 }
 
+static int prodtst_tcp_mgr_remain(void)
+{
+    for(int i = 0; i < CONFIG_QM_PRODTST_OBJ_NUM; i++){
+        if(g_prodtst_tcp_info.socket_info[i].fd == -1){
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static socket_info_t *prodtst_socket_get_byfd(int fd)
 {
     for(int i = 0; i < CONFIG_QM_PRODTST_OBJ_NUM; i++){
@@ -100,7 +110,8 @@ int prodtst_tcp_mgr_set(int fd)
     return -QM_EFULL;
 } 
 
-int prodtst_tcp_mgr_reset(int fd)
+
+int prodtst_tcp_mgr_destroy(int fd)
 {
     socket_info_t *socket_info = NULL;
     socket_info = prodtst_socket_get_byfd(fd);
@@ -109,9 +120,25 @@ int prodtst_tcp_mgr_reset(int fd)
     }
 
     socket_info->fd = -1;
-
     prodtst_stream_flush(socket_info->stream);
+
+    prodtst_tcp_destroy(fd);
+
     return QM_EOK;
+} 
+
+int prodtst_tcp_mgr_establish(char *host, uint16_t port)
+{
+    qm_err_t ret = QM_EOK;
+    if(!prodtst_tcp_mgr_remain()){
+        return -QM_EIO;
+    }
+    ret = prodtst_tcp_establish(host, port);
+    if(ret == -1){
+        return -QM_EIO;
+    }
+    
+    return prodtst_tcp_mgr_set(fd);
 } 
 
 int prodtst_tcp_mgr_read(int fd, uint8_t *buf, int size, uint32_t timeout)
@@ -161,6 +188,13 @@ int prodtst_tcp_mgr_deinit(void)
     ret = qm_task_exit(&g_prodtst_tcp_info.task);
     if(ret != QM_EOK){
         return ret;
+    }
+
+    for(int i = 0; i < CONFIG_QM_PRODTST_OBJ_NUM; i++){
+        if(g_prodtst_tcp_info.socket_info[i].stream){
+            prodtst_stream_destroy(g_prodtst_tcp_info.socket_info[i].stream);
+            g_prodtst_tcp_info.socket_info[i].stream = NULL;
+        }
     }
 
     return ret;
