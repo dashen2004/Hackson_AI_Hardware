@@ -40,7 +40,7 @@ void *prodtst_stream_creat(uint32_t size)
         goto __exit; 
     }
 
-    ret = qm_mutex_new(&stream->lock, 0);
+    ret = qm_mutex_new(&stream->lock);
     if(ret != QM_EOK){
         goto __exit; 
     }
@@ -128,20 +128,43 @@ int prodtst_stream_read(void *handle, uint8_t *buf, int size, uint32_t timeout)
         return -QM_EINVAL;
     }
 
-    do{
-        ret = qm_sem_wait(&stream->sem, t_left);
-        if(ret == QM_EOK){
-            qm_mutex_lock(&stream->lock, QM_WAIT_FOREVER);
-            len = qm_ringbuf_pop(&stream->ringbuf, buf, size);
-            qm_mutex_unlock(&stream->lock);
-            if(len > 0){
-                len_recv += len;
-            }else{
-                continue;
+    if(timeout == QM_WAIT_FOREVER){
+        do{
+            ret = qm_sem_wait(&stream->sem, QM_WAIT_FOREVER);
+            if(ret == QM_EOK){
+                qm_mutex_lock(&stream->lock, QM_WAIT_FOREVER);
+                len = qm_ringbuf_pop(&stream->ringbuf, buf, size);
+                qm_mutex_unlock(&stream->lock);
+                if(len > 0){
+                    len_recv += len;
+                }else{
+                    continue;
+                }
+
+                if(!qm_ringbuf_isempty((void*)stream)){
+                    qm_sem_signal(&stream->sem);
+                }
             }
 
-            if(!qm_ringbuf_isempty((void*)stream)){
-                qm_sem_signal(&stream->sem);
+        }while (len_recv < size);
+        
+    }else{
+
+        do{
+            ret = qm_sem_wait(&stream->sem, t_left);
+            if(ret == QM_EOK){
+                qm_mutex_lock(&stream->lock, t_left);
+                len = qm_ringbuf_pop(&stream->ringbuf, buf, size);
+                qm_mutex_unlock(&stream->lock);
+                if(len > 0){
+                    len_recv += len;
+                }else{
+                    continue;
+                }
+
+                if(!qm_ringbuf_isempty((void*)stream)){
+                    qm_sem_signal(&stream->sem);
+                }
             }
 
         } while ((len_recv < size) && ((t_left = _platform_time_left(t_end, qm_now_ms())) > 0));
@@ -163,6 +186,7 @@ int prodtst_stream_flush(void *handle)
 
 int prodtst_stream_write(void *handle, uint8_t *buf, int size)
 {
+    int len = 0;
     prodtst_stream_t *stream = NULL;
     stream = (prodtst_stream_t*)handle;
     if(handle == NULL){

@@ -4,38 +4,15 @@
 #include "qm_at.h"
 #include "qm_kernel.h"
 #include "prodtst_adapter.h"
-
-#ifndef CONFIG_QM_PRODTST_TASK_PRIO  
-#define CONFIG_QM_PRODTST_TASK_PRIO           19    
-#endif
-
-#ifndef CONFIG_QM_PRODTST_TASK_SIZE  
-#define CONFIG_QM_PRODTST_TASK_SIZE           5*1024    
-#endif
-
-#ifndef CONFIG_QM_PRODTST_OBJ_NUM
-#define CONFIG_QM_PRODTST_OBJ_NUM  6
-#endif
-
-#ifndef CONFIG_QM_PRODTST_CMD_NUM
-#define CONFIG_QM_PRODTST_CMD_NUM  10
-#endif
-
-#ifndef CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM
-#define CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM  10
-#endif
-
-#ifndef CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT
-#define CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT   2000
-#endif
+#include "prodtst_config.h"
 
 
 
 #define PRODTST_DATA_TYPE_MAX_LEN      (8)
 #define PRODTST_PLATFORM_MAX_LEN       (8) 
+#define PRODTST_DEV_TYPE_MAX_LEN       (8) 
 #define PRODTST_MOUDLE_NAME_MAX_LEN    (8) 
 #define PRODTST_MOUDLE_TYPE_MAX_LEN    (8) 
-
 
 
 typedef enum{
@@ -84,6 +61,51 @@ typedef struct{
 }prodtst_data_t;
 
 typedef struct{
+    char *platform;
+    char *module_name;
+    char *module_type;
+}prodtst_info_t;
+
+typedef struct{
+    char ip[16];
+    uint16_t port;
+}prodtst_ip_info_t;
+
+typedef struct{
+    char platform[PRODTST_PLATFORM_MAX_LEN+1];
+    char dev_type[PRODTST_DEV_TYPE_MAX_LEN+1];
+    char module_name[PRODTST_MOUDLE_NAME_MAX_LEN+1];
+    char module_type[PRODTST_MOUDLE_TYPE_MAX_LEN+1];
+}prodtst_config_info_t;
+
+typedef struct{
+    int type;
+    uint8_t uuid[16];
+    uint8_t *data;
+    int len;
+}prodtst_data_info_t;
+
+typedef struct{
+    uint8_t uuid[16];
+    int result;
+}prodtst_finish_info_t;
+
+typedef struct{
+    void *param;
+}prodtst_device_info_t;
+
+typedef struct{
+    int event;
+    union{
+        prodtst_ip_info_t ip_info;
+        prodtst_config_info_t config_info;
+        prodtst_data_info_t data_info;
+        prodtst_finish_info_t finish_info;
+        prodtst_device_info_t device_info;
+    }dat;
+}prodtst_notify_t;
+
+typedef struct{
     char *name;
     char *cmd;
     int timeout;
@@ -110,8 +132,6 @@ typedef struct{
     qm_task_t task;
     qm_queue_t notify;
     qm_mutex_t lock;
-    void *stream;
-    void *param;
     void *channel_handle;
     qm_at_client_t *at_client;
     prodtst_data_t data[CONFIG_QM_PRODTST_CMD_NUM];
@@ -123,54 +143,10 @@ typedef struct{
     qm_task_t task;
     qm_queue_t notify;
     prodtst_testsuite_t *testsuite;
+    prodtst_config_info_t config_info;
     prodtst_obj_t *prodtst_obj[CONFIG_QM_PRODTST_OBJ_NUM];
 }prodtst_context_t; 
 
-
-typedef struct{
-    char *platform;
-    char *module_name;
-    char *module_type;
-}prodtst_info_t;
-
-typedef struct{
-    char ip[16];
-    uint16_t port;
-}prodtst_ip_info_t;
-
-typedef struct{
-    char platform[PRODTST_PLATFORM_MAX_LEN+1];
-    char module_name[PRODTST_MOUDLE_NAME_MAX_LEN+1];
-    char module_type[PRODTST_MOUDLE_TYPE_MAX_LEN+1];
-}prodtst_config_info_t;
-
-typedef struct{
-    int type;
-    uint8_t uuid[16];
-    uint8_t *data;
-    
-    int len;
-}prodtst_data_info_t;
-
-typedef struct{
-    uint8_t uuid[16];
-    int result;
-}prodtst_finish_info_t;
-
-typedef struct{
-    void *param;
-}prodtst_device_info_t;
-
-typedef struct{
-    int event;
-    union{
-        prodtst_ip_info_t ip_info;
-        prodtst_config_info_t config_info;
-        prodtst_data_info_t data_info;
-        prodtst_finish_info_t finish_info;
-        prodtst_device_info_t device_info;
-    }dat;
-}prodtst_notify_t;
 
 
 int prodtst_init(void);

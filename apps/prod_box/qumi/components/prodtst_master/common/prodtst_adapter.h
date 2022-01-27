@@ -3,13 +3,13 @@
 
 #include "qm_types.h"
 
-#define CONFIG_QM_PRODTST_TCP_PORT    8888
 
 typedef struct{
 
     int (*init)(void *param);
     int (*deinit)(void);
-    int (*establish)(void *param, void **handle);
+    int (*channel_get)(void **handle);
+    int (*establish)(void *handle, void *param);
     int (*destroy)(void *handle);
     int (*send)(void *handle, char *buf, int size);
     int (*recv)(void *handle, char *buf, int size, int timeout);

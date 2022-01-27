@@ -1,7 +1,7 @@
 #ifndef __PRODTST_STREAM_H__
 #define __PRODTST_STREAM_H__
 
-
+#include "qm_types.h"
 
 void *prodtst_stream_creat(uint32_t size);
 
