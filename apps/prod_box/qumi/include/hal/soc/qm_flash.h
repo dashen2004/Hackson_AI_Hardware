@@ -46,6 +46,7 @@ typedef enum {
     QM_PARTITION_PARAMETER_1,  /**< For OTA args */
     QM_PARTITION_PARAMETER_2,  /**< For kv storage */
     QM_PARTITION_PARAMETER_3,  /**< For User defined */
+    
     QM_PARTITION_PARAMETER_4,  /**< Used by security */
     QM_PARTITION_BT_FIRMWARE,  /**< For bt firmware */
     QM_PARTITION_SPIFFS,       /**< For spiffs file system */

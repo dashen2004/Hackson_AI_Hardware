@@ -31,8 +31,8 @@
 #define CONFIG_QM_PRODTST_OBJ_NUM               6
 #endif
 
-#ifndef CONFIG_QM_PRODTST_CMD_NUM
-#define CONFIG_QM_PRODTST_CMD_NUM               10
+#ifndef CONFIG_QM_PRODTST_DATA_TABLE_NUM
+#define CONFIG_QM_PRODTST_DATA_TABLE_NUM         10
 #endif
 
 #ifndef CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM

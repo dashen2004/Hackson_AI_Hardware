@@ -110,7 +110,7 @@ typedef struct{
     char *cmd;
     int timeout;
     int recv_size;
-    int (*parser)(void *rsp, char **data);
+    int (*parser)(void *rsp, prodtst_data_t **data, int num);
 }prodtst_cmd_t;
 
 typedef struct{
@@ -126,6 +126,11 @@ typedef struct{
     prodtst_adapter_t *adapter;
 }prodtst_testsuite_t;
 
+typedef struct {
+    prodtst_data_t *data[CONFIG_QM_PRODTST_DATA_TABLE_NUM];    
+    uint16_t num[CONFIG_QM_PRODTST_DATA_TABLE_NUM];        
+}prodtst_data_table_t;
+
 typedef struct{
     char uuid[16];
     prodtst_state_t state;
@@ -134,7 +139,7 @@ typedef struct{
     qm_mutex_t lock;
     void *channel_handle;
     qm_at_client_t *at_client;
-    prodtst_data_t data[CONFIG_QM_PRODTST_CMD_NUM];
+    prodtst_data_table_t data_tbl;
 }prodtst_obj_t;
 
 

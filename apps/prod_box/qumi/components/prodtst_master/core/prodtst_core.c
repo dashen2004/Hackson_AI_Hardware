@@ -2,6 +2,7 @@
 #include "qm_errno.h"
 #include "prodtst_adapter.h"
 #include "qm_log.h"
+#include "prodtst_generic.h"
 
 #define LOG_TAG "prodtst"
 
@@ -15,8 +16,8 @@ static prodtst_obj_t *prodtst_obj_creat(void);
 static prodtst_obj_t *prodtst_obj_idle_get(void *handle);
 /***************************************/
 
-static int prodtst_data_reset(prodtst_obj_t *prodtst_obj);
-static int prodtst_data_print(prodtst_obj_t *prodtst_obj);
+static int prodtst_data_table_reset(prodtst_data_table_t *prodtst_tbl);
+static int prodtst_data_table_set(prodtst_data_table_t *prodtst_tbl, prodtst_data_t *prodtst_data, int num);
 
 static prodtst_context_t g_prodtst_ctx = {0};
 
@@ -133,27 +134,57 @@ int prodtst_stop(void)
     return ret;
 }
 
-static int prodtst_data_reset(prodtst_obj_t *prodtst_obj)
-{
-    int index = 0;
-    for(index = 0; index < CONFIG_QM_PRODTST_CMD_NUM; index++){
-        if(prodtst_obj->data[index].data){
-            qm_free(prodtst_obj->data[index].data);
-            prodtst_obj->data[index].data = NULL;
-        }
-    }
 
+static int prodtst_data_table_reset(prodtst_data_table_t *prodtst_tbl)
+{
+     int i = 0, j = 0;
+     prodtst_data_t *prodtst_data = NULL;
+     for(i = 0; i < CONFIG_QM_PRODTST_DATA_TABLE_NUM; i++){
+         prodtst_data = prodtst_tbl->data[i];
+         if(prodtst_data == NULL){
+             continue;
+         }
+                  
+         for(j = 0; j < prodtst_tbl->num[i]; j++){
+             prodtst_data = (prodtst_data+j);  
+             if(prodtst_data->data){
+                 qm_free(prodtst_data->data);
+             }
+             if(prodtst_data->name){
+                 qm_free(prodtst_data->name);
+             }
+             qm_free(prodtst_data);
+         }
+     }
+
+    memset(prodtst_tbl, 0, sizeof(prodtst_data_table_t));
     return QM_EOK;
+
 }
 
-static int prodtst_data_print(prodtst_obj_t *prodtst_obj)
+static int prodtst_data_table_set(prodtst_data_table_t *prodtst_tbl, prodtst_data_t *prodtst_data, int num)
+{
+    int i = 0, j = 0;
+    for(i = 0; i < CONFIG_QM_PRODTST_DATA_TABLE_NUM; i++){
+        if(prodtst_tbl->data[i] != NULL){
+            continue;
+        }
+        prodtst_tbl->data[i] = prodtst_data;
+        prodtst_tbl->num[i] = num;
+        return QM_EOK;
+    }
+
+    return -QM_EFULL;
+}
+
+static int prodtst_data_table_print(prodtst_data_table_t *prodtst_tbl)
 {
     int index = 0;
     for(index = 0; index < CONFIG_QM_PRODTST_CMD_NUM; index++){
         if(prodtst_obj->data[index].data){
             QM_LOGI(LOG_TAG, "cmd name:      %s", prodtst_obj->data[index].name);
             QM_LOGI(LOG_TAG, "response data: %s", prodtst_obj->data[index].data);
-        }
+        } 
     }
 
     return QM_EOK;
