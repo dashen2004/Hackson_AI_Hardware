@@ -1,24 +1,32 @@
-#include "prodtst_generic.h"
+#include "prodtst_cmd.h"
 #include "qm_at.h"
 #include "qm_errno.h"
 #include "qm_log.h"
 #include "qm_kernel.h"
+#include "prodtst_config.h"
+#include "prodtst_core.h"
 
 #define LOG_TAG "prodtst cmd"
 
-#define PRODTST_FW_VER_KEY             "fw_ver"
-#define PRODTST_FW_VER_MAX_LEN           16
-#define PRODTST_FW_NAME_KEY             "fw_name"
-#define PRODTST_FW_NAME_MAX_LEN          16
-#define PRODTST_WIFI_STA_MAC_KEY         "wifi_sta_mac"
-#define PRODTST_WIFI_AP_MAC_KEY         "wifi_ap_mac"
-#define PRODTST_MAC_MAX_LEN              24
-#define PRODTST_HW_CONFIG_KEY           "hw_config"
-#define PRODTST_HW_TOKEN_KEY            "hw_token"
-#define PRODTST_HW_CONFIG_MAX_LEN        4096
+
+static int fw_ver_parse(void *rsp, prodtst_data_t **data, int *num);
+static int fw_ver_creat(char *in_data, char **out);
+static int fw_name_parse(void *rsp, prodtst_data_t **data, int *num);
+static int wifi_sta_mac(void *rsp, prodtst_data_t **data, int *num);
+static int wifi_ap_mac(void *rsp, prodtst_data_t **data, int *num);
+static int prodtst_hw_config(void *rsp, prodtst_data_t **data, int *num);
 
 
-int prodtst_fw_ver(void *rsp, prodtst_data_t **data, int *num)
+prodtst_cmd_t prodtst_wifi_generic_cmd[] = {
+    {PRODTST_FW_VER_KEY,        "AT+FW_VER?",                          CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, PRODTST_FW_VER_MAX_LEN,  prodtst_fw_ver},
+    {"fw_name",                 "AT+FW_NAME?",                         CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, PRODTST_FW_NAME_MAX_LEN, prodtst_fw_name},
+    {"wifi_sta_mac",            "AT+MAC_STA?",                         CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, PRODTST_MAC_MAX_LEN,     wifi_sta_mac},
+    {"wifi_ap_mac",             "AT+MAC_AP?",                          CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, PRODTST_MAC_MAX_LEN,     wifi_ap_mac},
+    {"ap_rssi",                 "AT+RF_W="CONFIG_QM_PRODTST_AP_SSID"", CONFIG_QM_PRODTST_CMD_ACK_RSSI_TIMEOUT,    0,                       wifi_ssid_rssi},
+};
+
+
+static int prodtst_fw_ver(void *rsp, prodtst_data_t **data, int *num)
 {
     char *str = NULL;
     int ret = 0;
@@ -72,7 +80,7 @@ __exit:
     return ret;
 }
 
-int prodtst_fw_name(void *rsp, prodtst_data_t **data, int *num)
+static int prodtst_fw_name(void *rsp, prodtst_data_t **data, int *num)
 {
     char *str = NULL;
     int ret = 0;
@@ -126,7 +134,7 @@ __exit:
     return ret;
 }
 
-int wifi_sta_mac(void *rsp, prodtst_data_t **data, int *num)
+static int wifi_sta_mac(void *rsp, prodtst_data_t **data, int *num)
 {
     char *str = NULL;
     int ret = 0;
@@ -180,7 +188,7 @@ __exit:
     return ret;
 }
 
-int wifi_ap_mac(void *rsp, prodtst_data_t **data, int *num)
+static int wifi_ap_mac(void *rsp, prodtst_data_t **data, int *num)
 {
     char *str = NULL;
     int ret = 0;
@@ -234,8 +242,11 @@ __exit:
     return ret;
 }
 
-int prodtst_hw_config(void *rsp, prodtst_data_t **data, int *num)
+static int wifi_ssid_rssi(void *rsp, prodtst_data_t **data, int *num)
 {
 
-    return QM_EOK;
+    
+
+
+    
 }

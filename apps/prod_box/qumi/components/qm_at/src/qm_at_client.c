@@ -13,7 +13,7 @@
 #define QM_AT_RESP_END_FAIL               "FAIL"
 #define QM_AT_END_CR_LF                   "\r\n"
 
-static qm_at_client_t at_client_table[CONFIG_QM_AT_CLIENT_NUM_MAX] = { 0 };
+static qm_at_client_t at_client_table[CONFIG_QM_AT_CLIENT_MAX_NUM] = { 0 };
 
 extern int32_t qm_at_vprintfln(void *channel, const char *format, va_list args);
 extern void qm_at_print_raw_cmd(const char *type, const char *cmd, uint32_t size);
@@ -502,8 +502,8 @@ static qm_err_t qm_check_urc_tbl(qm_at_urc_t *urc_tbl, uint16_t urc_num)
     uint16_t i = 0, j = 0;
 
     for (i = 0; i < urc_num; i++) {
-        if (strlen(urc_tbl[i].cmd_prefix) >= CONFIG_QM_AT_CMD_NAME_LEN ||
-            strlen(urc_tbl[i].cmd_suffix) >= CONFIG_QM_AT_CMD_NAME_LEN) {
+        if (strlen(urc_tbl[i].cmd_prefix) >= CONFIG_QM_AT_CMD_NAME_MAX_LEN ||
+            strlen(urc_tbl[i].cmd_suffix) >= CONFIG_QM_AT_CMD_NAME_MAX_LEN) {
             return -QM_EINVAL;
         }
 
@@ -571,7 +571,7 @@ int32_t qm_at_client_obj_register_urc(qm_at_client_t *client, qm_at_urc_t *urc_t
     }
 
     urc_table = &client->urc_table;
-    for (i = 0; i < CONFIG_QM_AT_CMD_TABLE_NUM; i++) {
+    for (i = 0; i < CONFIG_QM_AT_CMD_TABLE_MAX_NUM; i++) {
         if ((urc_table->at_urc_table[i] == NULL) || (urc_table->at_urc_num[i] == 0)) {
             urc_table->at_urc_table[i] = urc_tbl;
             urc_table->at_urc_num[i] = urc_num;
@@ -618,7 +618,7 @@ static qm_at_urc_t *qm_at_client_get_urc_obj(qm_at_client_t *client)
 
     urc_table = &client->urc_table;
 
-    for (i = 0; i < CONFIG_QM_AT_URC_TABLE_NUM; i++){
+    for (i = 0; i < CONFIG_QM_AT_URC_TABLE_MAX_NUM; i++){
 
         for (j = 0; j < urc_table->at_urc_num[i]; j++){
 
@@ -783,11 +783,11 @@ qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
         return NULL;
     }
 
-    for (idx = 0; idx < CONFIG_QM_AT_CLIENT_NUM_MAX && at_client_table[idx].recv_line_buf; idx++);
+    for (idx = 0; idx < CONFIG_QM_AT_CLIENT_MAX_NUM && at_client_table[idx].recv_line_buf; idx++);
 
-    if (idx >= CONFIG_QM_AT_CLIENT_NUM_MAX)
+    if (idx >= CONFIG_QM_AT_CLIENT_MAX_NUM)
     {
-        QM_LOGE(LOG_TAG, "AT client initialize failed! Check the maximum number(%d) of AT client.", CONFIG_QM_AT_CLIENT_NUM_MAX);
+        QM_LOGE(LOG_TAG, "AT client initialize failed! Check the maximum number(%d) of AT client.", CONFIG_QM_AT_CLIENT_MAX_NUM);
         return NULL;
     }
 
@@ -795,6 +795,7 @@ qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
     client->recv_line_buf = param->recv_buf;
     client->recv_buf_len = param->recv_buf_len;
     client->channel.channel_type = param->channel_type;
+    client->channel.handle = param->handle;
     client->channel.send = param->send;
     client->channel.recv = param->recv;
 

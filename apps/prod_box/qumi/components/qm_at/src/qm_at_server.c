@@ -20,10 +20,10 @@
 #define AT_CMD_CR                      '\r'
 #define AT_CMD_LF                      '\n'
 
-static qm_at_server_t local_at_server = {0};
+static qm_at_server_t at_server_table[CONFIG_QM_AT_SERVER_MAX_NUM] = {0};
 
-static qm_at_cmd_table_t* qm_at_cmd_table_get(void);
-
+static qm_at_server_t *qm_at_server_get_by_channel(qm_at_channel_t *at_channel);
+static int32_t qm_at_server_internel_deinit(qm_at_server_t *server);
 
 extern int32_t qm_at_vprintf(void *channel, const char *format, va_list args);
 extern int32_t qm_at_vprintfln(void *channel, const char *format, va_list args);
@@ -94,14 +94,22 @@ int32_t qm_at_req_parse_args(const char *req_args, const char *req_expr, ...)
  */
 void qm_at_server_print_result(void *channel, qm_at_result_t result)
 {
+    qm_at_server_t *at_server = NULL;
+    at_server = qm_at_server_get_by_channel(channel);
     switch (result)
     {
     case QM_AT_RESULT_OK:
         qm_at_server_printfln(channel, "OK");
+        if(at_server->cb){
+            at_server->cb(QM_AT_RESULT_OK, at_server->arg);
+        }
         break;
 
     case QM_AT_RESULT_FAILE:
         qm_at_server_printfln(channel, "ERROR");
+        if(at_server->cb){
+            at_server->cb(QM_AT_RESULT_FAILE, at_server->arg);
+        }
         break;
 
     case QM_AT_RESULT_NULL:
@@ -134,10 +142,14 @@ void qm_at_server_print_all_cmd(void *channel)
 {
     uint16_t i = 0, j = 0;
 
+    qm_at_channel_t *at_channel = (qm_at_channel_t*)channel;
+
+    qm_at_server_t *at_server = qm_at_server_get_by_channel(at_channel);
+
     qm_at_server_printfln(channel, "Commands list : ");
 
-    qm_at_cmd_table_t *cmd_table = qm_at_cmd_table_get();
-    for (i = 0; i < CONFIG_QM_AT_CMD_TABLE_NUM; i++) {
+    qm_at_cmd_table_t *cmd_table = &at_server->cmd_table;
+    for (i = 0; i < CONFIG_QM_AT_CMD_TABLE_MAX_NUM; i++) {
 
         for (j = 0; j < cmd_table->at_cmd_num[i]; j++) {
             qm_at_cmd_t *cmd_func = (qm_at_cmd_t *) ((cmd_table->at_cmd_table[i] + j));
@@ -215,17 +227,6 @@ int32_t qm_at_server_recv(void *channel, char *buf, uint32_t size, int32_t timeo
     }
 
     return read_idx;
-}
-
-qm_at_server_t *qm_at_server_get(void)
-{
-    return &local_at_server;
-}
-
-static qm_at_cmd_table_t* qm_at_cmd_table_get(void)
-{
-    qm_at_server_t *at_server = qm_at_server_get();
-    return &at_server->cmd_table;
 }
 
 static qm_err_t qm_at_check_args(const char *args, const char *args_format)
@@ -323,13 +324,13 @@ static qm_err_t qm_at_cmd_process(void *channel, qm_at_cmd_t *cmd, const char *c
             qm_at_server_print_result(channel, QM_AT_RESULT_CMD_ERR);
             return -QM_ERROR;
         }
-
+#if 0
         if(qm_at_check_args(cmd_args, cmd->args_expr) < 0)
         {
             qm_at_server_print_result(channel, QM_AT_RESULT_CHECK_FAILE);
             return -QM_ERROR;
         }
-
+#endif
         result = cmd->setup(channel, cmd_args);
         qm_at_server_print_result(channel, result);
     }
@@ -352,14 +353,14 @@ static qm_err_t qm_at_cmd_process(void *channel, qm_at_cmd_t *cmd, const char *c
     return QM_EOK;
 }
 
-static qm_at_cmd_t *qm_at_find_cmd(char *cmd_name)
+static qm_at_cmd_t *qm_at_find_cmd(qm_at_server_t *at_server, char *cmd_name)
 {
     uint16_t i = 0, j = 0;
     qm_at_cmd_t *cmd_func = NULL;
 
     QM_ASSERT(cmd_name);
-    qm_at_cmd_table_t *cmd_table = qm_at_cmd_table_get();
-    for (i = 0; i < CONFIG_QM_AT_CMD_TABLE_NUM; i++) {
+    qm_at_cmd_table_t *cmd_table = &at_server->cmd_table;
+    for (i = 0; i < CONFIG_QM_AT_CMD_TABLE_MAX_NUM; i++) {
 
         for (j = 0; j < cmd_table->at_cmd_num[i]; j++) {
             cmd_func = (qm_at_cmd_t *) ((cmd_table->at_cmd_table[i] + j));
@@ -397,13 +398,12 @@ static qm_err_t qm_at_cmd_get_name(const char *cmd_buffer, char *cmd_name)
 }
 
 
-static int32_t qm_at_channel_index_get(qm_at_channel_t *at_channel)
+static qm_at_server_t *qm_at_server_get_by_channel(qm_at_channel_t *at_channel)
 {
     uint16_t index = 0;
-    qm_at_server_t *at_server = qm_at_server_get();
-    for(index = 0; index < CONFIG_QM_AT_CHANNEL_NUM; index++){
-        if(&at_server->at_channel[index] && &at_server->at_channel[index] == at_channel){
-            return index;
+    for(index = 0; index < CONFIG_QM_AT_SERVER_MAX_NUM; index++){
+        if(&at_server_table[index].channel == at_channel){
+            return &at_server_table[index];
         }
     }
     return -QM_ERROR;
@@ -411,20 +411,17 @@ static int32_t qm_at_channel_index_get(qm_at_channel_t *at_channel)
 
 int32_t qm_at_server_echo_mode_set(void *channel, uint8_t echo_mode)
 {
-    int32_t channel_index = 0;
-    qm_at_channel_t *at_channel = (qm_at_channel_t*)channel;
-    qm_at_server_t *at_server = qm_at_server_get();
+    qm_at_server_t *at_server = qm_at_server_get_by_channel(channel);
 
     if(channel == NULL || (echo_mode != QM_AT_ECHO_MODE_CLOSE && echo_mode != QM_AT_ECHO_MODE_OPEN)){
-        return QM_EINVAL;
+        return -QM_EINVAL;
     }
 
-    channel_index = qm_at_channel_index_get(at_channel);
-    if(channel_index < 0){
-        return QM_EINVAL;
+    if(at_server == NULL){
+        return -QM_EINVAL;
     }
 
-    at_server->echo_mode[channel_index] = echo_mode;
+    at_server->echo_mode = echo_mode;
 
     return QM_EOK;
 }
@@ -438,17 +435,23 @@ static void at_server_parser(void* arg)
 
     int32_t channel_index = 0;
     int32_t ret = 0;
-    qm_at_channel_t *at_channel = (void*)arg;
-    qm_at_server_t *at_server = qm_at_server_get();
+    qm_at_server_t *at_server = (qm_at_server_t*)arg;
+    qm_at_channel_t *at_channel = &at_server->channel;
     
-    char cur_cmd_name[CONFIG_QM_AT_CMD_NAME_LEN] = { 0 };
+    char cur_cmd_name[CONFIG_QM_AT_CMD_NAME_MAX_LEN] = { 0 };
     qm_at_cmd_t *cur_cmd = NULL;
     char *cur_cmd_args = NULL;
     char ch = '\0', last_ch = '\0';
 
-    while (1)
+    while (!at_server->exit)
     {
         ret = at_channel->recv(at_channel->handle, &ch, 1, QM_WAIT_FOREVER);
+        if(ret < 0){
+            if(at_server->cb){
+                at_server->cb(QM_AT_RESULT_CHANNEL_DOWN, at_server->arg);
+            }
+            continue;
+        }
         if(ret != 1){
             continue;
         }
@@ -457,12 +460,7 @@ static void at_server_parser(void* arg)
             break;
         }
 
-        channel_index = qm_at_channel_index_get(at_channel);
-        if(channel_index < 0){
-            goto __retry;
-        }
-
-        if (at_server->echo_mode[channel_index])
+        if (at_server->echo_mode)
         {
             if (ch == AT_CMD_CR || (ch == AT_CMD_LF && last_ch != AT_CMD_CR))
             {
@@ -502,7 +500,7 @@ static void at_server_parser(void* arg)
             goto __retry;
         }
 
-        cur_cmd = qm_at_find_cmd(cur_cmd_name);
+        cur_cmd = qm_at_find_cmd(at_server, cur_cmd_name);
         if (!cur_cmd)
         {
             qm_at_server_print_result((void*)at_channel, QM_AT_RESULT_CMD_ERR);
@@ -519,6 +517,10 @@ __retry:
         memset(at_channel->recv_buf, 0x00, at_channel->recv_buf_len);
         at_channel->cur_recv_len = 0;
     }
+
+    memset(at_channel, 0, sizeof(qm_at_channel_t));
+
+    qm_task_exit(&at_server->task);
 }
 
 static qm_err_t qm_check_cmd_tbl(qm_at_cmd_t *cmd_tbl, uint16_t cmd_num)
@@ -526,7 +528,7 @@ static qm_err_t qm_check_cmd_tbl(qm_at_cmd_t *cmd_tbl, uint16_t cmd_num)
     uint16_t i = 0, j = 0;
 
     for (i = 0; i < cmd_num; i++) {
-        if (strlen(cmd_tbl[i].name) >= CONFIG_QM_AT_CMD_NAME_LEN) {
+        if (strlen(cmd_tbl[i].name) >= CONFIG_QM_AT_CMD_NAME_MAX_LEN) {
             return -QM_EINVAL;
         }
 
@@ -574,23 +576,23 @@ static qm_err_t qm_check_cmd_name_and_callback(qm_at_cmd_table_t *cmd_table, uin
     return QM_EOK;
 }
 
-int32_t qm_at_register_commands(qm_at_cmd_t *cmd_tbl, uint16_t cmd_num)
+int32_t qm_at_register_commands(qm_at_server_t *at_server, qm_at_cmd_t *cmd_tbl, uint16_t cmd_num)
 {
     uint16_t i = 0;
     qm_err_t ret = QM_EOK;
     qm_at_cmd_table_t *cmd_table = NULL;
 
     if (cmd_tbl == NULL || cmd_num == 0) {
-        return QM_EINVAL;
+        return -QM_EINVAL;
     }
-
+        
     ret = qm_check_cmd_tbl(cmd_tbl, cmd_num);
     if (ret != QM_EOK) {
         return ret;
     }
 
-    cmd_table = qm_at_cmd_table_get();
-    for (i = 0; i < CONFIG_QM_AT_CMD_TABLE_NUM; i++) {
+    cmd_table = &at_server->cmd_table;
+    for (i = 0; i < CONFIG_QM_AT_CMD_TABLE_MAX_NUM; i++) {
         if ((cmd_table->at_cmd_table[i] == NULL) || (cmd_table->at_cmd_num[i] == 0)) {
             cmd_table->at_cmd_table[i] = cmd_tbl;
             cmd_table->at_cmd_num[i] = cmd_num;
@@ -608,47 +610,59 @@ int32_t qm_at_register_commands(qm_at_cmd_t *cmd_tbl, uint16_t cmd_num)
     return ret;
 }
 
-
-
-void* qm_at_server_init(qm_at_server_param_t *param)
+qm_at_server_t *qm_at_server_init(qm_at_server_param_t *param)
 {
     int idx = 0;
     qm_at_channel_t *at_channel = NULL;
     qm_at_server_t *at_server = NULL;
-    qm_task_t task = {0};
-
-    static uint8_t is_base_init = 0;
 
     if(param == NULL){
         return -QM_EINVAL;
     }
 
-    at_server = qm_at_server_get();
+    for (idx = 0; idx < CONFIG_QM_AT_SERVER_MAX_NUM && at_server_table[idx].channel.recv_buf; idx++);
 
-    for (idx = 0; idx < CONFIG_QM_AT_CHANNEL_NUM && at_server->at_channel[idx].recv_buf; idx++);
+    at_server = &at_server_table[idx];
 
-    at_channel = &at_server->at_channel[idx];
-    at_server->echo_mode[idx] = param->echo_mode;
+    at_channel = &at_server->channel;
+    at_server->echo_mode = param->echo_mode;
     at_channel->channel_type = param->channel_type;
+    at_channel->handle = param->handle;
     at_channel->recv_buf = param->recv_buf;
     at_channel->recv_buf_len = param->recv_buf_len;
     at_channel->recv = param->recv;
     at_channel->send = param->send;
 
     memset(at_channel->recv_buf, 0x00, at_channel->recv_buf_len);
+
+    at_server->parser_entry = at_server_parser;
     
-    if(!at_server->parser_entry){
-        at_server->parser_entry = at_server_parser;
+    extern int32_t qm_at_base_cmd_init(qm_at_server_t *server);
+    qm_at_base_cmd_init(at_server);
+
+    qm_task_new(&at_server->task, "at_server", at_server->parser_entry, (void*)at_server, CONFIG_QM_AT_SERVER_TASK_SIZE, CONFIG_QM_AT_SERVER_TASK_PRIO);
+
+    return (void*)at_server;
+
+}
+
+
+int32_t qm_at_server_deinit(qm_at_server_t *server)
+{
+    if(server == NULL){
+        return -QM_EINVAL;
     }
+    server->exit = 1;
+    return QM_EOK;
+}
 
-    if(!is_base_init){
-        is_base_init = 1;
-        extern int32_t qm_at_base_cmd_init(void);
-        qm_at_base_cmd_init();
+int32_t qm_at_server_register_result_cb(qm_at_server_t *server, at_result_cb cb, void *arg)
+{
+    if(server == NULL){
+        return -QM_EINVAL;
     }
-
-    qm_task_new(&task, "at_server", at_server->parser_entry, (void*)at_channel, CONFIG_QM_AT_SERVER_TASK_SIZE, CONFIG_QM_AT_SERVER_TASK_PRIO);
-
+    server->arg = arg;
+    server->cb = cb;
     return QM_EOK;
 }
 

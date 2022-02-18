@@ -39,7 +39,7 @@ int32_t qm_adc_init(qm_adc_dev_t *adc);
  *
  * @return  0 : on success,  otherwise is error
  */
-int32_t qm_adc_value_get(qm_adc_dev_t *adc, void *output);
+int32_t qm_adc_value_get(qm_adc_dev_t *adc, void *output, uint32_t timeout);
 
 /**
  * ADC sampling start

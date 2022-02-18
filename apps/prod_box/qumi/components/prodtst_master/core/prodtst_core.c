@@ -21,36 +21,13 @@ static int prodtst_data_table_set(prodtst_data_table_t *prodtst_tbl, prodtst_dat
 
 static prodtst_context_t g_prodtst_ctx = {0};
 
-static prodtst_cmd_t wifi_prodtst_generic_cmd[] = {
-    {"fw_ver",       "AT+FW_VER?",  CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, 32, prodtst_fw_ver},
-    {"fw_name",      "AT+FW_NAME?", CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, 32, prodtst_fw_name},
-    {"wifi_sta_mac", "AT+MAC_STA?", CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, 32, wifi_sta_mac},
-    {"wifi_ap_mac",  "AT+MAC_AP?",  CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, 32, wifi_ap_mac},
-};
-
-#if 0
-static prodtst_cmd_t wifi_ble_prodtst_generic_cmd[] = {
-    {"AT+FW_VER?", PRODTST_CMD_ACK_DEFAULT_TIMEOUT},
-    {"AT+FW_NAME?", PRODTST_CMD_ACK_DEFAULT_TIMEOUT},
-    {"AT+MAC_STA?", PRODTST_CMD_ACK_DEFAULT_TIMEOUT},
-    {"AT+MAC_AP?", PRODTST_CMD_ACK_DEFAULT_TIMEOUT},
-    {"AT+MAC_BLE?", PRODTST_CMD_ACK_DEFAULT_TIMEOUT},
-
-};
-
-#endif
-
-static prodtst_cmd_t harmony_prodtst_specific_cmd[] = {
-    {"AT+CERT_HW?", CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, 4096, prodtst_hw_config},
-
-};
 
 extern prodtst_adapter_t wifi_prodtst_adapter;
 
 static prodtst_testsuite_t  g_prodtst_testsuite[] = {
-    {"ali", "W70", "wifi", 4096, 1, wifi_prodtst_generic_cmd, 4, harmony_prodtst_specific_cmd, 1, &wifi_prodtst_adapter},
+    {"ali", "W70", "wifi", 4096, 1, &prodtst_wifi_generic_cmd, 4, &prodtst_hw_specific_cmd, 1, &wifi_prodtst_adapter},
 
-
+ 
 };
 
 #define PRODTST_TESTSUITE_NUM (sizeof(g_prodtst_testsuite)/sizeof(g_prodtst_testsuite[0]))
@@ -63,9 +40,9 @@ static prodtst_testsuite_t *prodtst_testsuite_alloc(char *platform, char *module
     }
 
     for(i = 0; i < PRODTST_TESTSUITE_NUM; i++){
-        if( (strlen(platform) == strlen(g_prodtst_testsuite[i].platform)) && (strcmp(platform, g_prodtst_testsuite[i].platform)) && 
-            (strlen(module_name) == strlen(g_prodtst_testsuite[i].module_name)) && (strcmp(module_name, g_prodtst_testsuite[i].module_name)) &&
-            (strlen(module_type) == strlen(g_prodtst_testsuite[i].module_type)) && (strcmp(module_type, g_prodtst_testsuite[i].module_type))){
+        if( (strlen(platform) == strlen(g_prodtst_testsuite[i].platform)) && (strcmp(platform, g_prodtst_testsuite[i].platform) == 0) && 
+            (strlen(module_name) == strlen(g_prodtst_testsuite[i].module_name)) && (strcmp(module_name, g_prodtst_testsuite[i].module_name) == 0) &&
+            (strlen(module_type) == strlen(g_prodtst_testsuite[i].module_type)) && (strcmp(module_type, g_prodtst_testsuite[i].module_type) == 0)){
 
                 return &g_prodtst_testsuite[i];
         }
@@ -137,25 +114,25 @@ int prodtst_stop(void)
 
 static int prodtst_data_table_reset(prodtst_data_table_t *prodtst_tbl)
 {
-     int i = 0, j = 0;
-     prodtst_data_t *prodtst_data = NULL;
-     for(i = 0; i < CONFIG_QM_PRODTST_DATA_TABLE_NUM; i++){
-         prodtst_data = prodtst_tbl->data[i];
-         if(prodtst_data == NULL){
-             continue;
-         }
-                  
-         for(j = 0; j < prodtst_tbl->num[i]; j++){
-             prodtst_data = (prodtst_data+j);  
-             if(prodtst_data->data){
-                 qm_free(prodtst_data->data);
-             }
-             if(prodtst_data->name){
-                 qm_free(prodtst_data->name);
-             }
-             qm_free(prodtst_data);
-         }
-     }
+    int i = 0, j = 0;
+    prodtst_data_t *prodtst_data = NULL;
+    for(i = 0; i < CONFIG_QM_PRODTST_DATA_TABLE_NUM; i++){
+        prodtst_data = prodtst_tbl->data[i];
+        if(prodtst_data == NULL){
+            continue;
+        }
+                
+        for(j = 0; j < prodtst_tbl->num[i]; j++){
+            prodtst_data = (prodtst_data+j);  
+            if(prodtst_data->data){
+                qm_free(prodtst_data->data);
+            }
+            if(prodtst_data->name){
+                qm_free(prodtst_data->name);
+            }
+            qm_free(prodtst_data);
+        }
+    }
 
     memset(prodtst_tbl, 0, sizeof(prodtst_data_table_t));
     return QM_EOK;
@@ -179,14 +156,25 @@ static int prodtst_data_table_set(prodtst_data_table_t *prodtst_tbl, prodtst_dat
 
 static int prodtst_data_table_print(prodtst_data_table_t *prodtst_tbl)
 {
-    int index = 0;
-    for(index = 0; index < CONFIG_QM_PRODTST_CMD_NUM; index++){
-        if(prodtst_obj->data[index].data){
-            QM_LOGI(LOG_TAG, "cmd name:      %s", prodtst_obj->data[index].name);
-            QM_LOGI(LOG_TAG, "response data: %s", prodtst_obj->data[index].data);
-        } 
-    }
 
+    int i = 0, j = 0;
+    prodtst_data_t *prodtst_data = NULL;
+    for(i = 0; i < CONFIG_QM_PRODTST_DATA_TABLE_NUM; i++){
+        prodtst_data = prodtst_tbl->data[i];
+        if(prodtst_data == NULL){
+            continue;
+        }  
+        for(j = 0; j < prodtst_tbl->num[i]; j++){
+            prodtst_data = (prodtst_data+j);  
+            if(prodtst_data->name){
+                QM_LOGI(LOG_TAG, "cmd name:      %s", prodtst_data->name);
+            }
+            if(prodtst_data->data){
+                QM_LOGI(LOG_TAG, "response data: %s", prodtst_data->data);
+            }
+            qm_free(prodtst_data);
+        }
+    }
     return QM_EOK;
 }
 
@@ -197,10 +185,11 @@ static int prodtst_generic_and_specific_handler(prodtst_obj_t *prodtst_obj)
     qm_err_t ret = QM_EOK;
     qm_at_response_t *resp = NULL;
     prodtst_testsuite_t *testsuite = NULL;
+    prodtst_data_t *prodtst_data = NULL;
 
     testsuite = prodtst_testsuite_get();
 
-    prodtst_obj->state = PRODTST_STATE_GENERIC;
+    prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_GENERIC);
 
     for(num = 0; num < testsuite->generic_cmd_num; num++){
 
@@ -211,35 +200,38 @@ static int prodtst_generic_and_specific_handler(prodtst_obj_t *prodtst_obj)
             goto __exit;
         }
 
-        ret = testsuite->generic_cmd[num].parser(resp, &prodtst_obj->data[num].data);
+        ret = testsuite->generic_cmd[num].parser(resp, &prodtst_data, &num);
         if(ret != QM_EOK){
             QM_LOGE(LOG_TAG, "parse generic response failed");
             goto __exit;
         }
-
-        prodtst_obj->data[index++].name = testsuite->generic_cmd[num].name;
+        if(prodtst_data && num > 0){
+            ret = prodtst_data_table_set(&prodtst_obj->data_tbl, prodtst_data, num);
+        }
         qm_at_client_delete_resp(resp);
         resp = NULL;
     }
 
-    prodtst_obj->state = PRODTST_STATE_SPECIFIC;
+    prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_SPECIFIC);
 
     for(num = 0; num < testsuite->specific_cmd_num; num++){
 
         resp = qm_at_client_create_resp(testsuite->specific_cmd[num].recv_size, 0, testsuite->specific_cmd[num].timeout);
-        ret = qm_at_client_obj_exec_cmd(prodtst_obj->at_client, resp, testsuite->specific_cmd[num].cmd, testsuite->specific_cmd[num].timeout);
+        ####ret = qm_at_client_obj_exec_cmd(prodtst_obj->at_client, resp, testsuite->specific_cmd[num].cmd, testsuite->specific_cmd[num].timeout);
         if(ret != QM_EOK){
             QM_LOGE(LOG_TAG, "wait specific response timeout");
             goto __exit;
         }
-
-        ret = testsuite->generic_cmd[num].parser(resp, &prodtst_obj->data[num].data);
+        prodtst_data = NULL;
+        num = 0;
+        ret = testsuite->specific_cmd[num].parser(resp, &prodtst_data, &num);
         if(ret != QM_EOK){
             QM_LOGE(LOG_TAG, "parse specific response failed");
             goto __exit;
         }
-
-        prodtst_obj->data[index++].name = testsuite->generic_cmd[num].name;
+        if(prodtst_data && num > 0){
+            ret = prodtst_data_table_set(&prodtst_obj->data_tbl, prodtst_data, num);
+        }
         qm_at_client_delete_resp(resp);
         resp = NULL;
     }
@@ -253,7 +245,7 @@ __exit:
         resp = NULL;
     }
 
-    prodtst_data_reset(prodtst_obj);
+    prodtst_data_table_reset(prodtst_obj);
 
     return ret;
 }
@@ -318,7 +310,7 @@ static void prodtst_obj_task(void *arg)
 
             QM_LOGI(LOG_TAG, "generic and specific test success");
 
-            prodtst_data_print(prodtst_obj);
+            prodtst_data_table_print(prodtst_obj);
 
             break;
 
@@ -484,7 +476,7 @@ static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
         return ret;
     }
 
-    prodtst_data_reset(prodtst_obj);
+    prodtst_data_table_reset(prodtst_obj);
 
     ret = qm_task_exit(&prodtst_obj->task);
     if(ret != QM_EOK){

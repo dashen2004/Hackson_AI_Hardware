@@ -67,6 +67,10 @@ void qm_log_print_simple(unsigned int log_level, const char *fmt, ...)
         level_prt = ' ';
     }
 
+    if(!log_mutex.hdl){
+        qm_mutex_new(&log_mutex);
+    }
+    
     ret = qm_mutex_lock(&log_mutex, QM_WAIT_FOREVER);
     if (ret != 0)
     {

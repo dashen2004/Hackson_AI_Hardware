@@ -17,43 +17,49 @@ extern "C" {
 
 
 #ifndef CONFIG_QM_AT_SERVER_TASK_SIZE  
-#define CONFIG_QM_AT_SERVER_TASK_SIZE           6*1024    
+#define CONFIG_QM_AT_SERVER_TASK_SIZE            6*1024    
 #endif
 
 #ifndef CONFIG_QM_AT_SERVER_TASK_PRIO  
-#define CONFIG_QM_AT_SERVER_TASK_PRIO           20    
+#define CONFIG_QM_AT_SERVER_TASK_PRIO             20    
 #endif
 
 #ifndef CONFIG_QM_AT_CLIENT_TASK_SIZE  
-#define CONFIG_QM_AT_CLIENT_TASK_SIZE           6*1024    
+#define CONFIG_QM_AT_CLIENT_TASK_SIZE             6*1024    
 #endif
 
 #ifndef CONFIG_QM_AT_CLIENT_TASK_PRIO  
-#define CONFIG_QM_AT_CLIENT_TASK_PRIO           20    
+#define CONFIG_QM_AT_CLIENT_TASK_PRIO             20    
 #endif
 
-#ifndef CONFIG_QM_AT_CHANNEL_NUM
-#define CONFIG_QM_AT_CHANNEL_NUM           2    
+/* the maximum number of supported AT servers */
+#ifndef CONFIG_QM_AT_SERVER_MAX_NUM
+#define CONFIG_QM_AT_SERVER_MAX_NUM                3
 #endif
 
-#ifndef CONFIG_QM_AT_CMD_NAME_LEN
-#define CONFIG_QM_AT_CMD_NAME_LEN           16
+/* the maximum number of supported AT clients */
+#ifndef CONFIG_QM_AT_CLIENT_MAX_NUM
+#define CONFIG_QM_AT_CLIENT_MAX_NUM                6
+#endif
+
+#ifndef CONFIG_QM_AT_CMD_NAME_MAX_LEN
+#define CONFIG_QM_AT_CMD_NAME_MAX_LEN              16
 #endif
 
 #ifndef CONFIG_QM_AT_END_MARK_LEN
-#define CONFIG_QM_AT_END_MARK_LEN            4
+#define CONFIG_QM_AT_END_MARK_LEN                  4
 #endif
 
 #ifndef CONFIG_QM_AT_CMD_MAX_LEN
-#define CONFIG_QM_AT_CMD_MAX_LEN             128
+#define CONFIG_QM_AT_CMD_MAX_LEN                  128
 #endif
 
-#ifndef CONFIG_QM_AT_CMD_TABLE_NUM
-#define CONFIG_QM_AT_CMD_TABLE_NUM            10
+#ifndef CONFIG_QM_AT_CMD_TABLE_MAX_NUM
+#define CONFIG_QM_AT_CMD_TABLE_MAX_NUM            10
 #endif
 
-#ifndef CONFIG_QM_AT_URC_TABLE_NUM
-#define CONFIG_QM_AT_URC_TABLE_NUM            5
+#ifndef CONFIG_QM_AT_URC_TABLE_MAX_NUM
+#define CONFIG_QM_AT_URC_TABLE_MAX_NUM            5
 #endif
 
 #define QM_AT_CMD_END_MARK_CRLF
@@ -65,16 +71,6 @@ extern "C" {
 #define QM_AT_CMD_END_MARK                "\r"
 #elif defined(QM_AT_CMD_END_MARK_LF)
 #define QM_AT_CMD_END_MARK                "\n"
-#endif
-
-#ifndef CONFIG_QM_AT_SERVER_RECV_BUFF_LEN
-#define CONFIG_QM_AT_SERVER_RECV_BUFF_LEN        256
-#endif
-
-
-/* the maximum number of supported AT clients */
-#ifndef CONFIG_QM_AT_CLIENT_NUM_MAX
-#define CONFIG_QM_AT_CLIENT_NUM_MAX              6
 #endif
 
 
@@ -113,7 +109,10 @@ typedef enum
     QM_AT_RESULT_CMD_ERR = -3,            /* AT command format error or No way to execute */
     QM_AT_RESULT_CHECK_FAILE = -4,        /* AT command expression format is error */
     QM_AT_RESULT_PARSE_FAILE = -5,        /* AT command arguments parse is error */
+    QM_AT_RESULT_CHANNEL_DOWN = -6,       /* AT command channel is error */
 }qm_at_result_t;
+
+typedef void (*at_result_cb)(int result, void *arg);
 
 #if CONFIG_QM_AT_SERVER
 
@@ -128,10 +127,10 @@ typedef struct
 }qm_at_cmd_t;
 
 typedef struct {
-    qm_at_cmd_t *at_cmd_table[CONFIG_QM_AT_CMD_TABLE_NUM];     /* user input at cmd table */
-    uint16_t at_cmd_num[CONFIG_QM_AT_CMD_TABLE_NUM];         /* command number every table*/
+    qm_at_cmd_t *at_cmd_table[CONFIG_QM_AT_CMD_TABLE_MAX_NUM];     /* user input at cmd table */
+    uint16_t at_cmd_num[CONFIG_QM_AT_CMD_TABLE_MAX_NUM];         /* command number every table*/
     uint16_t cmd_num;                                       /* command number */
-}qm_at_cmd_table_t;
+}qm_at_cmd_table_t; 
 
 typedef struct{
 
@@ -140,19 +139,20 @@ typedef struct{
     char *recv_buf;
     uint32_t recv_buf_len;
     void *handle;
-    int (*send)(char *buf, int size);
-    int (*recv)(char *buf, int size, int timeout);
-
+    int (*send)(void *handle, char *buf, int size);
+    int (*recv)(void *handle, char *buf, int size, int timeout);
 }qm_at_server_param_t;
 
 typedef struct
 {
-    uint8_t echo_mode[CONFIG_QM_AT_CHANNEL_NUM];
-    qm_at_channel_t at_channel[CONFIG_QM_AT_CHANNEL_NUM];
-
+    uint8_t echo_mode;
+    qm_task_t task;
+    int exit;
+    qm_at_channel_t channel;
     qm_at_cmd_table_t cmd_table;
     void (*parser_entry)(void *arg);
-
+    void *arg;
+    at_result_cb cb;
 }qm_at_server_t;
 
 #endif /* CONFIG_QM_AT_SERVER */
@@ -196,8 +196,8 @@ typedef struct
 
 typedef struct at_urc_table
 {
-    qm_at_urc_t *at_urc_table[CONFIG_QM_AT_URC_TABLE_NUM];    /* user input at urc table */
-    uint16_t at_urc_num[CONFIG_QM_AT_URC_TABLE_NUM];  /* urc number */
+    qm_at_urc_t *at_urc_table[CONFIG_QM_AT_URC_TABLE_MAX_NUM];    /* user input at urc table */
+    uint16_t at_urc_num[CONFIG_QM_AT_URC_TABLE_MAX_NUM];  /* urc number */
     uint16_t urc_num;         
 }qm_at_urc_table_t;
 
@@ -242,7 +242,10 @@ typedef struct qm_at_client
 
 #if CONFIG_QM_AT_SERVER
 /* AT server initialize and start */
-void *qm_at_server_init(qm_at_server_param_t *param);
+qm_at_server_t *qm_at_server_init(qm_at_server_param_t *param);
+int32_t qm_at_server_deinit(qm_at_server_t *server);
+int32_t qm_at_server_register_result_cb(qm_at_server_t *server, at_result_cb cb, void *arg);
+int32_t qm_at_register_commands(qm_at_server_t *server, qm_at_cmd_t *cmd_tbl, uint16_t cmd_num);
 
 /* AT server send command execute result to AT device */
 void qm_at_server_printf(void *channel, const char *format, ...);
@@ -258,8 +261,6 @@ int32_t qm_at_server_send(void *channel, const char *buf, uint32_t size);
 int32_t qm_at_server_recv(void *channel, char *buf, uint32_t size, int32_t timeout);
 
 int32_t qm_at_server_echo_mode_set(void *channel, uint8_t echo_mode);
-
-int32_t qm_at_register_commands(qm_at_cmd_t *cmd_tbl, uint16_t cmd_num);
 
 #endif /* CONFIG_QM_AT_SERVER */
 

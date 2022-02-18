@@ -94,6 +94,10 @@ static int channel_recv(void *handle, char *buf, int size, int timeout)
         return -QM_EINVAL;
     }
 
+    if(timeout == QM_WAIT_FOREVER){
+        timeout = 0;
+    }
+
     return prodtst_tcp_mgr_read(handle, (uint8_t*)buf, size, timeout);
 }
 

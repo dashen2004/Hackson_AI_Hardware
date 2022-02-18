@@ -110,6 +110,7 @@ typedef struct{
     char *cmd;
     int timeout;
     int recv_size;
+    int (*creat)(char *param, char **cmd, );
     int (*parser)(void *rsp, prodtst_data_t **data, int num);
 }prodtst_cmd_t;
 

@@ -130,7 +130,7 @@ menu "Serial flasher config"
             bool "120 MHz"
         config ESPTOOLPY_FLASHFREQ_80M
             bool "80 MHz"
-        config ESPTOOLPY_FLASHFREQ_40M
+        config  
             bool "40 MHz"
         config ESPTOOLPY_FLASHFREQ_26M
             bool "26 MHz"

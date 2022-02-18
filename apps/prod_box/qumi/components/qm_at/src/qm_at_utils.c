@@ -116,18 +116,18 @@ int32_t qm_at_vprintfln(void *channel, const char *format, va_list args)
 
     last_cmd_len = vsnprintf(buf, len, format, args);
     if(last_cmd_len > len){
-        big_buf = (char*)qm_malloc(last_cmd_len+1+4);
+        big_buf = (char*)qm_malloc(last_cmd_len + 1 + 4);
         if(big_buf == NULL){
             return -QM_ENOMEM;
         }
         buf = big_buf+2;
-        last_cmd_len = vsnprintf(buf, last_cmd_len+1, format, args);
+        last_cmd_len = vsnprintf(buf, last_cmd_len + 1, format, args);
         memcpy(big_buf, "\r\n", 2);
-        memcpy(big_buf + last_cmd_len, "\r\n", 2);
+        memcpy(big_buf + last_cmd_len + 2, "\r\n", 2);
 #if CONFIG_QM_AT_PRINT_RAW_CMD
-        qm_at_print_raw_cmd("sendline", big_buf, last_cmd_len+4);
+        qm_at_print_raw_cmd("sendline", big_buf, last_cmd_len + 4);
 #endif
-        ret = at_channel->send(at_channel->handle, big_buf, last_cmd_len+4);
+        ret = at_channel->send(at_channel->handle, big_buf, last_cmd_len + 4);
         qm_free(big_buf);
         return ret;
 
