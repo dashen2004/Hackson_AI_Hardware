@@ -692,8 +692,9 @@ static void client_parser(void *arg)
     qm_at_urc_t *urc = NULL;
     qm_at_response_t *resp = NULL;
     qm_at_client_t *client = (void*)arg;
+    qm_task_t task = {0};
 
-    while(1)
+    while(!client->exit)
     {
         if (qm_at_recv_readline(client) > 0)
         {
@@ -759,10 +760,17 @@ static void client_parser(void *arg)
             }
             else
             {
-//                log_d("unrecognized line: %.*s", client->recv_line_len, client->recv_line_buf);
+                //log_d("unrecognized line: %.*s", client->recv_line_len, client->recv_line_buf);
             }
         }
     }
+    qm_sem_free(&client->resp_notice);
+    qm_mutex_free(&client->lock);
+
+    memcpy(&task, &client->task, sizeof(task));
+    memset(client, 0, sizeof(qm_at_client_t));
+
+    qm_task_exit(&task);
 }
 
 /**
@@ -777,6 +785,7 @@ static void client_parser(void *arg)
 qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
 {
     int idx = 0;
+    qm_err_t ret = QM_EOK;
     qm_at_client_t *client = NULL;
 
     if(param == NULL){
@@ -803,39 +812,52 @@ qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
         client->parser_entry= client_parser;
     }
 
-    qm_mutex_new(&client->lock);
-    qm_sem_new(&client->resp_notice, 0);
-
-    qm_task_new(&client->task, "at_client", client->parser_entry, (void*)client, CONFIG_QM_AT_CLIENT_TASK_SIZE, CONFIG_QM_AT_CLIENT_TASK_PRIO);
-
+    ret = qm_mutex_new(&client->lock);
+    if(ret != QM_EOK){
+        goto __exit;
+    }
+    ret = qm_sem_new(&client->resp_notice, 0);
+    if(ret != QM_EOK){
+        goto __exit;
+    }
+    ret = qm_task_new(&client->task, "at_client", client->parser_entry, (void*)client, CONFIG_QM_AT_CLIENT_TASK_SIZE, CONFIG_QM_AT_CLIENT_TASK_PRIO);
+    if(ret != QM_EOK){
+        goto __exit;
+    }
     return client;
+
+__exit:
+    if(client->lock.hdl){
+        qm_mutex_free(&client->lock);
+    }
+    if(client->resp_notice.hdl){
+        qm_sem_free(&client->resp_notice);
+    }
+
+    memset(client, 0, sizeof(qm_at_client_t));
+
+    return NULL;
 }
 
 
 int32_t qm_at_client_deinit(qm_at_client_t *client)
 {
-    qm_err_t ret = QM_EOK;
-
     if(client == NULL){
         return -QM_EINVAL;
     }
 
-    ret = qm_task_exit(&client->task);
-    if(ret != QM_EOK){
-        return ret;
-    }
+    client->exit = 1;
+    return QM_EOK;
+}
 
-    ret = qm_sem_free(&client->resp_notice);
-    if(ret != QM_EOK){
-        return ret;
+int32_t qm_at_client_register_result_cb(qm_at_client_t *client, at_result_cb cb, void *arg)
+{
+    if(client == NULL || cb == NULL){
+        return -QM_EINVAL;
     }
-
-    ret = qm_mutex_free(&client->lock);
-    if(ret != QM_EOK){
-        return ret;
-    }
-
-    return ret;
+    client->arg = arg;
+    client->cb = cb;
+    return QM_EOK;
 }
 
 #endif /* CONFIG_QM_AT_CLIENT */

@@ -232,10 +232,13 @@ typedef struct qm_at_client
 
     qm_sem_t resp_notice;
     qm_mutex_t lock;
+    int exit;
     qm_task_t task;
 
     void (*parser_entry)(void *arg);
-
+    void *arg;
+    at_result_cb cb;
+    
 }qm_at_client_t;
 
 #endif /* CONFIG_QM_AT_CLIENT */
@@ -269,6 +272,7 @@ int32_t qm_at_server_echo_mode_set(void *channel, uint8_t echo_mode);
 /* AT client initialize and start*/
 qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param);
 int32_t qm_at_client_deinit(qm_at_client_t *client);
+int32_t qm_at_client_register_result_cb(qm_at_client_t *client, at_result_cb cb, void *arg);
 /* ========================== multiple AT client function ============================ */
 
 /* get first AT client object */

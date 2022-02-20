@@ -437,6 +437,7 @@ static void at_server_parser(void* arg)
     int32_t ret = 0;
     qm_at_server_t *at_server = (qm_at_server_t*)arg;
     qm_at_channel_t *at_channel = &at_server->channel;
+    qm_task_t task = {0};
     
     char cur_cmd_name[CONFIG_QM_AT_CMD_NAME_MAX_LEN] = { 0 };
     qm_at_cmd_t *cur_cmd = NULL;
@@ -518,9 +519,11 @@ __retry:
         at_channel->cur_recv_len = 0;
     }
 
-    memset(at_channel, 0, sizeof(qm_at_channel_t));
+    memcpy(&task, &at_server->task, sizeof(task));
 
-    qm_task_exit(&at_server->task);
+    memset(at_server, 0, sizeof(qm_at_server_t));
+
+    qm_task_exit(&task);
 }
 
 static qm_err_t qm_check_cmd_tbl(qm_at_cmd_t *cmd_tbl, uint16_t cmd_num)
