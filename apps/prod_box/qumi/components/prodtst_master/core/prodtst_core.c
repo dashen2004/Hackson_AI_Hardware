@@ -217,7 +217,7 @@ static int prodtst_generic_and_specific_handler(prodtst_obj_t *prodtst_obj)
     for(num = 0; num < testsuite->specific_cmd_num; num++){
 
         resp = qm_at_client_create_resp(testsuite->specific_cmd[num].recv_size, 0, testsuite->specific_cmd[num].timeout);
-        ####ret = qm_at_client_obj_exec_cmd(prodtst_obj->at_client, resp, testsuite->specific_cmd[num].cmd, testsuite->specific_cmd[num].timeout);
+        ret = qm_at_client_obj_exec_cmd(prodtst_obj->at_client, resp, testsuite->specific_cmd[num].cmd, testsuite->specific_cmd[num].timeout);
         if(ret != QM_EOK){
             QM_LOGE(LOG_TAG, "wait specific response timeout");
             goto __exit;

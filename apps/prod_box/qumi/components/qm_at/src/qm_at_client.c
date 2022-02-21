@@ -164,7 +164,7 @@ const char *qm_at_client_resp_get_line(qm_at_response_t *resp, uint32_t resp_lin
  * @return != NULL: response line buffer
  *          = NULL: no matching data
  */
-const char *qm_at_resp_get_line_by_kw(qm_at_response_t *resp, const char *keyword)
+const char *qm_at_client_resp_get_line_by_kw(qm_at_response_t *resp, const char *keyword)
 {
     char *resp_buf = resp->buf;
     char *resp_line_buf = NULL;
@@ -233,7 +233,7 @@ int32_t qm_at_client_resp_parse_line_args(qm_at_response_t *resp, uint32_t resp_
  *          0 : parsed without match
  *         >0 : the number of arguments successfully parsed
  */
-int32_t at_resp_parse_line_args_by_kw(qm_at_response_t *resp, const char *keyword, const char *resp_expr, ...)
+int32_t qm_at_client_resp_parse_line_args_by_kw(qm_at_response_t *resp, const char *keyword, const char *resp_expr, ...)
 {
     va_list args;
     int32_t resp_args_num = 0;
