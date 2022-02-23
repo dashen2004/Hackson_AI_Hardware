@@ -2,7 +2,7 @@
 #include "qm_errno.h"
 #include "prodtst_adapter.h"
 #include "qm_log.h"
-#include "prodtst_generic.h"
+#include "prodtst_cmd.h"
 
 #define LOG_TAG "prodtst"
 
@@ -25,7 +25,7 @@ static prodtst_context_t g_prodtst_ctx = {0};
 extern prodtst_adapter_t wifi_prodtst_adapter;
 
 static prodtst_testsuite_t  g_prodtst_testsuite[] = {
-    {"ali", "W70", "wifi", 4096, 1, &prodtst_wifi_generic_cmd, 4, &prodtst_hw_specific_cmd, 1, &wifi_prodtst_adapter},
+    {"ali", "W70", "wifi", 4096, 1, &prodtst_wifi_generic_cmd, 4, &prodtst_hw_wifi_specific_cmd, 1, &wifi_prodtst_adapter},
 
  
 };

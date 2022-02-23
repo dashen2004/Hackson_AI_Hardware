@@ -9,7 +9,7 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "network.h"
-
+#include "cloud.h"
 
 int user_debug_enabled = 1;
 
@@ -25,9 +25,9 @@ void app_main()
     }
 
     network_init();
-    
 
-    extern void xjiang_cloud_init(void);
+
+
     xjiang_cloud_init();
 
 }

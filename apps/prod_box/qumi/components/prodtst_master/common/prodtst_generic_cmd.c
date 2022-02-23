@@ -14,14 +14,14 @@ static int fw_name_parse(void *rsp, prodtst_data_t **data, int *num);
 static int sta_mac_parse(void *rsp, prodtst_data_t **data, int *num);
 static int ap_mac_parse(void *rsp, prodtst_data_t **data, int *num);
 static int ap_rssi_parse(void *rsp, prodtst_data_t **data, int *num);
-
+static int ap_rssi_cmd_creat(char *cmd, char *param, char **out);
 
 prodtst_cmd_t prodtst_wifi_generic_cmd[] = {
-    {PRODTST_FW_VER_KEY,        "AT+FW_VER?",         CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL,              fw_ver_parse      },
-    {PRODTST_FW_NAME_KEY,       "AT+FW_NAME?",        CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL,              fw_name_parse     },
-    {"wifi_sta_mac",            "AT+MAC_STA?",        CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL,              sta_mac_parse     },
-    {"wifi_ap_mac",             "AT+MAC_AP?",         CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL,              ap_mac_parse      },
-    {"ap_rssi",                 "AT+RF_W",            CONFIG_QM_PRODTST_CMD_ACK_RSSI_TIMEOUT,    ap_rssi_cmd_creat, ap_rssi_parse     },
+    {PRODTST_FW_VER_KEY,        "AT+FW_VER?",         PRODTST_FW_VER_MAX_LEN,   CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL,              fw_ver_parse      },
+    {PRODTST_FW_NAME_KEY,       "AT+FW_NAME?",        PRODTST_FW_NAME_MAX_LEN,  CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL,              fw_name_parse     },
+    {"wifi_sta_mac",            "AT+MAC_STA?",        PRODTST_MAC_MAX_LEN,      CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL,              sta_mac_parse     },
+    {"wifi_ap_mac",             "AT+MAC_AP?",         PRODTST_MAC_MAX_LEN,      CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL,              ap_mac_parse      },
+    {"ap_rssi",                 "AT+RF_W",            PRODTST_AP_RSSI_MAX_LEN,  CONFIG_QM_PRODTST_CMD_ACK_RSSI_TIMEOUT,    ap_rssi_cmd_creat, ap_rssi_parse     },
 };
 
 

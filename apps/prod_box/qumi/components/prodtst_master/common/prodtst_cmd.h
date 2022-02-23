@@ -38,11 +38,11 @@
 
 extern prodtst_cmd_t prodtst_wifi_generic_cmd[];
 extern prodtst_cmd_t prodtst_hw_wifi_specific_cmd[];
-extern prodtst_cmd_t prodtst_hw_wifi_special_cmd[];
 
 
 
 prodtst_data_t *prodtst_data_creat(int num);
+int prodtst_data_destroy(prodtst_data_t *prodtst_data, int num);
 int prodtst_name_copy(prodtst_data_t *prodtst_data, char *name, int len);
 int prodtst_data_copy(prodtst_data_t *prodtst_data, char *data, int len);
 int prodtst_data_zalloc(prodtst_data_t *prodtst_data, int len);

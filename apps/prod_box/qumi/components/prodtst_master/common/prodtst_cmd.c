@@ -37,13 +37,14 @@ int prodtst_data_destroy(prodtst_data_t *prodtst_data, int num)
 
 int prodtst_name_copy(prodtst_data_t *prodtst_data, char *name, int len)
 {
+    qm_err_t ret = QM_EOK;
+
     if(prodtst_data == NULL || name == NULL || len <= 0){
         return -QM_EINVAL;
     }
     prodtst_data->name = (char*)qm_malloc(len+1);
     if(prodtst_data->name == NULL){
-        ret = -QM_ENOMEM;
-        goto __exit;
+        return -QM_ENOMEM;
     }
 
     memset(prodtst_data->name, 0, len+1);
@@ -53,13 +54,13 @@ int prodtst_name_copy(prodtst_data_t *prodtst_data, char *name, int len)
 
 int prodtst_data_copy(prodtst_data_t *prodtst_data, char *data, int len)
 {
+    qm_err_t ret = QM_EOK;
     if(prodtst_data == NULL || data == NULL || len <= 0){
         return -QM_EINVAL;
     }
     prodtst_data->data = (char*)qm_malloc(len+1);
     if(prodtst_data->data == NULL){
-        ret = -QM_ENOMEM;
-        goto __exit;
+        return -QM_ENOMEM;
     }
 
     memset(prodtst_data->data, 0, len+1);
@@ -69,13 +70,13 @@ int prodtst_data_copy(prodtst_data_t *prodtst_data, char *data, int len)
 
 int prodtst_data_zalloc(prodtst_data_t *prodtst_data, int len)
 {
+    qm_err_t ret = QM_EOK;
     if(prodtst_data == NULL || len <= 0){
         return -QM_EINVAL;
     }
     prodtst_data->data = (char*)qm_malloc(len+1);
     if(prodtst_data->data == NULL){
-        ret = -QM_ENOMEM;
-        goto __exit;
+        return -QM_ENOMEM;
     }
     memset(prodtst_data->data, 0, len+1);
     return QM_EOK;

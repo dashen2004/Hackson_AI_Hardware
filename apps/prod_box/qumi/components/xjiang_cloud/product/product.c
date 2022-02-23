@@ -17,8 +17,6 @@ static char PRODUCT_SECRET[PRODUCT_SECRET_LEN+1] = "b81c7d2aa2e04a4391a8129e9af2
 #endif
 
 
-
-
 int hal_get_product_id(unsigned int *product_id)
 {
     int len = sizeof(uint32_t);

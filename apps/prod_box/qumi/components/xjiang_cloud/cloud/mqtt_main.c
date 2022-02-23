@@ -1066,6 +1066,53 @@ int mqtt_loop(void *pclient)
          
 #endif
 
+#ifdef PRODTST_SUPPORT
+
+        case MSG_TYPE_PRODTST_REPORT:
+
+            hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_PRODTST_REPORT_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
+            need_send = 1;
+                     
+        break;
+
+        case MSG_TYPE_PRODTST_CONFIG_REPLY:
+            hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_PRODTST_CONFIG_REPLY_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
+            need_send = 1;
+           
+        break;
+
+        case MSG_TYPE_PRODTST_TEST:
+            hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_PRODTST_TEST_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
+            need_send = 1;
+                       
+        break;
+        
+        case MSG_TYPE_PRODTST_GET_REPLY:
+            hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_PRODTST_GET_REPLY_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
+            need_send = 1;
+
+        break;
+
+        case MSG_TYPE_PRODTST_SET_REPLY:
+            hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_PRODTST_SET_REPLY_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
+            need_send = 1;
+        
+        break;
+
+        case MSG_TYPE_PRODTST_RESULT_REPLY:
+            hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_PRODTST_RESULT_REPLY_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
+            need_send = 1;
+
+        break;
+
+        case MSG_TYPE_PRODTST_SPECIAL_REPLY:
+            hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_PRODTST_SPECIAL_REPLY_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
+            need_send = 1; 
+
+        break;
+
+#endif
+
         case MSG_TYPE_TOKEN_REPORT:
 
             hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_BIND_TOKEN_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
