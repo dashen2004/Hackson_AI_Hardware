@@ -3,8 +3,9 @@
 #include "prodtst_adapter.h"
 #include "qm_log.h"
 #include "prodtst_cmd.h"
+#include "prodtst_special.h"
 
-#define LOG_TAG "prodtst"
+#define LOG_TAG "prodtst core"
 
 
 /**********prodtst object declaration**********/
@@ -13,7 +14,7 @@ static int prodtst_obj_state_set(prodtst_obj_t *prodtst_obj, int state);
 static int prodtst_obj_state_get(prodtst_obj_t *prodtst_obj, int *state);
 static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj);
 static prodtst_obj_t *prodtst_obj_creat(void);
-static prodtst_obj_t *prodtst_obj_idle_get(void *handle);
+static prodtst_obj_t *prodtst_obj_idle_get();
 /***************************************/
 
 static int prodtst_data_table_reset(prodtst_data_table_t *prodtst_tbl);
@@ -250,103 +251,6 @@ __exit:
     return ret;
 }
 
-
-static void prodtst_obj_task(void *arg)
-{
-    uint32_t size = 0;
-    qm_err_t ret = QM_EOK;
-    prodtst_adapter_t *adapter = NULL;
-    prodtst_testsuite_t *testsuite = NULL;
-    prodtst_notify_t notify = {0};
-    qm_at_client_param_t at_param = {0};
-    prodtst_obj_t *prodtst_obj = (prodtst_obj_t*)arg;
-
-    prodtst_obj->state = PRODTST_STATE_SETUP;
-
-    adapter = prodtst_adapter_get();
-
-    testsuite = prodtst_testsuite_get();
-
-    at_param.recv_buf = (char*)qm_malloc(testsuite->recv_size);
-    if(at_param.recv_buf == NULL){
-        ret = -QM_ENOMEM;
-        goto __exit;
-    }
-    at_param.recv_buf_len = testsuite->recv_size;
-    at_param.handle = prodtst_obj->channel_handle;
-    at_param.send = adapter->send;
-    at_param.recv = adapter->recv;
-
-    prodtst_obj->at_client = qm_at_client_init(&at_param);
-    if(prodtst_obj->at_client == NULL){
-        ret = -QM_ERROR;
-        goto __exit;
-    }
-    
-    while(1){
-        ret = qm_queue_recv(&prodtst_obj->notify, &notify, &size, QM_WAIT_FOREVER);
-        if(ret != QM_EOK){
-            continue;
-        }
-
-        switch(notify.event){
-
-        case PRODTST_EVENT_DEVICE_FOUND:
-
-            prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_SETUP);
-            ret = adapter->establish(notify.dat.device_info.param, &prodtst_obj->channel_handle);
-            if(ret != QM_EOK){
-                goto __exit;
-            }
-
-            QM_LOGI(LOG_TAG, "channel established");
-
-            prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_GENERIC);
-
-            ret = prodtst_generic_and_specific_handler(prodtst_obj);
-            if(ret != QM_EOK){
-                goto __exit;
-            }
-
-            QM_LOGI(LOG_TAG, "generic and specific test success");
-
-            prodtst_data_table_print(prodtst_obj);
-
-            break;
-
-        case PRODTST_EVENT_SPECIAL:
-
-            
-
-
-
-            break;
-        
-        default:
-            break;
-    
-        }
-         
- 
-
-
-    }
-
-__exit:
-
-    if(at_param.recv_buf){
-        qm_free(at_param.recv_buf);
-        at_param.recv_buf = NULL;
-    }
-    
-    if(prodtst_obj->at_client){
-        qm_at_client_deinit(prodtst_obj->at_client);
-    }
-    
-    qm_task_exit(&prodtst_obj->task);
-}
-
-
 static int prodtst_obj_state_set(prodtst_obj_t *prodtst_obj, int state)
 {
     qm_mutex_lock(&prodtst_obj->lock, QM_WAIT_FOREVER);
@@ -366,10 +270,9 @@ static int prodtst_obj_state_get(prodtst_obj_t *prodtst_obj, int *state)
     return QM_EOK;
 }
 
-static prodtst_obj_t *prodtst_obj_idle_get(void *handle)
+static prodtst_obj_t *prodtst_obj_idle_get(void)
 {
     int index = -1, i = 0;
-    int state = 0;
     prodtst_obj_t *prodtst_obj = NULL;
     void *channel_handle = NULL;
     prodtst_adapter_t *adapter = NULL;
@@ -377,10 +280,8 @@ static prodtst_obj_t *prodtst_obj_idle_get(void *handle)
 
     for(i = 0; i < CONFIG_QM_PRODTST_OBJ_NUM; i++){
         prodtst_obj = g_prodtst_ctx.prodtst_obj[i];
-        channel_handle = prodtst_obj->channel_handle;
-        if(prodtst_obj && channel_handle == handle){
-            prodtst_obj_state_get(prodtst_obj, &state);
-            if(state == PRODTST_EVENT_NONE){
+        if(prodtst_obj){
+            if(prodtst_obj->state == PRODTST_STATE_NONE){
                 return prodtst_obj;
             }
         }else{
@@ -395,10 +296,10 @@ static prodtst_obj_t *prodtst_obj_idle_get(void *handle)
     prodtst_obj = prodtst_obj_creat();
     if(prodtst_obj){
         g_prodtst_ctx.prodtst_obj[index] = prodtst_obj;
-        g_prodtst_ctx.prodtst_obj[index]->channel_handle = handle;
     }
 
     return prodtst_obj;
+
 }
 
 static prodtst_obj_t *prodtst_obj_creat(void)
@@ -430,7 +331,7 @@ static prodtst_obj_t *prodtst_obj_creat(void)
         goto __exit;
     }
 
-    return ret;
+    return prodtst_obj;
 
 __exit:
 
@@ -452,7 +353,7 @@ __exit:
         prodtst_obj = NULL;
     }
 
-    return ret;
+    return NULL;
 }
 
 static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
@@ -492,37 +393,18 @@ static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
 
 /********************************************************************************************/
 
-int prodtst_found_notify(void *param)
-{
-    prodtst_notify_t notify = {0};
-    if(param == NULL){
-        return -QM_EINVAL;
-    }
-
-    notify.event = PRODTST_EVENT_DEVICE_FOUND;
-    notify.dat.device_info.param = param;
-
-    return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
-}
-
 int prodtst_ip_notify(char *ip)
 {
-    uint8_t *data = NULL;
+    prodtst_notify_t notify = {0};
     if(ip == NULL){
         return -QM_EINVAL;
     }
-
-    data = (uint8_t*)qm_malloc(strlen(ip)+1);
-    if(data == NULL){
-        return -QM_ENOMEM;
-    }
-    memset(data, 0, strlen(ip)+1);
-    memcpy(data, ip, strlen(ip));
-
-    return prodtst_found_notify(data);
+    notify.event = PRODTST_EVENT_DEVICE_FOUND;
+    memset(notify.dat.ip_info.ip, 0, strlen(ip));
+    return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 }
 
-int prodtst_data_notify(int event, char* type, char *uuid, uint8_t *data, int len)
+int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data, int len)
 {
     prodtst_notify_t notify = {0};
     if(type == NULL){
@@ -548,6 +430,7 @@ int prodtst_data_notify(int event, char* type, char *uuid, uint8_t *data, int le
         return -QM_ENOMEM;
     }
 
+    notify.dat.data_info.id = id;
     memcpy(notify.dat.data_info.data, data, len);
     memcpy(notify.dat.data_info.uuid, uuid, 16);
 
@@ -577,6 +460,36 @@ int prodtst_config_notify(char *platform, char *module_name, char *module_type)
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 }
 
+int prodtst_special_notify(char *uuid, char *action, char *data, int len)
+{
+    char *m_data = NULL;
+    prodtst_notify_t notify = {0};
+    if(uuid == NULL || action == NULL){
+        return -QM_EINVAL;
+    }
+
+
+    notify.event = PRODTST_EVENT_SPECIAL;
+    memcpy(notify.dat.special_info.uuid, uuid, 16);
+
+    if(strlen(action) > sizeof(notify.dat.special_info.action)-1){
+        return -QM_EINVAL;
+    }
+    
+    memcpy(notify.dat.special_info.action, action, strlen(action));
+
+    if(data && len > 0){
+        m_data = (char*)qm_malloc(len+1);
+        if(m_data == NULL){
+            return -QM_ENOMEM;
+        }
+        memset(m_data, 0, len+1);
+        memcpy(m_data, data, len);
+    }
+
+    return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
+}
+
 int prodtst_finish_notify(char *uuid, int result)
 {
     prodtst_notify_t notify = {0};
@@ -590,6 +503,107 @@ int prodtst_finish_notify(char *uuid, int result)
 
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 
+}
+
+static void prodtst_obj_task(void *arg)
+{
+    uint32_t size = 0;
+    qm_err_t ret = QM_EOK;
+    prodtst_adapter_t *adapter = NULL;
+    prodtst_testsuite_t *testsuite = NULL;
+    prodtst_notify_t notify = {0};
+    qm_at_client_param_t at_param = {0};
+    prodtst_obj_t *prodtst_obj = (prodtst_obj_t*)arg;
+
+    prodtst_obj->state = PRODTST_STATE_SETUP;
+
+    adapter = prodtst_adapter_get();
+
+    testsuite = prodtst_testsuite_get();
+
+    at_param.recv_buf = (char*)qm_malloc(testsuite->recv_size);
+    if(at_param.recv_buf == NULL){
+        ret = -QM_ENOMEM;
+        goto __exit;
+    }
+
+    at_param.recv_buf_len = testsuite->recv_size;
+    at_param.send = adapter->send;
+    at_param.recv = adapter->recv;
+    
+    while(1){
+        ret = qm_queue_recv(&prodtst_obj->notify, &notify, &size, QM_WAIT_FOREVER);
+        if(ret != QM_EOK){
+            continue;
+        }
+
+        switch(notify.event){
+
+        case PRODTST_EVENT_DEVICE_FOUND:
+
+            prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_SETUP);
+            prodtst_obj->channel_handle = adapter->establish(&notify.dat);
+            if(prodtst_obj->channel_handle == NULL){
+                goto __exit;
+            }
+
+            at_param.handle = prodtst_obj->channel_handle;
+
+            prodtst_obj->at_client = qm_at_client_init(&at_param);
+            if(prodtst_obj->at_client == NULL){
+                ret = -QM_ERROR;
+                goto __exit;
+            }
+
+            QM_LOGI(LOG_TAG, "channel established");
+
+            prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_GENERIC);
+
+            ret = prodtst_generic_and_specific_handler(prodtst_obj);
+            if(ret != QM_EOK){
+                goto __exit;
+            }
+
+            QM_LOGI(LOG_TAG, "generic and specific test success");
+
+            prodtst_data_table_print(prodtst_obj);
+
+            break;
+
+        case PRODTST_EVENT_SPECIAL:
+
+            //prodtst_special_process
+
+
+
+            break;
+
+        case PRODTST_EVENT_FINISH:
+
+
+
+
+            break;
+        
+        default:
+            break;
+    
+        }
+        
+    }
+
+__exit:
+
+    if(at_param.recv_buf){
+        qm_free(at_param.recv_buf);
+        at_param.recv_buf = NULL;
+    }
+    
+    if(prodtst_obj->at_client){
+        qm_at_client_deinit(prodtst_obj->at_client);
+    }
+    
+    qm_task_exit(&prodtst_obj->task);
 }
 
 static void prodtst_core_task(void *arg)
@@ -637,13 +651,7 @@ static void prodtst_core_task(void *arg)
 
             case PRODTST_EVENT_DEVICE_FOUND:
 
-                if(!notify.dat.device_info.param){
-                    break;
-                }
-
-                adapter->channel_get(&channel_handle);
-
-                prodtst_obj = prodtst_obj_idle_get(channel_handle);
+                prodtst_obj = prodtst_obj_idle_get();
                 if(!prodtst_obj){
                     QM_LOGI(LOG_TAG, "prodtst object is busy");
                 }

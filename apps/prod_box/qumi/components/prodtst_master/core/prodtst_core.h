@@ -43,7 +43,11 @@ typedef enum{
     PRODTST_EVENT_CONFIG,
     PRODTST_EVENT_SET,
     PRODTST_EVENT_GET,
+    PRODTST_EVENT_GET_REPLY,
+    PRODTST_EVENT_REPORT,
+    PRODTST_EVENT_TEST,
     PRODTST_EVENT_SPECIAL,
+    PRODTST_EVENT_SPCL_RESULT,
     PRODTST_EVENT_FINISH,
     PRODTST_EVENT_DEVICE_FOUND,
 }prodtst_event_t;
@@ -67,11 +71,6 @@ typedef struct{
 }prodtst_info_t;
 
 typedef struct{
-    char ip[16];
-    uint16_t port;
-}prodtst_ip_info_t;
-
-typedef struct{
     char platform[PRODTST_PLATFORM_MAX_LEN+1];
     char dev_type[PRODTST_DEV_TYPE_MAX_LEN+1];
     char module_name[PRODTST_MOUDLE_NAME_MAX_LEN+1];
@@ -81,6 +80,7 @@ typedef struct{
 typedef struct{
     int type;
     uint8_t uuid[16];
+    int id;
     uint8_t *data;
     int len;
 }prodtst_data_info_t;
@@ -91,8 +91,15 @@ typedef struct{
 }prodtst_finish_info_t;
 
 typedef struct{
-    void *param;
-}prodtst_device_info_t;
+    uint8_t uuid[16];
+    char action[16];
+    char *data;
+    int len;
+}prodtst_special_info_t;
+
+typedef struct{
+    char ip[16];
+}prodtst_ip_info_t;
 
 typedef struct{
     int event;
@@ -100,13 +107,13 @@ typedef struct{
         prodtst_ip_info_t ip_info;
         prodtst_config_info_t config_info;
         prodtst_data_info_t data_info;
+        prodtst_special_info_t special_info;
         prodtst_finish_info_t finish_info;
-        prodtst_device_info_t device_info;
     }dat;
 }prodtst_notify_t;
 
 typedef struct{
-    char* name;
+    char *name;
     char *cmd;
     int recv_size;
     int timeout;
@@ -162,10 +169,10 @@ int prodtst_stop(void);
 
 
 /********prodtst notify********/
-int prodtst_found_notify(void *param);
 int prodtst_ip_notify(char *ip);
-int prodtst_data_notify(int event, char* type, char *uuid, uint8_t *data, int len);
+int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data, int len);
 int prodtst_config_notify(char *platform, char *module_name, char *module_type);
+int prodtst_special_notify(char *uuid, char *action, char *data, int len);
 int prodtst_finish_notify(char *uuid, int result);
 /*****************************/
 

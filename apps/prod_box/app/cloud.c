@@ -93,9 +93,9 @@ void prodtst_test_reply_handler(int devid, int id, int code, const char* payload
     xjiang_log("report reply id: %d, code: %d", id, code);
 }
 
-void prodtst_get_handler(int devid, const char* payload, int payload_len)
+void prodtst_get_handler(int devid, int id, const char* payload, int payload_len)
 {
-    xjiang_log("get: %.*s", payload_len, payload);
+    xjiang_log("get id: %d, %.*s", id, payload_len, payload);
 }
 
 void prodtst_result_handler(int devid, const char* payload, int payload_len)
@@ -106,6 +106,11 @@ void prodtst_result_handler(int devid, const char* payload, int payload_len)
 void prodtst_special_handler(int devid, const char* payload, int payload_len)
 {
     xjiang_log("special: %.*s", payload_len, payload);
+}
+
+void prodtst_special_result_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
+{
+    xjiang_log("special result reply id: %d, code: %d", id, code);
 }
 
 int user_event_notify_handler(int devid, int event, const char* payload, int payload_len)
@@ -253,6 +258,7 @@ void xjiang_cloud_init(void)
     iot_event_register(IOT_EVENT_PRODTST_GET, prodtst_get_handler);
     iot_event_register(IOT_EVENT_PRODTST_RESULT, prodtst_result_handler);
     iot_event_register(IOT_EVENT_PRODTST_SPECIAL, prodtst_special_handler);
+    iot_event_register(IOT_EVENT_PRODTST_SPECIAL_RESULT_REPLY, prodtst_special_result_reply_handler);
 
     iot_event_register(IOT_EVENT_NOTIFY, user_event_notify_handler);
 

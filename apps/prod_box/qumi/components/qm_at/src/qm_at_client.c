@@ -643,6 +643,7 @@ static qm_at_urc_t *qm_at_client_get_urc_obj(qm_at_client_t *client)
 
 static int qm_at_recv_readline(qm_at_client_t *client)
 {
+    qm_err_t ret = QM_EOK;
     uint32_t read_len = 0;
     char ch = 0, last_ch = 0;
     uint8_t is_full = QM_FALSE;
@@ -652,7 +653,10 @@ static int qm_at_recv_readline(qm_at_client_t *client)
 
     while (1)
     {
-        qm_at_client_getchar(client, &ch, QM_WAIT_FOREVER);
+        ret = qm_at_client_getchar(client, &ch, QM_WAIT_FOREVER);
+        if(ret != QM_EOK){
+            return ret;
+        }
 
         if (read_len < client->recv_buf_len)
         {

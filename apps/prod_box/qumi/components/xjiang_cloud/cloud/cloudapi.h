@@ -36,6 +36,7 @@ typedef enum
     MSG_TYPE_PRODTST_GET_REPLY,
     MSG_TYPE_PRODTST_CONFIG_REPLY,
     MSG_TYPE_PRODTST_RESULT_REPLY,
+    MSG_TYPE_PRODTST_SPECIAL_RESULT,
     MSG_TYPE_PRODTST_SPECIAL_REPLY,
     MSG_TYPE_MAX,
 }msg_type_t;
@@ -71,6 +72,8 @@ int32_t cloud_open(iot_dev_type_t dev_type, iot_dev_meta_info_t *meta_info);
 int32_t cloud_connect(void);
 
 int32_t cloud_packet_send(int devid, msg_type_t msg_type, unsigned char *payload, int payload_len);
+
+int32_t cloud_packet_reply_send(int devid, msg_type_t msg_type, int id, unsigned char *payload, int payload_len);
 
 int32_t cloud_token_report(char* token);
 

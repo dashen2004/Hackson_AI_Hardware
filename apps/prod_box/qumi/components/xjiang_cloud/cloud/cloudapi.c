@@ -395,7 +395,6 @@ static int32_t payload_creat(int devid, msg_type_t msg_type, char *id, char *met
 
         case MSG_TYPE_PRODTST_SPECIAL_REPLY:
 
-
             len = MAX_JSON_DATA_LEN;
             *out_len = len;
             if(out == NULL){
@@ -403,6 +402,19 @@ static int32_t payload_creat(int devid, msg_type_t msg_type, char *id, char *met
             }
             
             hal_snprintf(out_buf, len, MQTT_GENERIC_REPLY_FORMAT, devid, "prodtst_special_reply", id, code);
+            *out_len = strlen(out_buf);
+
+        break;
+
+        case MSG_TYPE_PRODTST_SPECIAL_RESULT:
+
+            len = MAX_JSON_DATA_LEN;
+            *out_len = len;
+            if(out == NULL){
+                goto exit;
+            }
+            
+            hal_snprintf(out_buf, len, MQTT_GENERIC_REPLY_FORMAT, devid, "prodtst_special_result", id, code);
             *out_len = strlen(out_buf);
 
         break;
@@ -536,6 +548,13 @@ int32_t cloud_generic_send(int devid, msg_type_t msg_type, char *id, char* metho
 int32_t cloud_packet_send(int devid, msg_type_t msg_type, unsigned char* payload, int payload_len)
 {
     return cloud_generic_send(devid, msg_type, NULL, NULL, 0, payload, payload_len);
+}
+
+int32_t cloud_packet_reply_send(int devid, msg_type_t msg_type, int id, unsigned char* payload, int payload_len)
+{
+    char id_str[16] = {0};
+    hal_snprintf(id_str, 16, "%d", id);
+    return cloud_generic_send(devid, msg_type, id_str, NULL, 0, payload, payload_len);
 }
 
 

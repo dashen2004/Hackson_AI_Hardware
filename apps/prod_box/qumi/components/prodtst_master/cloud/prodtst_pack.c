@@ -1,9 +1,9 @@
-#include "prodtst_pack.h"
+#include "prodtst_cloud.h"
 #include "qm_errno.h"
 #include "cJSON.h"
 #include "prodtst_config.h"
 
-int prodtst_generic_packet_creat(prodtst_data_table_t *prodtst_tbl, char **data, int *len)
+int prodtst_generic_pack(prodtst_data_table_t *prodtst_tbl, char **data, int *len)
 {
     qm_err_t ret = QM_EOK;
     int i = 0, j = 0;
@@ -19,6 +19,7 @@ int prodtst_generic_packet_creat(prodtst_data_table_t *prodtst_tbl, char **data,
     if(root == NULL){
         return -QM_ENOMEM;
     }
+    
 
     for(i = 0; i < CONFIG_QM_PRODTST_DATA_TABLE_NUM; i++){
         prodtst_data = prodtst_tbl->data[i];

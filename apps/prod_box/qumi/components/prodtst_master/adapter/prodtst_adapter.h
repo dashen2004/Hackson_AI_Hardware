@@ -8,8 +8,7 @@ typedef struct{
 
     int (*init)(void *param);
     int (*deinit)(void);
-    int (*channel_get)(void **handle);
-    int (*establish)(void *handle, void *param);
+    void *(*establish)(void *param);
     int (*destroy)(void *handle);
     int (*send)(void *handle, char *buf, int size);
     int (*recv)(void *handle, char *buf, int size, int timeout);
