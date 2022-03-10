@@ -30,12 +30,19 @@
 #define PRODTST_HW_TOKEN_CMD            "AT+HW_TOKEN?"
 #define PRODTST_HW_TOKEN_MAX_LEN         196
 
-#define PRODTST_NFC_KEY                 "nfc"
+#define PRODTST_FUN_GET_KEY                 "get"
+#define PRODTST_FUN_GET_CMD                 "AT+FUN"
+#define PRODTST_FUN_GET_MAX_LEN              512
+
+#define PRODTST_FUN_SET_KEY                 "set"
+#define PRODTST_FUN_SET_CMD                 "AT+FUN"
+#define PRODTST_FUN_SET_MAX_LEN              128
+
+#define PRODTST_NFC_KEY                 ""
 #define PRODTST_NFC_CMD                 "AT+NFC?"
 #define PRODTST_NFC_MAX_LEN              128
 
-
-
+extern prodtst_cmd_t prodtst_fun_cmd[];
 extern prodtst_cmd_t prodtst_wifi_generic_cmd[];
 extern prodtst_cmd_t prodtst_hw_wifi_specific_cmd[];
 
@@ -46,6 +53,9 @@ int prodtst_data_destroy(prodtst_data_t *prodtst_data, int num);
 int prodtst_name_copy(prodtst_data_t *prodtst_data, char *name, int len);
 int prodtst_data_copy(prodtst_data_t *prodtst_data, char *data, int len);
 int prodtst_data_zalloc(prodtst_data_t *prodtst_data, int len);
+
+prodtst_cmd_t *prodtst_fun_cmd_get(char *type, char *method);
+prodtst_cmd_t *prodtst_misc_cmd_get(char *key);
 
 #endif
 

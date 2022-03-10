@@ -186,7 +186,7 @@ static int ap_rssi_cmd_creat(char *cmd, char *param, char **out)
 
     memset(cmd_str, 0, PRODTST_AP_RSSI_CMD_MAX_LEN+1);
 
-    snprintf(cmd_str, "%s=\"param\"", cmd, CONFIG_QM_PRODTST_AP_SSID);
+    snprintf(cmd_str, "%s=\"%s\"", cmd, CONFIG_QM_PRODTST_AP_SSID);
     *out = cmd_str;
 
     return QM_EOK;

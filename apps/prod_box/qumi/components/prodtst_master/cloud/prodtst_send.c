@@ -3,7 +3,7 @@
 #include "qm_log.h"
 #include "cloudapi.h"
 
-int prodtst_send(int event, int id, prodtst_data_table_t *prodtst_tbl)
+int prodtst_generic_send(int event, int id, prodtst_data_table_t *prodtst_tbl)
 {
     char *data = NULL;
     int len = 0;
@@ -19,6 +19,7 @@ int prodtst_send(int event, int id, prodtst_data_table_t *prodtst_tbl)
     switch(event){
 
         case  PRODTST_EVENT_GET_REPLY:
+
             ret = cloud_packet_reply_send(0, MSG_TYPE_PRODTST_GET_REPLY, id, (uint8_t*)data, len);
             if(ret < 0){
                 ret = -QM_EIO;
@@ -58,4 +59,15 @@ int prodtst_send(int event, int id, prodtst_data_table_t *prodtst_tbl)
     data = NULL;
 
     return ret;
+}
+
+
+int prodtst_test_send(prodtst_data_table_t *prodtst_tbl)
+{
+    return prodtst_generic_send(PRODTST_EVENT_TEST, 0, prodtst_tbl);
+}
+
+int prodtst_spcl_result_send(prodtst_data_table_t *prodtst_tbl)
+{
+    return prodtst_generic_send(PRODTST_EVENT_SPCL_RESULT, 0, prodtst_tbl);
 }

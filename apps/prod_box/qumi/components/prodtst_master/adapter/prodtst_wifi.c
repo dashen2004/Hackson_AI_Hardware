@@ -27,10 +27,16 @@ static int wifi_prodtst_init(void *param)
 {
     int max_conn = 0;
     qm_err_t ret = QM_EOK;
+    char ssid[32] = {0};
+    uint8_t mac[6] = {0};
+
+    prodtst_wifi_sta_mac_get(mac);
 
     max_conn = prodtst_device_num_get();
 
-    return prodtst_wifi_ap_init(CONFIG_QM_PRODTST_AP_SSID, CONFIG_QM_PRODTST_AP_PASSWD, CONFIG_QM_PRODTST_WIFI_CHANNEL, max_conn);
+    snprintf(ssid, 32, "%s_%02d%02d", CONFIG_QM_PRODTST_AP_SSID, mac[4], mac[5]);
+    
+    return prodtst_wifi_ap_init(ssid, CONFIG_QM_PRODTST_AP_PASSWD, CONFIG_QM_PRODTST_WIFI_CHANNEL, max_conn);
 }
 
 

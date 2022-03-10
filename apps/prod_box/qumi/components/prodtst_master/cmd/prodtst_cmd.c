@@ -58,7 +58,7 @@ int prodtst_data_copy(prodtst_data_t *prodtst_data, char *data, int len)
     if(prodtst_data == NULL || data == NULL || len <= 0){
         return -QM_EINVAL;
     }
-    prodtst_data->data = (char*)qm_malloc(len+1);
+    prodtst_data->data = qm_malloc(len+1);
     if(prodtst_data->data == NULL){
         return -QM_ENOMEM;
     }
@@ -74,7 +74,7 @@ int prodtst_data_zalloc(prodtst_data_t *prodtst_data, int len)
     if(prodtst_data == NULL || len <= 0){
         return -QM_EINVAL;
     }
-    prodtst_data->data = (char*)qm_malloc(len+1);
+    prodtst_data->data = qm_malloc(len+1);
     if(prodtst_data->data == NULL){
         return -QM_ENOMEM;
     }

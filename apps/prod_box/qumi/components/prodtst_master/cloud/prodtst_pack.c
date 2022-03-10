@@ -19,7 +19,6 @@ int prodtst_generic_pack(prodtst_data_table_t *prodtst_tbl, char **data, int *le
     if(root == NULL){
         return -QM_ENOMEM;
     }
-    
 
     for(i = 0; i < CONFIG_QM_PRODTST_DATA_TABLE_NUM; i++){
         prodtst_data = prodtst_tbl->data[i];
@@ -29,8 +28,17 @@ int prodtst_generic_pack(prodtst_data_table_t *prodtst_tbl, char **data, int *le
                 
         for(j = 0; j < prodtst_tbl->num[i]; j++){
             prodtst_data = (prodtst_data+j);  
-            if(prodtst_data->name && prodtst_data->data){
-                cJSON_AddStringToObject(root, prodtst_data->name, prodtst_data->data);
+            if(prodtst_data->name && prodtst_data->data && prodtst_data->type == PRODTST_DATA_STRING){
+                cJSON_AddStringToObject(root, prodtst_data->name, (char*)prodtst_data->data);
+            }
+
+            if(prodtst_data->name && prodtst_data->type == PRODTST_DATA_INT){
+                cJSON_AddNumberToObject(root, prodtst_data->name, prodtst_data->int_data);
+            }
+            //TODO need free json item
+            if(prodtst_data->name && prodtst_data->type == PRODTST_DATA_JSON){
+                cJSON_AddItemToObject(root, prodtst_data->name, (cJSON*)prodtst_data->data);\
+                prodtst_data->data = NULL;
             }
         }
     }

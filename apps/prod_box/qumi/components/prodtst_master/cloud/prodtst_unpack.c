@@ -185,7 +185,6 @@ static int special_unpack_and_handle(int id, char *data, int len)
     }
     uuid = object->string;
 
-
     object = cJSON_GetObjectItem(root, "action");
     if(object == NULL){
         ret = -QM_EINVAL;

@@ -18,6 +18,8 @@ int prodtst_generic_unpack_and_handle(int packet_type, int id, char *data, int l
 
 int prodtst_generic_pack(prodtst_data_table_t *prodtst_tbl, char **data, int *len);
 
-int prodtst_send(int event, int id, prodtst_data_table_t *prodtst_tbl);
+int prodtst_generic_send(int event, int id, prodtst_data_table_t *prodtst_tbl);
+int prodtst_test_send(prodtst_data_table_t *prodtst_tbl);
+int prodtst_spcl_result_send(prodtst_data_table_t *prodtst_tbl);
 
 #endif

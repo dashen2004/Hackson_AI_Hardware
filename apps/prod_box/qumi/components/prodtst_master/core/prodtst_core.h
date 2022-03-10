@@ -14,6 +14,10 @@
 #define PRODTST_MOUDLE_NAME_MAX_LEN    (8) 
 #define PRODTST_MOUDLE_TYPE_MAX_LEN    (8) 
 
+enum{
+    PRODTST_RESULT_OK,
+    PRODTST_RESULT_FAIL,
+};
 
 typedef enum{
     MODULE_TYPE_WIFI = 1,
@@ -35,6 +39,7 @@ typedef enum{
     PRODTST_STATE_SETUP,
     PRODTST_STATE_GENERIC,
     PRODTST_STATE_SPECIFIC,
+    PRODTST_STATE_FUN,
     PRODTST_STATE_SPECIAL,
 }prodtst_state_t;
 
@@ -52,6 +57,12 @@ typedef enum{
     PRODTST_EVENT_DEVICE_FOUND,
 }prodtst_event_t;
 
+enum{
+    PRODTST_DATA_STRING,
+    PRODTST_DATA_INT,
+    PRODTST_DATA_JSON,
+};
+
 typedef enum{
     PRODTST_DATA_TYPE_NONE,
     PRODTST_DATA_TYPE_SERIAL,
@@ -61,7 +72,9 @@ typedef enum{
 
 typedef struct{
     char *name;
-    char *data;
+    int type;
+    void *data;
+    int int_data;
 }prodtst_data_t;
 
 typedef struct{
@@ -78,20 +91,20 @@ typedef struct{
 }prodtst_config_info_t;
 
 typedef struct{
-    int type;
-    uint8_t uuid[16];
+    char type[16];
+    uint8_t uuid[32+1];
     int id;
     uint8_t *data;
     int len;
 }prodtst_data_info_t;
 
 typedef struct{
-    uint8_t uuid[16];
+    uint8_t uuid[32+1];
     int result;
 }prodtst_finish_info_t;
 
 typedef struct{
-    uint8_t uuid[16];
+    uint8_t uuid[32+1];
     char action[16];
     char *data;
     int len;
@@ -140,7 +153,7 @@ typedef struct {
 }prodtst_data_table_t;
 
 typedef struct{
-    char uuid[16];
+    char uuid[32+1];
     prodtst_state_t state;
     qm_task_t task;
     qm_queue_t notify;
