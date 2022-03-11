@@ -101,7 +101,7 @@ __exit:
     return ret;
 }
 
-static int wifi_sta_mac(void *rsp, prodtst_data_t **data, int *num)
+static int sta_mac_parse(void *rsp, prodtst_data_t **data, int *num)
 {
     int ret = 0;
     int data_num = 1;
@@ -139,7 +139,7 @@ __exit:
     return ret;
 }
 
-static int wifi_ap_mac(void *rsp, prodtst_data_t **data, int *num)
+static int ap_mac_parse(void *rsp, prodtst_data_t **data, int *num)
 {
     int ret = 0;
     int data_num = 1;
@@ -192,7 +192,7 @@ static int ap_rssi_cmd_creat(char *cmd, char *param, char **out)
     return QM_EOK;
 }
 
-static int ap_rssi_parser(void *rsp, prodtst_data_t **data, int *num)
+static int ap_rssi_parse(void *rsp, prodtst_data_t **data, int *num)
 {
     int ret = 0;
     int data_num = 1;

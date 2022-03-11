@@ -5,13 +5,16 @@
 typedef struct{
 
     char *action;
+    int (*init)(void *param);
+    int (*deinit)(void *param);
     int (*process)(char *data, int len);
 
 }prodtst_special_t;
 
 
-int prodtst_special_process(char *action, char *data, int len);
 
+extern int prodtst_nfc_init(void *param);
+extern int prodtst_nfc_deinit(void *param);
 extern int prodtst_nfc_process(char *data, int len);
 
 #endif

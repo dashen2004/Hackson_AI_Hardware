@@ -8,6 +8,7 @@
 #include "sys_notify.h"
 
 #include "esp_wifi.h"
+#include "prodtst_cloud.h"
 
 #define xjiang_log(M, ...) custom_log("cloud", M, ##__VA_ARGS__)
 
@@ -76,6 +77,7 @@ static void cloud_event_monitor( int event )
 void prodtst_set_handler(int devid, const char* payload, int payload_len)
 {
     xjiang_log("set: %.*s", payload_len, payload);
+    prodtst_set_unpack_and_handle(payload_len, payload);
 }
 
 void prodtst_report_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
@@ -86,6 +88,8 @@ void prodtst_report_reply_handler(int devid, int id, int code, const char* paylo
 void prodtst_config_handler(int devid, const char* payload, int payload_len)
 {
     xjiang_log("config: %.*s", payload_len, payload);
+
+    prodtst_config_unpack_and_handle(payload, payload_len);
 }
 
 void prodtst_test_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
@@ -96,16 +100,19 @@ void prodtst_test_reply_handler(int devid, int id, int code, const char* payload
 void prodtst_get_handler(int devid, int id, const char* payload, int payload_len)
 {
     xjiang_log("get id: %d, %.*s", id, payload_len, payload);
+    prodtst_get_unpack_and_handle(id, payload_len, payload);
 }
 
 void prodtst_result_handler(int devid, const char* payload, int payload_len)
 {
     xjiang_log("result: %.*s", payload_len, payload);
+    prodtst_result_unpack_and_handle(payload_len, payload);
 }
 
 void prodtst_special_handler(int devid, const char* payload, int payload_len)
 {
     xjiang_log("special: %.*s", payload_len, payload);
+    prodtst_special_unpack_and_handle(payload_len, payload);
 }
 
 void prodtst_special_result_reply_handler(int devid, int id, int code, const char* payload, int payload_len)

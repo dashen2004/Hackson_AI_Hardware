@@ -4,11 +4,12 @@
 
 static prodtst_special_t  g_prodtst_special[] = {
 
-    {"NFC", prodtst_nfc_process},
+    {"NFC", prodtst_nfc_init, prodtst_nfc_deinit, prodtst_nfc_process},
 
 };
 
 #define PRODTST_SPECIAL_NUM    sizeof(g_prodtst_special)/sizeof(g_prodtst_special[0])
+
 
 prodtst_special_t *prodtst_special_get(char *action)
 {
@@ -20,22 +21,6 @@ prodtst_special_t *prodtst_special_get(char *action)
     }
     
     return NULL;
-}
-
-
-int prodtst_special_process(char *action, char *data, int len)
-{
-    prodtst_special_t *prodtst_special = NULL;
-    if(action == NULL){
-        return -QM_EINVAL;
-    }
-
-    prodtst_special = prodtst_special_get(action);
-    if(prodtst_special){
-        return prodtst_special->process(data, len);
-    }else{
-        return -QM_EINVAL;
-    }
 }
 
 

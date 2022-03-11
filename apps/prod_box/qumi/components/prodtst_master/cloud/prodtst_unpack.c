@@ -218,3 +218,28 @@ int prodtst_generic_unpack_and_handle(int packet_type, int id, char *data, int l
 
     return ret;
 }
+
+int prodtst_config_unpack_and_handle(char *data, int len)
+{
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_CONFIG, 0, data, len);
+}
+
+int prodtst_special_unpack_and_handle(char *data, int len)
+{
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_SPECIAL, 0, data, len);
+}
+
+int prodtst_set_unpack_and_handle(char *data, int len)
+{
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_SET, 0, data, len);
+}
+
+int prodtst_get_unpack_and_handle(int id, char *data, int len)
+{
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_GET, 0, data, len);
+}
+
+int prodtst_result_unpack_and_handle(char *data, int len)
+{
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_RESULT, 0, data, len);
+}

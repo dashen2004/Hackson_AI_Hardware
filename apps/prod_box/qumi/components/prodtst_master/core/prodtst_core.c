@@ -561,7 +561,7 @@ static prodtst_obj_t *prodtst_obj_creat(void)
 
     memset(prodtst_obj, 0, sizeof(prodtst_obj_t));
 
-    ret = qm_queue_new(&prodtst_obj->notify, sizeof(prodtst_obj_t), CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM);
+    ret = qm_queue_new(&prodtst_obj->notify, sizeof(prodtst_notify_t), CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM);
     if(ret != QM_EOK){
         goto __exit;
     }
@@ -913,9 +913,7 @@ static void prodtst_obj_task(void *arg)
         
         default:
             break;
-    
         }
-        
     }
 
 __exit:
@@ -943,6 +941,8 @@ static void prodtst_core_task(void *arg)
     prodtst_adapter_t *adapter = NULL;
     void *channel_handle = NULL;
     adapter = prodtst_adapter_get();
+
+    QM_LOGI(LOG_TAG, "prodtst_core_task");
 
     while(1){
         ret = qm_queue_recv(&prodtst_ctx->notify, &notify, &size, QM_WAIT_FOREVER);
@@ -1001,7 +1001,12 @@ int prodtst_init(void)
     qm_err_t ret = QM_EOK;
     memset(&g_prodtst_ctx, 0, sizeof(prodtst_context_t));
 
-    ret = qm_task_new(&g_prodtst_ctx.task, "prodtst", prodtst_core_task, (void*)&g_prodtst_ctx, CONFIG_QM_PRODTST_TASK_SIZE, CONFIG_QM_PRODTST_TASK_PRIO);
+    ret = qm_queue_new(&g_prodtst_ctx.notify, sizeof(prodtst_notify_t), CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM);
+    if(ret != QM_EOK){
+        return ret;
+    }
+
+    ret = qm_task_new(&g_prodtst_ctx.task, "prodtst core", prodtst_core_task, (void*)&g_prodtst_ctx, CONFIG_QM_PRODTST_TASK_SIZE, CONFIG_QM_PRODTST_TASK_PRIO);
     if(ret != QM_EOK){
         return ret;
     }

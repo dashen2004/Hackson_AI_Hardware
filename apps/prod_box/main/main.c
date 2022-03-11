@@ -10,6 +10,7 @@
 #include "nvs_flash.h"
 #include "network.h"
 #include "cloud.h"
+#include "prodtst_core.h"
 
 int user_debug_enabled = 1;
 
@@ -26,7 +27,7 @@ void app_main()
 
     network_init();
 
-
+    prodtst_init();
 
     xjiang_cloud_init();
 

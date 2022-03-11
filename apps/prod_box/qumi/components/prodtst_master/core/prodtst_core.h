@@ -9,10 +9,10 @@
 
 
 #define PRODTST_DATA_TYPE_MAX_LEN      (8)
-#define PRODTST_PLATFORM_MAX_LEN       (8) 
+#define PRODTST_PLATFORM_MAX_LEN       (16) 
 #define PRODTST_DEV_TYPE_MAX_LEN       (8) 
-#define PRODTST_MOUDLE_NAME_MAX_LEN    (8) 
-#define PRODTST_MOUDLE_TYPE_MAX_LEN    (8) 
+#define PRODTST_MOUDLE_NAME_MAX_LEN    (16) 
+#define PRODTST_MOUDLE_TYPE_MAX_LEN    (16) 
 
 enum{
     PRODTST_RESULT_OK,

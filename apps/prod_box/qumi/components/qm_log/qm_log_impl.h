@@ -64,6 +64,7 @@ extern void qm_log_print_simple(unsigned int log_level, const char *fmt, ...);
         qm_log_print_simple(CON, FMT, ##__VA_ARGS__);\
     } while (0)
 #else
+#include <qmos/qm_kernel.h>
 #define qm_log_print(CON, MOD, COLOR, LVL, FMT, ...) \
     do { \
         if (QM_LOG_LEVEL & CON) { \

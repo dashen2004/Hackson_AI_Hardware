@@ -61,7 +61,7 @@ typedef enum {
 
 
 #ifdef IOT_WITHOUT_TLS
-#define GUIDER_DIRECT_PORT     1883
+#define GUIDER_DIRECT_PORT     1884
 #else
 #define GUIDER_DIRECT_PORT     8883
 #endif

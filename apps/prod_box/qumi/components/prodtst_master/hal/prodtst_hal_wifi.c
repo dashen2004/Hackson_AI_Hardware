@@ -7,6 +7,7 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 #include "lwip/inet.h"
+#include "qm_log.h"
 
 #define LOG_TAG  "hal wifi"
 
@@ -15,16 +16,15 @@ static void *wifi_event_cb_arg = NULL;
 
 int prodtst_wifi_ap_init(char *ssid, char *pwd, int channel, int max_conn)
 {
-     wifi_config_t wifi_config = {
-        .ap = {
-            .ssid = ssid,
-            .ssid_len = strlen(ssid),
-            .channel = channel,
-            .password = pwd,
-            .max_connection = max_conn,
-            .authmode = WIFI_AUTH_WPA_WPA2_PSK
-        },
-    };
+     wifi_config_t wifi_config = {0};
+
+    memcpy(wifi_config.ap.ssid, ssid, strlen(ssid));
+    wifi_config.ap.ssid_len = strlen(ssid);
+    wifi_config.ap.channel = channel;
+    memcpy(wifi_config.ap.password, pwd, strlen(pwd));
+    wifi_config.ap.max_connection = max_conn;
+    wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
 
@@ -54,6 +54,7 @@ int prodtst_wifi_ap_event_set(prodtst_wifi_event_t *event)
     if(prodtst_wifi_event_callback){
         prodtst_wifi_event_callback(event, wifi_event_cb_arg);
     }
+    return QM_EOK;
 }
 
 
@@ -64,5 +65,5 @@ int prodtst_wifi_ap_event_register(prodtst_wifi_event_cb cb, void *arg)
     }
     prodtst_wifi_event_callback = cb;
     wifi_event_cb_arg= arg;
-
-}
+    return QM_EOK;
+}   
