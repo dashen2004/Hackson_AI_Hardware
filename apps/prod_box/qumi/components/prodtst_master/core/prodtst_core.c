@@ -38,7 +38,7 @@ static prodtst_testsuite_t  g_prodtst_testsuite[] = {
 static prodtst_testsuite_t *prodtst_testsuite_alloc(char *platform, char *module_name, char *module_type)
 {
     int i = 0;
-    if(platform == NULL || module_name == NULL || module_type){
+    if(platform == NULL || module_name == NULL || module_type == NULL){
         return NULL;
     }
 
@@ -561,7 +561,7 @@ static prodtst_obj_t *prodtst_obj_creat(void)
 
     memset(prodtst_obj, 0, sizeof(prodtst_obj_t));
 
-    ret = qm_queue_new(&prodtst_obj->notify, sizeof(prodtst_notify_t), CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM);
+    ret = qm_queue_new(&prodtst_obj->notify, CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM, sizeof(prodtst_notify_t));
     if(ret != QM_EOK){
         goto __exit;
     }
@@ -778,6 +778,7 @@ static void prodtst_obj_task(void *arg)
     prodtst_testsuite_t *testsuite = NULL;
     prodtst_notify_t notify = {0};
     qm_at_client_param_t at_param = {0};
+    prodtst_special_t *special = NULL;
     prodtst_obj_t *prodtst_obj = (prodtst_obj_t*)arg;
 
     prodtst_obj->state = PRODTST_STATE_SETUP;
@@ -882,14 +883,33 @@ static void prodtst_obj_task(void *arg)
 
         case PRODTST_EVENT_SPECIAL:
 
-            prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
 
-            ret = prodtst_special_process(notify.dat.special_info.action, notify.dat.special_info.data, notify.dat.special_info.len);
+            special = prodtst_special_get(notify.dat.special_info.action);
+            if(special == NULL){
+                prodtst_obj_init(prodtst_obj);
+                continue;
+            }
+
+            ret = special->init(NULL);
+            if(ret != QM_EOK){
+                prodtst_obj_init(prodtst_obj);
+                continue;
+            }
+
+            ret = special->process(notify.dat.special_info.data, notify.dat.special_info.len);
             if(ret == QM_EOK){
                 prodtst_data_table_int_set(&prodtst_obj->data_tbl, "result", PRODTST_RESULT_OK);
             }else{
                 prodtst_data_table_int_set(&prodtst_obj->data_tbl, "result", PRODTST_RESULT_FAIL);
             }
+
+            ret = special->deinit(NULL);
+            if(ret != QM_EOK){
+                prodtst_obj_init(prodtst_obj);
+                continue;
+            }
+
+            prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
 
             prodtst_data_table_print(prodtst_obj);
             prodtst_spcl_result_send(&prodtst_obj->data_tbl);
@@ -954,9 +974,9 @@ static void prodtst_core_task(void *arg)
 
             case PRODTST_EVENT_CONFIG:
                 
-                info.platform = notify.dat.config_info.platform;
-                info.module_name = notify.dat.config_info.module_name;
-                info.module_type = notify.dat.config_info.module_type;
+                info.platform = &notify.dat.config_info.platform;
+                info.module_name = &notify.dat.config_info.module_name;
+                info.module_type = &notify.dat.config_info.module_type;
                 QM_LOGE(LOG_TAG, "prodtst info platform: %s, module_name: %s, module_type: %s",
                                             info.platform, info.module_name, info.module_type);
 
@@ -969,9 +989,9 @@ static void prodtst_core_task(void *arg)
                 ret = prodtst_start(&info);
                 if(ret != QM_EOK){
                     QM_LOGE(LOG_TAG, "prodtst start failed");
+                }else{
+                    QM_LOGI(LOG_TAG, "prodtst start success");
                 }
-
-                QM_LOGI(LOG_TAG, "prodtst start success");
 
             break;
 
@@ -996,12 +1016,12 @@ static void prodtst_core_task(void *arg)
 }
 
 
-int prodtst_init(void)
+int prodtst_init(prodtst_notify_cb notify_cb)
 {
     qm_err_t ret = QM_EOK;
     memset(&g_prodtst_ctx, 0, sizeof(prodtst_context_t));
 
-    ret = qm_queue_new(&g_prodtst_ctx.notify, sizeof(prodtst_notify_t), CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM);
+    ret = qm_queue_new(&g_prodtst_ctx.notify, CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM, sizeof(prodtst_notify_t));
     if(ret != QM_EOK){
         return ret;
     }

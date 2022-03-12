@@ -3,7 +3,7 @@
 #include "uart_ext.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "user_debug.h"
+#include "qm_log.h"
 
 
 #define scanner_log(format, ...)  custom_log("scanner", format, ##__VA_ARGS__)
@@ -20,7 +20,7 @@ void scanner_thread(void *arg)
     {
         recv = uart_ext_read_bytes(UART_EXT_NUM_7, recvbuf, sizeof(recvbuf), 1000/portTICK_RATE_MS);
         if(recv){
-            scanner_log("scan result: %d, %.*s\n", recv, recv, recvbuf);
+            //scanner_log("scan result: %d, %.*s\n", recv, recv, recvbuf);
         }
 
     }

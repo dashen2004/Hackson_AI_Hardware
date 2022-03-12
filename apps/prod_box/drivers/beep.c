@@ -4,7 +4,7 @@
 
 static qm_timer_t beep_timer;
 #define BEEP_ON_TIMEOUT_MS  1000
-#define BEEP_GPIO_PIN  GPIO_EXT_OC_Pin_8
+#define BEEP_GPIO_PIN  GPIO_EXT_OC_Pin_14
 
 #define BEEP_ON    1
 #define BEEP_OFF   0
@@ -71,7 +71,7 @@ void beep_init(void)
 {
     qm_err_t ret = QM_EOK;
     memset(&beep_ctrl, 0, sizeof(beep_ctrl));
-    gpio_ext_set(GPIO_EXT_OC_Pin_8, 0);
+    gpio_ext_set(BEEP_GPIO_PIN, 0);
     ret = qm_timer_new(&beep_timer, beep_timeout, NULL, BEEP_ON_TIMEOUT_MS, 0);
     if(ret != QM_EOK){
         return;

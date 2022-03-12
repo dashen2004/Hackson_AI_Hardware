@@ -23,6 +23,13 @@ int prodtst_wifi_ap_event_handler(uint32_t ip)
     return prodtst_ip_notify(ip_str);
 }
 
+void prodtst_wifi_event_callback(prodtst_wifi_event_t *event, void *arg)
+{
+    
+
+
+}
+
 static int wifi_prodtst_init(void *param)
 {
     int max_conn = 0;
@@ -34,7 +41,9 @@ static int wifi_prodtst_init(void *param)
 
     max_conn = prodtst_device_num_get();
 
-    snprintf(ssid, 32, "%s_%02d%02d", CONFIG_QM_PRODTST_AP_SSID, mac[4], mac[5]);
+    snprintf(ssid, 32, "%s_%02x%02x", CONFIG_QM_PRODTST_AP_SSID, mac[4], mac[5]);
+
+    prodtst_wifi_ap_event_register(prodtst_wifi_event_callback, NULL);
     
     return prodtst_wifi_ap_init(ssid, CONFIG_QM_PRODTST_AP_PASSWD, CONFIG_QM_PRODTST_WIFI_CHANNEL, max_conn);
 }

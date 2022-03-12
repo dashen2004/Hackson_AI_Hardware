@@ -11,6 +11,7 @@
 #include "network.h"
 #include "cloud.h"
 #include "prodtst_core.h"
+#include "drivers.h"
 
 int user_debug_enabled = 1;
 
@@ -25,9 +26,11 @@ void app_main()
         ret = nvs_flash_init();
     }
 
+    drivers_init();
+
     network_init();
 
-    prodtst_init();
+    prodtst_init(NULL);
 
     xjiang_cloud_init();
 

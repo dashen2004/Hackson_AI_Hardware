@@ -48,28 +48,30 @@ static int config_unpack_and_handle(int id, char *data, int len)
         ret = -QM_EINVAL;
         goto __exit;
     }
-    platform = object->string;
+    platform = object->valuestring;
 
     object = cJSON_GetObjectItem(root, "module_name");
     if(object == NULL){
         ret = -QM_EINVAL;
         goto __exit;
     }
-    module_name = object->string;
+    module_name = object->valuestring;
 
     object = cJSON_GetObjectItem(root, "module_type");
     if(object == NULL){
         ret = -QM_EINVAL;
         goto __exit;
     }
-    module_type = object->string;
+    module_type = object->valuestring;
 
     object = cJSON_GetObjectItem(root, "dev_type");
     if(object == NULL){
         ret = -QM_EINVAL;
         goto __exit;
     }
-    dev_type = object->string;
+    dev_type = object->valuestring;
+
+    printf("platform: %s, module_name:%s, module_type:%s, dev_type:%s", platform, module_name, module_type, dev_type);
 
     prodtst_config_notify(platform, module_name, module_type);
 
@@ -97,21 +99,21 @@ static int generic_unpack_and_handle(int event, int id, char *data, int len)
         ret = -QM_EINVAL;
         goto __exit;
     }
-    type = object->string;
+    type = object->valuestring;
 
     object = cJSON_GetObjectItem(root, "uuid");
     if(object == NULL){
         ret = -QM_EINVAL;
         goto __exit;
     }
-    uuid = object->string;
+    uuid = object->valuestring;
 
     object = cJSON_GetObjectItem(root, "data");
     if(object == NULL){
         ret = -QM_EINVAL;
         goto __exit;
     }
-    mdata = object->string;
+    mdata = object->valuestring;
 
     prodtst_data_notify(event, type, uuid, id, (uint8_t*)mdata, strlen(mdata));
 
@@ -148,7 +150,7 @@ static int result_unpack_and_handle(int id, char *data, int len)
         ret = -QM_EINVAL;
         goto __exit;
     }
-    uuid = object->string;
+    uuid = object->valuestring;
 
     object = cJSON_GetObjectItem(root, "result");
     if(object == NULL){
@@ -183,21 +185,21 @@ static int special_unpack_and_handle(int id, char *data, int len)
         ret = -QM_EINVAL;
         goto __exit;
     }
-    uuid = object->string;
+    uuid = object->valuestring;
 
     object = cJSON_GetObjectItem(root, "action");
     if(object == NULL){
         ret = -QM_EINVAL;
         goto __exit;
     }
-    action = object->string;
+    action = object->valuestring;
 
     object = cJSON_GetObjectItem(root, "data");
     if(object == NULL){
         ret = -QM_EINVAL;
         goto __exit;
     }
-    m_data = object->string;
+    m_data = object->valuestring;
     
     prodtst_special_notify(uuid, action, m_data, len);
 

@@ -17,6 +17,7 @@ int prodtst_nfc_init(void *param)
         ret = prodtst_uart_init(PRODTST_NFC_UART_CHANNEL, 9600);
     }
     return ret;
+    
 }
 
 
@@ -30,7 +31,7 @@ int prodtst_nfc_process(char *data, int len)
 
     qm_mutex_lock(&nfc_mutex, QM_WAIT_FOREVER);
 
-
+    
 
 
     qm_mutex_unlock(&nfc_mutex);

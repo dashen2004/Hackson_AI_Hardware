@@ -12,7 +12,9 @@ typedef struct{
 }prodtst_special_t;
 
 
+prodtst_special_t *prodtst_special_get(char *action);
 
+/*** nfc process***/
 extern int prodtst_nfc_init(void *param);
 extern int prodtst_nfc_deinit(void *param);
 extern int prodtst_nfc_process(char *data, int len);

@@ -1,7 +1,7 @@
 #include "cloud.h"
 #include "qm_iot_export.h"
 #include "qm_iot_import.h"
-#include "user_debug.h"
+#include "qm_log.h"
 #include "qmos/qm.h"
 #include <qmos/qm_kernel.h>
 #include "qm_kvmgr.h"
@@ -10,7 +10,7 @@
 #include "esp_wifi.h"
 #include "prodtst_cloud.h"
 
-#define xjiang_log(M, ...) custom_log("cloud", M, ##__VA_ARGS__)
+#define LOG_TAG  "cloud"
 
 int xjiang_login = 0;
 int xjiang_cloud_start = 0;
@@ -52,18 +52,18 @@ static void cloud_event_monitor( int event )
         break;
 
         case EVENT_VALUE_LOGOUT:
-            xjiang_log("Device Logout");
+            QM_LOGI(LOG_TAG, "Device Logout");
             xjiang_login = 0;
         break;
         
         case EVENT_VALUE_TOKEN_REPORT_SUC:
 
-            xjiang_log("report token success");
+            QM_LOGI(LOG_TAG, "report token success");
             
         break;
 
         case EVENT_VALUE_RESET: //just got reset response from cloud without any other operation
-            xjiang_log("iot reset");
+            QM_LOGI(LOG_TAG, "iot reset");
 
         break;
         
@@ -76,48 +76,48 @@ static void cloud_event_monitor( int event )
 
 void prodtst_set_handler(int devid, const char* payload, int payload_len)
 {
-    xjiang_log("set: %.*s", payload_len, payload);
+    QM_LOGI(LOG_TAG, "set: %.*s", payload_len, payload);
     prodtst_set_unpack_and_handle(payload_len, payload);
 }
 
 void prodtst_report_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
 {
-     xjiang_log("report reply id: %d, code: %d", id, code);
+     QM_LOGI(LOG_TAG, "report reply id: %d, code: %d", id, code);
 }
 
 void prodtst_config_handler(int devid, const char* payload, int payload_len)
 {
-    xjiang_log("config: %.*s", payload_len, payload);
+    QM_LOGI(LOG_TAG, "config: %.*s", payload_len, payload);
 
     prodtst_config_unpack_and_handle(payload, payload_len);
 }
 
 void prodtst_test_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
 {
-    xjiang_log("report reply id: %d, code: %d", id, code);
+    QM_LOGI(LOG_TAG, "report reply id: %d, code: %d", id, code);
 }
 
 void prodtst_get_handler(int devid, int id, const char* payload, int payload_len)
 {
-    xjiang_log("get id: %d, %.*s", id, payload_len, payload);
+    QM_LOGI(LOG_TAG, "get id: %d, %.*s", id, payload_len, payload);
     prodtst_get_unpack_and_handle(id, payload_len, payload);
 }
 
 void prodtst_result_handler(int devid, const char* payload, int payload_len)
 {
-    xjiang_log("result: %.*s", payload_len, payload);
+    QM_LOGI(LOG_TAG, "result: %.*s", payload_len, payload);
     prodtst_result_unpack_and_handle(payload_len, payload);
 }
 
 void prodtst_special_handler(int devid, const char* payload, int payload_len)
 {
-    xjiang_log("special: %.*s", payload_len, payload);
+    QM_LOGI(LOG_TAG, "special: %.*s", payload_len, payload);
     prodtst_special_unpack_and_handle(payload_len, payload);
 }
 
 void prodtst_special_result_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
 {
-    xjiang_log("special result reply id: %d, code: %d", id, code);
+    QM_LOGI(LOG_TAG, "special result reply id: %d, code: %d", id, code);
 }
 
 int user_event_notify_handler(int devid, int event, const char* payload, int payload_len)
@@ -125,21 +125,21 @@ int user_event_notify_handler(int devid, int event, const char* payload, int pay
     int err_code = 0;
 
     if(payload){
-        xjiang_log("notify: %.*s", payload_len, payload);
+        QM_LOGI(LOG_TAG, "notify: %.*s", payload_len, payload);
     }
 
-    xjiang_log("event notify: %d", event);
+    QM_LOGI(LOG_TAG, "event notify: %d", event);
     switch ( event ){
 
         case EVENT_VALUE_BIND_NOTIFY:
 
-            xjiang_log("device bind");
+            QM_LOGI(LOG_TAG, "device bind");
             is_netconfig = 0;
             
         break;
 
         case EVENT_VALUE_UNBIND_NOTIFY:
-            xjiang_log("device unbind");
+            QM_LOGI(LOG_TAG, "device unbind");
 
         break;
 
@@ -206,17 +206,17 @@ static void cloud_thread(void *arg)
 
     ret = hal_get_product_id(&dev_meta_info.product_id);
     if(ret != 0){
-        xjiang_log( "product id is invalid");
+        QM_LOGI(LOG_TAG, "product id is invalid");
         invalid = 1;
     }
     ret = hal_get_device_id(dev_meta_info.device_id, &device_id_len);
     if(ret != 0){
-        xjiang_log( "device id is invalid");
+        QM_LOGI(LOG_TAG, "device id is invalid");
         invalid = 1;
     }
     ret = hal_get_device_secret(dev_meta_info.device_secret, &device_secret_len);
     if(ret != 0){
-        xjiang_log( "device secret is invalid");
+        QM_LOGI(LOG_TAG, "device secret is invalid");
         invalid = 1;
     }
 
@@ -226,9 +226,9 @@ static void cloud_thread(void *arg)
         }
     }
 
-    xjiang_log( "pi[%u]", dev_meta_info.product_id );
-    xjiang_log( "di[%s]", dev_meta_info.device_id );
-    xjiang_log( "ds[%s]", dev_meta_info.device_secret );
+    QM_LOGI(LOG_TAG, "pi[%u]", dev_meta_info.product_id );
+    QM_LOGI(LOG_TAG, "di[%s]", dev_meta_info.device_id );
+    QM_LOGI(LOG_TAG, "ds[%s]", dev_meta_info.device_secret );
 
     id = cloud_open(IOT_DEV_TYPE_MASTER, &dev_meta_info);
     app_version_set(APP_VERSION);
@@ -255,8 +255,8 @@ void xjiang_cloud_init(void)
 {
     iot_event_regist_cb( cloud_event_monitor );
 
-    xjiang_log("SDK verison %s",sdk_version_get());
-    xjiang_log("app verison %s",APP_VERSION);
+    QM_LOGI(LOG_TAG, "SDK verison %s",sdk_version_get());
+    QM_LOGI(LOG_TAG, "app verison %s",APP_VERSION);
 
     iot_event_register(IOT_EVENT_PRODTST_SET, prodtst_set_handler);
     iot_event_register(IOT_EVENT_PRODTST_REPORT_REPLY, prodtst_report_reply_handler);

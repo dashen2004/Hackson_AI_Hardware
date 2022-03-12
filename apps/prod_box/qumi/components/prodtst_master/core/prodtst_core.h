@@ -163,6 +163,7 @@ typedef struct{
     prodtst_data_table_t data_tbl;
 }prodtst_obj_t;
 
+typedef void (*prodtst_notify_cb)(int prodtst_status);
 
 typedef struct{
     int start;
@@ -170,12 +171,12 @@ typedef struct{
     qm_queue_t notify;
     prodtst_testsuite_t *testsuite;
     prodtst_config_info_t config_info;
+    prodtst_notify_cb notify_cb;
     prodtst_obj_t *prodtst_obj[CONFIG_QM_PRODTST_OBJ_NUM];
 }prodtst_context_t; 
 
 
-
-int prodtst_init(void);
+int prodtst_init(prodtst_notify_cb notify_cb);
 
 int prodtst_start(prodtst_info_t *info);
 int prodtst_stop(void);
