@@ -639,14 +639,16 @@ static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
 
 /********************************************************************************************/
 
-int prodtst_ip_notify(char *ip)
+int prodtst_wifi_dut_found_notify(char *ip, uint8_t mac[6])
 {
     prodtst_notify_t notify = {0};
     if(ip == NULL){
         return -QM_EINVAL;
     }
-    notify.event = PRODTST_EVENT_DEVICE_FOUND;
-    memset(notify.dat.ip_info.ip, 0, strlen(ip));
+    notify.event = PRODTST_EVENT_WIFI_DUT_FOUND;
+    memcpy(notify.dat.wifi_dut_info.ip, ip, strlen(ip));
+    memcpy(notify.dat.wifi_dut_info.mac, mac, 6);
+
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 }
 
@@ -805,7 +807,7 @@ static void prodtst_obj_task(void *arg)
 
         switch(notify.event){
 
-        case PRODTST_EVENT_DEVICE_FOUND:
+        case PRODTST_EVENT_WIFI_DUT_FOUND:
 
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_SETUP);
             prodtst_obj->channel_handle = adapter->establish(&notify.dat);
@@ -995,7 +997,7 @@ static void prodtst_core_task(void *arg)
 
             break;
 
-            case PRODTST_EVENT_DEVICE_FOUND:
+            case PRODTST_EVENT_WIFI_DUT_FOUND:
 
                 prodtst_obj = prodtst_obj_idle_get();
                 if(!prodtst_obj){

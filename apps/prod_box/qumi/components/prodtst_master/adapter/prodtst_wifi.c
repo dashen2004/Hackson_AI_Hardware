@@ -14,19 +14,40 @@ typedef struct
     int fd;
 }channel_info_t;
 
-int prodtst_wifi_ap_event_handler(uint32_t ip)
+static uint8_t mac[6];
+static char buffer[16] = {0};
+static char *  __inet_ntoa( unsigned int in )
 {
-    char *ip_str = NULL;
-
-    //ip_str = inet_ntoa(ip);
-    QM_LOGI(LOG_TAG, "device found ip: %s\n", ip_str);
-    return prodtst_ip_notify(ip_str);
+    unsigned char *bytes = (unsigned char *) &in;
+    snprintf( buffer, sizeof (buffer), "%d.%d.%d.%d", bytes[0], bytes[1], bytes[2], bytes[3] );
+    return buffer;
 }
 
 void prodtst_wifi_event_callback(prodtst_wifi_event_t *event, void *arg)
 {
-    
+    char *ip_str = NULL;
+    switch(event->type){
 
+        case PRODTST_WIFI_EVENT_AP_CONNECTED:
+            memcpy(mac, event->event_info.sta_connected.mac, 6);
+
+        break;
+
+        case PRODTST_WIFI_EVENT_AP_DISCONNECTED:
+            memcpy(mac, event->event_info.sta_disconnected.mac, 6);
+
+        break;
+
+        case PRODTST_WIFI_EVENT_AP_STAIPASSIGNED:
+            ip_str = __inet_ntoa(event->event_info.ap_staipassigned.ip_addr);
+            QM_LOGI(LOG_TAG, "device found ip: %s\n", ip_str);
+            prodtst_wifi_dut_found_notify(ip_str, mac);
+
+        break;
+
+        default:
+        break;
+    }
 
 }
 
@@ -89,7 +110,7 @@ static void *channel_establish(void *param)
 {
     int fd = 0;
     qm_err_t ret = QM_EOK;
-    prodtst_ip_info_t *ip_info = (prodtst_ip_info_t*)param;
+    prodtst_wifi_dut_info_t *wifi_dut_info = (prodtst_wifi_dut_info_t*)param;
 
     channel_info_t *channel = (channel_info_t*)qm_malloc(sizeof(channel_info_t));
     if(channel == NULL){
@@ -98,7 +119,7 @@ static void *channel_establish(void *param)
 
     QM_LOGI(LOG_TAG, "tcp connecting...");
 
-    fd = prodtst_tcp_establish(ip_info->ip, CONFIG_QM_PRODTST_TCP_PORT);
+    fd = prodtst_tcp_establish(wifi_dut_info->ip, CONFIG_QM_PRODTST_TCP_PORT);
     if(fd >= 0){
         QM_LOGI(LOG_TAG, "tcp connected, fd: %d", fd);
     }else{

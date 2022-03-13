@@ -14,6 +14,7 @@
 static prodtst_wifi_event_cb prodtst_wifi_event_callback = NULL;
 static void *wifi_event_cb_arg = NULL;
 
+
 int prodtst_wifi_ap_init(char *ssid, char *pwd, int channel, int max_conn)
 {
      wifi_config_t wifi_config = {0};

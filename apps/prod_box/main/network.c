@@ -7,6 +7,7 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 #include "user_debug.h"
+#include "prodtst_hal_wifi.h"
 
 #define network_log(format, ...)  custom_log("network", format, ##__VA_ARGS__)
 
@@ -27,6 +28,7 @@ static int s_retry_num = 0;
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
     tcpip_adapter_ip_info_t ip;
+    prodtst_wifi_event_t  prodtst_wifi_event = {0};
 
     switch(event->event_id) {
 
@@ -57,12 +59,31 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         network_log("station:"MACSTR" join, AID=%d",
                  MAC2STR(event->event_info.sta_connected.mac),
                  event->event_info.sta_connected.aid);
+
+        prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_CONNECTED;
+        memcpy(prodtst_wifi_event.event_info.sta_connected.mac, event->event_info.sta_connected.mac, 6);
+        prodtst_wifi_ap_event_set(&event);
+
         break;
     case SYSTEM_EVENT_AP_STADISCONNECTED:
         network_log("station:"MACSTR"leave, AID=%d",
                  MAC2STR(event->event_info.sta_disconnected.mac),
                  event->event_info.sta_disconnected.aid);
+        
+        prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_DISCONNECTED;
+        memcpy(prodtst_wifi_event.event_info.sta_connected.mac, event->event_info.sta_connected.mac, 6);
+        prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_DISCONNECTED;
+
         break;
+
+    case SYSTEM_EVENT_AP_STAIPASSIGNED:
+
+        prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_STAIPASSIGNED;
+        prodtst_wifi_event.event_info.ap_staipassigned.ip_addr = event->event_info.ap_staipassigned.ip.addr;
+        network_log("station ip assigned: %s", ip4addr_ntoa(&event->event_info.ap_staipassigned.ip));
+
+        break;
+
     case SYSTEM_EVENT_ETH_CONNECTED:
         network_log("Ethernet Link Up");
         break;

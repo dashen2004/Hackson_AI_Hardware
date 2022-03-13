@@ -54,7 +54,8 @@ typedef enum{
     PRODTST_EVENT_SPECIAL,
     PRODTST_EVENT_SPCL_RESULT,
     PRODTST_EVENT_FINISH,
-    PRODTST_EVENT_DEVICE_FOUND,
+    PRODTST_EVENT_WIFI_DUT_FOUND,
+    PRODTST_EVENT_BLE_DUT_FOUND
 }prodtst_event_t;
 
 enum{
@@ -112,12 +113,13 @@ typedef struct{
 
 typedef struct{
     char ip[16];
-}prodtst_ip_info_t;
+    uint8_t mac[6];
+}prodtst_wifi_dut_info_t;
 
 typedef struct{
     int event;
     union{
-        prodtst_ip_info_t ip_info;
+        prodtst_wifi_dut_info_t wifi_dut_info;
         prodtst_config_info_t config_info;
         prodtst_data_info_t data_info;
         prodtst_special_info_t special_info;
@@ -152,6 +154,13 @@ typedef struct {
     uint16_t num[CONFIG_QM_PRODTST_DATA_TABLE_NUM];        
 }prodtst_data_table_t;
 
+typedef struct {
+      union{
+        prodtst_wifi_dut_info_t wifi_dut_info;
+    }info;
+}prodtst_dut_info_t;
+
+
 typedef struct{
     char uuid[32+1];
     prodtst_state_t state;
@@ -171,6 +180,7 @@ typedef struct{
     qm_queue_t notify;
     prodtst_testsuite_t *testsuite;
     prodtst_config_info_t config_info;
+    prodtst_dut_info_t dut_info;
     prodtst_notify_cb notify_cb;
     prodtst_obj_t *prodtst_obj[CONFIG_QM_PRODTST_OBJ_NUM];
 }prodtst_context_t; 
@@ -183,7 +193,7 @@ int prodtst_stop(void);
 
 
 /********prodtst notify********/
-int prodtst_ip_notify(char *ip);
+int prodtst_wifi_dut_found_notify(char *ip, uint8_t mac[6]);
 int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data, int len);
 int prodtst_config_notify(char *platform, char *module_name, char *module_type);
 int prodtst_special_notify(char *uuid, char *action, char *data, int len);
