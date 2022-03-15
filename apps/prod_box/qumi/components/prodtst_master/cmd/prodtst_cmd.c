@@ -12,6 +12,7 @@ prodtst_data_t *prodtst_data_creat(int num)
     if(prodtst_data == NULL){
         return -QM_ENOMEM;
     }  
+    memset(prodtst_data, 0, sizeof(prodtst_data_t));
     return prodtst_data;
 }
 

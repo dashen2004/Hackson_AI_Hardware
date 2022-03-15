@@ -62,7 +62,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 
         prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_CONNECTED;
         memcpy(prodtst_wifi_event.event_info.sta_connected.mac, event->event_info.sta_connected.mac, 6);
-        prodtst_wifi_ap_event_set(&event);
+        prodtst_wifi_ap_event_set(&prodtst_wifi_event);
 
         break;
     case SYSTEM_EVENT_AP_STADISCONNECTED:
@@ -73,6 +73,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_DISCONNECTED;
         memcpy(prodtst_wifi_event.event_info.sta_connected.mac, event->event_info.sta_connected.mac, 6);
         prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_DISCONNECTED;
+        prodtst_wifi_ap_event_set(&prodtst_wifi_event);
 
         break;
 
@@ -81,6 +82,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_STAIPASSIGNED;
         prodtst_wifi_event.event_info.ap_staipassigned.ip_addr = event->event_info.ap_staipassigned.ip.addr;
         network_log("station ip assigned: %s", ip4addr_ntoa(&event->event_info.ap_staipassigned.ip));
+        prodtst_wifi_ap_event_set(&prodtst_wifi_event);
 
         break;
 
@@ -160,7 +162,7 @@ static void wifi_init(void)
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA) );
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK(esp_wifi_start() );
 }
 

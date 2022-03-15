@@ -22,7 +22,7 @@
 #define PRODTST_AP_RSSI_CMD              "AT+RF_W="%s""
 #define PRODTST_AP_RSSI_CMD_MAX_LEN      64
 
-#define PRODTST_HW_CONFIG_KEY           "hw_config"
+#define PRODTST_HW_CONFIG_KEY           "hw_cfg"
 #define PRODTST_HW_CONFIG_CMD           "AT+HW_CFG?"
 #define PRODTST_HW_CONFIG_MAX_LEN        4096
 

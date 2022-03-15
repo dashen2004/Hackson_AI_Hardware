@@ -93,7 +93,7 @@ typedef struct{
 
 typedef struct{
     char type[16];
-    uint8_t uuid[32+1];
+    char uuid[32+1];
     int id;
     uint8_t *data;
     int len;

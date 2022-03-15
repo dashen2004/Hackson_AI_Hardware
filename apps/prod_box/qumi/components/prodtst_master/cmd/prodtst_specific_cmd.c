@@ -11,11 +11,11 @@ static int hw_token_parse(void *rsp, prodtst_data_t **data, int *num);
 static int hw_cfg_parse(void *rsp, prodtst_data_t **data, int *num);
 
 prodtst_cmd_t prodtst_hw_wifi_specific_cmd[] = {
-    {"hw_cfg",    "AT+HW_CFG?",  PRODTST_HW_CONFIG_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, hw_token_parse },
-    {"hw_token", "AT+FW_TOKEN?", PRODTST_HW_TOKEN_MAX_LEN,  CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, hw_cfg_parse   },
+    {"hw_cfg",    "AT+HW_CFG?",  PRODTST_HW_CONFIG_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, hw_cfg_parse },
+    {"hw_token", "AT+HW_TOKEN?", PRODTST_HW_TOKEN_MAX_LEN,  CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, hw_token_parse },
 };
 
-
+//TODO: 
 static int hw_token_parse(void *rsp, prodtst_data_t **data, int *num)
 {
     int ret = 0;
@@ -38,6 +38,7 @@ static int hw_token_parse(void *rsp, prodtst_data_t **data, int *num)
     ret = qm_at_client_resp_parse_line_args(at_resp, 1, rsp_expr, prodtst_data->data);
     if(ret <= 0){
         ret = -QM_EINVAL;
+        QM_LOGE(LOG_TAG, "hw token parse error");
         goto __exit;
     }
 
@@ -51,7 +52,7 @@ static int hw_token_parse(void *rsp, prodtst_data_t **data, int *num)
     return QM_EOK;
 
 __exit:
-    ret = prodtst_data_destroy(prodtst_data, data_num);
+    prodtst_data_destroy(prodtst_data, data_num);
     return ret;
 }
 
@@ -62,7 +63,7 @@ static int hw_cfg_parse(void *rsp, prodtst_data_t **data, int *num)
     int data_num = 1;
     prodtst_data_t *prodtst_data = NULL;
     qm_at_response_t *at_resp = (qm_at_response_t*)rsp;
-    char *kw = "+hw_cfg:\"";
+    char *kw = "+HW_CFG:\"";
 
     prodtst_data = prodtst_data_creat(data_num);
     if(prodtst_data == NULL){
@@ -71,6 +72,8 @@ static int hw_cfg_parse(void *rsp, prodtst_data_t **data, int *num)
 
     cfg = qm_at_client_resp_get_line_by_kw(at_resp, kw);
     if(cfg == NULL){
+        ret = -QM_EINVAL;
+        QM_LOGE(LOG_TAG, "hw cfg kw not found");
         goto __exit;
     }
 
@@ -79,7 +82,7 @@ static int hw_cfg_parse(void *rsp, prodtst_data_t **data, int *num)
         goto __exit;
     }
 
-    memcpy(prodtst_data->data, cfg+strlen(kw), strlen(cfg)-1-strlen(kw));
+    memcpy(prodtst_data->data, cfg+strlen(kw), strlen(cfg)-2-strlen(kw));
 
     QM_LOGI(LOG_TAG, "hw cfg: %s", prodtst_data->data);
 
@@ -91,7 +94,7 @@ static int hw_cfg_parse(void *rsp, prodtst_data_t **data, int *num)
     return QM_EOK;
 
 __exit:
-    ret = prodtst_data_destroy(prodtst_data, data_num);
+    prodtst_data_destroy(prodtst_data, data_num);
     return ret;
 }
 

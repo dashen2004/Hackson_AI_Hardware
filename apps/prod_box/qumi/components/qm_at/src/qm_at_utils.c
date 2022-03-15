@@ -75,32 +75,30 @@ int32_t qm_at_vprintf(void *channel, const char *format, va_list args)
     int32_t ret = 0;
     char *big_buf = NULL;
     qm_at_channel_t *at_channel = (qm_at_channel_t*)channel;
-    char *buf = send_buf+2;
-    uint32_t len = sizeof(send_buf)-2;
+    char *buf = send_buf;
+    uint32_t len = sizeof(send_buf);
     last_cmd_len = vsnprintf(buf, len, format, args);
     if(last_cmd_len > len){
-        big_buf = (char*)qm_malloc(last_cmd_len+1+2);
+        big_buf = (char*)qm_malloc(last_cmd_len+1);
         if(big_buf == NULL){
             return -QM_ENOMEM;
         }
-        buf = big_buf+2;
+        buf = big_buf;
         last_cmd_len = vsnprintf(buf, last_cmd_len+1, format, args);
-        memcpy(big_buf, "\r\n", 2);
 #if CONFIG_QM_AT_PRINT_RAW_CMD
-        qm_at_print_raw_cmd("sendline", big_buf, last_cmd_len+2);
+        qm_at_print_raw_cmd("sendline", big_buf, last_cmd_len);
 #endif
-        ret = at_channel->send(at_channel->handle, big_buf, last_cmd_len+2);
+        ret = at_channel->send(at_channel->handle, big_buf, last_cmd_len);
         qm_free(big_buf);
         return ret;
 
     }else{
-        memcpy(send_buf, "\r\n", 2);
 
 #if CONFIG_QM_AT_PRINT_RAW_CMD
-        qm_at_print_raw_cmd("sendline", send_buf, last_cmd_len+2);
+        qm_at_print_raw_cmd("sendline", send_buf, last_cmd_len);
 #endif
 
-        return at_channel->send(at_channel->handle, send_buf, last_cmd_len+2);
+        return at_channel->send(at_channel->handle, send_buf, last_cmd_len);
     }
 
 }
@@ -111,33 +109,31 @@ int32_t qm_at_vprintfln(void *channel, const char *format, va_list args)
     char *big_buf = NULL;
     qm_at_channel_t *at_channel = (qm_at_channel_t*)channel;
 
-    char *buf = send_buf+2;
-    uint32_t len = sizeof(send_buf)-4;
+    char *buf = send_buf;
+    uint32_t len = sizeof(send_buf)-2;
 
     last_cmd_len = vsnprintf(buf, len, format, args);
     if(last_cmd_len > len){
-        big_buf = (char*)qm_malloc(last_cmd_len + 1 + 4);
+        big_buf = (char*)qm_malloc(last_cmd_len + 1 + 2);
         if(big_buf == NULL){
             return -QM_ENOMEM;
         }
-        buf = big_buf+2;
+        buf = big_buf;
         last_cmd_len = vsnprintf(buf, last_cmd_len + 1, format, args);
-        memcpy(big_buf, "\r\n", 2);
-        memcpy(big_buf + last_cmd_len + 2, "\r\n", 2);
+        memcpy(big_buf + last_cmd_len, "\r\n", 2);
 #if CONFIG_QM_AT_PRINT_RAW_CMD
-        qm_at_print_raw_cmd("sendline", big_buf, last_cmd_len + 4);
+        qm_at_print_raw_cmd("sendline", big_buf, last_cmd_len + 2);
 #endif
-        ret = at_channel->send(at_channel->handle, big_buf, last_cmd_len + 4);
+        ret = at_channel->send(at_channel->handle, big_buf, last_cmd_len + 2);
         qm_free(big_buf);
         return ret;
 
     }else{
-        memcpy(send_buf, "\r\n", 2);
         memcpy(buf + last_cmd_len, "\r\n", 2);
 
 #if CONFIG_QM_AT_PRINT_RAW_CMD
-        qm_at_print_raw_cmd("sendline", send_buf, last_cmd_len+4);
+        qm_at_print_raw_cmd("sendline", send_buf, last_cmd_len+2);
 #endif
-        return at_channel->send(at_channel->handle, send_buf, last_cmd_len+4);
+        return at_channel->send(at_channel->handle, send_buf, last_cmd_len+2);
     }
 }

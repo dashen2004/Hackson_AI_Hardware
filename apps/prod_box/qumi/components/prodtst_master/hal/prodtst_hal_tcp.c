@@ -36,20 +36,22 @@ int32_t prodtst_tcp_establish(const char *host, uint16_t port)
     if(hostent_content == NULL)
     {
         QM_LOGE(LOG_TAG, "gethostbyname err");
-        return 0;
+        return -1;
     }
 
     fd = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fd < 0) {
         QM_LOGE(LOG_TAG, "socket creat err");
-        return 0;
+        return -1;
     }
 
+#if 0
         // Marking the socket as non-blocking
     int flags = fcntl(fd, F_GETFL);
     if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
         QM_LOGI(LOG_TAG, "[sock=%d]: %s\n error=%d: %s", fd, "Unable to set socket non blocking", errno, strerror(errno));
     }
+#endif
 
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = *(uint32_t *) (*hostent_content->h_addr_list);
@@ -61,7 +63,7 @@ int32_t prodtst_tcp_establish(const char *host, uint16_t port)
     if (err < 0) {
         QM_LOGE(LOG_TAG, "ERROR: Failed to connect socket %d.", fd);
         close(fd);
-        return 0;
+        return -1;
     }
 
     return fd;

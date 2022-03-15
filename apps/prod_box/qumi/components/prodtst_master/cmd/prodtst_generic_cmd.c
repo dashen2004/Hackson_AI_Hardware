@@ -5,6 +5,7 @@
 #include "qm_kernel.h"
 #include "prodtst_config.h"
 #include "prodtst_core.h"
+#include "prodtst_adapter.h"
 
 #define LOG_TAG "prodtst cmd"
 
@@ -59,7 +60,7 @@ static int fw_ver_parse(void *rsp, prodtst_data_t **data, int *num)
     return QM_EOK;
 
 __exit:
-    ret = prodtst_data_destroy(prodtst_data, data_num);
+    prodtst_data_destroy(prodtst_data, data_num);
     return ret;
 }
 
@@ -97,7 +98,7 @@ static int fw_name_parse(void *rsp, prodtst_data_t **data, int *num)
     return QM_EOK;
 
 __exit:
-    ret = prodtst_data_destroy(prodtst_data, data_num);
+    prodtst_data_destroy(prodtst_data, data_num);
     return ret;
 }
 
@@ -135,7 +136,7 @@ static int sta_mac_parse(void *rsp, prodtst_data_t **data, int *num)
     return QM_EOK;
 
 __exit:
-    ret = prodtst_data_destroy(prodtst_data, data_num);
+    prodtst_data_destroy(prodtst_data, data_num);
     return ret;
 }
 
@@ -173,12 +174,14 @@ static int ap_mac_parse(void *rsp, prodtst_data_t **data, int *num)
     return QM_EOK;
 
 __exit:
-    ret = prodtst_data_destroy(prodtst_data, data_num);
+    prodtst_data_destroy(prodtst_data, data_num);
     return ret;
 }
 
 static int ap_rssi_cmd_creat(char *cmd, char *param, char **out)
 {
+    char ssid[32] = {0};
+
     char *cmd_str = (char*)qm_malloc(PRODTST_AP_RSSI_CMD_MAX_LEN+1);
     if(cmd_str == NULL){
         return -QM_ENOMEM;
@@ -186,7 +189,9 @@ static int ap_rssi_cmd_creat(char *cmd, char *param, char **out)
 
     memset(cmd_str, 0, PRODTST_AP_RSSI_CMD_MAX_LEN+1);
 
-    snprintf(cmd_str, "%s=\"%s\"", cmd, CONFIG_QM_PRODTST_AP_SSID);
+    prodtst_wifi_ap_name_get(ssid);
+
+    snprintf(cmd_str, PRODTST_AP_RSSI_CMD_MAX_LEN+1, "%s=\"%s\"", cmd, ssid);
     *out = cmd_str;
 
     return QM_EOK;
@@ -199,7 +204,7 @@ static int ap_rssi_parse(void *rsp, prodtst_data_t **data, int *num)
     #define AP_RSSI_DATA_MAX_LEN 8
     prodtst_data_t *prodtst_data = NULL;
     qm_at_response_t *at_resp = (qm_at_response_t*)rsp;
-    const char *rsp_expr = "%*[^=]=%s";
+    const char *rsp_expr = "%*[^:]:%s";
 
     prodtst_data = prodtst_data_creat(data_num);
     if(prodtst_data == NULL){
@@ -227,6 +232,6 @@ static int ap_rssi_parse(void *rsp, prodtst_data_t **data, int *num)
     return QM_EOK;
 
 __exit:
-    ret = prodtst_data_destroy(prodtst_data, data_num);
+    prodtst_data_destroy(prodtst_data, data_num);
     return ret;
 }

@@ -19,7 +19,7 @@ extern prodtst_adapter_t wifi_prodtst_adapter;
 
 
 int prodtst_wifi_ap_event_handler(uint32_t ip);
-
+int prodtst_wifi_ap_name_get(char ssid[32]);
 
 #endif
 

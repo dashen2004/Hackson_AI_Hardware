@@ -28,7 +28,7 @@ static prodtst_context_t g_prodtst_ctx = {0};
 extern prodtst_adapter_t wifi_prodtst_adapter;
 
 static prodtst_testsuite_t  g_prodtst_testsuite[] = {
-    {"harmony", "W70", "wifi", 4096, 1, &prodtst_wifi_generic_cmd, 4, &prodtst_hw_wifi_specific_cmd, 1, &wifi_prodtst_adapter},
+    {"harmony", "W70", "wifi", 4096, 6, &prodtst_wifi_generic_cmd, 5, &prodtst_hw_wifi_specific_cmd, 2, &wifi_prodtst_adapter},
 
  
 };
@@ -285,10 +285,12 @@ static int prodtst_data_table_print(prodtst_data_table_t *prodtst_tbl)
             if(prodtst_data->name){
                 QM_LOGI(LOG_TAG, "cmd name:      %s", prodtst_data->name);
             }
-            if(prodtst_data->data){
+            if(prodtst_data->type == PRODTST_DATA_STRING && prodtst_data->data){
                 QM_LOGI(LOG_TAG, "response data: %s", prodtst_data->data);
             }
-            qm_free(prodtst_data);
+            if(prodtst_data->type == PRODTST_DATA_INT){
+                QM_LOGI(LOG_TAG, "response data: %d", prodtst_data->int_data);
+            }
         }
     }
     return QM_EOK;
@@ -297,6 +299,7 @@ static int prodtst_data_table_print(prodtst_data_table_t *prodtst_tbl)
 static int prodtst_generic_handler(prodtst_obj_t *prodtst_obj)
 {
     int num = 0;
+    int parse_num = 0;
     int index = 0;
     char *m_cmd = NULL;
     char *cmd = NULL;
@@ -309,9 +312,10 @@ static int prodtst_generic_handler(prodtst_obj_t *prodtst_obj)
 
     for(num = 0; num < testsuite->generic_cmd_num; num++){
 
-        resp = qm_at_client_create_resp(testsuite->generic_cmd[num].recv_size, 0, testsuite->generic_cmd[num].timeout);
+        resp = qm_at_client_create_resp(testsuite->generic_cmd[num].recv_size + 64, 0, testsuite->generic_cmd[num].timeout);
         if(resp == NULL){
-            return -QM_ENOMEM;
+            ret = -QM_ENOMEM;
+            goto __exit;
         }
         if(testsuite->generic_cmd[num].creat){
             testsuite->generic_cmd[num].creat(testsuite->generic_cmd[num].cmd, NULL, &m_cmd);
@@ -319,7 +323,6 @@ static int prodtst_generic_handler(prodtst_obj_t *prodtst_obj)
                 ret = -QM_ERROR;
                 goto __exit;
             }
-
             cmd = m_cmd;     
         }else{
             cmd = testsuite->generic_cmd[num].cmd;
@@ -338,16 +341,21 @@ static int prodtst_generic_handler(prodtst_obj_t *prodtst_obj)
             m_cmd = NULL;
         }
 
-        ret = testsuite->generic_cmd[num].parser(resp, &prodtst_data, &num);
+        ret = testsuite->generic_cmd[num].parser(resp, &prodtst_data, &parse_num);
         if(ret != QM_EOK){
             QM_LOGE(LOG_TAG, "parse generic response failed");
-            goto __exit;
+            goto __exit; 
         }
-        if(prodtst_data && num > 0){
-            ret = prodtst_data_table_set(&prodtst_obj->data_tbl, prodtst_data, num);
+        if(prodtst_data && parse_num > 0){
+            ret = prodtst_data_table_set(&prodtst_obj->data_tbl, prodtst_data, parse_num);
+            if(ret != QM_EOK){
+                QM_LOGE(LOG_TAG, "prodtst table full");
+                goto __exit; 
+            }
         }
         qm_at_client_delete_resp(resp);
         resp = NULL;
+        
     }
 
     return ret;
@@ -359,7 +367,7 @@ __exit:
         resp = NULL;
     }
 
-    prodtst_data_table_reset(prodtst_obj);
+    prodtst_data_table_reset(&prodtst_obj->data_tbl);
     return ret;
 }
 
@@ -367,6 +375,7 @@ static int prodtst_specific_handler(prodtst_obj_t *prodtst_obj)
 {
 
     int num = 0;
+    int parse_num = 0;
     int index = 0;
     qm_err_t ret = QM_EOK;
     qm_at_response_t *resp = NULL;
@@ -377,7 +386,7 @@ static int prodtst_specific_handler(prodtst_obj_t *prodtst_obj)
 
     for(num = 0; num < testsuite->specific_cmd_num; num++){
 
-        resp = qm_at_client_create_resp(testsuite->specific_cmd[num].recv_size, 0, testsuite->specific_cmd[num].timeout);
+        resp = qm_at_client_create_resp(testsuite->specific_cmd[num].recv_size + 64, 0, testsuite->specific_cmd[num].timeout);
         ret = qm_at_client_obj_exec_cmd(prodtst_obj->at_client, resp, testsuite->specific_cmd[num].cmd);
         if(ret == -QM_ETIMEOUT){
             QM_LOGE(LOG_TAG, "wait specific response timeout");
@@ -387,15 +396,13 @@ static int prodtst_specific_handler(prodtst_obj_t *prodtst_obj)
             goto __exit;
         }
 
-        prodtst_data = NULL;
-        num = 0;
-        ret = testsuite->specific_cmd[num].parser(resp, &prodtst_data, &num);
+        ret = testsuite->specific_cmd[num].parser(resp, &prodtst_data, &parse_num);
         if(ret != QM_EOK){
             QM_LOGE(LOG_TAG, "parse specific response failed");
             goto __exit;
         }
-        if(prodtst_data && num > 0){
-            ret = prodtst_data_table_set(&prodtst_obj->data_tbl, prodtst_data, num);
+        if(prodtst_data && parse_num > 0){
+            ret = prodtst_data_table_set(&prodtst_obj->data_tbl, prodtst_data, parse_num);
         }
         qm_at_client_delete_resp(resp);
         resp = NULL;
@@ -410,7 +417,7 @@ __exit:
         resp = NULL;
     }
 
-    prodtst_data_table_reset(prodtst_obj);
+    prodtst_data_table_reset(&prodtst_obj->data_tbl);
     return ret;
 }
 
@@ -459,7 +466,7 @@ __exit:
         resp = NULL;
     }
 
-    prodtst_data_table_reset(prodtst_obj);
+    prodtst_data_table_reset(&prodtst_obj->data_tbl);
     return ret;
 }
 
@@ -623,7 +630,7 @@ static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
         return ret;
     }
 
-    prodtst_data_table_reset(prodtst_obj);
+    prodtst_data_table_reset(&prodtst_obj->data_tbl);
 
     ret = qm_task_exit(&prodtst_obj->task);
     if(ret != QM_EOK){
@@ -772,6 +779,51 @@ static int prodtst_obj_init(prodtst_obj_t *prodtst_obj)
     return QM_EOK;
 }
 
+static char *random_uuid( char buf[33] )
+{
+    const char *c = "89ab";
+    char *p = buf;
+    int n;
+
+    srand(qm_now_ms());
+    for( n = 0; n < 16; ++n )
+    {
+        int b = rand()%255;
+        switch( n )
+        {
+            case 6:
+                sprintf(p, "4%x", b%15 );
+            break;
+            case 8:
+                sprintf(p, "%c%x", c[rand()%strlen(c)], b%15 );
+            break;
+            default:
+                sprintf(p, "%02x", b);
+            break;
+        }
+
+        p += 2;
+    }
+    *p = 0;
+    return buf;
+}
+
+static prodtst_obj_t *prodtst_obj_get_by_uuid(char uuid[33])
+{
+    int i = 0;
+    prodtst_obj_t *m_obj = NULL;
+    for(i = 0; i < CONFIG_QM_PRODTST_OBJ_NUM; i++){
+        m_obj = g_prodtst_ctx.prodtst_obj[i];
+        if(m_obj == NULL || strlen(m_obj->uuid) != 32){
+            continue;
+        }
+        if(0 == memcmp(m_obj->uuid, uuid, 32)){
+            return m_obj;
+        }
+    }
+    return NULL;
+}
+
 static void prodtst_obj_task(void *arg)
 {
     uint32_t size = 0;
@@ -845,9 +897,10 @@ static void prodtst_obj_task(void *arg)
 
             QM_LOGI(LOG_TAG, "specific test success");
 
-            prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
+            random_uuid(prodtst_obj->uuid);
 
-            prodtst_data_table_print(prodtst_obj);
+            prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
+            prodtst_data_table_print(&prodtst_obj->data_tbl);
             prodtst_test_send(&prodtst_obj->data_tbl);
             prodtst_data_table_reset(&prodtst_obj->data_tbl);
 
@@ -877,7 +930,7 @@ static void prodtst_obj_task(void *arg)
 
             prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
             
-            prodtst_data_table_print(prodtst_obj);
+            prodtst_data_table_print(&prodtst_obj->data_tbl);
             prodtst_generic_send(PRODTST_EVENT_GET_REPLY, notify.dat.data_info.id, &prodtst_obj->data_tbl);
             prodtst_data_table_reset(&prodtst_obj->data_tbl);
 
@@ -913,7 +966,7 @@ static void prodtst_obj_task(void *arg)
 
             prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
 
-            prodtst_data_table_print(prodtst_obj);
+            prodtst_data_table_print(&prodtst_obj->data_tbl);
             prodtst_spcl_result_send(&prodtst_obj->data_tbl);
             prodtst_data_table_reset(&prodtst_obj->data_tbl);
 
@@ -1002,10 +1055,24 @@ static void prodtst_core_task(void *arg)
                 prodtst_obj = prodtst_obj_idle_get();
                 if(!prodtst_obj){
                     QM_LOGI(LOG_TAG, "prodtst object is busy");
+                }else{
+                    qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
                 }
 
-                qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
+            break;
 
+            case PRODTST_EVENT_SET:
+            case PRODTST_EVENT_GET:
+            case PRODTST_EVENT_SPECIAL:
+            case PRODTST_EVENT_FINISH:
+
+                prodtst_obj = prodtst_obj_get_by_uuid(notify.dat.data_info.uuid);
+                if(prodtst_obj == NULL){
+                    QM_LOGI(LOG_TAG, "prodtst uuid is invalid");
+                }else{
+                    qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
+                }
+                
             break;
 
             default:

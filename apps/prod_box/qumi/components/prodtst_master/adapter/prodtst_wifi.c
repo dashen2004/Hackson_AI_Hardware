@@ -6,6 +6,7 @@
 #include "prodtst_config.h"
 #include "prodtst_hal_wifi.h"
 #include "prodtst_hal_tcp.h"
+#include "qm_kernel.h"
 
 #define LOG_TAG  "prodtst wifi"
 
@@ -16,6 +17,8 @@ typedef struct
 
 static uint8_t mac[6];
 static char buffer[16] = {0};
+static char prodtst_ssid[32] = {0};
+
 static char *  __inet_ntoa( unsigned int in )
 {
     unsigned char *bytes = (unsigned char *) &in;
@@ -51,22 +54,32 @@ void prodtst_wifi_event_callback(prodtst_wifi_event_t *event, void *arg)
 
 }
 
+int prodtst_wifi_ap_name_get(char ssid[32])
+{
+    if(ssid == NULL){
+        return -QM_EINVAL;
+    }
+
+    memcpy(ssid, prodtst_ssid, strlen(prodtst_ssid));
+
+    return QM_EOK;
+}
+
 static int wifi_prodtst_init(void *param)
 {
     int max_conn = 0;
     qm_err_t ret = QM_EOK;
-    char ssid[32] = {0};
     uint8_t mac[6] = {0};
 
     prodtst_wifi_sta_mac_get(mac);
 
     max_conn = prodtst_device_num_get();
 
-    snprintf(ssid, 32, "%s_%02x%02x", CONFIG_QM_PRODTST_AP_SSID, mac[4], mac[5]);
+    snprintf(prodtst_ssid, 32, "%s_%02x%02x", CONFIG_QM_PRODTST_AP_SSID, mac[4], mac[5]);
 
     prodtst_wifi_ap_event_register(prodtst_wifi_event_callback, NULL);
     
-    return prodtst_wifi_ap_init(ssid, CONFIG_QM_PRODTST_AP_PASSWD, CONFIG_QM_PRODTST_WIFI_CHANNEL, max_conn);
+    return prodtst_wifi_ap_init(prodtst_ssid, CONFIG_QM_PRODTST_AP_PASSWD, CONFIG_QM_PRODTST_WIFI_CHANNEL, max_conn);
 }
 
 
@@ -117,6 +130,8 @@ static void *channel_establish(void *param)
         return NULL;
     }
 
+    qm_msleep(500);
+
     QM_LOGI(LOG_TAG, "tcp connecting...");
 
     fd = prodtst_tcp_establish(wifi_dut_info->ip, CONFIG_QM_PRODTST_TCP_PORT);
@@ -127,6 +142,8 @@ static void *channel_establish(void *param)
         ret = -QM_EIO;
         goto __exit;
     }
+
+    channel->fd = fd;
 
     return (void*)channel;
 
@@ -141,7 +158,7 @@ __exit:
 static int channel_destroy(void *handle)
 {
     channel_info_t *channel = (channel_info_t*)handle;
-    prodtst_tcp_mgr_destroy(channel->fd);
+    prodtst_tcp_destroy(channel->fd);
 
     QM_LOGI(LOG_TAG, "tcp closed");
     return QM_EOK;

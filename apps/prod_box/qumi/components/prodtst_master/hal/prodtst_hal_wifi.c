@@ -26,6 +26,7 @@ int prodtst_wifi_ap_init(char *ssid, char *pwd, int channel, int max_conn)
     wifi_config.ap.max_connection = max_conn;
     wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
 
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
 
@@ -65,6 +66,6 @@ int prodtst_wifi_ap_event_register(prodtst_wifi_event_cb cb, void *arg)
         return -QM_EINVAL;
     }
     prodtst_wifi_event_callback = cb;
-    wifi_event_cb_arg= arg;
+    wifi_event_cb_arg = arg;
     return QM_EOK;
 }   
