@@ -166,7 +166,7 @@ static int ap_mac_parse(void *rsp, prodtst_data_t **data, int *num)
 
     QM_LOGI(LOG_TAG, "wifi ap mac: %s", prodtst_data->data);
 
-    prodtst_name_copy(prodtst_data, PRODTST_WIFI_STA_MAC_KEY, strlen(PRODTST_WIFI_STA_MAC_KEY));
+    prodtst_name_copy(prodtst_data, PRODTST_WIFI_AP_MAC_KEY, strlen(PRODTST_WIFI_AP_MAC_KEY));
     
     *data = prodtst_data; 
     *num = data_num;

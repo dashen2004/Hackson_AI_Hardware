@@ -171,7 +171,7 @@ int32_t prodtst_tcp_read(int fd, char *buf, uint32_t len, uint32_t timeout_ms)
         timeout.tv_sec = t_left / 1000;
         timeout.tv_usec = (t_left % 1000) * 1000;
 
-        ret = select(fd + 1, &sets, NULL, NULL, &timeout);
+        ret = select(fd + 1, &sets, NULL, NULL, timeout_ms == 0 ? NULL : &timeout);
         if (ret > 0) {
             if (FD_ISSET(fd, &sets))
              {

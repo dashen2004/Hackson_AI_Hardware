@@ -11,8 +11,8 @@ static int fun_get_parse(void *rsp, prodtst_data_t **data, int *num);
 
 
 prodtst_cmd_t prodtst_fun_cmd[] = {
-    {"serial_get", "AT+FUN", PRODTST_FUN_SET_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, fun_get_parse },
-    {"serial_set", "AT+FUN", PRODTST_FUN_GET_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, NULL },
+    {"serial_get", "AT+FUN", PRODTST_FUN_GET_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, fun_get_parse },
+    {"serial_set", "AT+FUN", PRODTST_FUN_SET_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, NULL },
 };
 
 #define PRODTST_FUN_CMD_NUM   (sizeof(prodtst_fun_cmd)/sizeof(prodtst_fun_cmd[0]))
@@ -28,8 +28,8 @@ prodtst_cmd_t *prodtst_fun_cmd_get(char *type, char *method)
     snprintf(key, 32, "%s_%s", type, method);
 
     for(i = 0; i < PRODTST_FUN_CMD_NUM; i++){
-        if((strlen(key) == strlen(prodtst_fun_cmd[i].cmd)) && 
-        (0 == strcmp(key, prodtst_fun_cmd[i].cmd))){
+        if((strlen(key) == strlen(prodtst_fun_cmd[i].name)) && 
+        (0 == strcmp(key, prodtst_fun_cmd[i].name))){
             return &prodtst_fun_cmd[i];
         }
     }

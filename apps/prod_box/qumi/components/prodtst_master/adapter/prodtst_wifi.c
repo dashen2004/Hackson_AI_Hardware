@@ -130,7 +130,7 @@ static void *channel_establish(void *param)
         return NULL;
     }
 
-    qm_msleep(500);
+    qm_msleep(2000);
 
     QM_LOGI(LOG_TAG, "tcp connecting...");
 
