@@ -3,7 +3,7 @@ file(GLOB srcs "*.c")
 
 idf_component_register(SRCS "${srcs}"
                        INCLUDE_DIRS "."
-                       REQUIRES esp32 driver esp_ringbuf esp32x
+                       REQUIRES esp32 driver esp_ringbuf qumi
                        )
 
 
