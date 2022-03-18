@@ -19,7 +19,7 @@ int prodtst_uart_write(prodtst_uart_port_t uart_num, const uint8_t *buf, uint32_
     int ret = 0; 
     ret = uart_ext_write_bytes((uart_ext_port_t)uart_num, buf, length);
     if(ret > 0){
-        return QM_EOK;
+        return ret;
     }else{
         return -QM_ERROR;
     }
@@ -30,7 +30,7 @@ int prodtst_uart_read(prodtst_uart_port_t uart_num, uint8_t *buf, uint32_t lengt
     int ret = 0; 
     ret = uart_ext_read_bytes((uart_ext_port_t)uart_num, buf, length, ticks_to_wait);
     if(ret > 0){
-        return QM_EOK;
+        return ret;
     }else{
         return -QM_ERROR;
     }

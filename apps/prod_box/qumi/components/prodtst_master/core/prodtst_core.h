@@ -20,6 +20,14 @@ enum{
 };
 
 typedef enum{
+    PRODTST_STEP_TYPE_NONE,
+    PRODTST_STEP_TYPE_GENERIC,
+    PRODTST_STEP_TYPE_FUN,
+    PRODTST_STEP_TYPE_SPECIAL,
+    PRODTST_STEP_TYPE_ALL,
+}prodtst_step_type_t;
+
+typedef enum{
     MODULE_TYPE_WIFI = 1,
     MODULE_TYPE_WIFI_BLE,
     MODULE_TYPE_BLE,
@@ -47,13 +55,14 @@ typedef enum{
     PRODTST_EVENT_NONE,
     PRODTST_EVENT_CONFIG,
     PRODTST_EVENT_SET,
+    PRODTST_EVENT_SET_REPLY,
     PRODTST_EVENT_GET,
     PRODTST_EVENT_GET_REPLY,
     PRODTST_EVENT_REPORT,
     PRODTST_EVENT_TEST,
-    PRODTST_EVENT_SPECIAL,
-    PRODTST_EVENT_SPCL_RESULT,
-    PRODTST_EVENT_FINISH,
+    PRODTST_EVENT_SPCL_DOWN,
+    PRODTST_EVENT_SPCL_UP,
+    PRODTST_EVENT_RESULT,
     PRODTST_EVENT_WIFI_DUT_FOUND,
     PRODTST_EVENT_BLE_DUT_FOUND
 }prodtst_event_t;
@@ -92,7 +101,7 @@ typedef struct{
 }prodtst_config_info_t;
 
 typedef struct{
-    char type[16];
+    char type[16+1];
     char uuid[32+1];
     int id;
     uint8_t *data;
@@ -100,13 +109,13 @@ typedef struct{
 }prodtst_data_info_t;
 
 typedef struct{
-    uint8_t uuid[32+1];
+    char uuid[32+1];
+    char step[16+1];
     int result;
-}prodtst_finish_info_t;
+}prodtst_result_info_t;
 
 typedef struct{
-    uint8_t uuid[32+1];
-    char action[16];
+    char uuid[32+1];
     char *data;
     int len;
 }prodtst_special_info_t;
@@ -123,7 +132,7 @@ typedef struct{
         prodtst_config_info_t config_info;
         prodtst_data_info_t data_info;
         prodtst_special_info_t special_info;
-        prodtst_finish_info_t finish_info;
+        prodtst_result_info_t result_info;
     }dat;
 }prodtst_notify_t;
 
@@ -168,6 +177,7 @@ typedef struct{
     qm_queue_t notify;
     qm_mutex_t lock;
     void *channel_handle;
+    void *spcl_handle;
     qm_at_client_t *at_client;
     prodtst_data_table_t data_tbl;
 }prodtst_obj_t;
@@ -196,8 +206,8 @@ int prodtst_stop(void);
 int prodtst_wifi_dut_found_notify(char *ip, uint8_t mac[6]);
 int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data, int len);
 int prodtst_config_notify(char *platform, char *module_name, char *module_type);
-int prodtst_special_notify(char *uuid, char *action, char *data, int len);
-int prodtst_finish_notify(char *uuid, int result);
+int prodtst_special_down_notify(char *uuid, char *data, int len);
+int prodtst_result_notify(char *uuid, char *step, int result);
 /*****************************/
 
 int prodtst_device_num_get(void);

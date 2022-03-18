@@ -35,6 +35,21 @@ static prodtst_testsuite_t  g_prodtst_testsuite[] = {
 
 #define PRODTST_TESTSUITE_NUM (sizeof(g_prodtst_testsuite)/sizeof(g_prodtst_testsuite[0]))
 
+typedef struct{
+    int type;
+    char *name;
+}prodtst_step_t;
+
+static prodtst_step_t g_prodtst_step[] = {
+    {PRODTST_STEP_TYPE_GENERIC, "generic"},
+    {PRODTST_STEP_TYPE_FUN, "fun"},
+    {PRODTST_STEP_TYPE_SPECIAL, "special"},
+    {PRODTST_STEP_TYPE_ALL, "all"},
+};
+
+#define PRODTST_STEP_NUM  (sizeof(g_prodtst_step)/sizeof(g_prodtst_step[0]))
+
+
 static prodtst_testsuite_t *prodtst_testsuite_alloc(char *platform, char *module_name, char *module_type)
 {
     int i = 0;
@@ -459,6 +474,8 @@ static int prodtst_fun_handler(prodtst_obj_t *prodtst_obj, char *type, char *met
         resp = NULL;
     }
 
+    return ret;
+
 __exit:
 
     if(resp){
@@ -716,23 +733,16 @@ int prodtst_config_notify(char *platform, char *module_name, char *module_type)
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 }
 
-int prodtst_special_notify(char *uuid, char *action, char *data, int len)
+int prodtst_special_down_notify(char *uuid, char *data, int len)
 {
     char *m_data = NULL;
     prodtst_notify_t notify = {0};
-    if(uuid == NULL || action == NULL){
+    if(uuid == NULL){
         return -QM_EINVAL;
     }
 
-
-    notify.event = PRODTST_EVENT_SPECIAL;
+    notify.event = PRODTST_EVENT_SPCL_DOWN;
     memcpy(notify.dat.special_info.uuid, uuid, strlen(uuid));
-
-    if(strlen(action) > sizeof(notify.dat.special_info.action)-1){
-        return -QM_EINVAL;
-    }
-    
-    memcpy(notify.dat.special_info.action, action, strlen(action));
 
     if(data && len > 0){
         m_data = (char*)qm_malloc(len+1);
@@ -746,16 +756,20 @@ int prodtst_special_notify(char *uuid, char *action, char *data, int len)
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 }
 
-int prodtst_finish_notify(char *uuid, int result)
+int prodtst_result_notify(char *uuid, char *step, int result)
 {
     prodtst_notify_t notify = {0};
-    if(uuid == NULL){
+    if(uuid == NULL || step == NULL){
         return -QM_EINVAL;
     }
 
-    notify.event = PRODTST_EVENT_FINISH;
-    notify.dat.finish_info.result = result;
-    memcpy(notify.dat.finish_info.uuid, uuid, strlen(uuid));
+    notify.event = PRODTST_EVENT_RESULT;
+    notify.dat.result_info.result = result;
+    if(strlen(step) > sizeof(notify.dat.result_info.step)-1){
+        return -QM_EINVAL;
+    }
+    memcpy(notify.dat.result_info.step, step, strlen(step));
+    memcpy(notify.dat.result_info.uuid, uuid, strlen(uuid));
 
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 
@@ -825,6 +839,24 @@ static prodtst_obj_t *prodtst_obj_get_by_uuid(char uuid[33])
     return NULL;
 }
 
+static int prodtst_step_type_get(char *step)
+{
+    int i = 0;
+    prodtst_step_t *prodtst_step = NULL;
+    if(strlen(step) == 0){
+        return PRODTST_STEP_TYPE_NONE;
+    }
+
+    for(i = 0; i < PRODTST_STEP_NUM; i++){
+        prodtst_step = &g_prodtst_step[i];
+        if(strlen(step) == strlen(prodtst_step->name) && 0 == strcmp(step, prodtst_step->name)){
+            return prodtst_step->type;
+        }
+    }
+
+    return PRODTST_STEP_TYPE_NONE;
+}
+
 static void prodtst_obj_task(void *arg)
 {
     uint32_t size = 0;
@@ -834,6 +866,7 @@ static void prodtst_obj_task(void *arg)
     prodtst_notify_t notify = {0};
     qm_at_client_param_t at_param = {0};
     prodtst_special_t *special = NULL;
+    prodtst_step_type_t step_type = 0;
     prodtst_obj_t *prodtst_obj = (prodtst_obj_t*)arg;
 
     prodtst_obj->state = PRODTST_STATE_SETUP;
@@ -843,8 +876,26 @@ static void prodtst_obj_task(void *arg)
     testsuite = prodtst_testsuite_get();
 
     at_param.recv_buf_len = testsuite->recv_size;
+    at_param.recv_buf = (char*)qm_malloc(testsuite->recv_size);
+    if(at_param.recv_buf == NULL){
+        goto __exit; 
+    }
     at_param.send = adapter->send;
     at_param.recv = adapter->recv;
+
+    special = prodtst_special_get("NFC");
+    if(special == NULL){
+        QM_LOGI(LOG_TAG, "special action fail");
+        prodtst_obj_init(prodtst_obj);
+        goto __exit; ;
+    }
+
+    prodtst_obj->channel_handle = special->establish(NULL);
+    if(prodtst_obj->channel_handle == NULL){
+        QM_LOGE(LOG_TAG, "special establish fail");
+        prodtst_obj_init(prodtst_obj);
+        goto __exit;
+    }
     
     while(1){
         ret = qm_queue_recv(&prodtst_obj->notify, &notify, &size, QM_WAIT_FOREVER);
@@ -859,7 +910,7 @@ static void prodtst_obj_task(void *arg)
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_SETUP);
             prodtst_obj->channel_handle = adapter->establish(&notify.dat);
             if(prodtst_obj->channel_handle == NULL){
-                QM_LOGI(LOG_TAG, "channel fail");
+                QM_LOGE(LOG_TAG, "channel fail");
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -869,7 +920,7 @@ static void prodtst_obj_task(void *arg)
             prodtst_obj->at_client = qm_at_client_init(&at_param);
             if(prodtst_obj->at_client == NULL){
                 ret = -QM_ERROR;
-                QM_LOGI(LOG_TAG, "at client init fail");
+                QM_LOGE(LOG_TAG, "at client init fail");
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -879,7 +930,7 @@ static void prodtst_obj_task(void *arg)
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_GENERIC);
             ret = prodtst_generic_handler(prodtst_obj);
             if(ret != QM_EOK){
-                QM_LOGI(LOG_TAG, "generic fail");
+                QM_LOGE(LOG_TAG, "generic fail");
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -889,7 +940,7 @@ static void prodtst_obj_task(void *arg)
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_SPECIFIC);
             ret = prodtst_specific_handler(prodtst_obj);
             if(ret != QM_EOK){
-                QM_LOGI(LOG_TAG, "specific fail");
+                QM_LOGE(LOG_TAG, "specific fail");
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -908,13 +959,18 @@ static void prodtst_obj_task(void *arg)
         case PRODTST_EVENT_SET:
             
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_FUN);
-
+            
             ret = prodtst_fun_handler(prodtst_obj, notify.dat.data_info.type, "set", (char*)notify.dat.data_info.data, notify.dat.data_info.len);
             if(ret != QM_EOK){
-                QM_LOGI(LOG_TAG, "fun set fail");
+                QM_LOGE(LOG_TAG, "fun set fail");
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
+
+            prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
+            prodtst_data_table_print(&prodtst_obj->data_tbl);
+            prodtst_generic_send(PRODTST_EVENT_SET_REPLY, notify.dat.data_info.id, &prodtst_obj->data_tbl);
+            prodtst_data_table_reset(&prodtst_obj->data_tbl);
 
             QM_LOGI(LOG_TAG, "fun set success");
 
@@ -926,7 +982,7 @@ static void prodtst_obj_task(void *arg)
 
             ret = prodtst_fun_handler(prodtst_obj, notify.dat.data_info.type, "get", (char*)notify.dat.data_info.data, notify.dat.data_info.len);
             if(ret != QM_EOK){
-                QM_LOGI(LOG_TAG, "fun get fail");
+                QM_LOGE(LOG_TAG, "fun get fail");
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -941,64 +997,70 @@ static void prodtst_obj_task(void *arg)
 
             break;
 
-        case PRODTST_EVENT_SPECIAL:
+        case PRODTST_EVENT_SPCL_DOWN:
 
-
-            special = prodtst_special_get(notify.dat.special_info.action);
-            if(special == NULL){
-                QM_LOGI(LOG_TAG, "special action fail");
+            ret = special->send(prodtst_obj->channel_handle, notify.dat.special_info.data, notify.dat.special_info.len);
+            if(ret <= 0){
+                QM_LOGE(LOG_TAG, "special send fail");
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
 
-            ret = special->init(NULL);
-            if(ret != QM_EOK){
-                QM_LOGI(LOG_TAG, "special init fail");
+            char buf[128] = {0};
+            ret = special->recv(prodtst_obj->channel_handle, buf, 128, 2000);
+            if(ret <= 0){
+                QM_LOGE(LOG_TAG, "special recv timeout");
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
 
-            ret = special->process(notify.dat.special_info.data, notify.dat.special_info.len);
-            if(ret == QM_EOK){
-                QM_LOGI(LOG_TAG, "special success");
-                prodtst_data_table_int_set(&prodtst_obj->data_tbl, "result", PRODTST_RESULT_OK);
-            }else{
-                QM_LOGI(LOG_TAG, "special fail");
-                prodtst_data_table_int_set(&prodtst_obj->data_tbl, "result", PRODTST_RESULT_FAIL);
-            }
+            buf[ret] = '\0';
 
-            ret = special->deinit(NULL);
-            if(ret != QM_EOK){
-                QM_LOGI(LOG_TAG, "special deinit fail");
-                prodtst_obj_init(prodtst_obj);
-                continue;
-            }
-
+            prodtst_data_table_string_set(&prodtst_obj->data_tbl, "data", buf);
             prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
 
             prodtst_data_table_print(&prodtst_obj->data_tbl);
-            prodtst_spcl_result_send(&prodtst_obj->data_tbl);
+            prodtst_spcl_up_send(&prodtst_obj->data_tbl);
             prodtst_data_table_reset(&prodtst_obj->data_tbl);
 
             break;
 
-        case PRODTST_EVENT_FINISH:
+        case PRODTST_EVENT_RESULT:
 
-            if(notify.dat.finish_info.result == PRODTST_RESULT_OK){
-                prodtst_notify_handler(prodtst_obj, "FAC", 1);
-                QM_LOGI(LOG_TAG, "--- prodtst success ---");
-            }else{
-                prodtst_notify_handler(prodtst_obj, "FAC", 0);
-                QM_LOGI(LOG_TAG, "--- prodtst failed result:%d ---", notify.dat.finish_info.result);
+            step_type = prodtst_step_type_get(notify.dat.result_info.step);
+            if(step_type == PRODTST_STEP_TYPE_NONE){
+                QM_LOGE(LOG_TAG, "special deinit fail");
+                prodtst_obj_init(prodtst_obj);
+                continue;
             }
 
-            prodtst_obj_init(prodtst_obj);
-    
+            if(step_type == PRODTST_STEP_TYPE_ALL){
+                if(notify.dat.result_info.result ==PRODTST_RESULT_OK ){
+                    prodtst_notify_handler(prodtst_obj, "FAC", 1);
+                    QM_LOGI(LOG_TAG, "--- prodtst success ---");
+                }else{
+                    prodtst_notify_handler(prodtst_obj, "FAC", 0);
+                    QM_LOGI(LOG_TAG, "--- prodtst failed result:%d ---", notify.dat.result_info.result);
+                }
+                prodtst_obj_init(prodtst_obj);
+            }
+
             break;
         
         default:
             break;
         }
+    }
+
+__exit:
+
+    if(special){
+        special->destroy(NULL);
+    }
+
+    if(at_param.recv_buf){
+        qm_free(at_param.recv_buf);
+        at_param.recv_buf = NULL;
     }
 
     if(prodtst_obj->at_client){
@@ -1064,8 +1126,6 @@ static void prodtst_core_task(void *arg)
 
             case PRODTST_EVENT_SET:
             case PRODTST_EVENT_GET:
-            case PRODTST_EVENT_SPECIAL:
-            case PRODTST_EVENT_FINISH:
 
                 prodtst_obj = prodtst_obj_get_by_uuid(notify.dat.data_info.uuid);
                 if(prodtst_obj == NULL){
@@ -1074,6 +1134,28 @@ static void prodtst_core_task(void *arg)
                     qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
                 }
                 
+            break;
+
+            case  PRODTST_EVENT_SPCL_DOWN:
+
+                prodtst_obj = prodtst_obj_get_by_uuid(notify.dat.special_info.uuid);
+                if(prodtst_obj == NULL){
+                    QM_LOGI(LOG_TAG, "prodtst uuid is invalid");
+                }else{
+                    qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
+                }
+
+            break;
+
+            case PRODTST_EVENT_RESULT:
+
+                prodtst_obj = prodtst_obj_get_by_uuid(notify.dat.result_info.uuid);
+                if(prodtst_obj == NULL){
+                    QM_LOGI(LOG_TAG, "prodtst uuid is invalid");
+                }else{
+                    qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
+                }
+
             break;
 
             default:

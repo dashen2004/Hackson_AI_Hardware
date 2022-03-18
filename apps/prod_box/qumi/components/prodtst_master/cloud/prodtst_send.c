@@ -20,7 +20,16 @@ int prodtst_generic_send(int event, int id, prodtst_data_table_t *prodtst_tbl)
 
         case  PRODTST_EVENT_GET_REPLY:
 
-            ret = cloud_packet_reply_send(0, MSG_TYPE_PRODTST_GET_REPLY, id, (uint8_t*)data, len);
+            ret = cloud_packet_reply_send(0, MSG_TYPE_PRODTST_GET_REPLY, id, 200, (uint8_t*)data, len);
+            if(ret < 0){
+                ret = -QM_EIO;
+            }
+
+        break;
+
+        case  PRODTST_EVENT_SET_REPLY:
+        
+            ret = cloud_packet_reply_send(0, MSG_TYPE_PRODTST_SET_REPLY, id, 200, (uint8_t*)data, len);
             if(ret < 0){
                 ret = -QM_EIO;
             }
@@ -42,9 +51,9 @@ int prodtst_generic_send(int event, int id, prodtst_data_table_t *prodtst_tbl)
 
         break;
 
-        case PRODTST_EVENT_SPCL_RESULT:
+        case PRODTST_EVENT_SPCL_UP:
 
-            ret = cloud_packet_send(0, MSG_TYPE_PRODTST_SPECIAL_RESULT, (uint8_t*)data, len);
+            ret = cloud_packet_send(0, MSG_TYPE_PRODTST_SPCL_UP, (uint8_t*)data, len);
             if(ret < 0){
                 ret = -QM_EIO;
             }
@@ -67,7 +76,7 @@ int prodtst_test_send(prodtst_data_table_t *prodtst_tbl)
     return prodtst_generic_send(PRODTST_EVENT_TEST, 0, prodtst_tbl);
 }
 
-int prodtst_spcl_result_send(prodtst_data_table_t *prodtst_tbl)
+int prodtst_spcl_up_send(prodtst_data_table_t *prodtst_tbl)
 {
-    return prodtst_generic_send(PRODTST_EVENT_SPCL_RESULT, 0, prodtst_tbl);
+    return prodtst_generic_send(PRODTST_EVENT_SPCL_UP, 0, prodtst_tbl);
 }

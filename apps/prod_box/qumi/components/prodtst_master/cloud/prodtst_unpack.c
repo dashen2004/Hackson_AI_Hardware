@@ -12,7 +12,7 @@ typedef struct{
 static int config_unpack_and_handle(int id, char *data, int len);
 static int set_unpack_and_handle(int id, char *data, int len);
 static int get_unpack_and_handle(int id, char *data, int len);
-static int special_unpack_and_handle(int id, char *data, int len);
+static int spcl_down_unpack_and_handle(int id, char *data, int len);
 static int result_unpack_and_handle(int id, char *data, int len);
 
 static prodtst_unpack_t prodtst_unpack[] = {
@@ -20,7 +20,7 @@ static prodtst_unpack_t prodtst_unpack[] = {
     {config_unpack_and_handle},
     {set_unpack_and_handle},
     {get_unpack_and_handle},
-    {special_unpack_and_handle},
+    {spcl_down_unpack_and_handle},
     {result_unpack_and_handle},
 
 };
@@ -139,6 +139,7 @@ static int result_unpack_and_handle(int id, char *data, int len)
     cJSON *object = NULL;
     int result = 0;
     char *uuid = NULL;
+    char *step = NULL;
 
     root = cJSON_Parse(data);
     if(root == NULL){
@@ -151,6 +152,13 @@ static int result_unpack_and_handle(int id, char *data, int len)
         goto __exit;
     }
     uuid = object->valuestring;
+
+    object = cJSON_GetObjectItem(root, "step");
+    if(object == NULL){
+        ret = -QM_EINVAL;
+        goto __exit;
+    }
+    step = object->valuestring;
 
     object = cJSON_GetObjectItem(root, "result");
     if(object == NULL){
@@ -159,21 +167,20 @@ static int result_unpack_and_handle(int id, char *data, int len)
     }
     result = object->valueint;
     
-    prodtst_finish_notify(uuid, result);
+    prodtst_result_notify(uuid, step, result);
 
 __exit:
     cJSON_Delete(root);
     return ret;
 }
 
-static int special_unpack_and_handle(int id, char *data, int len)
+static int spcl_down_unpack_and_handle(int id, char *data, int len)
 {
     qm_err_t ret = QM_EOK;
     cJSON *root = NULL;
     cJSON *object = NULL;
     char *m_data = NULL;
     char *uuid = NULL;
-    char *action = NULL;
 
     root = cJSON_Parse(data);
     if(root == NULL){
@@ -187,13 +194,6 @@ static int special_unpack_and_handle(int id, char *data, int len)
     }
     uuid = object->valuestring;
 
-    object = cJSON_GetObjectItem(root, "action");
-    if(object == NULL){
-        ret = -QM_EINVAL;
-        goto __exit;
-    }
-    action = object->valuestring;
-
     object = cJSON_GetObjectItem(root, "data");
     if(object == NULL){
         ret = -QM_EINVAL;
@@ -201,7 +201,7 @@ static int special_unpack_and_handle(int id, char *data, int len)
     }
     m_data = object->valuestring;
     
-    prodtst_special_notify(uuid, action, m_data, len);
+    prodtst_special_down_notify(uuid, m_data, len);
 
 __exit:
     cJSON_Delete(root);
@@ -226,19 +226,19 @@ int prodtst_config_unpack_and_handle(char *data, int len)
     return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_CONFIG, 0, data, len);
 }
 
-int prodtst_special_unpack_and_handle(char *data, int len)
+int prodtst_spcl_down_unpack_and_handle(char *data, int len)
 {
-    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_SPECIAL, 0, data, len);
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_SPCL_DOWN, 0, data, len);
 }
 
-int prodtst_set_unpack_and_handle(char *data, int len)
+int prodtst_set_unpack_and_handle(int id, char *data, int len)
 {
-    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_SET, 0, data, len);
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_SET, id, data, len);
 }
 
 int prodtst_get_unpack_and_handle(int id, char *data, int len)
 {
-    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_GET, 0, data, len);
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_GET, id, data, len);
 }
 
 int prodtst_result_unpack_and_handle(char *data, int len)

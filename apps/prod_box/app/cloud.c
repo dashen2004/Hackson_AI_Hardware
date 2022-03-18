@@ -74,10 +74,10 @@ static void cloud_event_monitor( int event )
 }
 
 
-void prodtst_set_handler(int devid, const char* payload, int payload_len)
+void prodtst_set_handler(int devid, int id, const char* payload, int payload_len)
 {
     QM_LOGI(LOG_TAG, "set: %.*s", payload_len, payload);
-    prodtst_set_unpack_and_handle(payload_len, payload);
+    prodtst_set_unpack_and_handle(id, payload, payload_len);
 }
 
 void prodtst_report_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
@@ -100,24 +100,24 @@ void prodtst_test_reply_handler(int devid, int id, int code, const char* payload
 void prodtst_get_handler(int devid, int id, const char* payload, int payload_len)
 {
     QM_LOGI(LOG_TAG, "get id: %d, %.*s", id, payload_len, payload);
-    prodtst_get_unpack_and_handle(id, payload_len, payload);
+    prodtst_get_unpack_and_handle(id, payload, payload_len);
 }
 
 void prodtst_result_handler(int devid, const char* payload, int payload_len)
 {
     QM_LOGI(LOG_TAG, "result: %.*s", payload_len, payload);
-    prodtst_result_unpack_and_handle(payload_len, payload);
+    prodtst_result_unpack_and_handle(payload, payload_len);
 }
 
-void prodtst_special_handler(int devid, const char* payload, int payload_len)
+void prodtst_spcl_down_handler(int devid, const char* payload, int payload_len)
 {
-    QM_LOGI(LOG_TAG, "special: %.*s", payload_len, payload);
-    prodtst_special_unpack_and_handle(payload_len, payload);
+    QM_LOGI(LOG_TAG, "special down: %.*s", payload_len, payload);
+    prodtst_spcl_down_unpack_and_handle(payload, payload_len);
 }
 
-void prodtst_special_result_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
+void prodtst_spcl_up_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
 {
-    QM_LOGI(LOG_TAG, "special result reply id: %d, code: %d", id, code);
+    QM_LOGI(LOG_TAG, "special up reply id: %d, code: %d", id, code);
 }
 
 int user_event_notify_handler(int devid, int event, const char* payload, int payload_len)
@@ -264,8 +264,8 @@ void xjiang_cloud_init(void)
     iot_event_register(IOT_EVENT_PRODTST_TEST_REPLY, prodtst_test_reply_handler);
     iot_event_register(IOT_EVENT_PRODTST_GET, prodtst_get_handler);
     iot_event_register(IOT_EVENT_PRODTST_RESULT, prodtst_result_handler);
-    iot_event_register(IOT_EVENT_PRODTST_SPECIAL, prodtst_special_handler);
-    iot_event_register(IOT_EVENT_PRODTST_SPECIAL_RESULT_REPLY, prodtst_special_result_reply_handler);
+    iot_event_register(IOT_EVENT_PRODTST_SPCL_DOWN, prodtst_spcl_down_handler);
+    iot_event_register(IOT_EVENT_PRODTST_SPCL_UP_REPLY, prodtst_spcl_up_reply_handler);
 
     iot_event_register(IOT_EVENT_NOTIFY, user_event_notify_handler);
 
