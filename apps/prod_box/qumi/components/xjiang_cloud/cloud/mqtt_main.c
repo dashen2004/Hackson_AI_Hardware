@@ -45,6 +45,8 @@ static void *pclient;
 #define MQTT_TOPIC_PRODTST_TEST_REPLY_FORMAT         "/%u/%s/prodtst/test_reply"
 #define MQTT_TOPIC_PRODTST_RESULT_FORMAT             "/%u/%s/prodtst/result"
 #define MQTT_TOPIC_PRODTST_RESULT_REPLY_FORMAT       "/%u/%s/prodtst/result_reply"
+#define MQTT_TOPIC_PRODTST_RESULT_REPORT_FORMAT      "/%u/%s/prodtst/result_report"
+#define MQTT_TOPIC_PRODTST_RESULT_REPORT_REPLY_FORMAT "/%u/%s/prodtst/result_report_reply"
 #define MQTT_TOPIC_PRODTST_SPCL_DOWN_FORMAT          "/%u/%s/prodtst/spcl_down"
 #define MQTT_TOPIC_PRODTST_SPCL_DOWN_REPLY_FORMAT    "/%u/%s/prodtst/spcl_down_reply"
 #define MQTT_TOPIC_PRODTST_SPCL_UP_FORMAT            "/%u/%s/prodtst/spcl_up"
@@ -91,6 +93,7 @@ static void mqtt_client_prodtst_config(void *pcontext, void *pclient, iot_mqtt_e
 static void mqtt_client_prodtst_test_reply(void *pcontext, void *pclient, iot_mqtt_event_msg_pt msg);
 static void mqtt_client_prodtst_get(void *pcontext, void *pclient, iot_mqtt_event_msg_pt msg);
 static void mqtt_client_prodtst_result(void *pcontext, void *pclient, iot_mqtt_event_msg_pt msg);
+static void mqtt_client_prodtst_result_report_reply(void *pcontext, void *pclient, iot_mqtt_event_msg_pt msg);
 static void mqtt_client_prodtst_spcl_down(void *pcontext, void *pclient, iot_mqtt_event_msg_pt msg);
 static void mqtt_client_prodtst_spcl_up_reply(void *pcontext, void *pclient, iot_mqtt_event_msg_pt msg);
 #endif
@@ -151,6 +154,8 @@ static mqtt_client_uri_map_t g_mqtt_client_uri_map[] = {
     {MQTT_TOPIC_PRODTST_TEST_REPLY_FORMAT ,mqtt_client_prodtst_test_reply, {0} },
 
     {MQTT_TOPIC_PRODTST_RESULT_FORMAT ,mqtt_client_prodtst_result, {0} },
+
+    {MQTT_TOPIC_PRODTST_RESULT_REPORT_REPLY_FORMAT ,mqtt_client_prodtst_result_report_reply, {0} },
 
     {MQTT_TOPIC_PRODTST_SPCL_DOWN_FORMAT ,mqtt_client_prodtst_spcl_down, {0} },
     
@@ -591,6 +596,7 @@ static void mqtt_client_event_callback(iot_event_t event, char *payload, int pay
     case IOT_EVENT_PRODTST_TEST_REPLY:
     case IOT_EVENT_PRODTST_REPORT_REPLY:
     case IOT_EVENT_PRODTST_SPCL_UP_REPLY:
+    case IOT_EVENT_PRODTST_RESULT_REPORT_REPLY:
 
         id_str = qm_json_get_value_by_name(payload, payload_len, "id", &length, NULL);
         if (NULL == id_str) {
@@ -760,6 +766,12 @@ static void mqtt_client_prodtst_report_reply(void *pcontext, void *pclient, iot_
 {
     iot_mqtt_topic_info_pt ptopic_info = (iot_mqtt_topic_info_pt) msg->msg;
     mqtt_client_event_callback(IOT_EVENT_PRODTST_REPORT_REPLY, ptopic_info->payload, ptopic_info->payload_len);
+}
+
+static void mqtt_client_prodtst_result_report_reply(void *pcontext, void *pclient, iot_mqtt_event_msg_pt msg)
+{
+    iot_mqtt_topic_info_pt ptopic_info = (iot_mqtt_topic_info_pt) msg->msg;
+    mqtt_client_event_callback(IOT_EVENT_PRODTST_RESULT_REPORT_REPLY, ptopic_info->payload, ptopic_info->payload_len);
 }
 
 static void mqtt_client_prodtst_config(void *pcontext, void *pclient, iot_mqtt_event_msg_pt msg)
@@ -1123,6 +1135,12 @@ int mqtt_loop(void *pclient)
 
         case MSG_TYPE_PRODTST_SPCL_UP:
             hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_PRODTST_SPCL_UP_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
+            need_send = 1; 
+
+        break;
+
+        case MSG_TYPE_PRODTST_RESULT_REPORT:
+            hal_snprintf(mqtt_topic, MAX_MQTT_TOPIC_LEN, MQTT_TOPIC_PRODTST_RESULT_REPORT_FORMAT, mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id);
             need_send = 1; 
 
         break;

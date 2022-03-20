@@ -20,6 +20,7 @@ typedef enum {
     IOT_EVENT_PRODTST_CONFIG,
     IOT_EVENT_PRODTST_TEST_REPLY,
     IOT_EVENT_PRODTST_RESULT,
+    IOT_EVENT_PRODTST_RESULT_REPORT_REPLY,
     IOT_EVENT_PRODTST_SPCL_DOWN,
     IOT_EVENT_PRODTST_SPCL_UP_REPLY,
     IOT_EVENT_TOKEN_REPLY,
@@ -54,6 +55,7 @@ DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_CONFIG,                int (*cb)(co
 DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_TEST_REPLY,            int (*cb)(const int, const int, const int, const char *, const int))
 DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_GET,                   int (*cb)(const int, const int, const char *, const int))
 DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_RESULT,                int (*cb)(const int, const char *, const int))
+DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_RESULT_REPORT_REPLY,   int (*cb)(const int, const int, const int, const char *, const int))
 DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_SPCL_DOWN,             int (*cb)(const int, const char *, const int))
 DECLARE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_SPCL_UP_REPLY,         int (*cb)(const int, const int, const char *, const int))
 

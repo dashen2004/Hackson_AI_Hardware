@@ -862,6 +862,29 @@ static int prodtst_step_type_get(char *step)
     return PRODTST_STEP_TYPE_NONE;
 }
 
+static int prodtst_result_report(prodtst_data_table_t *data_tbl, int step, char uuid[33], int result, char *desc)
+{
+    qm_err_t ret = QM_EOK;
+
+    prodtst_data_table_string_set(data_tbl, "uuid", uuid);
+    prodtst_data_table_int_set(data_tbl, "result", result);
+    if(step == PRODTST_STEP_TYPE_GENERIC){
+        prodtst_data_table_string_set(data_tbl, "step", "generic");
+    }else if(step == PRODTST_STEP_TYPE_FUN){
+        prodtst_data_table_string_set(data_tbl, "step", "fun");
+    }else if(step == PRODTST_STEP_TYPE_SPECIAL){
+        prodtst_data_table_string_set(data_tbl, "step", "special");
+    }
+    if(desc){
+        prodtst_data_table_string_set(data_tbl, "desc", desc);
+    }
+    prodtst_data_table_print(data_tbl);
+    ret = prodtst_generic_send(PRODTST_EVENT_RESULT_REPORT, 0, data_tbl);
+    prodtst_data_table_reset(data_tbl);
+
+    return ret;
+}
+
 static void prodtst_obj_task(void *arg)
 {
     uint32_t size = 0;
@@ -957,6 +980,7 @@ static void prodtst_obj_task(void *arg)
             }
             if(ret != QM_EOK){
                 QM_LOGE(LOG_TAG, "fun set fail");
+                prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_FUN, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -984,6 +1008,7 @@ static void prodtst_obj_task(void *arg)
             }
             if(ret != QM_EOK){
                 QM_LOGE(LOG_TAG, "fun get fail");
+                prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_FUN, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1003,6 +1028,7 @@ static void prodtst_obj_task(void *arg)
             special = prodtst_special_get("NFC");
             if(special == NULL){
                 QM_LOGI(LOG_TAG, "special action fail");
+                prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_SPECIAL, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1010,6 +1036,7 @@ static void prodtst_obj_task(void *arg)
             prodtst_obj->spcl_handle = special->establish(NULL);
             if(prodtst_obj->spcl_handle == NULL){
                 QM_LOGE(LOG_TAG, "special establish fail");
+                prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_SPECIAL, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1017,6 +1044,7 @@ static void prodtst_obj_task(void *arg)
             char *spcl_buf = (char*)qm_malloc(special->recv_size);
             if(spcl_buf == NULL){
                 QM_LOGE(LOG_TAG, "special alloc mem fail");
+                prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_SPECIAL, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1027,8 +1055,9 @@ static void prodtst_obj_task(void *arg)
             if(notify.dat.special_info.data){
                 qm_free(notify.dat.special_info.data);
             }
-            if(ret <= 0){
-                QM_LOGE(LOG_TAG, "special send fail");
+            if(ret != QM_EOK){
+                QM_LOGE(LOG_TAG, "special process fail");
+                prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_SPECIAL, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }

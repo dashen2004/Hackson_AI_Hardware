@@ -25,6 +25,7 @@ static iot_event_map_t g_iot_event_map[] = {
     {IOT_EVENT_PRODTST_CONFIG, NULL},
     {IOT_EVENT_PRODTST_TEST_REPLY, NULL},
     {IOT_EVENT_PRODTST_RESULT, NULL},
+    {IOT_EVENT_PRODTST_RESULT_REPORT_REPLY, NULL},
     {IOT_EVENT_PRODTST_SPCL_DOWN, NULL},
     {IOT_EVENT_PRODTST_SPCL_UP_REPLY, NULL}
 };
@@ -74,6 +75,7 @@ DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_CONFIG,                 int (*callba
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_TEST_REPLY,             int (*callback)(const int, const int, const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_GET,                    int (*callback)(const int, const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_RESULT,                 int (*callback)(const int, const char *, const int))
+DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_RESULT_REPORT_REPLY,    int (*callback)(const int, const int, const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_SPCL_DOWN,              int (*callback)(const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_SPCL_UP_REPLY,          int (*callback)(const int, const int, const char *, const int))
 

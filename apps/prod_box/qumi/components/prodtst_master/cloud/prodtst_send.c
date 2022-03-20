@@ -60,6 +60,15 @@ int prodtst_generic_send(int event, int id, prodtst_data_table_t *prodtst_tbl)
             
         break;
 
+        case PRODTST_EVENT_RESULT_REPORT:
+
+            ret = cloud_packet_send(0, MSG_TYPE_PRODTST_RESULT_REPORT, (uint8_t*)data, len);
+            if(ret < 0){
+                ret = -QM_EIO;
+            }
+            
+        break;
+
         default:
         break;
     }

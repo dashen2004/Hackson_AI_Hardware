@@ -109,6 +109,11 @@ void prodtst_result_handler(int devid, const char* payload, int payload_len)
     prodtst_result_unpack_and_handle(payload, payload_len);
 }
 
+void prodtst_result_report_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
+{
+    QM_LOGI(LOG_TAG, "result reply id: %d, code: %d", id, code);
+}
+
 void prodtst_spcl_down_handler(int devid, const char* payload, int payload_len)
 {
     QM_LOGI(LOG_TAG, "special down: %.*s", payload_len, payload);
@@ -264,6 +269,7 @@ void xjiang_cloud_init(void)
     iot_event_register(IOT_EVENT_PRODTST_TEST_REPLY, prodtst_test_reply_handler);
     iot_event_register(IOT_EVENT_PRODTST_GET, prodtst_get_handler);
     iot_event_register(IOT_EVENT_PRODTST_RESULT, prodtst_result_handler);
+    iot_event_register(IOT_EVENT_PRODTST_RESULT_REPORT_REPLY, prodtst_result_report_reply_handler);
     iot_event_register(IOT_EVENT_PRODTST_SPCL_DOWN, prodtst_spcl_down_handler);
     iot_event_register(IOT_EVENT_PRODTST_SPCL_UP_REPLY, prodtst_spcl_up_reply_handler);
 

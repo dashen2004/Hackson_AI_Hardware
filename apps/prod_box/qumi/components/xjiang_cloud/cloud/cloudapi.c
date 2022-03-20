@@ -17,6 +17,7 @@
 
 #ifdef PRODTST_SUPPORT
 
+#define MQTT_PRODTST_GENERIC_UP_FORMAT      "{\"devid\":%d,\"method\":\"%s\",\"id\":\"%s\",\"version\":\"1.0\",\"params\":%s}"
 #define MQTT_PRODTST_GENERIC_REPLY_FORMAT    "{\"devid\":%d,\"method\":\"%s\",\"id\":\"%s\",\"version\":\"1.0\",\"code\":%d,\"params\":%s}"
 
 #endif
@@ -314,7 +315,7 @@ static int32_t payload_creat(int devid, msg_type_t msg_type, char *id, char *met
                 goto exit;
             }
             
-            hal_snprintf(out_buf, len, MQTT_REPORT_FORMAT, devid, "prodtst_report", id, payload);
+            hal_snprintf(out_buf, len, MQTT_PRODTST_GENERIC_UP_FORMAT, devid, "prodtst_report", id, payload);
             *out_len = strlen(out_buf);
                        
         break;
@@ -345,7 +346,7 @@ static int32_t payload_creat(int devid, msg_type_t msg_type, char *id, char *met
                 goto exit;
             }
 
-            hal_snprintf(out_buf, len, MQTT_REPORT_FORMAT, devid, "prodtst_test", id, payload);
+            hal_snprintf(out_buf, len, MQTT_PRODTST_GENERIC_UP_FORMAT, devid, "prodtst_test", id, payload);
             *out_len = strlen(out_buf);
                        
         break;
@@ -398,6 +399,24 @@ static int32_t payload_creat(int devid, msg_type_t msg_type, char *id, char *met
             *out_len = strlen(out_buf);
 
 
+        break;
+
+        case MSG_TYPE_PRODTST_RESULT_REPORT:
+
+            if(payload == NULL || payload_len == 0){
+                err_code = PARAM_ERR;
+                goto exit;
+            }
+            
+            len = MAX_JSON_DATA_LEN + payload_len;
+            *out_len = len;
+            if(out == NULL){
+                goto exit;
+            }
+            
+            hal_snprintf(out_buf, len, MQTT_PRODTST_GENERIC_UP_FORMAT, devid, "result_report", id, payload);
+            *out_len = strlen(out_buf);
+                       
         break;
 
         case MSG_TYPE_PRODTST_SPCL_DOWN_REPLY:

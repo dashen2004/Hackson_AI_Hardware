@@ -72,7 +72,7 @@ int prodtst_nfc_send(void *handle, char *buf, int size)
     return ret;
 }
 
-int prodtst_spcl_recv(void *handle, char *buf, int size, int timeout)
+int prodtst_nfc_recv(void *handle, char *buf, int size, int timeout)
 {
     int recv_len = 0;
     int hex_len = size/2; 
