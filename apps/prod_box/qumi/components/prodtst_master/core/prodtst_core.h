@@ -116,6 +116,7 @@ typedef struct{
 
 typedef struct{
     char uuid[32+1];
+    int id;
     char *data;
     int len;
 }prodtst_special_info_t;
@@ -206,7 +207,7 @@ int prodtst_stop(void);
 int prodtst_wifi_dut_found_notify(char *ip, uint8_t mac[6]);
 int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data, int len);
 int prodtst_config_notify(char *platform, char *module_name, char *module_type);
-int prodtst_special_down_notify(char *uuid, char *data, int len);
+int prodtst_special_down_notify(char *uuid, int id, char *data, int len);
 int prodtst_result_notify(char *uuid, char *step, int result);
 /*****************************/
 

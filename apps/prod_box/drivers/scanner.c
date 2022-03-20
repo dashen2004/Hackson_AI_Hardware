@@ -18,7 +18,7 @@ void scanner_thread(void *arg)
 
     while(1)
     {
-        recv = uart_ext_read_bytes(UART_EXT_NUM_7, recvbuf, sizeof(recvbuf), 1000/portTICK_RATE_MS);
+        recv = uart_ext_read_bytes(UART_EXT_NUM_7, recvbuf, sizeof(recvbuf), 1000);
         if(recv){
             //scanner_log("scan result: %d, %.*s\n", recv, recv, recvbuf);
         }

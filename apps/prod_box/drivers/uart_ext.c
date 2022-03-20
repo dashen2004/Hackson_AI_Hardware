@@ -577,7 +577,7 @@ int uart_ext_write_bytes(uart_ext_port_t uart_num, const uint8_t* buf, uint32_t 
     return length;
 }
 
-int uart_ext_read_bytes(uart_ext_port_t uart_num, uint8_t* buf, uint32_t length, uint32_t ticks_to_wait)
+int uart_ext_read_bytes(uart_ext_port_t uart_num, uint8_t* buf, uint32_t length, uint32_t timeout)
 {
     uint32_t recv = 0;
     uint8_t *pdata = NULL;
@@ -594,7 +594,7 @@ int uart_ext_read_bytes(uart_ext_port_t uart_num, uint8_t* buf, uint32_t length,
         return -1;
     }
 
-    pdata = xRingbufferReceiveUpTo(g_uart_ext_dev[uart_num].rx_ringbuf, &recv, ticks_to_wait, length);
+    pdata = xRingbufferReceiveUpTo(g_uart_ext_dev[uart_num].rx_ringbuf, &recv, timeout/portTICK_RATE_MS, length);
     if(!pdata){
         return 0;
     }
@@ -719,16 +719,15 @@ void uart_ext_test_thread(void *arg)
     uint8_t recvbuf[512] = {0};
     uart_delay_ms(1000);
 
-    uart_ext_config(UART_EXT_NUM_7, 9600, 1024, 1024);
+    uart_ext_config(UART_EXT_NUM_0, 115200, 1024, 1024);
 
     while(1)
     {
 
-        recv = uart_ext_read_bytes(UART_EXT_NUM_7, recvbuf, sizeof(recvbuf), 1000/portTICK_RATE_MS);
+        recv = uart_ext_read_bytes(UART_EXT_NUM_0, recvbuf, sizeof(recvbuf), 1000);
         if(recv){
             printf("recv: %d, %.*s\n", recv, recv, recvbuf);
-
-            //uart_ext_write_bytes(UART_EXT_NUM_7, recvbuf, recv);
+            uart_ext_write_bytes(UART_EXT_NUM_0, recvbuf, recv);
         }
 
     }

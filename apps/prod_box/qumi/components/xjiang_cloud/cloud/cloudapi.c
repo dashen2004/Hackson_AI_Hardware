@@ -415,13 +415,18 @@ static int32_t payload_creat(int devid, msg_type_t msg_type, char *id, char *met
 
         case MSG_TYPE_PRODTST_SPCL_UP:
 
-            len = MAX_JSON_DATA_LEN;
+            len = MAX_JSON_DATA_LEN + payload_len;
             *out_len = len;
             if(out == NULL){
                 goto exit;
             }
             
-            hal_snprintf(out_buf, len, MQTT_GENERIC_REPLY_FORMAT, devid, "spcl_up", id, code);
+            if(payload == NULL || payload_len == 0){
+                err_code = PARAM_ERR;
+                goto exit;
+            }
+            
+            hal_snprintf(out_buf, len, MQTT_PRODTST_GENERIC_REPLY_FORMAT, devid, "spcl_up", id, code, payload);
             *out_len = strlen(out_buf);
 
         break;

@@ -25,6 +25,5 @@ int prodtst_generic_pack(prodtst_data_table_t *prodtst_tbl, char **data, int *le
 
 int prodtst_generic_send(int event, int id, prodtst_data_table_t *prodtst_tbl);
 int prodtst_test_send(prodtst_data_table_t *prodtst_tbl);
-int prodtst_spcl_up_send(prodtst_data_table_t *prodtst_tbl);
 
 #endif

@@ -22,7 +22,7 @@ int prodtst_uart_init(prodtst_uart_port_t uart_num, uint32_t baudrate);
 
 int prodtst_uart_write(prodtst_uart_port_t uart_num, const uint8_t* buf, uint32_t length);
 
-int prodtst_uart_read(prodtst_uart_port_t uart_num, uint8_t* buf, uint32_t length, uint32_t ticks_to_wait);
+int prodtst_uart_read(prodtst_uart_port_t uart_num, uint8_t* buf, uint32_t length, uint32_t timeout);
 
 
 

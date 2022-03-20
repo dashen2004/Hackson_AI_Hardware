@@ -25,10 +25,10 @@ int prodtst_uart_write(prodtst_uart_port_t uart_num, const uint8_t *buf, uint32_
     }
 }
 
-int prodtst_uart_read(prodtst_uart_port_t uart_num, uint8_t *buf, uint32_t length, uint32_t ticks_to_wait)
+int prodtst_uart_read(prodtst_uart_port_t uart_num, uint8_t *buf, uint32_t length, uint32_t timeout)
 {
     int ret = 0; 
-    ret = uart_ext_read_bytes((uart_ext_port_t)uart_num, buf, length, ticks_to_wait);
+    ret = uart_ext_read_bytes((uart_ext_port_t)uart_num, buf, length, timeout);
     if(ret > 0){
         return ret;
     }else{

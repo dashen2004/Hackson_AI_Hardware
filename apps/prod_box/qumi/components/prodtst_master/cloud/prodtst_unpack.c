@@ -201,7 +201,7 @@ static int spcl_down_unpack_and_handle(int id, char *data, int len)
     }
     m_data = object->valuestring;
     
-    prodtst_special_down_notify(uuid, m_data, len);
+    prodtst_special_down_notify(uuid, id, m_data, strlen(m_data));
 
 __exit:
     cJSON_Delete(root);

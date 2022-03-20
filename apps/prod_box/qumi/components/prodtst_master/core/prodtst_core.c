@@ -705,6 +705,7 @@ int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data
 
     notify.dat.data_info.id = id;
     memcpy(notify.dat.data_info.data, data, len);
+    notify.dat.data_info.len = len;
     memcpy(notify.dat.data_info.uuid, uuid, strlen(uuid));
 
     memcpy(notify.dat.data_info.type, type, strlen(type));
@@ -733,7 +734,7 @@ int prodtst_config_notify(char *platform, char *module_name, char *module_type)
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 }
 
-int prodtst_special_down_notify(char *uuid, char *data, int len)
+int prodtst_special_down_notify(char *uuid, int id, char *data, int len)
 {
     char *m_data = NULL;
     prodtst_notify_t notify = {0};
@@ -743,6 +744,7 @@ int prodtst_special_down_notify(char *uuid, char *data, int len)
 
     notify.event = PRODTST_EVENT_SPCL_DOWN;
     memcpy(notify.dat.special_info.uuid, uuid, strlen(uuid));
+    notify.dat.special_info.id = id;
 
     if(data && len > 0){
         m_data = (char*)qm_malloc(len+1);
@@ -752,6 +754,9 @@ int prodtst_special_down_notify(char *uuid, char *data, int len)
         memset(m_data, 0, len+1);
         memcpy(m_data, data, len);
     }
+
+    notify.dat.special_info.data = m_data;
+    notify.dat.special_info.len = len;
 
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 }
@@ -882,20 +887,6 @@ static void prodtst_obj_task(void *arg)
     }
     at_param.send = adapter->send;
     at_param.recv = adapter->recv;
-
-    special = prodtst_special_get("NFC");
-    if(special == NULL){
-        QM_LOGI(LOG_TAG, "special action fail");
-        prodtst_obj_init(prodtst_obj);
-        goto __exit; ;
-    }
-
-    prodtst_obj->channel_handle = special->establish(NULL);
-    if(prodtst_obj->channel_handle == NULL){
-        QM_LOGE(LOG_TAG, "special establish fail");
-        prodtst_obj_init(prodtst_obj);
-        goto __exit;
-    }
     
     while(1){
         ret = qm_queue_recv(&prodtst_obj->notify, &notify, &size, QM_WAIT_FOREVER);
@@ -961,10 +952,17 @@ static void prodtst_obj_task(void *arg)
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_FUN);
             
             ret = prodtst_fun_handler(prodtst_obj, notify.dat.data_info.type, "set", (char*)notify.dat.data_info.data, notify.dat.data_info.len);
+            if(notify.dat.data_info.data){
+                qm_free(notify.dat.data_info.data);
+            }
             if(ret != QM_EOK){
                 QM_LOGE(LOG_TAG, "fun set fail");
                 prodtst_obj_init(prodtst_obj);
                 continue;
+            }
+
+            if(notify.dat.special_info.data){
+                qm_free(notify.dat.special_info.data);
             }
 
             prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
@@ -981,6 +979,9 @@ static void prodtst_obj_task(void *arg)
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_FUN);
 
             ret = prodtst_fun_handler(prodtst_obj, notify.dat.data_info.type, "get", (char*)notify.dat.data_info.data, notify.dat.data_info.len);
+            if(notify.dat.data_info.data){
+                qm_free(notify.dat.data_info.data);
+            }
             if(ret != QM_EOK){
                 QM_LOGE(LOG_TAG, "fun get fail");
                 prodtst_obj_init(prodtst_obj);
@@ -999,29 +1000,46 @@ static void prodtst_obj_task(void *arg)
 
         case PRODTST_EVENT_SPCL_DOWN:
 
-            ret = special->send(prodtst_obj->channel_handle, notify.dat.special_info.data, notify.dat.special_info.len);
+            special = prodtst_special_get("NFC");
+            if(special == NULL){
+                QM_LOGI(LOG_TAG, "special action fail");
+                prodtst_obj_init(prodtst_obj);
+                continue;
+            }
+
+            prodtst_obj->spcl_handle = special->establish(NULL);
+            if(prodtst_obj->spcl_handle == NULL){
+                QM_LOGE(LOG_TAG, "special establish fail");
+                prodtst_obj_init(prodtst_obj);
+                continue;
+            }
+
+            char *spcl_buf = (char*)qm_malloc(special->recv_size);
+            if(spcl_buf == NULL){
+                QM_LOGE(LOG_TAG, "special alloc mem fail");
+                prodtst_obj_init(prodtst_obj);
+                continue;
+            }
+
+            memset(spcl_buf, 0, special->recv_size);
+            
+            ret = special->process(prodtst_obj->spcl_handle, notify.dat.special_info.data, notify.dat.special_info.len, spcl_buf, special->recv_size);
+            if(notify.dat.special_info.data){
+                qm_free(notify.dat.special_info.data);
+            }
             if(ret <= 0){
                 QM_LOGE(LOG_TAG, "special send fail");
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
 
-            char buf[128] = {0};
-            ret = special->recv(prodtst_obj->channel_handle, buf, 128, 2000);
-            if(ret <= 0){
-                QM_LOGE(LOG_TAG, "special recv timeout");
-                prodtst_obj_init(prodtst_obj);
-                continue;
-            }
-
-            buf[ret] = '\0';
-
-            prodtst_data_table_string_set(&prodtst_obj->data_tbl, "data", buf);
+            prodtst_data_table_string_set(&prodtst_obj->data_tbl, "data", spcl_buf);
             prodtst_data_table_string_set(&prodtst_obj->data_tbl, "uuid", prodtst_obj->uuid);
 
             prodtst_data_table_print(&prodtst_obj->data_tbl);
-            prodtst_spcl_up_send(&prodtst_obj->data_tbl);
+            prodtst_generic_send(PRODTST_EVENT_SPCL_UP, notify.dat.special_info.id, &prodtst_obj->data_tbl);
             prodtst_data_table_reset(&prodtst_obj->data_tbl);
+            qm_free(spcl_buf);
 
             break;
 
