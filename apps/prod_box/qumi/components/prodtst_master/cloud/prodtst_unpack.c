@@ -37,6 +37,7 @@ static int config_unpack_and_handle(int id, char *data, int len)
     char *module_type = NULL;
     char *module_name = NULL;
     char *dev_type = NULL;
+    int test_time = 0;
 
     root = cJSON_Parse(data);
     if(root == NULL){
@@ -71,9 +72,16 @@ static int config_unpack_and_handle(int id, char *data, int len)
     }
     dev_type = object->valuestring;
 
-    printf("platform: %s, module_name:%s, module_type:%s, dev_type:%s", platform, module_name, module_type, dev_type);
+    object = cJSON_GetObjectItem(root, "test_time");
+    if(object == NULL){
+        ret = -QM_EINVAL;
+        goto __exit;
+    }
+    test_time = object->valueint;
 
-    prodtst_config_notify(platform, module_name, module_type);
+    printf("test_time: %d, platform: %s, module_name:%s, module_type:%s, dev_type:%s", test_time, platform, module_name, module_type, dev_type);
+
+    prodtst_config_notify(test_time, platform, module_name, module_type);
 
 __exit:
     cJSON_Delete(root);

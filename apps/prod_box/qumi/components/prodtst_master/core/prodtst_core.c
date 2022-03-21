@@ -569,6 +569,34 @@ static prodtst_obj_t *prodtst_obj_idle_get(void)
     }
 
     return prodtst_obj;
+}
+
+static int prodtst_obj_run_num(void)
+{
+    int i = 0;
+    int num = 0;
+    prodtst_obj_t *prodtst_obj = NULL;
+    for(i = 0; i < CONFIG_QM_PRODTST_OBJ_NUM; i++){
+        prodtst_obj = g_prodtst_ctx.prodtst_obj[i];
+        if(prodtst_obj){
+            if(prodtst_obj->state != PRODTST_STATE_NONE){
+                num++;
+            }
+        }
+    }
+    return num;
+}
+
+void prodtst_timer_callback( qm_timer_t *timer, void *arg)
+{
+    prodtst_notify_t notify = {0};
+    prodtst_obj_t *prodtst_obj = (prodtst_obj_t*)arg;
+    if(prodtst_obj == NULL){
+        return;
+    }
+
+    notify.event = PRODTST_EVENT_TIMEOUT;
+    qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
 
 }
 
@@ -591,6 +619,11 @@ static prodtst_obj_t *prodtst_obj_creat(void)
     }
 
     ret = qm_mutex_new(&prodtst_obj->lock);
+    if(ret != QM_EOK){
+        goto __exit;
+    }
+
+    ret = qm_timer_new(&prodtst_obj->timer, prodtst_timer_callback, (void*)prodtst_obj, g_prodtst_ctx.test_time, 0);
     if(ret != QM_EOK){
         goto __exit;
     }
@@ -629,6 +662,9 @@ __exit:
 static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
 {
     qm_err_t ret = QM_EOK;
+    prodtst_adapter_t *adapter = NULL;
+    adapter = prodtst_adapter_get();
+
     if(prodtst_obj == NULL){
         return -QM_EINVAL;
     }
@@ -642,22 +678,50 @@ static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
         return ret;
     }
 
+    ret = qm_timer_free(&prodtst_obj->timer);
+    if(ret != QM_EOK){
+        return ret;
+    }
+
     ret = qm_at_client_deinit(&prodtst_obj->at_client);
     if(ret != QM_EOK){
         return ret;
     }
 
+    if(prodtst_obj->channel_handle){
+        adapter->destroy(prodtst_obj->channel_handle);
+        prodtst_obj->channel_handle = NULL;
+    }
+
     prodtst_data_table_reset(&prodtst_obj->data_tbl);
+
+    qm_sem_signal(&g_prodtst_ctx.exit_sem);
 
     ret = qm_task_exit(&prodtst_obj->task);
     if(ret != QM_EOK){
         return ret;
     }
 
-    qm_free(prodtst_obj);
-    prodtst_obj = NULL;
-  
     return ret;
+}
+
+static int prodtst_all_obj_destroy(void)
+{
+    int i = 0;
+    int num = 0;
+    prodtst_notify_t notify = {0};
+    prodtst_obj_t *prodtst_obj = NULL;
+    for(i = 0; i < CONFIG_QM_PRODTST_OBJ_NUM; i++){
+        prodtst_obj = g_prodtst_ctx.prodtst_obj[i];
+        if(prodtst_obj){
+            notify.event = PRODTST_EVENT_EXIT;
+            qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
+            qm_sem_wait(&g_prodtst_ctx.exit_sem, QM_WAIT_FOREVER);
+            qm_free(g_prodtst_ctx.prodtst_obj[i]);
+            g_prodtst_ctx.prodtst_obj[i] = NULL;
+        }
+    }
+    return QM_EOK;
 }
 
 
@@ -714,10 +778,10 @@ int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data
 }
 
 
-int prodtst_config_notify(char *platform, char *module_name, char *module_type)
+int prodtst_config_notify(int test_time, char *platform, char *module_name, char *module_type)
 {
     prodtst_notify_t notify = {0};
-    if(platform == NULL || module_name == NULL || module_type == NULL){
+    if(test_time == 0 || platform == NULL || module_name == NULL || module_type == NULL){
         return -QM_EINVAL;
     }
     if(strlen(platform)    > PRODTST_PLATFORM_MAX_LEN    || 
@@ -727,6 +791,7 @@ int prodtst_config_notify(char *platform, char *module_name, char *module_type)
     }
 
     notify.event = PRODTST_EVENT_CONFIG;
+    notify.dat.config_info.test_time = test_time;
     memcpy(notify.dat.config_info.platform, platform, strlen(platform));
     memcpy(notify.dat.config_info.module_name, module_name, strlen(module_name));
     memcpy(notify.dat.config_info.module_type, module_type, strlen(module_type));
@@ -785,6 +850,8 @@ static int prodtst_obj_init(prodtst_obj_t *prodtst_obj)
 {
     prodtst_adapter_t *adapter = NULL;
     adapter = prodtst_adapter_get();
+
+    qm_timer_stop(&prodtst_obj->timer);
 
     if(prodtst_obj->at_client){
         qm_at_client_deinit(prodtst_obj->at_client);
@@ -950,6 +1017,8 @@ static void prodtst_obj_task(void *arg)
                 continue;
             }
 
+            qm_timer_start(&prodtst_obj->timer);
+
             QM_LOGI(LOG_TAG, "generic success");
 
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_SPECIFIC);
@@ -1104,6 +1173,32 @@ static void prodtst_obj_task(void *arg)
             }
 
             break;
+
+        case PRODTST_EVENT_TIMEOUT:
+
+            prodtst_notify_handler(prodtst_obj, "FAC", PRODTST_RESULT_FAIL);
+            QM_LOGI(LOG_TAG, "prodtst timeout failed");
+
+            prodtst_obj_init(prodtst_obj);
+
+        break;
+
+        case PRODTST_EVENT_EXIT:
+
+            if(special){
+                special->destroy(prodtst_obj->spcl_handle);
+            }
+
+            if(at_param.recv_buf){
+                qm_free(at_param.recv_buf);
+                at_param.recv_buf = NULL;
+            }
+
+            QM_LOGI(LOG_TAG, "prodtst obj exit");
+
+            prodtst_obj_destroy(prodtst_obj);
+
+        break;
         
         default:
             break;
@@ -1112,19 +1207,6 @@ static void prodtst_obj_task(void *arg)
 
 __exit:
 
-    if(special){
-        special->destroy(NULL);
-    }
-
-    if(at_param.recv_buf){
-        qm_free(at_param.recv_buf);
-        at_param.recv_buf = NULL;
-    }
-
-    if(prodtst_obj->at_client){
-        qm_at_client_deinit(prodtst_obj->at_client);
-    }
-    
     qm_task_exit(&prodtst_obj->task);
 }
 
@@ -1157,10 +1239,14 @@ static void prodtst_core_task(void *arg)
                                             info.platform, info.module_name, info.module_type);
 
                 memset(&prodtst_ctx->config_info, 0, sizeof(prodtst_config_info_t));
+                prodtst_ctx->config_info.test_time = notify.dat.config_info.test_time;
                 memcpy(&prodtst_ctx->config_info.platform, notify.dat.config_info.platform, strlen(notify.dat.config_info.platform));
                 memcpy(&prodtst_ctx->config_info.dev_type, notify.dat.config_info.dev_type, strlen(notify.dat.config_info.dev_type));
                 memcpy(&prodtst_ctx->config_info.module_type, notify.dat.config_info.module_type, strlen(notify.dat.config_info.module_type));
                 memcpy(&prodtst_ctx->config_info.module_name, notify.dat.config_info.module_name, strlen(notify.dat.config_info.module_name));
+
+                prodtst_all_obj_destroy();
+                prodtst_stop();
 
                 ret = prodtst_start(&info);
                 if(ret != QM_EOK){
@@ -1179,6 +1265,8 @@ static void prodtst_core_task(void *arg)
                 }else{
                     qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
                 }
+
+                QM_LOGI(LOG_TAG, "prodtst objects %d is running", prodtst_obj_run_num());
 
             break;
 
@@ -1219,8 +1307,6 @@ static void prodtst_core_task(void *arg)
             default:
             break;
         }
-
-
     }
 
 }
@@ -1232,6 +1318,11 @@ int prodtst_init(prodtst_notify_cb notify_cb)
     memset(&g_prodtst_ctx, 0, sizeof(prodtst_context_t));
 
     ret = qm_queue_new(&g_prodtst_ctx.notify, CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM, sizeof(prodtst_notify_t));
+    if(ret != QM_EOK){
+        return ret;
+    }
+
+    ret = qm_sem_new(&g_prodtst_ctx.exit_sem, 0);
     if(ret != QM_EOK){
         return ret;
     }

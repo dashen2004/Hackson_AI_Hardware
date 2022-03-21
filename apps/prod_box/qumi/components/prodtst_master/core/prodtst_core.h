@@ -71,7 +71,9 @@ typedef enum{
     PRODTST_EVENT_RESULT_REPORT,
     PRODTST_EVENT_RESULT_REPORT_REPLY,
     PRODTST_EVENT_WIFI_DUT_FOUND,
-    PRODTST_EVENT_BLE_DUT_FOUND
+    PRODTST_EVENT_BLE_DUT_FOUND,
+    PRODTST_EVENT_TIMEOUT,
+    PRODTST_EVENT_EXIT,
 }prodtst_event_t;
 
 enum{
@@ -101,6 +103,7 @@ typedef struct{
 }prodtst_info_t;
 
 typedef struct{
+    int test_time;
     char platform[PRODTST_PLATFORM_MAX_LEN+1];
     char dev_type[PRODTST_DEV_TYPE_MAX_LEN+1];
     char module_name[PRODTST_MOUDLE_NAME_MAX_LEN+1];
@@ -185,6 +188,7 @@ typedef struct{
     qm_task_t task;
     qm_queue_t notify;
     qm_mutex_t lock;
+    qm_timer_t timer;
     void *channel_handle;
     void *spcl_handle;
     qm_at_client_t *at_client;
@@ -195,14 +199,17 @@ typedef void (*prodtst_notify_cb)(int prodtst_status);
 
 typedef struct{
     int start;
+    int test_time;
     qm_task_t task;
     qm_queue_t notify;
+    qm_sem_t exit_sem;
     prodtst_testsuite_t *testsuite;
     prodtst_config_info_t config_info;
     prodtst_dut_info_t dut_info;
     prodtst_notify_cb notify_cb;
     prodtst_obj_t *prodtst_obj[CONFIG_QM_PRODTST_OBJ_NUM];
 }prodtst_context_t; 
+
 
 
 int prodtst_init(prodtst_notify_cb notify_cb);
@@ -214,7 +221,7 @@ int prodtst_stop(void);
 /********prodtst notify********/
 int prodtst_wifi_dut_found_notify(char *ip, uint8_t mac[6]);
 int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data, int len);
-int prodtst_config_notify(char *platform, char *module_name, char *module_type);
+int prodtst_config_notify(int test_time, char *platform, char *module_name, char *module_type);
 int prodtst_special_down_notify(char *uuid, int id, char *data, int len);
 int prodtst_result_notify(char *uuid, int id, char *step, int result);
 /*****************************/
