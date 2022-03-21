@@ -4,7 +4,7 @@
 
 static prodtst_special_t  g_prodtst_special[] = {
 
-    {"NFC", 128, prodtst_nfc_establish, prodtst_nfc_destroy, prodtst_nfc_send, prodtst_nfc_recv},
+    {"NFC", 256, prodtst_nfc_establish, prodtst_nfc_destroy, prodtst_nfc_send, prodtst_nfc_recv, prodtst_nfc_process},
 
 };
 

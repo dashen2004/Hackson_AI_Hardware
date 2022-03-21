@@ -16,10 +16,10 @@ enum{
 
 int prodtst_generic_unpack_and_handle(int packet_type, int id, char *data, int len);
 int prodtst_config_unpack_and_handle(char *data, int len);
-int prodtst_spcl_down_unpack_and_handle(char *data, int len);
+int prodtst_spcl_down_unpack_and_handle(int id, char *data, int len);
 int prodtst_set_unpack_and_handle(int id, char *data, int len);
 int prodtst_get_unpack_and_handle(int id, char *data, int len);
-int prodtst_result_unpack_and_handle(char *data, int len);
+int prodtst_result_unpack_and_handle(int id, char *data, int len);
 
 int prodtst_generic_pack(prodtst_data_table_t *prodtst_tbl, char **data, int *len);
 

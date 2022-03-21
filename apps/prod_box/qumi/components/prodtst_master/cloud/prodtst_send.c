@@ -51,6 +51,14 @@ int prodtst_generic_send(int event, int id, prodtst_data_table_t *prodtst_tbl)
 
         break;
 
+        case PRODTST_EVENT_RESULT_REPLY:
+            ret = cloud_packet_reply_send(0, MSG_TYPE_PRODTST_RESULT_REPLY, id, 200, (uint8_t*)data, len);
+            if(ret < 0){
+                ret = -QM_EIO;
+            }
+
+        break;
+
         case PRODTST_EVENT_SPCL_UP:
 
             ret = cloud_packet_reply_send(0, MSG_TYPE_PRODTST_SPCL_UP, id, 200, (uint8_t*)data, len);
@@ -58,6 +66,15 @@ int prodtst_generic_send(int event, int id, prodtst_data_table_t *prodtst_tbl)
                 ret = -QM_EIO;
             }
             
+        break;
+
+        case  PRODTST_EVENT_SPCL_DOWN_REPLY:
+        
+            ret = cloud_packet_reply_send(0, MSG_TYPE_PRODTST_SPCL_DOWN_REPLY, id, 200, (uint8_t*)data, len);
+            if(ret < 0){
+                ret = -QM_EIO;
+            }
+
         break;
 
         case PRODTST_EVENT_RESULT_REPORT:

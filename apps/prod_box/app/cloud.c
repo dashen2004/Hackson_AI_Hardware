@@ -103,10 +103,10 @@ void prodtst_get_handler(int devid, int id, const char* payload, int payload_len
     prodtst_get_unpack_and_handle(id, payload, payload_len);
 }
 
-void prodtst_result_handler(int devid, const char* payload, int payload_len)
+void prodtst_result_handler(int devid, int id, const char* payload, int payload_len)
 {
     QM_LOGI(LOG_TAG, "result: %.*s", payload_len, payload);
-    prodtst_result_unpack_and_handle(payload, payload_len);
+    prodtst_result_unpack_and_handle(id, payload, payload_len);
 }
 
 void prodtst_result_report_reply_handler(int devid, int id, int code, const char* payload, int payload_len)
@@ -114,10 +114,10 @@ void prodtst_result_report_reply_handler(int devid, int id, int code, const char
     QM_LOGI(LOG_TAG, "result reply id: %d, code: %d", id, code);
 }
 
-void prodtst_spcl_down_handler(int devid, const char* payload, int payload_len)
+void prodtst_spcl_down_handler(int devid, int id, const char* payload, int payload_len)
 {
     QM_LOGI(LOG_TAG, "special down: %.*s", payload_len, payload);
-    prodtst_spcl_down_unpack_and_handle(payload, payload_len);
+    prodtst_spcl_down_unpack_and_handle(id, payload, payload_len);
 }
 
 void prodtst_spcl_up_reply_handler(int devid, int id, int code, const char* payload, int payload_len)

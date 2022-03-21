@@ -74,8 +74,8 @@ DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_REPORT_REPLY,           int (*callba
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_CONFIG,                 int (*callback)(const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_TEST_REPLY,             int (*callback)(const int, const int, const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_GET,                    int (*callback)(const int, const int, const char *, const int))
-DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_RESULT,                 int (*callback)(const int, const char *, const int))
+DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_RESULT,                 int (*callback)(const int, const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_RESULT_REPORT_REPLY,    int (*callback)(const int, const int, const int, const char *, const int))
-DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_SPCL_DOWN,              int (*callback)(const int, const char *, const int))
+DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_SPCL_DOWN,              int (*callback)(const int, const int, const char *, const int))
 DEFINE_IOT_EVENT_CALLBACK(IOT_EVENT_PRODTST_SPCL_UP_REPLY,          int (*callback)(const int, const int, const char *, const int))
 

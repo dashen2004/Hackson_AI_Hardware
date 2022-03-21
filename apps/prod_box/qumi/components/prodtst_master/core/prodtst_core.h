@@ -63,9 +63,11 @@ typedef enum{
     PRODTST_EVENT_TEST,
     PRODTST_EVENT_TEST_REPLY,
     PRODTST_EVENT_SPCL_DOWN,
+    PRODTST_EVENT_SPCL_DOWN_REPLY,
     PRODTST_EVENT_SPCL_UP,
     PRODTST_EVENT_SPCL_UP_REPLY,
     PRODTST_EVENT_RESULT,
+    PRODTST_EVENT_RESULT_REPLY,
     PRODTST_EVENT_RESULT_REPORT,
     PRODTST_EVENT_RESULT_REPORT_REPLY,
     PRODTST_EVENT_WIFI_DUT_FOUND,
@@ -115,6 +117,7 @@ typedef struct{
 
 typedef struct{
     char uuid[32+1];
+    int id;
     char step[16+1];
     int result;
 }prodtst_result_info_t;
@@ -213,7 +216,7 @@ int prodtst_wifi_dut_found_notify(char *ip, uint8_t mac[6]);
 int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data, int len);
 int prodtst_config_notify(char *platform, char *module_name, char *module_type);
 int prodtst_special_down_notify(char *uuid, int id, char *data, int len);
-int prodtst_result_notify(char *uuid, char *step, int result);
+int prodtst_result_notify(char *uuid, int id, char *step, int result);
 /*****************************/
 
 int prodtst_device_num_get(void);

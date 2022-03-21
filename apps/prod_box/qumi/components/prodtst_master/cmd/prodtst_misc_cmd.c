@@ -7,7 +7,7 @@
 
 
 prodtst_cmd_t prodtst_misc_cmd[] = {
-    {"notify", "AT+NOTIFY", PRODTST_HW_CONFIG_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, NULL },
+    {"notify", "AT+NOTIFY", PRODTST_NFC_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, NULL },
 };
 
 #define PRODTST_MISC_CMD_NUM   (sizeof(prodtst_misc_cmd)/sizeof(prodtst_misc_cmd[0]))
@@ -20,8 +20,8 @@ prodtst_cmd_t *prodtst_misc_cmd_get(char *key)
     }
 
     for(i = 0; i < PRODTST_MISC_CMD_NUM; i++){
-        if((strlen(key) == strlen(prodtst_misc_cmd[i].cmd)) && 
-        (0 == strcmp(key, prodtst_misc_cmd[i].cmd))){
+        if((strlen(key) == strlen(prodtst_misc_cmd[i].name)) && 
+        (0 == strcmp(key, prodtst_misc_cmd[i].name))){
             return &prodtst_misc_cmd[i];
         }
     }

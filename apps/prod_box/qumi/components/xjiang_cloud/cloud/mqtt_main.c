@@ -630,7 +630,8 @@ static void mqtt_client_event_callback(iot_event_t event, char *payload, int pay
             goto exit;
         }
 
-        memcpy(id_tmp, id_str, length);
+        id = atoi(id_str);
+        log_debug("id: %d",id);
         
         val = qm_json_get_value_by_name(payload, payload_len, "params", &length, NULL);
         if (NULL == val || length == 0) {
@@ -647,11 +648,9 @@ static void mqtt_client_event_callback(iot_event_t event, char *payload, int pay
         
         log_debug("params: %s", params);
 
-        cloud_generic_send(devid, MSG_TYPE_PRODTST_RESULT_REPLY, id_tmp, NULL, 200, NULL, 0);
-
         callback = iot_event_callback(IOT_EVENT_PRODTST_RESULT);
         if (callback) {
-            ((int (*)(const int, const char *, const int))callback)(devid, params, length);
+            ((int (*)(const int, const int, const char *, const int))callback)(devid, id, params, length);
         }
 
         hal_free(params);
@@ -665,7 +664,8 @@ static void mqtt_client_event_callback(iot_event_t event, char *payload, int pay
             goto exit;
         }
 
-        memcpy(id_tmp, id_str, length);
+        id = atoi(id_str);
+        log_debug("id: %d",id);
         
         val = qm_json_get_value_by_name(payload, payload_len, "params", &length, NULL);
         if (NULL == val || length == 0) {
@@ -681,11 +681,9 @@ static void mqtt_client_event_callback(iot_event_t event, char *payload, int pay
         
         log_debug("params: %s", params);
 
-        cloud_generic_send(devid, MSG_TYPE_PRODTST_SPCL_DOWN_REPLY, id_tmp, NULL, 200, NULL, 0);
-
         callback = iot_event_callback(IOT_EVENT_PRODTST_SPCL_DOWN);
         if (callback) {
-            ((int (*)(const int, const char *, const int))callback)(devid, params, length);
+            ((int (*)(const int, const int, const char *, const int))callback)(devid, id, params, length);
         }
 
         hal_free(params);

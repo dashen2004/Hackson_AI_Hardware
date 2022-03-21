@@ -167,7 +167,7 @@ static int result_unpack_and_handle(int id, char *data, int len)
     }
     result = object->valueint;
     
-    prodtst_result_notify(uuid, step, result);
+    prodtst_result_notify(uuid, id, step, result);
 
 __exit:
     cJSON_Delete(root);
@@ -226,9 +226,9 @@ int prodtst_config_unpack_and_handle(char *data, int len)
     return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_CONFIG, 0, data, len);
 }
 
-int prodtst_spcl_down_unpack_and_handle(char *data, int len)
+int prodtst_spcl_down_unpack_and_handle(int id, char *data, int len)
 {
-    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_SPCL_DOWN, 0, data, len);
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_SPCL_DOWN, id, data, len);
 }
 
 int prodtst_set_unpack_and_handle(int id, char *data, int len)
@@ -241,7 +241,7 @@ int prodtst_get_unpack_and_handle(int id, char *data, int len)
     return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_GET, id, data, len);
 }
 
-int prodtst_result_unpack_and_handle(char *data, int len)
+int prodtst_result_unpack_and_handle(int id, char *data, int len)
 {
-    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_RESULT, 0, data, len);
+    return prodtst_generic_unpack_and_handle(PRODTST_PACKET_TYPE_RESULT, id, data, len);
 }
