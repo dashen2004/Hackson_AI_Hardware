@@ -3,7 +3,7 @@
 #include "cloudapi.h"
 #include "iot_device.h"
 
-//#define QM_KV_PRODUCT_SUPPORT
+#define QM_KV_PRODUCT_SUPPORT
 
 #ifndef QM_KV_PRODUCT_SUPPORT
 static uint32_t PRODUCT_ID = 158689;

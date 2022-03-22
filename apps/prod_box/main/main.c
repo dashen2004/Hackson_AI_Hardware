@@ -10,8 +10,9 @@
 #include "nvs_flash.h"
 #include "network.h"
 #include "cloud.h"
-#include "prodtst_core.h"
+#include "prodtst_app.h"
 #include "drivers.h"
+#include "qm.h"
 
 int user_debug_enabled = 1;
 
@@ -28,9 +29,11 @@ void app_main()
 
     drivers_init();
 
+    qm_main();
+
     network_init();
 
-    prodtst_init(NULL);
+    prodtst_app_init();
 
     xjiang_cloud_init();
 

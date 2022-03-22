@@ -21,7 +21,7 @@
 #define EXAMPLE_ESP_WIFI_CHANNEL   1
 #define EXAMPLE_MAX_STA_CONN       4
 
-#define EXAMPLE_ESP_MAXIMUM_RETRY  5
+#define EXAMPLE_ESP_MAXIMUM_RETRY  10
 
 static int s_retry_num = 0;
 
@@ -63,6 +63,8 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_CONNECTED;
         memcpy(prodtst_wifi_event.event_info.sta_connected.mac, event->event_info.sta_connected.mac, 6);
         prodtst_wifi_ap_event_set(&prodtst_wifi_event);
+
+        esp_wifi_deauth_sta(event->event_info.sta_connected.aid);
 
         break;
     case SYSTEM_EVENT_AP_STADISCONNECTED:

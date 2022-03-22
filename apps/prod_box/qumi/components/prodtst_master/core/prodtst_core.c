@@ -118,11 +118,16 @@ int prodtst_start(prodtst_info_t *info)
 int prodtst_stop(void)
 {
     qm_err_t ret = QM_EOK;
+    if(g_prodtst_ctx.testsuite == NULL){
+        return ret;
+    }
 
     ret = g_prodtst_ctx.testsuite->adapter->deinit();
     if(ret != QM_EOK){
         return ret;
     }
+
+    g_prodtst_ctx.start = 0;
 
     QM_LOGI(LOG_TAG, "prodtst stop success");
 
@@ -309,6 +314,13 @@ static int prodtst_data_table_print(prodtst_data_table_t *prodtst_tbl)
         }
     }
     return QM_EOK;
+}
+
+static void prodtst_status_notify(int prodtst_status)
+{
+    if(g_prodtst_ctx.notify_cb){
+        g_prodtst_ctx.notify_cb(prodtst_status);
+    }
 }
 
 static int prodtst_generic_handler(prodtst_obj_t *prodtst_obj)
@@ -571,7 +583,7 @@ static prodtst_obj_t *prodtst_obj_idle_get(void)
     return prodtst_obj;
 }
 
-static int prodtst_obj_run_num(void)
+static int prodtst_obj_info_get(prodtst_obj_info_t *obj_info)
 {
     int i = 0;
     int num = 0;
@@ -580,11 +592,18 @@ static int prodtst_obj_run_num(void)
         prodtst_obj = g_prodtst_ctx.prodtst_obj[i];
         if(prodtst_obj){
             if(prodtst_obj->state != PRODTST_STATE_NONE){
-                num++;
-            }
+                obj_info->run_num++;
+            }else{
+                obj_info->idle_num++;
+            } 
+            obj_info->active_num++;
+        }else{
+            obj_info->unactive_num++;
         }
     }
-    return num;
+
+    obj_info->total = CONFIG_QM_PRODTST_OBJ_NUM;
+    return QM_EOK;
 }
 
 void prodtst_timer_callback( qm_timer_t *timer, void *arg)
@@ -623,7 +642,7 @@ static prodtst_obj_t *prodtst_obj_creat(void)
         goto __exit;
     }
 
-    ret = qm_timer_new(&prodtst_obj->timer, prodtst_timer_callback, (void*)prodtst_obj, g_prodtst_ctx.test_time, 0);
+    ret = qm_timer_new(&prodtst_obj->timer, prodtst_timer_callback, (void*)prodtst_obj, g_prodtst_ctx.test_time*1000, 0);
     if(ret != QM_EOK){
         goto __exit;
     }
@@ -902,11 +921,13 @@ static prodtst_obj_t *prodtst_obj_get_by_uuid(char uuid[33])
     prodtst_obj_t *m_obj = NULL;
     for(i = 0; i < CONFIG_QM_PRODTST_OBJ_NUM; i++){
         m_obj = g_prodtst_ctx.prodtst_obj[i];
-        if(m_obj == NULL || strlen(m_obj->uuid) != 32){
-            continue;
-        }
-        if(0 == memcmp(m_obj->uuid, uuid, 32)){
-            return m_obj;
+        if(m_obj && m_obj->state != PRODTST_STATE_NONE){
+            if(m_obj == NULL || strlen(m_obj->uuid) != 32){
+                continue;
+            }
+            if(0 == memcmp(m_obj->uuid, uuid, 32)){
+                return m_obj;
+            }
         }
     }
     return NULL;
@@ -993,6 +1014,7 @@ static void prodtst_obj_task(void *arg)
             prodtst_obj->channel_handle = adapter->establish(&notify.dat);
             if(prodtst_obj->channel_handle == NULL){
                 QM_LOGE(LOG_TAG, "channel fail");
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1003,16 +1025,20 @@ static void prodtst_obj_task(void *arg)
             if(prodtst_obj->at_client == NULL){
                 ret = -QM_ERROR;
                 QM_LOGE(LOG_TAG, "at client init fail");
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
 
             QM_LOGI(LOG_TAG, "channel established");
 
+            prodtst_status_notify(PRODTST_STATUS_GENERIC_START);
+
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_GENERIC);
             ret = prodtst_generic_handler(prodtst_obj);
             if(ret != QM_EOK){
                 QM_LOGE(LOG_TAG, "generic fail");
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1025,6 +1051,7 @@ static void prodtst_obj_task(void *arg)
             ret = prodtst_specific_handler(prodtst_obj);
             if(ret != QM_EOK){
                 QM_LOGE(LOG_TAG, "specific fail");
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1043,6 +1070,8 @@ static void prodtst_obj_task(void *arg)
         case PRODTST_EVENT_SET:
             
             prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_FUN);
+
+            prodtst_status_notify(PRODTST_STATUS_FUN_START);
             
             ret = prodtst_fun_handler(prodtst_obj, notify.dat.data_info.type, "set", (char*)notify.dat.data_info.data, notify.dat.data_info.len);
             if(notify.dat.data_info.data){
@@ -1052,6 +1081,7 @@ static void prodtst_obj_task(void *arg)
             if(ret != QM_EOK){
                 QM_LOGE(LOG_TAG, "fun set fail");
                 prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_FUN, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1077,6 +1107,7 @@ static void prodtst_obj_task(void *arg)
             if(ret != QM_EOK){
                 QM_LOGE(LOG_TAG, "fun get fail");
                 prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_FUN, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1093,10 +1124,12 @@ static void prodtst_obj_task(void *arg)
 
         case PRODTST_EVENT_SPCL_DOWN:
 
+            prodtst_status_notify(PRODTST_STATUS_SPECIAL_START);
             special = prodtst_special_get("NFC");
             if(special == NULL){
                 QM_LOGI(LOG_TAG, "special action fail");
                 prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_SPECIAL, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1105,6 +1138,7 @@ static void prodtst_obj_task(void *arg)
             if(prodtst_obj->spcl_handle == NULL){
                 QM_LOGE(LOG_TAG, "special establish fail");
                 prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_SPECIAL, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1113,6 +1147,7 @@ static void prodtst_obj_task(void *arg)
             if(spcl_buf == NULL){
                 QM_LOGE(LOG_TAG, "special alloc mem fail");
                 prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_SPECIAL, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1132,6 +1167,7 @@ static void prodtst_obj_task(void *arg)
             if(ret != QM_EOK){
                 QM_LOGE(LOG_TAG, "special process fail");
                 prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_SPECIAL, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
+                prodtst_status_notify(PRODTST_STATUS_FAIL);
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
@@ -1164,12 +1200,35 @@ static void prodtst_obj_task(void *arg)
             if(step_type == PRODTST_STEP_TYPE_ALL){
                 if(notify.dat.result_info.result == PRODTST_RESULT_OK ){
                     prodtst_notify_handler(prodtst_obj, "FAC", PRODTST_RESULT_OK);
+                    prodtst_status_notify(PRODTST_STATUS_SUCCESS);
                     QM_LOGI(LOG_TAG, "--- prodtst success ---");
                 }else{
                     prodtst_notify_handler(prodtst_obj, "FAC", PRODTST_RESULT_FAIL);
+                    prodtst_status_notify(PRODTST_STATUS_FAIL);
                     QM_LOGI(LOG_TAG, "--- prodtst failed result:%d ---", notify.dat.result_info.result);
                 }
                 prodtst_obj_init(prodtst_obj);
+            }else if(step_type == PRODTST_STEP_TYPE_GENERIC){
+                if(notify.dat.result_info.result == PRODTST_RESULT_OK){
+                    QM_LOGI(LOG_TAG, "--- prodtst generic success ---");
+                    prodtst_status_notify(PRODTST_STATUS_GENERIC_SUCCESS);
+                }else{
+                    QM_LOGI(LOG_TAG, "--- prodtst generic fail ---");
+                }
+            }else if(step_type == PRODTST_STEP_TYPE_FUN){
+                if(notify.dat.result_info.result == PRODTST_RESULT_OK){
+                    QM_LOGI(LOG_TAG, "--- prodtst fun success ---");
+                    prodtst_status_notify(PRODTST_STATUS_FUN_SUCCESS);
+                }else{
+                    QM_LOGI(LOG_TAG, "--- prodtst fun fail ---");
+                }
+            }else if(step_type == PRODTST_STEP_TYPE_SPECIAL){
+                if(notify.dat.result_info.result == PRODTST_RESULT_OK){
+                    QM_LOGI(LOG_TAG, "--- prodtst special success ---");
+                    prodtst_status_notify(PRODTST_STATUS_SPECIAL_SUCCESS);
+                }else{
+                    QM_LOGI(LOG_TAG, "--- prodtst special fail ---");
+                }
             }
 
             break;
@@ -1178,6 +1237,8 @@ static void prodtst_obj_task(void *arg)
 
             prodtst_notify_handler(prodtst_obj, "FAC", PRODTST_RESULT_FAIL);
             QM_LOGI(LOG_TAG, "prodtst timeout failed");
+
+            prodtst_status_notify(PRODTST_STATUS_FAIL);
 
             prodtst_obj_init(prodtst_obj);
 
@@ -1220,6 +1281,7 @@ static void prodtst_core_task(void *arg)
     prodtst_context_t *prodtst_ctx = (prodtst_context_t*)arg;
     prodtst_adapter_t *adapter = NULL;
     void *channel_handle = NULL;
+    prodtst_obj_info_t obj_info = {0};
     adapter = prodtst_adapter_get();
 
     while(1){
@@ -1239,7 +1301,7 @@ static void prodtst_core_task(void *arg)
                                             info.platform, info.module_name, info.module_type);
 
                 memset(&prodtst_ctx->config_info, 0, sizeof(prodtst_config_info_t));
-                prodtst_ctx->config_info.test_time = notify.dat.config_info.test_time;
+                prodtst_ctx->test_time = notify.dat.config_info.test_time;
                 memcpy(&prodtst_ctx->config_info.platform, notify.dat.config_info.platform, strlen(notify.dat.config_info.platform));
                 memcpy(&prodtst_ctx->config_info.dev_type, notify.dat.config_info.dev_type, strlen(notify.dat.config_info.dev_type));
                 memcpy(&prodtst_ctx->config_info.module_type, notify.dat.config_info.module_type, strlen(notify.dat.config_info.module_type));
@@ -1248,8 +1310,12 @@ static void prodtst_core_task(void *arg)
                 prodtst_all_obj_destroy();
                 prodtst_stop();
 
+                #include "esp_system.h"
+                QM_LOGI(LOG_TAG, "system free mem: %u", esp_get_free_heap_size());
+                
                 ret = prodtst_start(&info);
                 if(ret != QM_EOK){
+                    prodtst_status_notify(PRODTST_STATUS_READY);
                     QM_LOGE(LOG_TAG, "prodtst start failed");
                 }else{
                     QM_LOGI(LOG_TAG, "prodtst start success");
@@ -1266,7 +1332,10 @@ static void prodtst_core_task(void *arg)
                     qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
                 }
 
-                QM_LOGI(LOG_TAG, "prodtst objects %d is running", prodtst_obj_run_num());
+                memset(&obj_info, 0, sizeof(prodtst_obj_info_t));
+                prodtst_obj_info_get(&obj_info);
+                QM_LOGI(LOG_TAG, "prodtst obj run: %d, idle: %d, active: %d, unactive: %d, total: %d", 
+                obj_info.run_num, obj_info.idle_num, obj_info.active_num, obj_info.unactive_num, obj_info.total);
 
             break;
 
@@ -1311,8 +1380,7 @@ static void prodtst_core_task(void *arg)
 
 }
 
-
-int prodtst_init(prodtst_notify_cb notify_cb)
+int  prodtst_init(prodtst_notify_cb notify_cb)
 {
     qm_err_t ret = QM_EOK;
     memset(&g_prodtst_ctx, 0, sizeof(prodtst_context_t));
@@ -1331,6 +1399,8 @@ int prodtst_init(prodtst_notify_cb notify_cb)
     if(ret != QM_EOK){
         return ret;
     }
+
+    g_prodtst_ctx.notify_cb = notify_cb;
 
     return QM_EOK;
 }

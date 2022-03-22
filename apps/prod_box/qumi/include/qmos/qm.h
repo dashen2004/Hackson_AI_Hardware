@@ -13,6 +13,9 @@ extern "C" {
 #include <qmos/qm_types.h>
 
 
+
+void qm_main(void);
+
 /**
  * Transmit data on a UART interface
  *

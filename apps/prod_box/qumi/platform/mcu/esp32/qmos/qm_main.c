@@ -23,6 +23,7 @@ static void qm_dbg_init(void)
 
      //system already init uart0 as debug print
     dbg_uart.port = 0;
+
     dbg_uart.config.baud_rate = 115200;
     dbg_uart.config.stop_bits = QM_UART_STOP_BITS_1;
     dbg_uart.config.data_bits = QM_UART_DATA_8_BITS;

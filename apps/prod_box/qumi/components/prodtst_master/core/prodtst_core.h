@@ -43,6 +43,18 @@ enum{
 };
 
 typedef enum{
+    PRODTST_STATUS_SUCCESS,
+    PRODTST_STATUS_FAIL,
+    PRODTST_STATUS_READY,
+    PRODTST_STATUS_GENERIC_START,
+    PRODTST_STATUS_GENERIC_SUCCESS,
+    PRODTST_STATUS_FUN_START,
+    PRODTST_STATUS_FUN_SUCCESS,
+    PRODTST_STATUS_SPECIAL_START,
+    PRODTST_STATUS_SPECIAL_SUCCESS,
+}prodtst_status_t;
+
+typedef enum{
     PRODTST_STATE_NONE,
     PRODTST_STATE_SETUP,
     PRODTST_STATE_GENERIC,
@@ -72,6 +84,7 @@ typedef enum{
     PRODTST_EVENT_RESULT_REPORT_REPLY,
     PRODTST_EVENT_WIFI_DUT_FOUND,
     PRODTST_EVENT_BLE_DUT_FOUND,
+    PRODTST_EVENT_NEXT_ROUND,
     PRODTST_EVENT_TIMEOUT,
     PRODTST_EVENT_EXIT,
 }prodtst_event_t;
@@ -196,6 +209,14 @@ typedef struct{
 }prodtst_obj_t;
 
 typedef void (*prodtst_notify_cb)(int prodtst_status);
+
+typedef struct{
+    int run_num;
+    int idle_num;
+    int active_num;
+    int unactive_num;
+    int total;
+}prodtst_obj_info_t;
 
 typedef struct{
     int start;

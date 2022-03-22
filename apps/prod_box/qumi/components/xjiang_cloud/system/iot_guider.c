@@ -297,8 +297,8 @@ int iot_guider_get_domain(domain_xj_type_t domain_type, char *domain, int len)
             hal_snprintf(domain, len, "%s.%s", DOMAIN_XJ_MQTT_PREFIX, url);
         }else{
             //default get domain url
-            //hal_snprintf(domain, len, "%s.%s", DOMAIN_XJ_MQTT_PREFIX, domain_xj_suffix[DEFAULT_REGION_ID]);
-            memcpy(domain, "192.168.1.153", strlen("192.168.1.153"));
+            hal_snprintf(domain, len, "%s.%s", DOMAIN_XJ_MQTT_PREFIX, domain_xj_suffix[DEFAULT_REGION_ID]);
+            //memcpy(domain, "192.168.1.153", strlen("192.168.1.153"));
         }    
     }else if(domain_type == GUIDER_XJ_DOMAIN_HTTP){
         ret = iot_guider_get_dynamic_url(url, len);

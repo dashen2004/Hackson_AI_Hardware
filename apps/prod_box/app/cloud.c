@@ -9,6 +9,9 @@
 
 #include "esp_wifi.h"
 #include "prodtst_cloud.h"
+#include "qm_cli.h"
+#include "qm_utils_string.h"
+
 
 #define LOG_TAG  "cloud"
 
@@ -29,6 +32,42 @@ static void cloud_thread(void *arg);
 static void cloud_dynreg_thread(void *arg);
 
 static void network_handle(void *arg);
+
+static void handle_xjiang_key(char *pwbuf, int blen, int argc, char **argv);
+
+static struct qm_cli_command xjiang_key = {
+    .name = "xjiang_key",
+    .help = "set/get xjiang keys [<Product Id> <Device Id> <Device Secret>]",
+    .function = handle_xjiang_key
+};
+
+
+static void handle_xjiang_key(char *pwbuf, int blen, int argc, char **argv)
+{
+    char device_id[DEVICE_ID_LEN + 1] = { 0 };
+    char device_secret[DEVICE_SECRET_LEN + 1] = { 0 };
+    int device_id_len = DEVICE_ID_LEN;
+    int device_secret_len = DEVICE_SECRET_LEN;
+    uint32_t product_id = 0;
+    int len = 0;
+    if(argc == 2){
+        hal_get_device_id(device_id, &device_id_len);
+        hal_get_device_secret(device_secret, &device_secret_len);
+        hal_get_product_id(&product_id);
+        qm_cli_printf("Product Id=%u.\r\n", product_id);
+        qm_cli_printf("Device Id=%s.\r\n", device_id);
+        qm_cli_printf("Device Secret=%s.\r\n", device_secret);
+    }else if (argc == 5) {
+        product_id = int_str_to_num(argv[2], strlen(argv[2]));
+        hal_set_product_id(product_id);
+        hal_set_device_id(argv[3], strlen(argv[3]));
+        hal_set_device_secret(argv[4], strlen(argv[4]));
+        qm_cli_printf("OK\r\n");
+    } else {
+        qm_cli_printf("Error\r\n");
+        return;
+    }
+}
 
 int is_netconfig_get(void)
 {
@@ -262,6 +301,8 @@ void xjiang_cloud_init(void)
 
     QM_LOGI(LOG_TAG, "SDK verison %s",sdk_version_get());
     QM_LOGI(LOG_TAG, "app verison %s",APP_VERSION);
+
+    qm_cli_register_command(&xjiang_key);
 
     iot_event_register(IOT_EVENT_PRODTST_SET, prodtst_set_handler);
     iot_event_register(IOT_EVENT_PRODTST_REPORT_REPLY, prodtst_report_reply_handler);
