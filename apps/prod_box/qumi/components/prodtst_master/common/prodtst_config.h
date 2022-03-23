@@ -24,7 +24,7 @@
 #endif
 
 #ifndef CONFIG_QM_PRODTST_TASK_SIZE  
-#define CONFIG_QM_PRODTST_TASK_SIZE           5*1024    
+#define CONFIG_QM_PRODTST_TASK_SIZE           2*1024    
 #endif
 
 #ifndef CONFIG_QM_PRODTST_OBJ_NUM

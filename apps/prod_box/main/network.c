@@ -64,9 +64,10 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         memcpy(prodtst_wifi_event.event_info.sta_connected.mac, event->event_info.sta_connected.mac, 6);
         prodtst_wifi_ap_event_set(&prodtst_wifi_event);
 
-        esp_wifi_deauth_sta(event->event_info.sta_connected.aid);
+        //esp_wifi_deauth_sta(event->event_info.sta_connected.aid);
 
         break;
+        
     case SYSTEM_EVENT_AP_STADISCONNECTED:
         network_log("station:"MACSTR"leave, AID=%d",
                  MAC2STR(event->event_info.sta_disconnected.mac),

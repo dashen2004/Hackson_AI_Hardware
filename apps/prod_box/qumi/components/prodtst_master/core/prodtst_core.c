@@ -746,16 +746,12 @@ static int prodtst_all_obj_destroy(void)
 
 /********************************************************************************************/
 
-int prodtst_wifi_dut_found_notify(char *ip, uint8_t mac[6])
+int prodtst_wifi_dut_found_notify(int fd)
 {
     prodtst_notify_t notify = {0};
-    if(ip == NULL){
-        return -QM_EINVAL;
-    }
+ 
     notify.event = PRODTST_EVENT_WIFI_DUT_FOUND;
-    memcpy(notify.dat.wifi_dut_info.ip, ip, strlen(ip));
-    memcpy(notify.dat.wifi_dut_info.mac, mac, 6);
-
+    notify.dat.wifi_dut_info.fd = fd;
     return qm_queue_send(&g_prodtst_ctx.notify, (void*)&notify, sizeof(prodtst_notify_t));
 }
 
@@ -974,6 +970,16 @@ static int prodtst_result_report(prodtst_data_table_t *data_tbl, int step, char 
     return ret;
 }
 
+static void prodtst_at_result_callback(int result, void *arg)
+{
+    prodtst_notify_t notify = {0};
+    prodtst_obj_t *prodtst_obj = (prodtst_obj_t*)arg;
+    if(result == QM_AT_RESULT_CHANNEL_DOWN){
+        notify.event = PRODTST_EVENT_CHANNEL_DOWN;
+        qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
+    }
+}
+
 static void prodtst_obj_task(void *arg)
 {
     uint32_t size = 0;
@@ -993,10 +999,6 @@ static void prodtst_obj_task(void *arg)
     testsuite = prodtst_testsuite_get();
 
     at_param.recv_buf_len = testsuite->recv_size;
-    at_param.recv_buf = (char*)qm_malloc(testsuite->recv_size);
-    if(at_param.recv_buf == NULL){
-        goto __exit; 
-    }
     at_param.send = adapter->send;
     at_param.recv = adapter->recv;
     
@@ -1029,6 +1031,8 @@ static void prodtst_obj_task(void *arg)
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
+
+            qm_at_client_register_result_cb(prodtst_obj->at_client, prodtst_at_result_callback, (void*)prodtst_obj);
 
             QM_LOGI(LOG_TAG, "channel established");
 
@@ -1237,9 +1241,14 @@ static void prodtst_obj_task(void *arg)
 
             prodtst_notify_handler(prodtst_obj, "FAC", PRODTST_RESULT_FAIL);
             QM_LOGI(LOG_TAG, "prodtst timeout failed");
-
             prodtst_status_notify(PRODTST_STATUS_FAIL);
+            prodtst_obj_init(prodtst_obj);
 
+        break;
+
+        case PRODTST_EVENT_CHANNEL_DOWN:
+            QM_LOGI(LOG_TAG, "prodtst channel down");
+            prodtst_status_notify(PRODTST_STATUS_FAIL);
             prodtst_obj_init(prodtst_obj);
 
         break;
@@ -1250,13 +1259,7 @@ static void prodtst_obj_task(void *arg)
                 special->destroy(prodtst_obj->spcl_handle);
             }
 
-            if(at_param.recv_buf){
-                qm_free(at_param.recv_buf);
-                at_param.recv_buf = NULL;
-            }
-
             QM_LOGI(LOG_TAG, "prodtst obj exit");
-
             prodtst_obj_destroy(prodtst_obj);
 
         break;
@@ -1265,8 +1268,6 @@ static void prodtst_obj_task(void *arg)
             break;
         }
     }
-
-__exit:
 
     qm_task_exit(&prodtst_obj->task);
 }
@@ -1336,6 +1337,8 @@ static void prodtst_core_task(void *arg)
                 prodtst_obj_info_get(&obj_info);
                 QM_LOGI(LOG_TAG, "prodtst obj run: %d, idle: %d, active: %d, unactive: %d, total: %d", 
                 obj_info.run_num, obj_info.idle_num, obj_info.active_num, obj_info.unactive_num, obj_info.total);
+
+                QM_LOGI(LOG_TAG, "system free mem: %u", esp_get_free_heap_size());
 
             break;
 

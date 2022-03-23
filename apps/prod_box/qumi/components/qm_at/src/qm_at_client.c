@@ -428,10 +428,14 @@ int32_t qm_at_client_obj_send(qm_at_client_t *client, char *buf, uint32_t size)
 
 static qm_err_t qm_at_client_getchar(qm_at_client_t *client, char *ch, int32_t timeout)
 {
-    if(client->channel.recv(client->channel.handle, ch, 1, timeout) != 1){
-        return -QM_ETIMEOUT;
-    }else{
+    int ret = 0;
+    ret = client->channel.recv(client->channel.handle, ch, 1, timeout);
+    if(ret == 1){
         return QM_EOK;
+    }else if(ret == 0){
+        return -QM_ETIMEOUT;
+    }else {
+        return -QM_EIO;
     }
 }
 
@@ -653,8 +657,13 @@ static int qm_at_recv_readline(qm_at_client_t *client)
 
     while (1)
     {
-        ret = qm_at_client_getchar(client, &ch, QM_WAIT_FOREVER);
-        if(ret != QM_EOK){
+        ret = qm_at_client_getchar(client, &ch, 1000);
+        if(ret == -QM_ETIMEOUT){
+            if(client->exit){
+                return ret;
+            }
+            continue;
+        }else if(ret == -QM_EIO){
             return ret;
         }
 
@@ -693,6 +702,7 @@ static int qm_at_recv_readline(qm_at_client_t *client)
 
 static void client_parser(void *arg)
 {
+    qm_err_t ret = 0;
     qm_at_urc_t *urc = NULL;
     qm_at_response_t *resp = NULL;
     qm_at_client_t *client = (void*)arg;
@@ -700,7 +710,8 @@ static void client_parser(void *arg)
 
     while(!client->exit)
     {
-        if (qm_at_recv_readline(client) > 0)
+        ret = qm_at_recv_readline(client);
+        if (ret > 0)
         {
             if ((urc = qm_at_client_get_urc_obj(client)) != NULL)
             {
@@ -764,13 +775,18 @@ static void client_parser(void *arg)
             }
             else
             {
-                //log_d("unrecognized line: %.*s", client->recv_line_len, client->recv_line_buf);
+                QM_LOGI(LOG_TAG, "unrecognized line: %.*s", client->recv_line_len, client->recv_line_buf);
+            }
+        }else if(ret == -QM_EIO){
+            if(client->cb){
+                client->cb(QM_AT_RESULT_CHANNEL_DOWN, client->arg);
             }
         }
     }
+
     qm_sem_free(&client->resp_notice);
     qm_mutex_free(&client->lock);
-
+    qm_free(client->recv_line_buf);
     memcpy(&task, &client->task, sizeof(task));
     memset(client, 0, sizeof(qm_at_client_t));
 
@@ -805,7 +821,10 @@ qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
     }
 
     client = &at_client_table[idx];
-    client->recv_line_buf = param->recv_buf;
+    client->recv_line_buf = (char*)qm_malloc(param->recv_buf_len);
+    if(client->recv_line_buf == NULL){
+        return -QM_ENOMEM;
+    }
     client->recv_buf_len = param->recv_buf_len;
     client->channel.channel_type = param->channel_type;
     client->channel.handle = param->handle;
@@ -838,8 +857,11 @@ __exit:
         qm_sem_free(&client->resp_notice);
     }
 
+    if(client->recv_line_buf == NULL){
+        qm_free(client->recv_line_buf);
+        client->recv_line_buf = NULL;
+    }
     memset(client, 0, sizeof(qm_at_client_t));
-
     return NULL;
 }
 

@@ -181,7 +181,7 @@ int prodtst_nfc_process(void *handle, char *in_buf, int in_size, char *out_buf, 
         return -QM_EINVAL;
     }
 
-    while(--check_count){
+    while(check_count--){
         nfc_check_send(spcl_handle->uart_channel);
         ret = nfc_parse(spcl_handle->uart_channel, 0x02, nfc_buf, &nfc_recv_size);
         if(ret == -QM_ETIMEOUT){
@@ -200,7 +200,7 @@ int prodtst_nfc_process(void *handle, char *in_buf, int in_size, char *out_buf, 
 
     right = 0;
 
-    while(--write_count){
+    while(write_count--){
         prodtst_nfc_send(handle, in_buf, in_size);
         ret = nfc_parse(spcl_handle->uart_channel, 0xfe, nfc_buf, &nfc_recv_size);
         if(ret == -QM_ETIMEOUT){
@@ -221,7 +221,7 @@ int prodtst_nfc_process(void *handle, char *in_buf, int in_size, char *out_buf, 
 
     right = 0;
 
-    while(--read_count){
+    while(read_count--){
         nfc_read_send(spcl_handle->uart_channel);
         ret = nfc_parse(spcl_handle->uart_channel, 0x91, nfc_buf, &nfc_recv_size);
         if(ret == -QM_ETIMEOUT){

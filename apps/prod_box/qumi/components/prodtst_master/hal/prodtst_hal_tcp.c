@@ -7,12 +7,83 @@
 #include "sys/socket.h"
 #include "errno.h"
 #include "qm_kernel.h"
+#include "qm_errno.h"
 
 #define LOG_TAG  "prodtst tcp"
 
 /** @defgroup group_platform_network network
  *  @{
  */
+/**
+ * @brief Establish a TCP server.
+ *
+ * @param [in] port: @n Specify the TCP port of TCP server
+ *
+ * @return The handle of TCP connection.
+   @retval   0 : Fail.
+   @retval > 0 : Success, the value is handle of this TCP connection.
+ */
+int32_t prodtst_tcp_server_creat(uint16_t port)
+{
+    int ret = 0;
+    int servfd = -1;
+    struct sockaddr_in servaddr;
+    servfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons((unsigned short)port);
+    ret = bind(servfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
+    if (ret < 0) {
+        QM_LOGE(LOG_TAG, "bind ip and port failed");
+        (void)closesocket(servfd);
+        return -1;
+    }
+
+    ret = listen(servfd, 6);
+    if (ret < 0) {
+        (void)closesocket(servfd);
+        QM_LOGE(LOG_TAG, "listen failed\n");
+        return -1;
+    }
+
+    return servfd;
+}
+
+int32_t prodtst_tcp_accept(int sockfd, int timeout)
+{
+    int ret = 0;
+    int rv = 0;
+    fd_set set;
+    struct timeval timeval;
+    struct sockaddr_in cliaddr;
+    uint32_t cliaddr_size = (uint32_t)sizeof(cliaddr);
+
+    FD_ZERO(&set); 
+    FD_SET(sockfd, &set); 
+
+    timeval.tv_sec = timeout/1000;
+    timeval.tv_usec = (timeout%1000)*1000;
+
+    memset(&cliaddr, 0, sizeof(struct sockaddr_in));
+
+    rv = select(sockfd + 1, &set, NULL, NULL, &timeval);
+    if(rv == -1){
+        QM_LOGE(LOG_TAG, "select error"); 
+        return -QM_EIO;
+    }else if(rv == 0){
+        //QM_LOGE(LOG_TAG, "accept timeout"); 
+        return -QM_ETIMEOUT;
+    }else{
+        ret = (int)accept(sockfd, (struct sockaddr *)&cliaddr, &cliaddr_size);
+        if (ret < 0) {
+            (void)closesocket(sockfd);
+            QM_LOGE(LOG_TAG, "accept failed, %d\n", ret);
+            return -QM_EIO;
+        }
+    }
+    return ret;
+}
 
 /**
  * @brief Establish a TCP connection.
@@ -97,14 +168,6 @@ int32_t prodtst_tcp_destroy(int fd)
 {
     int rc = 0;
 
-    //Shutdown both send and receive operations.
-    rc = shutdown((int) fd, 2);
-
-    if (0 != rc) {
-        QM_LOGE(LOG_TAG, "shutdown error");
-        return -1;
-    }
-
     rc = close((int) fd);
 
     if (0 != rc) {
@@ -113,7 +176,6 @@ int32_t prodtst_tcp_destroy(int fd)
     }
 
     return 0;
-
 }
 
 

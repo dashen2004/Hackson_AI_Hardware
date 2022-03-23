@@ -15,43 +15,21 @@ typedef struct
     int fd;
 }channel_info_t;
 
+static int accept_exit = 0;
+static qm_task_t accept_task = {0};
+
 static uint8_t mac[6];
 static char buffer[16] = {0};
 static char prodtst_ssid[32] = {0};
+
+#define CPRODTST_ACCEPT_TASK_SIZE   2048
+#define PRODTST_ACCEPT_TASK_PRIO     18
 
 static char *  __inet_ntoa( unsigned int in )
 {
     unsigned char *bytes = (unsigned char *) &in;
     snprintf( buffer, sizeof (buffer), "%d.%d.%d.%d", bytes[0], bytes[1], bytes[2], bytes[3] );
     return buffer;
-}
-
-void prodtst_wifi_event_callback(prodtst_wifi_event_t *event, void *arg)
-{
-    char *ip_str = NULL;
-    switch(event->type){
-
-        case PRODTST_WIFI_EVENT_AP_CONNECTED:
-            memcpy(mac, event->event_info.sta_connected.mac, 6);
-
-        break;
-
-        case PRODTST_WIFI_EVENT_AP_DISCONNECTED:
-            memcpy(mac, event->event_info.sta_disconnected.mac, 6);
-
-        break;
-
-        case PRODTST_WIFI_EVENT_AP_STAIPASSIGNED:
-            ip_str = __inet_ntoa(event->event_info.ap_staipassigned.ip_addr);
-            QM_LOGI(LOG_TAG, "device found ip: %s\n", ip_str);
-            prodtst_wifi_dut_found_notify(ip_str, mac);
-
-        break;
-
-        default:
-        break;
-    }
-
 }
 
 int prodtst_wifi_ap_name_get(char ssid[32])
@@ -65,26 +43,64 @@ int prodtst_wifi_ap_name_get(char ssid[32])
     return QM_EOK;
 }
 
+static void prodtst_accept_task(void *arg)
+{
+    int server_fd = -1;
+    int ret = 0;
+    server_fd = prodtst_tcp_server_creat(CONFIG_QM_PRODTST_TCP_PORT);
+    if(server_fd == -1){
+        QM_LOGE(LOG_TAG, "tcp server creat fail");
+        goto __exit;
+    }
+
+    while(1){
+        ret = prodtst_tcp_accept(server_fd, 1000);
+        if(ret >= 0){
+             prodtst_wifi_dut_found_notify(ret);
+        }else if(ret == -QM_EIO){
+            break;
+        }
+        if(accept_exit){
+            close(server_fd);
+            break;
+        }
+    }
+
+__exit:
+    qm_task_exit(&accept_exit);
+}
+
 static int wifi_prodtst_init(void *param)
 {
     int max_conn = 0;
     qm_err_t ret = QM_EOK;
     uint8_t mac[6] = {0};
 
+    accept_exit = 0;
+
     prodtst_wifi_sta_mac_get(mac);
 
     max_conn = prodtst_device_num_get();
 
     snprintf(prodtst_ssid, 32, "%s_%02x%02x", CONFIG_QM_PRODTST_AP_SSID, mac[4], mac[5]);
-
-    prodtst_wifi_ap_event_register(prodtst_wifi_event_callback, NULL);
     
-    return prodtst_wifi_ap_init(prodtst_ssid, CONFIG_QM_PRODTST_AP_PASSWD, CONFIG_QM_PRODTST_WIFI_CHANNEL, max_conn);
+    ret = prodtst_wifi_ap_init(prodtst_ssid, CONFIG_QM_PRODTST_AP_PASSWD, CONFIG_QM_PRODTST_WIFI_CHANNEL, max_conn);
+    if(ret != QM_EOK){
+        return ret;
+    }
+
+    ret = qm_task_new(&accept_task, "prodtst accept", prodtst_accept_task, NULL, CPRODTST_ACCEPT_TASK_SIZE, PRODTST_ACCEPT_TASK_PRIO);
+    if(ret != QM_EOK){
+        return ret;
+    }
+
+    return QM_EOK;
 }
 
 
 static int wifi_prodtst_deinit(void)
 {
+    accept_exit = 1;
     prodtst_wifi_ap_deinit();
 
     return QM_EOK;
@@ -130,36 +146,19 @@ static void *channel_establish(void *param)
         return NULL;
     }
 
-    qm_msleep(2000);
-
-    QM_LOGI(LOG_TAG, "tcp connecting...");
-
-    fd = prodtst_tcp_establish(wifi_dut_info->ip, CONFIG_QM_PRODTST_TCP_PORT);
-    if(fd >= 0){
-        QM_LOGI(LOG_TAG, "tcp connected, fd: %d", fd);
-    }else{
-        QM_LOGI(LOG_TAG, "tcp connect failed");
-        ret = -QM_EIO;
-        goto __exit;
-    }
-
-    channel->fd = fd;
+    channel->fd = wifi_dut_info->fd;
 
     return (void*)channel;
-
-__exit:
-    if(channel){
-        qm_free(channel);
-        channel = NULL;
-    }
-    return NULL;
 }
 
 static int channel_destroy(void *handle)
 {
     channel_info_t *channel = (channel_info_t*)handle;
+    if(channel == NULL){
+        return -QM_EINVAL;
+    }
     prodtst_tcp_destroy(channel->fd);
-
+    qm_free(handle);
     QM_LOGI(LOG_TAG, "tcp closed");
     return QM_EOK;
 }

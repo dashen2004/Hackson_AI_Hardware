@@ -85,6 +85,7 @@ typedef enum{
     PRODTST_EVENT_WIFI_DUT_FOUND,
     PRODTST_EVENT_BLE_DUT_FOUND,
     PRODTST_EVENT_NEXT_ROUND,
+    PRODTST_EVENT_CHANNEL_DOWN,
     PRODTST_EVENT_TIMEOUT,
     PRODTST_EVENT_EXIT,
 }prodtst_event_t;
@@ -146,8 +147,7 @@ typedef struct{
 }prodtst_special_info_t;
 
 typedef struct{
-    char ip[16];
-    uint8_t mac[6];
+    int fd;
 }prodtst_wifi_dut_info_t;
 
 typedef struct{
@@ -240,7 +240,7 @@ int prodtst_stop(void);
 
 
 /********prodtst notify********/
-int prodtst_wifi_dut_found_notify(char *ip, uint8_t mac[6]);
+int prodtst_wifi_dut_found_notify(int fd);
 int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data, int len);
 int prodtst_config_notify(int test_time, char *platform, char *module_name, char *module_type);
 int prodtst_special_down_notify(char *uuid, int id, char *data, int len);

@@ -204,7 +204,6 @@ typedef struct at_urc_table
 typedef struct{
 
     uint8_t channel_type;
-    char *recv_buf;
     uint32_t recv_buf_len;
     void *handle;
     int (*send)(void *handle, char *buf, int size);

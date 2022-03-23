@@ -8,6 +8,27 @@
  */
 
 /**
+ * @brief Establish a TCP server.
+ *
+ * @param [in] port: @n Specify the TCP port of TCP server
+ *
+ * @return The handle of TCP connection.
+   @retval   0 : Fail.
+   @retval > 0 : Success, the value is handle of this TCP connection.
+ */
+int32_t prodtst_tcp_server_creat(uint16_t port);
+
+/**
+ * @brief accept a TCP connection.
+ *
+ * @param [in] fd: @n Specify the TCP connection by handle.
+ *
+ * @return The handle of TCP connection.
+   @retval   0 : Fail.
+   @retval > 0 : Success, the value is handle of this TCP connection.
+ */
+int32_t prodtst_tcp_accept(int sockfd, int timeout);
+/**
  * @brief Establish a TCP connection.
  *
  * @param [in] host: @n Specify the hostname(IP) of the TCP server
@@ -18,7 +39,6 @@
    @retval > 0 : Success, the value is handle of this TCP connection.
  */
 int32_t prodtst_tcp_establish(const char *host, uint16_t port);
-
 
 /**
  * @brief Destroy the specific TCP connection.
