@@ -35,9 +35,10 @@ int qm_task_new(qm_task_t *task, const char *name, void (*fn)(void *), void *arg
 int qm_task_exit(qm_task_t *task)
 {
     if(task == NULL){
-        return -1;
+        vTaskDelete(NULL);
+    }else{
+        vTaskDelete(task->hdl);
     }
-    vTaskDelete(task->hdl);
     return 0;
 }
 

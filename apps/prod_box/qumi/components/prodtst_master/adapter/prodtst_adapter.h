@@ -6,8 +6,8 @@
 
 typedef struct{
 
-    int (*init)(void *param);
-    int (*deinit)(void);
+    void *(*init)(void *param);
+    int (*deinit)(void *handle);
     void *(*establish)(void *param);
     int (*destroy)(void *handle);
     int (*send)(void *handle, char *buf, int size);

@@ -21,7 +21,7 @@ static prodtst_obj_t *prodtst_obj_idle_get();
 
 static int prodtst_data_table_reset(prodtst_data_table_t *prodtst_tbl);
 static int prodtst_data_table_set(prodtst_data_table_t *prodtst_tbl, prodtst_data_t *prodtst_data, int num);
-
+static int prodtst_all_obj_destroy(void);
 static prodtst_context_t g_prodtst_ctx = {0};
 
 
@@ -106,9 +106,9 @@ int prodtst_start(prodtst_info_t *info)
     g_prodtst_ctx.start = 1;
     g_prodtst_ctx.testsuite = testsuite;
 
-    ret = g_prodtst_ctx.testsuite->adapter->init(NULL);
-    if(ret != QM_EOK){
-        return ret;
+    g_prodtst_ctx.adapter_handle = g_prodtst_ctx.testsuite->adapter->init(NULL);
+    if(g_prodtst_ctx.adapter_handle == NULL){
+        return -QM_ERROR;
     }
 
     return QM_EOK;
@@ -122,12 +122,15 @@ int prodtst_stop(void)
         return ret;
     }
 
-    ret = g_prodtst_ctx.testsuite->adapter->deinit();
+    prodtst_all_obj_destroy();
+
+    ret = g_prodtst_ctx.testsuite->adapter->deinit(g_prodtst_ctx.adapter_handle);
     if(ret != QM_EOK){
         return ret;
     }
 
     g_prodtst_ctx.start = 0;
+    g_prodtst_ctx.testsuite = NULL;
 
     QM_LOGI(LOG_TAG, "prodtst stop success");
 
@@ -681,12 +684,19 @@ __exit:
 static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
 {
     qm_err_t ret = QM_EOK;
+    qm_task_t task = {0};
     prodtst_adapter_t *adapter = NULL;
     adapter = prodtst_adapter_get();
 
     if(prodtst_obj == NULL){
         return -QM_EINVAL;
     }
+
+    ret = qm_timer_free(&prodtst_obj->timer);
+    if(ret != QM_EOK){
+        return ret;
+    }
+
     ret = qm_queue_free(&prodtst_obj->notify);
     if(ret != QM_EOK){
         return ret;
@@ -697,12 +707,7 @@ static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
         return ret;
     }
 
-    ret = qm_timer_free(&prodtst_obj->timer);
-    if(ret != QM_EOK){
-        return ret;
-    }
-
-    ret = qm_at_client_deinit(&prodtst_obj->at_client);
+    ret = qm_at_client_deinit(prodtst_obj->at_client);
     if(ret != QM_EOK){
         return ret;
     }
@@ -714,9 +719,11 @@ static int prodtst_obj_destroy(prodtst_obj_t *prodtst_obj)
 
     prodtst_data_table_reset(&prodtst_obj->data_tbl);
 
+    memcpy(&task, &prodtst_obj->task, sizeof(qm_task_t));
+
     qm_sem_signal(&g_prodtst_ctx.exit_sem);
 
-    ret = qm_task_exit(&prodtst_obj->task);
+    ret = qm_task_exit(&task);
     if(ret != QM_EOK){
         return ret;
     }
@@ -970,16 +977,6 @@ static int prodtst_result_report(prodtst_data_table_t *data_tbl, int step, char 
     return ret;
 }
 
-static void prodtst_at_result_callback(int result, void *arg)
-{
-    prodtst_notify_t notify = {0};
-    prodtst_obj_t *prodtst_obj = (prodtst_obj_t*)arg;
-    if(result == QM_AT_RESULT_CHANNEL_DOWN){
-        notify.event = PRODTST_EVENT_CHANNEL_DOWN;
-        qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
-    }
-}
-
 static void prodtst_obj_task(void *arg)
 {
     uint32_t size = 0;
@@ -1031,8 +1028,6 @@ static void prodtst_obj_task(void *arg)
                 prodtst_obj_init(prodtst_obj);
                 continue;
             }
-
-            qm_at_client_register_result_cb(prodtst_obj->at_client, prodtst_at_result_callback, (void*)prodtst_obj);
 
             QM_LOGI(LOG_TAG, "channel established");
 
@@ -1258,9 +1253,9 @@ static void prodtst_obj_task(void *arg)
             if(special){
                 special->destroy(prodtst_obj->spcl_handle);
             }
-
-            QM_LOGI(LOG_TAG, "prodtst obj exit");
+            
             prodtst_obj_destroy(prodtst_obj);
+            QM_LOGI(LOG_TAG, "prodtst obj exit");
 
         break;
         
@@ -1308,17 +1303,13 @@ static void prodtst_core_task(void *arg)
                 memcpy(&prodtst_ctx->config_info.module_type, notify.dat.config_info.module_type, strlen(notify.dat.config_info.module_type));
                 memcpy(&prodtst_ctx->config_info.module_name, notify.dat.config_info.module_name, strlen(notify.dat.config_info.module_name));
 
-                prodtst_all_obj_destroy();
                 prodtst_stop();
 
-                #include "esp_system.h"
-                QM_LOGI(LOG_TAG, "system free mem: %u", esp_get_free_heap_size());
-                
                 ret = prodtst_start(&info);
                 if(ret != QM_EOK){
-                    prodtst_status_notify(PRODTST_STATUS_READY);
                     QM_LOGE(LOG_TAG, "prodtst start failed");
                 }else{
+                    prodtst_status_notify(PRODTST_STATUS_READY);
                     QM_LOGI(LOG_TAG, "prodtst start success");
                 }
 
@@ -1337,8 +1328,6 @@ static void prodtst_core_task(void *arg)
                 prodtst_obj_info_get(&obj_info);
                 QM_LOGI(LOG_TAG, "prodtst obj run: %d, idle: %d, active: %d, unactive: %d, total: %d", 
                 obj_info.run_num, obj_info.idle_num, obj_info.active_num, obj_info.unactive_num, obj_info.total);
-
-                QM_LOGI(LOG_TAG, "system free mem: %u", esp_get_free_heap_size());
 
             break;
 

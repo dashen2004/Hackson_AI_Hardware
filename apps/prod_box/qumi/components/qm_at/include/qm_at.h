@@ -17,7 +17,7 @@ extern "C" {
 
 
 #ifndef CONFIG_QM_AT_SERVER_TASK_SIZE  
-#define CONFIG_QM_AT_SERVER_TASK_SIZE            6*1024    
+#define CONFIG_QM_AT_SERVER_TASK_SIZE            2*1024    
 #endif
 
 #ifndef CONFIG_QM_AT_SERVER_TASK_PRIO  
@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 #ifndef CONFIG_QM_AT_CLIENT_TASK_SIZE  
-#define CONFIG_QM_AT_CLIENT_TASK_SIZE             6*1024    
+#define CONFIG_QM_AT_CLIENT_TASK_SIZE             2*1024    
 #endif
 
 #ifndef CONFIG_QM_AT_CLIENT_TASK_PRIO  

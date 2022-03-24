@@ -34,6 +34,7 @@ static void cloud_dynreg_thread(void *arg);
 static void network_handle(void *arg);
 
 static void handle_xjiang_key(char *pwbuf, int blen, int argc, char **argv);
+static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv);
 
 static struct qm_cli_command xjiang_key = {
     .name = "xjiang_key",
@@ -41,6 +42,16 @@ static struct qm_cli_command xjiang_key = {
     .function = handle_xjiang_key
 };
 
+static struct qm_cli_command meminfo_key = {
+    .name = "meminfo",
+    .help = "meminfo",
+    .function = handle_meminfo
+};
+
+static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv)
+{
+    qm_cli_printf("system free mem: %u", esp_get_free_heap_size());
+}
 
 static void handle_xjiang_key(char *pwbuf, int blen, int argc, char **argv)
 {
@@ -303,6 +314,7 @@ void xjiang_cloud_init(void)
     QM_LOGI(LOG_TAG, "app verison %s",APP_VERSION);
 
     qm_cli_register_command(&xjiang_key);
+    qm_cli_register_command(&meminfo_key);
 
     iot_event_register(IOT_EVENT_PRODTST_SET, prodtst_set_handler);
     iot_event_register(IOT_EVENT_PRODTST_REPORT_REPLY, prodtst_report_reply_handler);

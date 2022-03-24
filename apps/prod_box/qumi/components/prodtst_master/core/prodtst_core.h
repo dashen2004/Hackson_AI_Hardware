@@ -221,6 +221,7 @@ typedef struct{
 typedef struct{
     int start;
     int test_time;
+    void *adapter_handle;
     qm_task_t task;
     qm_queue_t notify;
     qm_sem_t exit_sem;

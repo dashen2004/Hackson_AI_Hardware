@@ -27,8 +27,10 @@ int32_t prodtst_tcp_server_creat(uint16_t port)
 {
     int ret = 0;
     int servfd = -1;
+    int opt = 1;
     struct sockaddr_in servaddr;
     servfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    setsockopt(servfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);

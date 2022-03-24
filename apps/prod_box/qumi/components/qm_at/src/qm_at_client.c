@@ -705,7 +705,7 @@ static void client_parser(void *arg)
     qm_err_t ret = 0;
     qm_at_urc_t *urc = NULL;
     qm_at_response_t *resp = NULL;
-    qm_at_client_t *client = (void*)arg;
+    qm_at_client_t *client = (qm_at_client_t*)arg;
     qm_task_t task = {0};
 
     while(!client->exit)
@@ -783,6 +783,8 @@ static void client_parser(void *arg)
             }
         }
     }
+
+    QM_LOGI(LOG_TAG, "at client exit");
 
     qm_sem_free(&client->resp_notice);
     qm_mutex_free(&client->lock);

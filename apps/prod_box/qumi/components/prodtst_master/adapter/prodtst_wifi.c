@@ -15,8 +15,11 @@ typedef struct
     int fd;
 }channel_info_t;
 
-static int accept_exit = 0;
-static qm_task_t accept_task = {0};
+typedef struct{
+    int accept_exit;
+    qm_task_t accept_task;
+}prodtst_wifi_channel_t;
+
 
 static uint8_t mac[6];
 static char buffer[16] = {0};
@@ -47,6 +50,9 @@ static void prodtst_accept_task(void *arg)
 {
     int server_fd = -1;
     int ret = 0;
+    qm_task_t task = {0};
+    prodtst_wifi_channel_t *wifi_channel = (prodtst_wifi_channel_t*)arg;
+
     server_fd = prodtst_tcp_server_creat(CONFIG_QM_PRODTST_TCP_PORT);
     if(server_fd == -1){
         QM_LOGE(LOG_TAG, "tcp server creat fail");
@@ -60,23 +66,28 @@ static void prodtst_accept_task(void *arg)
         }else if(ret == -QM_EIO){
             break;
         }
-        if(accept_exit){
-            close(server_fd);
+        if(wifi_channel->accept_exit){
+            prodtst_tcp_destroy(server_fd);
             break;
         }
     }
 
 __exit:
-    qm_task_exit(&accept_exit);
+    QM_LOGI(LOG_TAG, "accept task exit");
+    qm_task_exit(&wifi_channel->accept_task);
 }
 
-static int wifi_prodtst_init(void *param)
+static void *wifi_prodtst_init(void *param)
 {
     int max_conn = 0;
     qm_err_t ret = QM_EOK;
     uint8_t mac[6] = {0};
 
-    accept_exit = 0;
+    prodtst_wifi_channel_t *wifi_channel = (prodtst_wifi_channel_t*)qm_malloc(sizeof(prodtst_wifi_channel_t));
+    if(wifi_channel == NULL){
+        return -QM_ENOMEM;
+    }
+    memset(wifi_channel, 0, sizeof(prodtst_wifi_channel_t));
 
     prodtst_wifi_sta_mac_get(mac);
 
@@ -86,23 +97,43 @@ static int wifi_prodtst_init(void *param)
     
     ret = prodtst_wifi_ap_init(prodtst_ssid, CONFIG_QM_PRODTST_AP_PASSWD, CONFIG_QM_PRODTST_WIFI_CHANNEL, max_conn);
     if(ret != QM_EOK){
-        return ret;
+       goto __exit;
     }
 
-    ret = qm_task_new(&accept_task, "prodtst accept", prodtst_accept_task, NULL, CPRODTST_ACCEPT_TASK_SIZE, PRODTST_ACCEPT_TASK_PRIO);
+    ret = qm_task_new(&wifi_channel->accept_task, "prodtst accept", prodtst_accept_task, (void*)wifi_channel, CPRODTST_ACCEPT_TASK_SIZE, PRODTST_ACCEPT_TASK_PRIO);
     if(ret != QM_EOK){
-        return ret;
+        goto __exit;
     }
 
-    return QM_EOK;
+    return (void*)wifi_channel;
+
+__exit:
+
+    if(wifi_channel){
+        qm_free(wifi_channel);
+        wifi_channel = NULL;
+    }
+    return NULL;
 }
 
 
-static int wifi_prodtst_deinit(void)
+static int wifi_prodtst_deinit(void *handle)
 {
-    accept_exit = 1;
+    prodtst_wifi_channel_t *wifi_channel = (prodtst_wifi_channel_t*)handle;
+    if(handle == NULL){
+        return -QM_EINVAL;
+    }
+    wifi_channel->accept_exit = 1;
+
+    qm_msleep(1500);
+
+    qm_free(wifi_channel);
+    wifi_channel = NULL;
+
     prodtst_wifi_ap_deinit();
 
+    QM_LOGI(LOG_TAG, "wifi prodtst deinit");
+    
     return QM_EOK;
 }
 
