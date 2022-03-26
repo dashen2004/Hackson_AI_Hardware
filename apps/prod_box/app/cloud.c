@@ -11,6 +11,7 @@
 #include "prodtst_cloud.h"
 #include "qm_cli.h"
 #include "qm_utils_string.h"
+#include "drivers.h"
 
 
 #define LOG_TAG  "cloud"
@@ -99,11 +100,14 @@ static void cloud_event_monitor( int event )
 
             retry_interval_ms_set(500, RETRY_INTERVAL_MAX_MS);
 
+            led_on(LED_TYPE_NETWORK);
+
         break;
 
         case EVENT_VALUE_LOGOUT:
             QM_LOGI(LOG_TAG, "Device Logout");
             xjiang_login = 0;
+            led_off(LED_TYPE_NETWORK);
         break;
         
         case EVENT_VALUE_TOKEN_REPORT_SUC:

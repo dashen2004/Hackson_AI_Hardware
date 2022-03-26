@@ -264,6 +264,6 @@ void gpio_ext_init(void)
     //start gpio task
     xTaskCreate(gpio_ext_isr_thread, "gpio isr", 2048, NULL, 10, NULL);
 
-    xTaskCreate(gpio_ext_thread, "gpio ext", 2048, (void* ) 0, 10, NULL);
+    //xTaskCreate(gpio_ext_thread, "gpio ext", 2048, (void* ) 0, 10, NULL);
 
 }

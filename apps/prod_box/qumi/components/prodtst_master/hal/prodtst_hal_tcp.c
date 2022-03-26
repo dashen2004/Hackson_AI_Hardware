@@ -77,11 +77,13 @@ int32_t prodtst_tcp_accept(int sockfd, int timeout)
         //QM_LOGE(LOG_TAG, "accept timeout"); 
         return -QM_ETIMEOUT;
     }else{
-        ret = (int)accept(sockfd, (struct sockaddr *)&cliaddr, &cliaddr_size);
-        if (ret < 0) {
-            (void)closesocket(sockfd);
-            QM_LOGE(LOG_TAG, "accept failed, %d\n", ret);
-            return -QM_EIO;
+        if(FD_ISSET(sockfd, &set)){
+            ret = (int)accept(sockfd, (struct sockaddr *)&cliaddr, &cliaddr_size);
+            if (ret < 0) {
+                (void)closesocket(sockfd);
+                QM_LOGE(LOG_TAG, "accept failed, %d\n", ret);
+                return -QM_EIO;
+            }
         }
     }
     return ret;
@@ -118,14 +120,6 @@ int32_t prodtst_tcp_establish(const char *host, uint16_t port)
         return -1;
     }
 
-#if 0
-        // Marking the socket as non-blocking
-    int flags = fcntl(fd, F_GETFL);
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        QM_LOGI(LOG_TAG, "[sock=%d]: %s\n error=%d: %s", fd, "Unable to set socket non blocking", errno, strerror(errno));
-    }
-#endif
-
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = *(uint32_t *) (*hostent_content->h_addr_list);
     addr.sin_port = htons(port);
@@ -140,6 +134,74 @@ int32_t prodtst_tcp_establish(const char *host, uint16_t port)
     }
 
     return fd;
+}
+
+int32_t prodtst_tcp_establish_timeout(const char *host, uint16_t port, int timeout_ms)
+{
+    int err = 0;
+    int fd = -1;
+    int ret = 0;
+    fd_set wsets = {0};
+    struct timeval timeout;  
+    struct sockaddr_in addr = {0};
+    struct hostent *hostent_content = NULL;
+
+    QM_LOGI(LOG_TAG, "host name: %s", host);
+    hostent_content = gethostbyname( host );
+    if(hostent_content == NULL){
+        QM_LOGE(LOG_TAG, "gethostbyname err");
+        return -1;
+    }
+
+    fd = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (fd < 0) {
+        QM_LOGE(LOG_TAG, "socket creat fail");
+        return -1;
+    }
+
+    unsigned long ul = 1;
+    ioctlsocket(fd, FIONBIO, &ul);
+
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = *(uint32_t *) (*hostent_content->h_addr_list);
+    addr.sin_port = htons(port);
+
+    QM_LOGI(LOG_TAG, "ip %s port %d fd %d\n", inet_ntoa(addr.sin_addr), port, fd);
+
+    err = connect( fd, (struct sockaddr *) &addr, sizeof(addr) );
+    if (err == -1 && errno == EINPROGRESS) {
+        FD_ZERO(&wsets);
+        FD_SET(fd, &wsets);
+        timeout.tv_sec = timeout_ms / 1000;
+        timeout.tv_usec = (timeout_ms % 1000) * 1000;
+        if( select(fd+1, NULL, &wsets, NULL, &timeout) <= 0){
+            ret = 0;
+        }else{
+            if(FD_ISSET(fd, &wsets)){
+                int error = -1;  
+                int optLen = sizeof(int);  
+                getsockopt(fd, SOL_SOCKET, SO_ERROR, (char*)&error, (socklen_t*)&optLen);   
+                if (0 != error)  {  
+                    ret = 0; 
+                }  
+                else {  
+                    ret = 1;  
+                } 
+            }
+        }
+    }
+
+    ul = 0;
+    ioctlsocket(fd, FIONBIO, &ul);
+
+    if(ret){
+        QM_LOGI(LOG_TAG, "connect success");
+        return fd;
+    }else{
+        QM_LOGI(LOG_TAG, "connect fail");
+        close(fd);
+        return -1;
+    }
 }
 
 

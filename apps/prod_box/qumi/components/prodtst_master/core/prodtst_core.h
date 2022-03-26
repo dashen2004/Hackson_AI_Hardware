@@ -46,12 +46,15 @@ typedef enum{
     PRODTST_STATUS_SUCCESS,
     PRODTST_STATUS_FAIL,
     PRODTST_STATUS_READY,
+    PRODTST_STATUS_NOT_READY,
+    PRODTST_STATUS_START,
     PRODTST_STATUS_GENERIC_START,
     PRODTST_STATUS_GENERIC_SUCCESS,
     PRODTST_STATUS_FUN_START,
     PRODTST_STATUS_FUN_SUCCESS,
     PRODTST_STATUS_SPECIAL_START,
     PRODTST_STATUS_SPECIAL_SUCCESS,
+    PRODTST_STATUS_NEXT_ROUND,
 }prodtst_status_t;
 
 typedef enum{
@@ -87,6 +90,7 @@ typedef enum{
     PRODTST_EVENT_NEXT_ROUND,
     PRODTST_EVENT_CHANNEL_DOWN,
     PRODTST_EVENT_TIMEOUT,
+    PRODTST_EVENT_RESET,
     PRODTST_EVENT_EXIT,
 }prodtst_event_t;
 
@@ -197,6 +201,7 @@ typedef struct {
 
 typedef struct{
     char uuid[32+1];
+    int index;
     prodtst_state_t state;
     qm_task_t task;
     qm_queue_t notify;
@@ -208,7 +213,7 @@ typedef struct{
     prodtst_data_table_t data_tbl;
 }prodtst_obj_t;
 
-typedef void (*prodtst_notify_cb)(int prodtst_status);
+typedef void (*prodtst_notify_cb)(int channel, int prodtst_status);
 
 typedef struct{
     int run_num;
@@ -221,6 +226,7 @@ typedef struct{
 typedef struct{
     int start;
     int test_time;
+    int test_num;
     void *adapter_handle;
     qm_task_t task;
     qm_queue_t notify;
@@ -246,6 +252,7 @@ int prodtst_data_notify(int event, char* type, char *uuid, int id, uint8_t *data
 int prodtst_config_notify(int test_time, char *platform, char *module_name, char *module_type);
 int prodtst_special_down_notify(char *uuid, int id, char *data, int len);
 int prodtst_result_notify(char *uuid, int id, char *step, int result);
+int prodtst_next_round_notify(void);
 /*****************************/
 
 int prodtst_device_num_get(void);

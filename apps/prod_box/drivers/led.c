@@ -19,14 +19,14 @@ typedef struct{
 }led_ctrl_t;
 
 static led_info_t g_led_info[LED_TYPE_MAX] = {
-    {LED_TYPE_PROD_CHANNEL_1, GPIO_EXT_OC_Pin_8},
-    {LED_TYPE_PROD_CHANNEL_2, GPIO_EXT_OC_Pin_9},
-    {LED_TYPE_PROD_CHANNEL_3, GPIO_EXT_OC_Pin_10},
-    {LED_TYPE_PROD_CHANNEL_4, GPIO_EXT_OC_Pin_11},
-    {LED_TYPE_PROD_CHANNEL_5, GPIO_EXT_OC_Pin_12},
-    {LED_TYPE_PROD_CHANNEL_6, GPIO_EXT_OC_Pin_13},
+    {LED_TYPE_PRODTST_CHANNEL_1, GPIO_EXT_OC_Pin_8},
+    {LED_TYPE_PRODTST_CHANNEL_2, GPIO_EXT_OC_Pin_9},
+    {LED_TYPE_PRODTST_CHANNEL_3, GPIO_EXT_OC_Pin_10},
+    {LED_TYPE_PRODTST_CHANNEL_4, GPIO_EXT_OC_Pin_11},
+    {LED_TYPE_PRODTST_CHANNEL_5, GPIO_EXT_OC_Pin_12},
+    {LED_TYPE_PRODTST_CHANNEL_6, GPIO_EXT_OC_Pin_13},
     {LED_TYPE_NETWORK, GPIO_EXT_OC_Pin_6},
-    {LED_TYPE_PROD_READY, GPIO_EXT_OC_Pin_7},
+    {LED_TYPE_PRODTST_READY, GPIO_EXT_OC_Pin_7},
 };
 
 static led_ctrl_t led_ctrl[LED_TYPE_MAX] = {0};
@@ -115,13 +115,13 @@ void led_blink(led_type_t type, led_blink_t blink)
         led_ctrl[type].count = 5;
     }
 
-    led_ctrl[type].active = 1;
     if(!is_led_active()){
         ret = qm_timer_start(&led_timer);
         if(ret != QM_EOK){
             return;
         }
     }
+    led_ctrl[type].active = 1;
     led_ctrl[type].status = 1;
     gpio_ext_set(g_led_info[type].gpio_pin, 1);
 }
