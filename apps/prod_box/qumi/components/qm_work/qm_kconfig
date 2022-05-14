@@ -1,0 +1,7 @@
+menu "qm work"
+
+    config QM_AES
+        bool "qm log support"
+        default "n"
+        
+endmenu

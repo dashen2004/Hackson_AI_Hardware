@@ -841,7 +841,7 @@ qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
     if(ret != QM_EOK){
         goto __exit;
     }
-    ret = qm_sem_new(&client->resp_notice, 0);
+    ret = qm_sem_new(&client->resp_notice, 1);
     if(ret != QM_EOK){
         goto __exit;
     }

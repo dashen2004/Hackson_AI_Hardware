@@ -1,0 +1,7 @@
+menu "qm log"
+
+    config QM_AES
+        bool "qm log support"
+        default "y"
+        
+endmenu

@@ -1445,7 +1445,7 @@ int  prodtst_init(prodtst_notify_cb notify_cb)
         return ret;
     }
 
-    ret = qm_sem_new(&g_prodtst_ctx.exit_sem, 0);
+    ret = qm_sem_new(&g_prodtst_ctx.exit_sem, 1);
     if(ret != QM_EOK){
         return ret;
     }

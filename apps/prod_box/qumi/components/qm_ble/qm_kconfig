@@ -1,0 +1,11 @@
+menu "qm ble"
+
+    config QM_BLE
+        bool "qm ble support"
+        select QM_AES   
+        select QM_SHA256
+        select QM_TIMER
+        select QM_STRING
+        default "n"
+        
+endmenu

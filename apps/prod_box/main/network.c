@@ -166,6 +166,9 @@ static void wifi_init(void)
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
+
+    wifi_sta_init();
+    
     ESP_ERROR_CHECK(esp_wifi_start() );
 }
 

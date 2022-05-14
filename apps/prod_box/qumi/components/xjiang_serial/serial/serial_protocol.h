@@ -10,6 +10,10 @@
 #include "id_map.h"
 #endif
 
+#ifdef SERIAL_OTA_SUPPORT
+#include "serial_ota.h"
+#endif
+
 
 /* ============================================================================================== */
 /*                                   MACRO & TYPE DEFINITION REGION                               */
@@ -31,6 +35,22 @@
 #define SERIAL_TYPE_ID_ERR         12
 #define SERIAL_PROCESS_ERR         13
 #define SERIAL_SEND_BUSY_ERR       14
+
+
+enum{
+	SERIAL_COM_OK,
+	SERIAL_COM_ERROR,
+	SERIAL_COM_OPERATION_NOT_PERMITTED,
+	SERIAL_COM_IO_ERROR,
+	SERIAL_COM_NO_DEVICE,
+	SERIAL_COM_MEM_ERROR,
+	SERIAL_COM_DEVICE_BUSY,
+	SERIAL_COM_PARAM_ERROR,
+	SERIAL_COM_FUNC_NOT_SUPPORT,
+	SERIAL_COM_TIMEOUT,
+	SERIAL_COM_COMMUNICATION_ERROR,
+	SERIAL_COM_CHKSUM_ERROR,
+};
 /*
  *   ----------------------------------------------------------------
  *  |  HEAD  |  VER  |  CMD   |   LENGTH |    PAYLOAD    |  CHKSUM  |
@@ -50,28 +70,62 @@
 //define module status
 typedef enum
 {
-    MODULE_CONNECTED                        =0x00,
-    MODULE_CONFIGURD_UNCONNECT_ROUTER       =0x01,
-    MODULE_CONNECT_ROUTER_UNCONNECT_CLOUD   =0x02,
-    MODULE_CONFIGURING_NETWORK              =0x03,
-    MODULE_UNCONFIGURD_NETWORK              =0x04,
-	MODULE_ENTER_LOWPOWER              		=0x05,
+    MODULE_CONNECTED                        = 0x00,
+    MODULE_CONFIGURD_UNCONNECT_ROUTER       = 0x01,
+    MODULE_CONNECT_ROUTER_UNCONNECT_CLOUD   = 0x02,
+    MODULE_CONFIGURING_NETWORK              = 0x03,
+    MODULE_UNCONFIGURD_NETWORK              = 0x04,
+    MODULE_ENTER_LOWPOWER              		= 0x05,
 }module_status_t;
 
 typedef enum
 {
-    CMD_GET             = 0x03,
-    CMD_SET             = 0x01,
-    CMD_NOTIFY_STATUS   = 0x22,
-    CMD_REPORT          = 0x10,
-    CMD_HEARTBEAT       = 0x20,
-    CMD_GET_DEVICEINFO  = 0x21,
-    CMD_GET_SNAPSHOT    = 0x24,
-    CMD_NETCONFIG       = 0x23,
-    CMD_GETMOD          = 0x50,
-    CMD_SETMOD          = 0x51,
-	CMD_EVENT           = 0x11,
-	CMD_ACTION          = 0x12,
+	MCU_ENTER_LOWPOWER              		= 0x01,
+}mcu_status_t;
+
+typedef enum
+{
+    MODULE_PRODTST_SUCCESS                  = 0x00,
+    MODULE_PRODTST_START                    = 0x01,
+    MODULE_PRODTST_FAILED                   = 0x02,
+    MODULE_PRODTST_NFC                      = 0x03,
+    MODULE_PRODTST_STATUS_NONE,
+}module_prodtst_status_t;
+
+typedef enum{
+    MODULE_PRODTST_TYPE_START               = 0,
+    MODULE_PRODTST_TYPE_NONE                = 0,
+    MODULE_PRODTST_TYPE_COMPLETE_MACHINE    = 1,
+    MODULE_PRODTST_TYPE_EXIT                = 2,
+    MODULE_PRODTST_TYPE_MODULE              = 3, 
+    MODULE_PRODTST_TYPE_END                   
+}module_prodtst_type_t;
+
+typedef enum
+{
+    CMD_GET                 = 0x03,
+    CMD_SET                 = 0x01,
+    CMD_NOTIFY_STATUS       = 0x22,
+    CMD_REPORT              = 0x10,
+    CMD_HEARTBEAT           = 0x20,
+    CMD_GET_DEVICEINFO      = 0x21,
+    CMD_GET_SNAPSHOT        = 0x24,
+    CMD_MCU_NOTIFY_STATUS   = 0x25,
+    CMD_TIMEGET             = 0x26,
+    CMD_NETCONFIG           = 0x23,
+    CMD_GETMOD              = 0x50,
+    CMD_SETMOD              = 0x51,
+	CMD_EVENT               = 0x11,
+	CMD_ACTION              = 0x12,
+#ifdef SERIAL_OTA_SUPPORT
+	CMD_OTA_START		    = 0x30,
+	CMD_OTA_TRANSFER	    = 0x31,
+	CMD_OTA_QUERYCRC        = 0x32,
+	CMD_OTA_VERIFY          = 0x33,
+	CMD_OTA_SWITCH          = 0x34,
+#endif
+    CMD_PRODTST_ENTERY      = 0x61,
+    CMD_PRODTST_STATUS      = 0x60,
 } frame_cmd_t;
 
 #pragma pack(1)
@@ -97,6 +151,31 @@ typedef struct
     uint8_t chksum;
 }frame_generic_t;
 
+typedef struct
+{
+    qm_list_node_t node;
+    uint16_t len;
+    uint8_t resend;
+    uint8_t data[1];
+}frame_info_t;
+
+typedef struct 
+{
+    uint8_t timezone;
+    uint8_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t wday;
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+}serial_time_info_t;
+
+typedef struct 
+{
+    uint8_t code;
+    serial_time_info_t info;
+}serial_time_packet_t;
 
 #pragma pack()
 
@@ -168,16 +247,19 @@ typedef enum{
 
 #define SERIAL_ACK_TIMEOUT_DEFAULT_MS               (1000)
 
-#define SERIAL_ID_CHECK_TIMEOUT_MS                  (1000)
+#define SERIAL_ID_CHECK_TIMEOUT_MS                  (500)
 
 #define SERIAL_SEND_QUEUE_NUM_MAX                    (20)
-#define SERIAL_SEND_RETRY_COUNT_MAX                   (3)
+#define SERIAL_DOWN_QUEUE_NUM_MAX                     (10)
+#define SERIAL_SEND_RETRY_COUNT_MAX                   (1)
 
 typedef void (*serial_response_fn)(frame_cmd_t cmd, platform_id_t id, uint8_t *data, uint16_t len);
 typedef void (*serial_report_fn)(frame_cmd_t cmd, uint8_t *data, uint16_t len);
 typedef void (*serial_network_config_fn)(network_config_type_t type);
 typedef void (*serial_device_online_fn)(device_ver_t *ver, uint8_t *data, uint16_t len);
 typedef void (*serial_extinfo_fn)(frame_cmd_t cmd, uint8_t *data, uint16_t len);
+typedef void (*serial_prodtst_config_fn)(module_prodtst_type_t type);
+typedef void (*serial_mcu_status_notify_fn)(mcu_status_t status);
 
 #ifdef SERIAL_RAW_SUPPORT
 typedef void (*serial_raw_fn)(serial_data_type_t type, uint8_t *data, uint16_t len);
@@ -194,11 +276,16 @@ typedef struct
     serial_network_config_fn        m_network_configcb;
     serial_device_online_fn         m_device_onlivecb;
     serial_extinfo_fn               m_extinfocb;
+    serial_prodtst_config_fn        m_prodtst_configcb;
+    serial_mcu_status_notify_fn     m_mcu_status_notifycb;
 #ifdef SERIAL_RAW_SUPPORT
     serial_raw_fn                   m_ramcb;
 #endif
 #ifdef SERIAL_HEARTBEAT_NOTIFY_SUPPORT
     serial_heartbeat_fn             m_heartbeatcb;
+#endif
+#ifdef SERIAL_OTA_SUPPORT
+    serial_ota_event_notify_fn  	ota_event_notifycb;
 #endif
 }serial_callbacks_t;
 
@@ -211,10 +298,10 @@ typedef struct
 {
     platform_id_t platform_id;
     uint32_t time;
+    uint8_t is_update;
     uint8_t local_id;
     uint8_t retry_count;
     uint8_t *data;
-
 }serial_id_info_t;
 
 typedef struct{
@@ -234,7 +321,9 @@ typedef struct
 {
     uint8_t is_exist;
     uint8_t is_status_changed;
+    uint8_t module_prodtst_status;
     uint8_t module_status;
+    uint8_t prodtst_type;
     uint8_t packet_id;
     uint8_t *pwrite_buf;
     uint32_t write_buf_size; /* Specify size of write-buffer in byte */
@@ -266,7 +355,7 @@ typedef struct
 
     parse_state_t parse_state;
     uint16_t need_len;
-    serial_state_t serial_state;
+    serial_state_t state;
     qm_utils_time_t next_ping_time;
     uint16_t keep_alive_interval; //unit ms
 
@@ -279,8 +368,17 @@ typedef struct
     qm_utils_time_t id_check_time;
     uint32_t id_check_interval; //unit ms
 
-    qm_list_t *serial_send_queue;
-    qm_list_t *serial_id_queue;
+    qm_list_t *send_queue;
+    qm_list_t *id_queue;
+#ifdef SERIAL_RESEND_SUPPORT
+    qm_list_t *down_queue;
+#endif
+
+    void *handle;
+
+#ifdef SERIAL_OTA_SUPPORT
+    serial_ota_context_t *ota_context;
+#endif
 
     serial_callbacks_t callbacks;
 
@@ -296,18 +394,21 @@ typedef struct
 }serial_param_t;
 
 int32_t qm_serial_init( serial_param_t *serial_param);
-int32_t serial_recv_loop(int32_t timeout_ms);
-int32_t serial_send_loop(void);
-int32_t serial_cloud_set(platform_id_t id, uint8_t *data, uint16_t len);
-int32_t serial_cloud_get(platform_id_t id, uint8_t *data, uint16_t len);
-module_status_t serial_module_status_get(void);
-int32_t serial_module_status_set(module_status_t status);
-int32_t serial_generic_cmd_set(frame_cmd_t cmd);
-int32_t serial_cloud_action(platform_id_t id, uint8_t *data, uint16_t len);
-int32_t serial_ext_cmd_ack(frame_cmd_t cmd, uint8_t err_code, uint8_t *data, uint16_t len);
+int32_t qm_serial_recv_loop(int32_t timeout_ms);
+int32_t qm_serial_send_loop(void);
+int32_t qm_serial_cloud_set(platform_id_t id, uint8_t *data, uint16_t len);
+int32_t qm_serial_cloud_get(platform_id_t id, uint8_t *data, uint16_t len);
+int32_t qm_serial_cloud_action(platform_id_t id, uint8_t *data, uint16_t len);
+module_status_t qm_serial_module_status_get(void);
+int32_t qm_serial_module_status_set(module_status_t status);
+int32_t qm_serial_ext_cmd_ack(frame_cmd_t cmd, uint8_t err_code, uint8_t *data, uint16_t len);
+serial_context_t *qm_serial_context_get(void);
+int32_t qm_serial_state_set(serial_state_t state);
+int32_t qm_serial_state_get(serial_state_t *state);
+int32_t qm_serial_module_prodtst_status_set(module_prodtst_status_t status);
 
 #ifdef SERIAL_RAW_SUPPORT
-int32_t serial_raw_send(uint8_t *data, uint16_t len);
+int32_t qm_serial_raw_send(uint8_t *data, uint16_t len);
 #endif
 
 #ifdef SERIAL_MESH_GROUP_ADDR_SUPPORT
@@ -319,20 +420,20 @@ id_map_context_t* id_map_context_get(void);
 #endif
 
 #if defined(SERIAL_PID_INT_SUPPORT) || defined(SERIAL_PID_STRING_SUPPORT)
-void *serial_pid_get(void);
+void *qm_serial_pid_get(void);
 #endif
 
-serial_snapshot_info_t* serial_snapshot_info_get(void);
+serial_snapshot_info_t* qm_serial_snapshot_info_get(void);
 
 #ifdef SERIAL_EVENT_SUPPORT
 #ifdef SERIAL_EVENT_CACHE_SUPPORT
-int32_t serial_event_info_get(uint8_t *buf, uint16_t *buf_len);
+int32_t qm_serial_event_info_get(uint8_t *buf, uint16_t *buf_len);
 uint8_t is_event_info_update(void);
 #endif
 #endif
 
 #ifdef SERIAL_LOWPOWER_SUPPORT
-int32_t serial_process_reset(void);
+int32_t qm_serial_process_reset(void);
 #endif
 
 

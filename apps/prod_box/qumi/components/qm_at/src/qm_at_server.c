@@ -523,6 +523,8 @@ __retry:
 
     memset(at_server, 0, sizeof(qm_at_server_t));
 
+    QM_LOGI(LOG_TAG, "at server exit");
+
     qm_task_exit(&task);
 }
 
@@ -626,6 +628,8 @@ qm_at_server_t *qm_at_server_init(qm_at_server_param_t *param)
     for (idx = 0; idx < CONFIG_QM_AT_SERVER_MAX_NUM && at_server_table[idx].channel.recv_buf; idx++);
 
     at_server = &at_server_table[idx];
+
+    memset(at_server, 0, sizeof(qm_at_server_t));
 
     at_channel = &at_server->channel;
     at_server->echo_mode = param->echo_mode;

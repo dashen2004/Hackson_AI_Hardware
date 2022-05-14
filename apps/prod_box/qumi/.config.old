@@ -1,0 +1,149 @@
+
+#
+# components
+#
+
+#
+# prodtst master
+#
+CONFIG_QM_BLE=y
+CONFIG_QM_PRODTST_AP_SSID="xj_prodtst"
+CONFIG_QM_PRODTST_AP_PASSWD="asdf062516"
+CONFIG_QM_PRODTST_WIFI_CHANNEL=1
+CONFIG_QM_PRODTST_TCP_PORT=8888
+CONFIG_QM_PRODTST_TASK_PRIO=19
+CONFIG_QM_PRODTST_OBJ_NUM=6
+CONFIG_QM_PRODTST_DATA_TABLE_NUM=10
+CONFIG_QM_PRODTST_NOTIFY_QUEUE_NUM=10
+CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT=2000
+CONFIG_QM_PRODTST_CMD_ACK_RSSI_TIMEOUT=10000
+# end of prodtst master
+
+#
+# qm at
+#
+CONFIG_QM_AT=y
+CONFIG_QM_AT_SERVER_TASK_SIZE=2048
+CONFIG_QM_AT_SERVER_TASK_PRIO=20
+CONFIG_CONFIG_QM_AT_SERVER_MAX_NUM=3
+CONFIG_QM_AT_CLIENT_TASK_SIZE=2048
+CONFIG_QM_AT_CLIENT_TASK_PRIO=20
+CONFIG_CONFIG_QM_AT_CMD_TABLE_MAX_NUM=10
+CONFIG_CONFIG_QM_AT_URC_TABLE_MAX_NUM=3
+# end of qm at
+
+#
+# qm log
+#
+CONFIG_QM_AES=y
+# end of qm log
+
+#
+# qm work
+#
+# end of qm work
+
+#
+# qm ringbuf
+#
+# CONFIG_QM_WORK is not set
+# end of qm ringbuf
+
+#
+# qm ble
+#
+# end of qm ble
+
+#
+# xjiang cloud
+#
+# CONFIG_XJIANG_CLOUD is not set
+# end of xjiang cloud
+
+#
+# xjiang serial
+#
+# CONFIG_XJIANG_SERIAL is not set
+# end of xjiang serial
+# end of components
+
+#
+# utility
+#
+
+#
+# aes
+#
+# end of aes
+
+#
+# base64
+#
+CONFIG_QM_BASE64=y
+# end of base64
+
+#
+# cli
+#
+# CONFIG_QM_CLI is not set
+# end of cli
+
+#
+# crc32
+#
+# CONFIG_QM_CRC32 is not set
+# end of crc32
+
+#
+# hmac
+#
+# CONFIG_QM_HMAC is not set
+# end of hmac
+
+#
+# kv
+#
+# CONFIG_QM_KV is not set
+# end of kv
+
+#
+# list
+#
+# end of list
+
+#
+# md5
+#
+# CONFIG_QM_MD5 is not set
+# end of md5
+
+#
+# memory
+#
+# CONFIG_QM_MEMORY is not set
+# end of memory
+
+#
+# sha1
+#
+# CONFIG_QM_SHA1 is not set
+# end of sha1
+
+#
+# sha256
+#
+CONFIG_QM_SHA256=y
+# end of sha256
+
+#
+# string
+#
+CONFIG_QM_STRING=y
+# end of string
+
+#
+# timer
+#
+CONFIG_QM_TIMER=y
+# end of timer
+# end of utility

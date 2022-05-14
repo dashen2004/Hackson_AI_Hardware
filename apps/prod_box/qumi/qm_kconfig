@@ -1,11 +1,32 @@
 mainmenu "QUMIOS Development Framework Configuration"
 
 menu "components"
-
-
-    source "utility/cli/qm_kconfig"   
-
+    source "components/prodtst_master/qm_kconfig"  
+    source "components/qm_at/qm_kconfig" 
+    source "components/qm_log/qm_kconfig" 
+    source "components/qm_work/qm_kconfig"
+    source "components/qm_ringbuf/qm_kconfig"
+    source "components/qm_ble/qm_kconfig"
+    source "components/xjiang_cloud/qm_kconfig"
+    source "components/xjiang_serial/qm_kconfig"
 
 
 endmenu
 
+menu "utility"
+
+    source "utility/aes/qm_kconfig"  
+    source "utility/base64/qm_kconfig"   
+    source "utility/cli/qm_kconfig"   
+    source "utility/crc32/qm_kconfig"   
+    source "utility/hmac/qm_kconfig"   
+    source "utility/kv/qm_kconfig"   
+    source "utility/list/qm_kconfig"   
+    source "utility/md5/qm_kconfig"    
+    source "utility/memory/qm_kconfig"  
+    source "utility/sha1/qm_kconfig"   
+    source "utility/sha256/qm_kconfig"   
+    source "utility/string/qm_kconfig"  
+    source "utility/timer/qm_kconfig"      
+
+endmenu

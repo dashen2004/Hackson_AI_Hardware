@@ -408,8 +408,8 @@ static int MQTTDisconnect(iot_mc_client_t *c)
     }
 
     hal_mutex_lock(c->lock_write_buf);
-    int len = qm_MQTTSerialize_disconnect((unsigned char *)c->buf_send, c->buf_size_send);
 
+    int len = qm_MQTTSerialize_disconnect((unsigned char *)c->buf_send, c->buf_size_send);
     qm_utils_time_init(&timer);
     qm_utils_time_countdown_ms(&timer, c->request_timeout_ms);
 

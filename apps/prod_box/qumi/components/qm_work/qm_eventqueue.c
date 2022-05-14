@@ -36,14 +36,12 @@ int32_t qm_event_handle(qm_input_event_t *event)
     for(i = 0; i < CONFIG_QM_EVENT_NUM; i++){
         if(g_eventqueue.event_node[i].used == 1){
             if(g_eventqueue.event_node[i].type == event->type){
-                qm_mutex_unlock(&g_eventqueue.lock);
                 g_eventqueue.event_node[i].cb(event, g_eventqueue.event_node[i].arg);
-                return QM_EOK;
             }
         }
     }
     qm_mutex_unlock(&g_eventqueue.lock);
-    return -QM_EINVAL;
+    return QM_EOK;
 }
 
 int32_t qm_event_register(uint16_t type, qm_event_cb cb, void *arg)

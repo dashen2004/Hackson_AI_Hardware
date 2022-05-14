@@ -11,7 +11,7 @@ static int hw_token_parse(void *rsp, prodtst_data_t **data, int *num);
 static int hw_cfg_parse(void *rsp, prodtst_data_t **data, int *num);
 
 prodtst_cmd_t prodtst_hw_wifi_specific_cmd[] = {
-    {"hw_cfg",    "AT+HW_CFG?",  PRODTST_HW_CONFIG_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, hw_cfg_parse },
+    {"hw_cfg",    "AT+HW_CFG?",  PRODTST_HW_CONFIG_MAX_LEN, CONFIG_QM_PRODTST_CMD_ACK_HW_CFG_TIMEOUT, NULL, hw_cfg_parse },
     {"hw_token", "AT+HW_TOKEN?", PRODTST_HW_TOKEN_MAX_LEN,  CONFIG_QM_PRODTST_CMD_ACK_DEFAULT_TIMEOUT, NULL, hw_token_parse },
 };
 

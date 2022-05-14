@@ -3,6 +3,7 @@
 
 #include "qm_types.h"
 #include "serial_common.h"
+#include "serial_protocol.h"
 
 #ifdef SERIAL_RTOS_SUPPORT
 /*********************************** mutex interface ***********************************/
@@ -27,7 +28,7 @@ void *serial_mutex_init(void);
  * @see None.
  * @note None.
  */
-void serial_mutex_deinit(void *mutex);
+int serial_mutex_deinit(void *mutex);
 
 /**
  * @brief Waits until the specified mutex is in the signaled state.
@@ -37,7 +38,7 @@ void serial_mutex_deinit(void *mutex);
  * @see None.
  * @note None.
  */
-void serial_mutex_lock(void *mutex);
+int serial_mutex_lock(void *mutex);
 
 /**
  * @brief Releases ownership of the specified mutex object..
@@ -47,7 +48,7 @@ void serial_mutex_lock(void *mutex);
  * @see None.
  * @note None.
  */
-void serial_mutex_unlock(void *mutex);
+int serial_mutex_unlock(void *mutex);
 
 /** @} */
 
@@ -62,20 +63,28 @@ void *serial_sem_init(uint8_t count);
 /**
  * @brief Signals a semaphore
  * @param sem the semaphore to signal */
-void serial_sem_signal(void *sem);
+int serial_sem_signal(void *sem);
 /**
  * @brief Wait for a semaphore for the specified timeout
  * @param sem the semaphore to wait for
  * @param timeout timeout in milliseconds to wait (0 = wait forever)
  * @return time (in milliseconds) waited for the semaphore
  *         or mbus_ARCH_TIMEOUT on timeout */
-uint8_t serial_sem_wait(void *sem, uint32_t timeout);
+int serial_sem_wait(void *sem, uint32_t timeout);
 /**
  * @brief Delete a semaphore
  * @param sem semaphore to delete */
-void serial_sem_deinit(void *sem);
+int serial_sem_deinit(void *sem);
 
 #endif
+
+/**
+ * @brief Initialize uart
+ * @return handle of uart.
+ * @see None.
+ * @note None.
+ */
+void *serial_uart_init(void);
 
 /**
  * @brief Increases the count of the specified semaphore object by 1.
@@ -86,7 +95,7 @@ void serial_sem_deinit(void *sem);
  * @see None.
  * @note None.
  */
-void serial_send(uint8_t* buffer, uint32_t length);
+int serial_send(void *handle, uint8_t* buffer, uint32_t length);
 
 /**
  * @brief Increases the count of the specified semaphore object by 1.
@@ -98,7 +107,17 @@ void serial_send(uint8_t* buffer, uint32_t length);
  * @see None.
  * @note None.
  */
-uint32_t serial_recv(uint8_t* buffer, uint32_t length, uint32_t timeout_ms);
+int serial_recv(void *handle, uint8_t* buffer, uint32_t length, uint32_t timeout_ms);
+
+/**
+ * @brief Retrieves the number of milliseconds that have elapsed since the system was boot.
+ *
+ * @param[in] time_info
+ * @return 0:success, <0:failed
+ * @see None.
+ * @note None.
+ */
+int serial_get_time(serial_time_info_t *time_info);
 
 /**
  * @brief Retrieves the number of milliseconds that have elapsed since the system was boot.
@@ -142,7 +161,11 @@ void *serial_malloc(uint32_t size);
  */
 void serial_free(void *ptr);
 
+#ifndef SERIAL_QM_PRINTF_SUPPORT
 int serial_printf(const char *fmt, ...);
+#else
+#define serial_printf  qm_printf
+#endif
 
 
 #endif

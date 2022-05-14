@@ -250,7 +250,6 @@ static int retry_interval_ms_get(void)
     return retry_interval_ms;
 }
 
-
 static void cloud_thread(void *arg)
 {
     int rc = 0;
@@ -265,17 +264,17 @@ static void cloud_thread(void *arg)
 
     ret = hal_get_product_id(&dev_meta_info.product_id);
     if(ret != 0){
-        QM_LOGI(LOG_TAG, "product id is invalid");
+        QM_LOGE(LOG_TAG, "product id is invalid");
         invalid = 1;
     }
     ret = hal_get_device_id(dev_meta_info.device_id, &device_id_len);
     if(ret != 0){
-        QM_LOGI(LOG_TAG, "device id is invalid");
+        QM_LOGE(LOG_TAG, "device id is invalid");
         invalid = 1;
     }
     ret = hal_get_device_secret(dev_meta_info.device_secret, &device_secret_len);
     if(ret != 0){
-        QM_LOGI(LOG_TAG, "device secret is invalid");
+        QM_LOGE(LOG_TAG, "device secret is invalid");
         invalid = 1;
     }
 

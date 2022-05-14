@@ -1,0 +1,7 @@
+menu "memory"
+
+    config QM_MEMORY
+        bool "qm memory support"
+        default "n"
+        
+endmenu

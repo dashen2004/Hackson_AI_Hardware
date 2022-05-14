@@ -230,8 +230,6 @@ void qm_list_remove(qm_list_t *self, qm_list_node_t *node)
     if (self->free) {
         self->free(node->val);
     }
-
-	qm_free(node);
 	
     --self->len;
 }

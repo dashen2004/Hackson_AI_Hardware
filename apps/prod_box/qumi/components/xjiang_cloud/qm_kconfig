@@ -1,0 +1,7 @@
+menu "xjiang cloud"
+
+    config XJIANG_CLOUD
+        bool "xjiang cloud support"
+        default "n"
+        
+endmenu

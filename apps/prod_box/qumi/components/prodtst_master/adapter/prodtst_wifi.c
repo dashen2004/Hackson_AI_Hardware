@@ -35,6 +35,33 @@ static char *  __inet_ntoa( unsigned int in )
     return buffer;
 }
 
+void prodtst_wifi_event_callback(prodtst_wifi_event_t *event, void *arg)
+{
+    char *ip_str = NULL;
+    switch(event->type){
+
+        case PRODTST_WIFI_EVENT_AP_CONNECTED:
+            memcpy(mac, event->event_info.sta_connected.mac, 6);
+
+        break;
+
+        case PRODTST_WIFI_EVENT_AP_DISCONNECTED:
+            memcpy(mac, event->event_info.sta_disconnected.mac, 6);
+
+        break;
+
+        case PRODTST_WIFI_EVENT_AP_STAIPASSIGNED:
+            ip_str = __inet_ntoa(event->event_info.ap_staipassigned.ip_addr);
+            QM_LOGI(LOG_TAG, "device found ip: %s\n", ip_str);
+
+        break;
+
+        default:
+        break;
+    }
+
+}
+
 int prodtst_wifi_ap_name_get(char ssid[32])
 {
     if(ssid == NULL){
@@ -99,6 +126,8 @@ static void *wifi_prodtst_init(void *param)
     if(ret != QM_EOK){
        goto __exit;
     }
+
+    prodtst_wifi_ap_event_register(prodtst_wifi_event_callback, NULL);
 
     ret = qm_task_new(&wifi_channel->accept_task, "prodtst accept", prodtst_accept_task, (void*)wifi_channel, CPRODTST_ACCEPT_TASK_SIZE, PRODTST_ACCEPT_TASK_PRIO);
     if(ret != QM_EOK){

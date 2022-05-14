@@ -27,7 +27,8 @@ void *h_ota = NULL;
 static void *pclient;
 
 
-#define MQTT_MSGLEN             (2048)
+#define MQTT_MSGLEN             (1024*2)
+#define MQTT_SEND_MSGLEN        (1024*6)
 #define MAX_MQTT_TOPIC_LEN      (64)
 
 
@@ -887,7 +888,7 @@ int mqtt_client(void *arg)
 
     mqtt_cloud_context = (cloud_context_t*)arg;
 
-    if (NULL == (msg_buf = (char *)hal_malloc(MQTT_MSGLEN))) {
+    if (NULL == (msg_buf = (char *)hal_malloc(MQTT_SEND_MSGLEN))) {
         log_debug("not enough memory");
         rc = -1;
         goto do_exit;
@@ -927,7 +928,7 @@ int mqtt_client(void *arg)
     mqtt_params.pread_buf = msg_readbuf;
     mqtt_params.read_buf_size = MQTT_MSGLEN;
     mqtt_params.pwrite_buf = msg_buf;
-    mqtt_params.write_buf_size = MQTT_MSGLEN;
+    mqtt_params.write_buf_size = MQTT_SEND_MSGLEN;
 
     mqtt_params.handle_event.h_fp = event_handle;
     mqtt_params.handle_event.pcontext = NULL;
