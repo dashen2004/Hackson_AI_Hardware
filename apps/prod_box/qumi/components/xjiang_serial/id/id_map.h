@@ -4,34 +4,35 @@
 #include "serial_common.h"
 #include "qm_utils_list.h"
 
-#define ALI_ID_MAP
-
-#define ALI_DATA_TYPE_LEN    (4)
-#define XM_DATA_TYPE_LEN     (5)
 
 typedef enum
 {
     ID_MAP_MIN=0,
-    ID_MAP_ALI=1, //°¢ÀïidÓ³ÉäÀàÐÍ
-    ID_MAP_XM,   //Ð¡Ã×idÓ³ÉäÀàÐÍ
+    ID_MAP_ALI=1, //ï¿½ï¿½ï¿½ï¿½idÓ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    ID_MAP_XM,   //Ð¡ï¿½ï¿½idÓ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    ID_MAP_ONENET,
     ID_MAP_MAX,
 }id_map_type_t;
 
 typedef enum
 {
     ID_MATCH_MIN=0,
-    ID_MATCH_ID_BY_PLATFORM, //Í¨¹ýÆ½Ì¨²àidÐÅÏ¢²éÕÒÐ¡½³²àidÐÅÏ¢
-    ID_MATCH_PLATFORM_BY_ID, //Í¨¹ýÐ¡½³²àidÐÅÏ¢²éÆ½Ì¨²àidÐÅÏ¢
+    ID_MATCH_ID_BY_PLATFORM, //Í¨ï¿½ï¿½Æ½Ì¨ï¿½ï¿½idï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½idï¿½ï¿½Ï¢
+    ID_MATCH_PLATFORM_BY_ID, //Í¨ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½idï¿½ï¿½Ï¢ï¿½ï¿½Æ½Ì¨ï¿½ï¿½idï¿½ï¿½Ï¢
     ID_MATCH_MAX,
 }id_match_type_t;
 
+
+#ifdef SERIAL_ALI_ID_MAP_SUPPORT
 typedef struct{
     uint8_t type_id;
     uint8_t attr_id;
     uint16_t ali_attr_id;
 }ali_data_type_t;
 
-
+#define ALI_DATA_TYPE_LEN       (4)
+#endif
+#ifdef SERIAL_XM_ID_MAP_SUPPORT
 typedef struct{
     uint8_t type_id;
     uint8_t attr_id;
@@ -40,12 +41,34 @@ typedef struct{
     uint8_t xiid;
 }xm_data_type_t;
 
+#define XM_DATA_TYPE_LEN        (5)
+#endif
+
+#ifdef SERIAL_ONENET_ID_MAP_SUPPORT
+typedef struct{
+    uint8_t type_id;
+    uint8_t attr_id;
+    uint16_t func_id;
+    uint8_t type;
+}onenet_data_type_t;
+
+#define ONENET_DATA_TYPE_LEN    (5)
+
+#endif
 
 typedef struct{
     id_map_type_t type;
     union{
+#ifdef SERIAL_ALI_ID_MAP_SUPPORT
         ali_data_type_t ali_data;
+#endif
+#ifdef SERIAL_XM_ID_MAP_SUPPORT
         xm_data_type_t xm_data;
+#endif
+#ifdef SERIAL_ONENET_ID_MAP_SUPPORT
+        onenet_data_type_t onenet_data;
+#endif
+
     }data;
 }id_map_data_t;
 
@@ -56,22 +79,22 @@ typedef struct{
 }id_map_context_t;
 
 /**
- * @brief ½âÎöidÓ³ÉäÊý¾Ý£¬ÒÔÁ´±íÐÎÊ½´æ´¢
+ * @brief ï¿½ï¿½ï¿½ï¿½idÓ³ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½æ´¢
  * @param[in] context @n
- * @param[in] data @n Êý¾ÝÖ¸Õë
- * @param[in] len @n Êý¾Ý³¤¶È
- * @param[in] type @n ½âÎöÊý¾ÝÀàÐÍ£¬Ä¿Ç°Ö÷ÒªÎª°¢ÀïºÍÐ¡Ã×µÄidÓ³Éä¹ØÏµ
- * @return ´íÎóÂë
+ * @param[in] data @n ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
+ * @param[in] len @n ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½
+ * @param[in] type @n ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½Ä¿Ç°ï¿½ï¿½ÒªÎªï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½×µï¿½idÓ³ï¿½ï¿½ï¿½Ïµ
+ * @return ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  * @see None.
  * @note None.
  */
 int32_t id_map_parse(id_map_context_t *context, uint8_t *data, uint16_t len, id_map_type_t type);
 /**
- * @brief ²éÕÒidÓ³Éä¹ØÏµ
- * @param[in] context @n idÓ³Éä¹ØÏµ¾ä±ú
- * @param[in] map_data @n Êý¾Ý¼¯ºÏ
- * @param[in] match_type @n ²éÕÒÀàÐÍ
- * @return Ó³Éä¹ØÏµ¾ä±ú
+ * @brief ï¿½ï¿½ï¿½ï¿½idÓ³ï¿½ï¿½ï¿½Ïµ
+ * @param[in] context @n idÓ³ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½
+ * @param[in] map_data @n ï¿½ï¿½ï¿½Ý¼ï¿½ï¿½ï¿½
+ * @param[in] match_type @n ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * @return Ó³ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½
  * @see None.
  * @note None.
  */

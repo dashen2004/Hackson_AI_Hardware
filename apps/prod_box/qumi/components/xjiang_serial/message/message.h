@@ -6,11 +6,12 @@
 #define MESSAGE_INT_SUPPORT
 #define MESSAGE_INT64_SUPPORT
 #define MESSAGE_BYTES_SUPPORT
+#define MESSAGE_GROUP_SUPPORT
 #define MESSAGES_SYNC_SUPPORT
 //#define MESSAGES_ASYNC_SUPPORT
 
-#define MESSAGE_ID_ATTR_ID      0xF1
-#define MESSAGE_ALI_ID_MAP      0xF2
+#define MESSAGE_ID_INT_ATTR_ID      0xF1
+#define MESSAGE_ID_STRING_ATTR_ID   0xFC
 #define MESSAGE_XM_ID_MAP       0xF3
 #define MESSAGE_ONENET_ID_MAP   0xF9
 #define MESSAGE_PID_STRING      0xFA
@@ -50,8 +51,9 @@ typedef enum{
     DATA_TYPE_FLOAT_TWO_INT16 = 20,
     DATA_TYPE_FLOAT_ONE_INT32 = 21,
     DATA_TYPE_FLOAT_TWO_INT32 = 22,
+    DATA_TYPE_GROUP           = 23,
     DATA_TYPE_RAW,
-    DATA_TYPE_MAX = DATA_TYPE_FLOAT_TWO_INT32,
+    DATA_TYPE_MAX = DATA_TYPE_GROUP,
 }data_type_t;
 
 enum{
@@ -64,7 +66,17 @@ typedef struct
 {
     uint16_t len;
     uint8_t *data;
-}data_unit_t;
+}data_info_t;
+
+typedef struct
+{
+    uint8_t packet_sum;
+    uint8_t packet_id;
+    uint8_t unit_sum;
+    uint8_t unit_num;
+    uint8_t unit_len;
+    data_info_t data_info;
+}group_info_t;
 
 
 typedef struct message
@@ -97,6 +109,10 @@ typedef struct message
 #ifdef MESSAGE_BYTES_SUPPORT
         uint8_t value_byte[DEFAULT_DATA_UNIT_LEN];
 #endif
+#ifdef MESSAGE_GROUP_SUPPORT
+        group_info_t group_info;
+#endif
+
     }value;
 
     struct message *next;
@@ -128,6 +144,11 @@ typedef enum{
     PARSE_TYPE_RAW,
     PARSE_TYPE_BASIC,
 }message_parse_type_t;
+
+
+#define IS_NEED_REPORT(type_id)    ( type_id&0x80 )
+#define NEED_REPORT_CLEAR(type_id)    ( type_id = type_id&0x7F )
+#define REAL_TYPEID_GET(type_id)     ( type_id&0x7F )
 
 
 #define DATA_CHANGED_WAIT_REPORT(flag)       	do{\
@@ -171,20 +192,20 @@ typedef enum
 }byte_order_t;
 
 /**
- * @brief ???????
+ * @brief ���Ľ���
  *
- * @param[in] data @n ???????????
- * @param[in] len @n ???????????
- * @param[in] type @n ????????
- * @return ??????????.
+ * @param[in] data @n ��������ָ��
+ * @param[in] len @n �������ݳ���
+ * @param[in] type @n ��������
+ * @return ���Ĳ������.
  * @see None.
  * @note None.
  */
 message_context_t *message_parse(uint8_t *data, uint16_t len, message_parse_type_t type);
 /**
- * @brief ??????????
+ * @brief ������Դ���
  *
- * @param[in] context @n ??????????
+ * @param[in] context @n ���Ĳ������
  * @return none.
  * @see None.
  * @note None.
@@ -192,58 +213,58 @@ message_context_t *message_parse(uint8_t *data, uint16_t len, message_parse_type
 void message_delete(message_context_t *context);
 
 /**
- * @brief ??????????
+ * @brief ������Դ���
  *
- * @param[in] context @n ??????????
- * @param[in] attr_id @n ????id
- * @return ??????????.
+ * @param[in] context @n ���Ĳ������
+ * @param[in] attr_id @n ����id
+ * @return ���ݲ������.
  * @see None.
  * @note None.
  */
 message_info_t *message_object_get(message_context_t *context, uint8_t attr_id);
 /**
- * @brief ???????
+ * @brief ���Ĵ���
  *
- * @param[in] type @n ????????????,????????0????????????????????????????
- * @return ??????????.
+ * @param[in] type @n ������������,�������Ϊ0������Ϊ�������ݵ�Ԫ��û�������
+ * @return ���Ĳ������.
  * @see None.
  * @note None.
  */
 message_context_t *message_creat(message_type_t type);
 /**
- * @brief ??????????????
- * @return ??????
+ * @brief ����ʵ���������
+ * @return ���ݾ��
  * @see None.
  * @note None.
  */
 message_info_t *message_info_new(void);
 /**
- * @brief ????????????????????????????????????????????
- * @param[in] type_id @n ????????
- * @param[in] attr_id @n ????id
- * @param[in] data @n ?????????
- * @param[in] len @n ???????
+ * @brief ���˻�����������֮����������ӣ������ַ����������
+ * @param[in] type_id @n ��������
+ * @param[in] attr_id @n ����id
+ * @param[in] data @n ���ݵ�Ԫָ��
+ * @param[in] len @n ���ݳ���
  * @return none
  * @see None.
  * @note None.
  */
 void message_data_add(message_context_t *context, data_type_t type_id, uint8_t attr_id, uint8_t *data, uint16_t len);
 /**
- * @brief ?????????????????????????????????????????????????
+ * @brief ��������ʵ������Ҫ������ͨ�������ͣ��������͵���������
  *
- * @param[in] context @n ??????????
- * @param[in] object @n ??????????
- * @return ??????????.
+ * @param[in] context @n ���Ĳ������
+ * @param[in] object @n ����ʵ�����
+ * @return ���Ĳ������.
  * @see None.
  * @note None.
  */
 void message_object_add(message_context_t *context, message_info_t *object);
 /**
- * @brief ???????��?
+ * @brief �������л�
  *
- * @param[in] context @n ??????????
- * @param[in] buf @n ??????????????NULL,???????��???????????.
- * @param[in] len @n ????????????????????????��??????????????
+ * @param[in] context @n ���Ĳ������
+ * @param[in] buf @n ���ݿռ�ָ�룬����ΪNULL,�ɻ�ȡ���л�������ݳ���.
+ * @param[in] len @n ���ݳ��ȣ����ݳ��ȱ���������л��������ʵ�ʳ���
  * @return none
  * @see None.
  * @note buf
@@ -251,22 +272,22 @@ void message_object_add(message_context_t *context, message_info_t *object);
 void message_serialize(message_context_t *context, uint8_t *buf, uint16_t *len, message_serialize_type_t type);
 
 /**
- * @brief ????????????????
+ * @brief ��ȡ����͸�����ݵ�Ԫ
  *
- * @param[in] context @n ??????????
- * @param[in] data @n ???????
- * @param[in] len @n ???????
+ * @param[in] context @n ���Ĳ������
+ * @param[in] data @n ����ָ��
+ * @param[in] len @n ���ݳ���
  * @return none
  * @see None.
  * @note None.
  */
 void message_raw_data_get(message_context_t *context, uint8_t **data, uint16_t *len);
 /**
- * @brief ???????????????
+ * @brief ����͸����������
  *
- * @param[in] context @n ??????????
- * @param[in] data @n ???????
- * @param[in] len @n ???????
+ * @param[in] context @n ���Ĳ������
+ * @param[in] data @n ����ָ��
+ * @param[in] len @n ���ݳ���
  * @return none
  * @see None.
  * @note None.

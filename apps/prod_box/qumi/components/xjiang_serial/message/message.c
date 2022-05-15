@@ -107,7 +107,7 @@ int32_t message_value_set(message_info_t *object, uint8_t *data, uint8_t len, by
     uint32_t data_u32 = 0;
     uint64_t data_u64 = 0;
 
-    switch(object->type_id){
+    switch(REAL_TYPEID_GET(object->type_id)){
         case DATA_TYPE_BOOL:
             object->value.value_bool = *data;
             object->len = len;
@@ -212,6 +212,12 @@ int32_t message_value_set(message_info_t *object, uint8_t *data, uint8_t len, by
             }
             object->len = len;
         break;
+        
+#ifdef MESSAGE_GROUP_SUPPORT
+        case DATA_TYPE_GROUP:
+
+        break;
+#endif
 
         default:
             break;
@@ -253,7 +259,7 @@ message_context_t *message_parse(uint8_t *data, uint16_t len, message_parse_type
     message_context->type=*data;
     ++offset;
 
-    if(*(data+2)!=MESSAGE_ID_ATTR_ID){
+    if(*(data+2) != MESSAGE_ID_INT_ATTR_ID && *(data+2) != MESSAGE_ID_STRING_ATTR_ID){
         goto raw;
     }
 
@@ -261,7 +267,7 @@ basic:
     while(offset < len){
         type_id=*(tmp_data+offset);
         ++offset;
-        err=type_id_check(type_id);
+        err=type_id_check(REAL_TYPEID_GET(type_id));
         if(err!=SERIAL_NO_ERR){
             goto exit;
         }
@@ -286,7 +292,7 @@ basic:
         object->attr_id=attr_id;
         object->is_changed = 0;
 
-        tmp=data_unit_len_get(type_id);
+        tmp=data_unit_len_get(REAL_TYPEID_GET(type_id));
         if(tmp!=0){
             if(tmp > len-offset){
                 goto exit;
@@ -510,15 +516,15 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
     int32_t tmp_i32 = 0;
     uint64_t tmp_u64 = 0;
     int64_t tmp_i64 = 0;
-    switch(object->type_id){
+    switch(REAL_TYPEID_GET(object->type_id)){
         case DATA_TYPE_BOOL:
-            *(uint64_t*)data=object->value.value_bool;
+            *data=object->value.value_bool;
         break;
         case DATA_TYPE_UINT8:
-            *(uint64_t*)data=object->value.value_u8;
+            *data=object->value.value_u8;
         break;
         case DATA_TYPE_INT8:
-            *(uint64_t*)data = object->value.value_i8;
+            *data = object->value.value_i8;
         break;
         case DATA_TYPE_UINT16:
         case DATA_TYPE_FLOAT_ONE_UINT16:
@@ -528,7 +534,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
                 tmp_u16 = object->value.value_u16;
             }
-            *(uint64_t*)data = tmp_u16;
+            memcpy(data, &tmp_u16, sizeof(uint16_t));
         break;
         case DATA_TYPE_INT16:
         case DATA_TYPE_FLOAT_ONE_INT16:
@@ -538,7 +544,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
                 tmp_i16 = object->value.value_i16;
             }
-            *(uint64_t*)data = tmp_i16;
+            memcpy(data, &tmp_i16, sizeof(uint16_t));
         break;
 #ifdef MESSAGE_INT_SUPPORT
         case DATA_TYPE_UINT32:
@@ -549,7 +555,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
                 tmp_u32 = object->value.value_u32;
             }
-            *(uint64_t*)data = tmp_u32;
+            memcpy(data, &tmp_u32, sizeof(uint32_t));
         break;
         case DATA_TYPE_INT32:
         case DATA_TYPE_FLOAT_ONE_INT32:
@@ -559,7 +565,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
                 tmp_i32 = object->value.value_i32;
             }
-            *(uint64_t*)data = tmp_i32;
+            memcpy(data, &tmp_i32, sizeof(int32_t));
         break;
 #endif
 #ifdef MESSAGE_INT64_SUPPORT
@@ -569,7 +575,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
             	tmp_u64 = object->value.value_u64;
             }
-            *(uint64_t*)data = tmp_u64;
+            memcpy(data, &tmp_u64, sizeof(uint64_t));
         break;
         case DATA_TYPE_INT64:
             if(byte_order == BYTE_ORDER_LITTLE_ENDIAN){
@@ -577,7 +583,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
             	tmp_i64 = object->value.value_i64;
             }
-            *(uint64_t*)data = tmp_i64;
+            memcpy(data, &tmp_i64, sizeof(int64_t));
         break;
 #endif
         default:
@@ -598,7 +604,7 @@ static uint8_t is_expected_len(message_info_t *object, uint16_t offset, uint16_t
     	return 1;
     }
 
-	value_len = data_unit_len_get(object->type_id);
+	value_len = data_unit_len_get(REAL_TYPEID_GET(object->type_id));
 	if(value_len){
 		if(offset+value_len+2 <= expected_len){
 			return 1;
@@ -654,11 +660,11 @@ void message_serialize_respect_len(message_context_t *context, uint8_t *buf, uin
                 continue;
             }
         }
-        data_unit_len=data_unit_len_get(head_object->type_id);
+        data_unit_len=data_unit_len_get(REAL_TYPEID_GET(head_object->type_id));
         if(data_unit_len){
             message_len+=2+data_unit_len;
         }else{
-            if(head_object->type_id!=DATA_TYPE_RAW){
+            if(REAL_TYPEID_GET(head_object->type_id)!=DATA_TYPE_RAW){
             	message_len+=2+sizeof(uint16_t)+head_object->len;
             }else{
             	message_len+=head_object->len;
@@ -730,16 +736,16 @@ void message_serialize_respect_len(message_context_t *context, uint8_t *buf, uin
 				}
 			}
 
-			if(head_object->type_id != DATA_TYPE_RAW){
+			if(REAL_TYPEID_GET(head_object->type_id) != DATA_TYPE_RAW){
 				*(buf+offset) = head_object->type_id;
 				++offset;
 				*(buf+offset) = head_object->attr_id;
 				++offset;
 			}
 
-			value_len=data_unit_len_get(head_object->type_id);
+			value_len=data_unit_len_get(REAL_TYPEID_GET(head_object->type_id));
 			if(!value_len){
-				if(head_object->type_id != DATA_TYPE_RAW){
+				if(REAL_TYPEID_GET(head_object->type_id) != DATA_TYPE_RAW){
 					value_len = cpu_to_be16(head_object->len);
 					memcpy(buf+offset, &value_len, sizeof(uint16_t));
 					offset += sizeof(uint16_t);
@@ -784,7 +790,7 @@ int32_t message_object_copy(message_info_t *dest_object, message_info_t *src_obj
 	uint16_t value_len = 0;
 	int32_t err = SERIAL_NO_ERR;
 
-	value_len = data_unit_len_get(src_object->type_id);
+	value_len = data_unit_len_get(REAL_TYPEID_GET(src_object->type_id));
 	if(value_len != 0){
 		memcpy(dest_object, src_object, sizeof(message_info_t));
 		dest_object->next = NULL;
@@ -852,32 +858,27 @@ int32_t message_object_add_update(message_context_t *context, uint8_t *data, uin
             continue;
         }
 
-        if(object->type_id != head_object->type_id){
+        if(REAL_TYPEID_GET(object->type_id) != REAL_TYPEID_GET(head_object->type_id)){
             err = SERIAL_TYPE_ID_ERR;
             goto exit;
         }
 
-        value_len = data_unit_len_get(object->type_id);
+        value_len = data_unit_len_get(REAL_TYPEID_GET(object->type_id));
         if(value_len != 0){
-            if(memcmp(&object->value, &head_object->value, sizeof(object->value)) != 0){
+            if(IS_NEED_REPORT(head_object->type_id) || memcmp(&object->value, &head_object->value, sizeof(object->value)) != 0){
+                NEED_REPORT_CLEAR(head_object->type_id);
                 memcpy(&object->value, &head_object->value, sizeof(object->value));
                 DATA_CHANGED_WAIT_REPORT(object->is_changed);
                 *is_update = 1;
             }
         }else{
 
-            if(object->len != head_object->len){
+            if(IS_NEED_REPORT(head_object->type_id) || object->len != head_object->len || memcmp(object->data, head_object->data, head_object->len) != 0){
+                NEED_REPORT_CLEAR(head_object->type_id);
+                message_value_set(object, head_object->data, head_object->len, BYTE_ORDER_NONE);
                 DATA_CHANGED_WAIT_REPORT(object->is_changed);
                 *is_update = 1;
-                message_value_set(object, head_object->data, head_object->len, BYTE_ORDER_NONE);
-            }else{
-                if(memcmp(object->data, head_object->data, head_object->len) != 0){
-                    DATA_CHANGED_WAIT_REPORT(object->is_changed);
-                    *is_update = 1;
-                    message_value_set(object, head_object->data, head_object->len, BYTE_ORDER_NONE);
-                }
             }
-
         }
         head_object = head_object->next;
     }
@@ -912,30 +913,26 @@ int32_t message_object_update(message_context_t *context, uint8_t *data, uint16_
             err = SERIAL_TYPE_ID_ERR;
             goto exit;
         }
-        if(object->type_id != head_object->type_id){
+        if(REAL_TYPEID_GET(object->type_id) != REAL_TYPEID_GET(head_object->type_id)){
             err = SERIAL_TYPE_ID_ERR;
             goto exit;
         }
 
-        value_len = data_unit_len_get(object->type_id);
+        value_len = data_unit_len_get(REAL_TYPEID_GET(object->type_id));
         if(value_len != 0){
-            if(memcmp(&object->value, &head_object->value, sizeof(object->value)) != 0){
+            if(IS_NEED_REPORT(head_object->type_id) || memcmp(&object->value, &head_object->value, sizeof(object->value)) != 0){
+                NEED_REPORT_CLEAR(head_object->type_id);
                 memcpy(&object->value, &head_object->value, sizeof(object->value));
                 DATA_CHANGED_WAIT_REPORT(object->is_changed);
                 *is_update = 1;
             }
         }else{
 
-            if(object->len != head_object->len){
+            if(IS_NEED_REPORT(head_object->type_id) || object->len != head_object->len || memcmp(object->data, head_object->data, head_object->len) != 0){
+                NEED_REPORT_CLEAR(head_object->type_id);
+                message_value_set(object, head_object->data, head_object->len, BYTE_ORDER_NONE);
                 DATA_CHANGED_WAIT_REPORT(object->is_changed);
                 *is_update = 1;
-                message_value_set(object, head_object->data, head_object->len, BYTE_ORDER_NONE);
-            }else{
-                if(memcmp(object->data, head_object->data, head_object->len) != 0){
-                    DATA_CHANGED_WAIT_REPORT(object->is_changed);
-                    *is_update = 1;
-                    message_value_set(object, head_object->data, head_object->len, BYTE_ORDER_NONE);
-                }
             }
         }
         head_object = head_object->next;
@@ -1009,11 +1006,11 @@ int32_t message_serialize_by_attrid(message_context_t *context, uint8_t* attr_id
     	if(object == NULL){
     		continue;
     	}
-    	value_len = data_unit_len_get(object->type_id);
+    	value_len = data_unit_len_get(REAL_TYPEID_GET(object->type_id));
 		if(value_len){
 			message_len += 2 + value_len;
 		}else{
-			if(object->type_id != DATA_TYPE_RAW){
+			if(REAL_TYPEID_GET(object->type_id) != DATA_TYPE_RAW){
 				message_len += 2 + sizeof(uint16_t) + object->len;
 			}else{
 				message_len += object->len;
@@ -1042,20 +1039,20 @@ int32_t message_serialize_by_attrid(message_context_t *context, uint8_t* attr_id
     		continue;
     	}
 
-		if(object->type_id != DATA_TYPE_RAW){
+		if(REAL_TYPEID_GET(object->type_id) != DATA_TYPE_RAW){
 			*(buf+offset) = object->type_id;
 			++offset;
 			*(buf+offset) = object->attr_id;
 			++offset;
 		}
 
-		value_len = data_unit_len_get(object->type_id);
+		value_len = data_unit_len_get(REAL_TYPEID_GET(object->type_id));
 		if(value_len){
 			message_value_serialize(object, buf+offset, value_len, BYTE_ORDER_LITTLE_ENDIAN);
 			offset += value_len;
 		}else{
 
-			if(object->type_id != DATA_TYPE_RAW){
+			if(REAL_TYPEID_GET(object->type_id) != DATA_TYPE_RAW){
 				value_len = cpu_to_be16(object->len);
 				memcpy(buf+offset, &value_len, sizeof(uint16_t));
 				offset += sizeof(uint16_t);
