@@ -188,6 +188,7 @@ int32_t message_value_set(message_info_t *object, uint8_t *data, uint8_t len, by
 #endif
         case DATA_TYPE_STRING:
         case DATA_TYPE_ARRAY:
+        case DATA_TYPE_STRING_ARRAY:
             if(len <= DEFAULT_DATA_UNIT_LEN){
             	if(object->len > DEFAULT_DATA_UNIT_LEN && object->data){
            			message_free(object->data);

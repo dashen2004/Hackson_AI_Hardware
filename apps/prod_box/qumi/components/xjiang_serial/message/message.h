@@ -52,6 +52,7 @@ typedef enum{
     DATA_TYPE_FLOAT_ONE_INT32 = 21,
     DATA_TYPE_FLOAT_TWO_INT32 = 22,
     DATA_TYPE_GROUP           = 23,
+    DATA_TYPE_STRING_ARRAY    = 24,
     DATA_TYPE_RAW,
     DATA_TYPE_MAX = DATA_TYPE_GROUP,
 }data_type_t;
