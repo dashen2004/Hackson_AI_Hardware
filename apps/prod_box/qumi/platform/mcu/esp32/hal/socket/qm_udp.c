@@ -20,14 +20,14 @@ void *qm_udp_server_create(char *host, uint16_t port)
 
     if ((socket_id = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         QM_LOGE(LOG_TAG, "socket create failed\r\n");
-        return (intptr_t) - 1;
+        return (void*) - 1;
     }
 
     ret = setsockopt(socket_id, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
     if (ret < 0) {
         close(socket_id);
         QM_LOGE(LOG_TAG, "setsockopt SO_REUSEADDR failed");
-        return (intptr_t) - 1;
+        return (void*) - 1;
     }
 
     flag = 1;
@@ -41,7 +41,7 @@ void *qm_udp_server_create(char *host, uint16_t port)
         if (ret < 0) {
             close(socket_id);
             QM_LOGE(LOG_TAG, "setsockopt IP_PKTINFO failed");
-            return (intptr_t) - 1;
+            return (void*) - 1;
         }
 
 
@@ -103,8 +103,6 @@ void *qm_udp_client_create(char *host, uint16_t port)
         }
     }
     freeaddrinfo(res);
-
-    QM_LOGD(LOG_TAG, "udp fd: %d", socket_id);
 
     return (void*)socket_id;
 }
@@ -260,8 +258,6 @@ int qm_udp_readtimeout(void *handle, char *buffer, uint32_t length, uint32_t tim
         return -QM_EIO; /* receive failed */
     }
 
-    QM_LOGD(LOG_TAG, "udp fd: %d", socket_id);
-
     /* This call will not block */
     return qm_udp_read((void*)socket_id, buffer, length);
 }
@@ -279,8 +275,6 @@ int qm_udp_write(void *handle, char *buffer, uint32_t length, uint32_t timeout_m
     }
 
     sockfd = (int)handle;
-
-    QM_LOGD(LOG_TAG, "udp fd: %d", sockfd);
     
     if (sockfd < 0) {
         return -QM_EINVAL;

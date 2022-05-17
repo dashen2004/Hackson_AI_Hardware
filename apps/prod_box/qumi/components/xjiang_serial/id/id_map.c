@@ -16,7 +16,7 @@ static int32_t id_map_push(qm_list_t *list, uint8_t *data, uint16_t len)
     qm_list_node_t *node = NULL;
 
     buf_len = len+sizeof(qm_list_node_t);
-    buf = serial_malloc(buf_len);
+    buf = qm_serial_malloc(buf_len);
     if(buf == NULL){
         return SERIAL_ALLOC_MEM_ERR;
     }

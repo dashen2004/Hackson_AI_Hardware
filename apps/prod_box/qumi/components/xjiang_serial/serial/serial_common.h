@@ -22,21 +22,21 @@
 
 #define SERIAL_LOG(format, ...) \
     do{ \
-        serial_printf("[%s:%d]",__FUNCTION__,__LINE__);\
-        serial_printf(format,##__VA_ARGS__);\
-        serial_printf("\n");\
+        qm_serial_printf("[%s:%d]",__FUNCTION__,__LINE__);\
+        qm_serial_printf(format,##__VA_ARGS__);\
+        qm_serial_printf("\n");\
      }while(0)
 
 #define SERIAL_HEX_LOG(name, p_data, len) \
     do{\
         uint32_t i; \
-        serial_printf("[%s:%d]",__FUNCTION__,__LINE__);\
-        serial_printf("%s ",name);  \
+        qm_serial_printf("[%s:%d]",__FUNCTION__,__LINE__);\
+        qm_serial_printf("%s ",name);  \
         for(i=0;i<len;i++)\
         {\
-          serial_printf("%02X ", *(p_data+i));\
+          qm_serial_printf("%02X ", *(p_data+i));\
         }\
-        serial_printf("\n");\
+        qm_serial_printf("\n");\
       }while(0)
 
 

@@ -1,7 +1,7 @@
 #ifndef __ID_MAP_H__
 #define __ID_MAP_H__
 
-#include "serial_common.h"
+#include "qm_types.h"
 #include "qm_utils_list.h"
 
 

@@ -23,8 +23,8 @@
 #define MIN_MESSAGE_LEN        3 // typeid + attr_id + value
 #define DEFAULT_DATA_UNIT_LEN  8
 
-#define message_malloc serial_malloc
-#define message_free   serial_free
+#define message_malloc qm_serial_malloc
+#define message_free   qm_serial_free
 
 typedef enum{
     DATA_TYPE_MIN = 0,

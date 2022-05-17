@@ -57,7 +57,7 @@ static int event_handler(uint8_t *data, uint16_t len)
 	qm_list_node_t *tmp_node=NULL;
 
 	buf_len = len + sizeof(qm_list_node_t)+2;
-	buf = serial_malloc(buf_len);
+	buf = qm_serial_malloc(buf_len);
 	if(buf == NULL){
 		return SERIAL_ALLOC_MEM_ERR;
 	}
@@ -67,19 +67,19 @@ static int event_handler(uint8_t *data, uint16_t len)
 	memcpy(buf+sizeof(qm_list_node_t)+2, data, len);
 
 	#ifdef SERIAL_RTOS_SUPPORT
-	serial_mutex_lock(context->serial_mutex);
+	qm_serial_mutex_lock(context->serial_mutex);
 	#endif
 	if(context->event_info.serial_event_queue->len < MAX_SERIAL_EVENT_NUM){
 		qm_list_rpush(context->event_info.serial_event_queue, node);
 	}else{
 		tmp_node = qm_list_lpop(context->event_info.serial_event_queue);
 		if(tmp_node){
-			serial_free(tmp_node);
+			qm_serial_free(tmp_node);
 		}
 		qm_list_rpush(context->event_info.serial_event_queue, node);
 	}
 	#ifdef SERIAL_RTOS_SUPPORT
-	serial_mutex_unlock(context->serial_mutex);
+	qm_serial_mutex_unlock(context->serial_mutex);
 	#endif
 
 	return SERIAL_NO_ERR;
@@ -120,7 +120,7 @@ int32_t qm_serial_event_info_get(uint8_t *buf, uint16_t *buf_len)
     }
 
 	#ifdef SERIAL_RTOS_SUPPORT
-	serial_mutex_lock(context->serial_mutex);
+	qm_serial_mutex_lock(context->serial_mutex);
 	#endif
 
 	node = qm_list_lpop(context->event_info.serial_event_queue);
@@ -131,11 +131,11 @@ int32_t qm_serial_event_info_get(uint8_t *buf, uint16_t *buf_len)
 			memcpy(buf, tmp_buf+sizeof(qm_list_node_t)+2, tmp_buf_len);
 			*buf_len = tmp_buf_len;
 		}
-		serial_free(tmp_buf);
+		qm_serial_free(tmp_buf);
 	}
 
 	#ifdef SERIAL_RTOS_SUPPORT
-	serial_mutex_unlock(context->serial_mutex);
+	qm_serial_mutex_unlock(context->serial_mutex);
 	#endif
 
 	return SERIAL_NO_ERR;
@@ -165,11 +165,11 @@ static uint8_t packet_id_get(void)
     serial_context_t *serial_context=NULL;
     serial_context=qm_serial_context_get();
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(serial_context->serial_mutex);
+    qm_serial_mutex_lock(serial_context->serial_mutex);
 #endif
     serial_context->packet_id =(serial_context->packet_id == (MAX_SERIAL_MCU_PACKET_ID+1)) ? MIN_SERIAL_MCU_PACKET_ID : serial_context->packet_id + 1;
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(serial_context->serial_mutex);
+    qm_serial_mutex_unlock(serial_context->serial_mutex);
 #endif
     return  serial_context->packet_id;
 }
@@ -285,7 +285,7 @@ static int32_t deviceinfo_handler(serial_context_t *context, uint8_t *data, uint
         SERIAL_LOG("missing pid");
         goto exit;
     }
-    context->pid = (char*)serial_malloc(object->len+1);
+    context->pid = (char*)qm_serial_malloc(object->len+1);
     if(context->pid == NULL){
         err = SERIAL_ALLOC_MEM_ERR;
         goto exit;
@@ -348,7 +348,7 @@ static int32_t deviceinfo_handler(serial_context_t *context, uint8_t *data, uint
 
 #ifdef SERIAL_XM_ID_MAP_SUPPORT
        err = id_map_parse(&context->map_context, map_data, map_data_len, ID_MAP_XM);
-       if(err != SERIAL_NO_ERR)
+       if(err != SERIAL_NO_ERR){
             SERIAL_LOG("id map parse error");
             goto exit;
        }
@@ -446,15 +446,15 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         if(changed_data_len > 0){
             if(context->changed_data.data){
                 if(context->changed_data.len < changed_data_len){
-                    serial_free(context->changed_data.data);
+                    qm_serial_free(context->changed_data.data);
                     context->changed_data.data = NULL;
-                    context->changed_data.data = (uint8_t*)serial_malloc(changed_data_len);
+                    context->changed_data.data = (uint8_t*)qm_serial_malloc(changed_data_len);
                     if(context->changed_data.data == NULL){
                         return SERIAL_ALLOC_MEM_ERR;
                     }
                 }
             }else{
-                context->changed_data.data = (uint8_t*)serial_malloc(changed_data_len);
+                context->changed_data.data = (uint8_t*)qm_serial_malloc(changed_data_len);
                 if(context->changed_data.data == NULL){
                     return SERIAL_ALLOC_MEM_ERR;
                 }
@@ -474,15 +474,15 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 		   if(changed_data_len > 0){
 			   if(context->changed_data.data){
 				   if(context->changed_data.len < changed_data_len){
-					   serial_free(context->changed_data.data);
+					   qm_serial_free(context->changed_data.data);
 					   context->changed_data.data = NULL;
-					   context->changed_data.data = (uint8_t*)serial_malloc(changed_data_len);
+					   context->changed_data.data = (uint8_t*)qm_serial_malloc(changed_data_len);
 					   if(context->changed_data.data == NULL){
 						   return SERIAL_ALLOC_MEM_ERR;
 					   }
 				   }
 			   }else{
-				   context->changed_data.data = (uint8_t*)serial_malloc(changed_data_len);
+				   context->changed_data.data = (uint8_t*)qm_serial_malloc(changed_data_len);
 				   if(context->changed_data.data == NULL){
 					   return SERIAL_ALLOC_MEM_ERR;
 				   }
@@ -549,15 +549,15 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 		SERIAL_LOG("need report");
 
 #ifdef SERIAL_REPORT_SUPPORT
-		message_changed_flag_clear(context->serial_snapshot_info.message_context);
+        message_changed_flag_clear(context->serial_snapshot_info.message_context);
 
-		if(context->callbacks.m_reportcb){
-			context->callbacks.m_reportcb(CMD_GET_SNAPSHOT, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
-		}
-#else
-	   if(context->callbacks.m_reportcb){
-			context->callbacks.m_reportcb(CMD_GET_SNAPSHOT, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
-	   }
+        if(context->callbacks.m_reportcb){
+            context->callbacks.m_reportcb(CMD_GET_SNAPSHOT, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
+        }
+        #else
+        if(context->callbacks.m_reportcb){
+            context->callbacks.m_reportcb(CMD_GET_SNAPSHOT, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
+        }
 #endif
 
        break;
@@ -735,7 +735,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
        case CMD_TIMEGET:
 
-            err = serial_get_time(&time_info);
+            err = qm_serial_get_time(&time_info);
             if(err != 0){
                 memset(&time_info, 0, sizeof(time_info));
                 serial_generate_send_with_code(cmd, 0, SERIAL_COM_ERROR, (uint8_t*)&time_info, sizeof(time_info));
@@ -885,7 +885,7 @@ static int32_t serial_frame_info_creat(frame_cmd_t cmd, uint8_t packet_id, uint8
     }
 
     raw_len = sizeof(frame_info_t) + packet_len -1;
-    buf = serial_malloc(raw_len);
+    buf = qm_serial_malloc(raw_len);
     if(buf == NULL){
         return SERIAL_ALLOC_MEM_ERR;
     } 
@@ -913,11 +913,11 @@ static uint32_t queue_len_get(qm_list_t *queue)
     serial_context_t *context = NULL;
     context = qm_serial_context_get();
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     queue_len = queue->len;
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
     return queue_len;
 }
@@ -932,15 +932,15 @@ static int32_t queue_push(qm_list_t *queue, uint8_t *raw)
     qm_list_node_init(node, raw+sizeof(qm_list_node_t));
 
    #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     qm_list_rpush(queue, node);
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_sem_signal(context->send_sem);
+    qm_serial_sem_signal(context->send_sem);
 #endif
     return SERIAL_NO_ERR; 
 }
@@ -1037,7 +1037,7 @@ static int32_t serial_id_info_push(serial_data_type_t type, platform_id_t platfo
     qm_list_node_t *node = NULL;
 
     buf_len = sizeof(serial_id_info_t)+sizeof(qm_list_node_t);
-    buf = serial_malloc(buf_len);
+    buf = qm_serial_malloc(buf_len);
     if(buf == NULL){
         return SERIAL_ALLOC_MEM_ERR;
     }
@@ -1058,11 +1058,11 @@ static int32_t serial_id_info_push(serial_data_type_t type, platform_id_t platfo
     id_info->data = data;
     id_info->time = 0; 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     qm_list_rpush(context->id_queue, node);
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
     return SERIAL_NO_ERR;
 }
@@ -1083,7 +1083,7 @@ static uint8_t is_serial_id_update(void)
     self.direction = LIST_HEAD;
     self.next = list->head;
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
 
     node = qm_list_iterator_next(&self);
@@ -1096,7 +1096,7 @@ static uint8_t is_serial_id_update(void)
         node = qm_list_iterator_next(&self);
     }
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
 
     return is_update;
@@ -1114,17 +1114,17 @@ static int32_t serial_id_uptime(uint8_t local_id)
     id_info.local_id = local_id;
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     node = qm_list_find(context->id_queue, &id_info);
     if(node){
         p_id_info = (serial_id_info_t*)node->val;
         p_id_info->is_update = 1;
-        p_id_info->time = serial_get_timems() + SERIAL_ACK_TIMEOUT_DEFAULT_MS;
+        p_id_info->time = qm_serial_get_timems() + SERIAL_ACK_TIMEOUT_DEFAULT_MS;
     }
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
 
     return SERIAL_NO_ERR;
@@ -1153,24 +1153,24 @@ static int32_t serial_local_id_find(uint8_t local_id, platform_id_t *platform_id
     id_info.local_id = local_id;
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     node = qm_list_find(context->id_queue, &id_info);
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
     if(node){
         id = (serial_id_info_t*)node->val;
         *platform_id = id->platform_id;
 #ifdef SERIAL_RTOS_SUPPORT
-        serial_mutex_lock(context->serial_mutex);
+        qm_serial_mutex_lock(context->serial_mutex);
 #endif
         qm_list_remove(context->id_queue, node);
 #ifdef SERIAL_RTOS_SUPPORT
-        serial_mutex_unlock(context->serial_mutex);
+        qm_serial_mutex_unlock(context->serial_mutex);
 #endif
-        serial_free(node);
+        qm_serial_free(node);
     }else{
         return SERIAL_MSG_NUM_ERR;
     }
@@ -1251,12 +1251,12 @@ static int32_t down_queue_send(void)
     }
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     node = qm_list_lpop(down_queue);
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
 
     queue_push(send_queue, (uint8_t*)node);
@@ -1288,12 +1288,12 @@ static int32_t id_check_cycle(serial_context_t *pcontext)
         return SERIAL_NO_ERR;
     }
 
-    cur_time = serial_get_timems();
+    cur_time = qm_serial_get_timems();
 
     self.direction = LIST_HEAD;
     self.next = list->head;
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(pcontext->serial_mutex);
+    qm_serial_mutex_lock(pcontext->serial_mutex);
 #endif
 
     node = qm_list_iterator_next(&self);
@@ -1305,15 +1305,15 @@ static int32_t id_check_cycle(serial_context_t *pcontext)
             if(id_info->retry_count == 0){
                 qm_list_remove(list, node);
                 if(id_info->data){
-                    serial_free(id_info->data);
+                    qm_serial_free(id_info->data);
                 }
-                serial_free(node);
+                qm_serial_free(node);
                 send = 1;
             }else{
                 qm_list_rpush(pcontext->send_queue, (qm_list_node_t*)id_info->data);
 #ifdef SERIAL_RTOS_SUPPORT
 
-                serial_sem_signal(pcontext->send_sem);
+                qm_serial_sem_signal(pcontext->send_sem);
 #endif
             }
             id_info->retry_count--;
@@ -1322,7 +1322,7 @@ static int32_t id_check_cycle(serial_context_t *pcontext)
     }
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(pcontext->serial_mutex);
+    qm_serial_mutex_unlock(pcontext->serial_mutex);
 #endif
 
 #ifdef SERIAL_RESEND_SUPPORT
@@ -1359,11 +1359,11 @@ int32_t qm_serial_state_set(serial_state_t state)
         return SERIAL_NO_INIT_ERR;
     }
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     context->state = state;
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
     return SERIAL_NO_ERR;
 }
@@ -1379,11 +1379,11 @@ int32_t qm_serial_state_get(serial_state_t *state)
         return SERIAL_NO_INIT_ERR;
     }
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     *state = context->state;
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
     return SERIAL_NO_ERR;
 }
@@ -1397,11 +1397,11 @@ module_status_t qm_serial_module_status_get(void)
         return SERIAL_NO_INIT_ERR;
     }
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     status = context->module_status;
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
     return status;
 }
@@ -1418,12 +1418,12 @@ int32_t qm_serial_module_status_set(module_status_t status)
 
     if(context->module_status != status){
 #ifdef SERIAL_RTOS_SUPPORT
-        serial_mutex_lock(context->serial_mutex);
+        qm_serial_mutex_lock(context->serial_mutex);
 #endif
         context->module_status = status;
         state = context->state;
 #ifdef SERIAL_RTOS_SUPPORT
-        serial_mutex_unlock(context->serial_mutex);
+        qm_serial_mutex_unlock(context->serial_mutex);
 #endif
         need_notify = 1;
     }
@@ -1458,12 +1458,12 @@ int32_t qm_serial_module_prodtst_status_set(module_prodtst_status_t status)
 
     if(context->module_prodtst_status != status){
 #ifdef SERIAL_RTOS_SUPPORT
-        serial_mutex_lock(context->serial_mutex);
+        qm_serial_mutex_lock(context->serial_mutex);
 #endif
         context->module_prodtst_status = status;
         state = context->state;
 #ifdef SERIAL_RTOS_SUPPORT
-        serial_mutex_unlock(context->serial_mutex);
+        qm_serial_mutex_unlock(context->serial_mutex);
 #endif
         need_notify = 1;
     }
@@ -1517,14 +1517,14 @@ int32_t qm_serial_ext_cmd_ack(frame_cmd_t cmd, uint8_t err_code, uint8_t *data, 
     int32_t err=SERIAL_NO_ERR;
     uint8_t code=err_code;
     if(data!=NULL && len >0){
-        buf=serial_malloc(len+1);
+        buf=qm_serial_malloc(len+1);
         if(buf==NULL){
             return SERIAL_ALLOC_MEM_ERR;
         }
         memcpy(buf, &code, 1);
         memcpy(buf+1, data, len);
         err=serial_generate_send(cmd, 0, buf, len+1);
-        serial_free(buf);
+        qm_serial_free(buf);
     }else{
         err=serial_generate_send(cmd, 0, &code, 1);
     }
@@ -1538,7 +1538,7 @@ int32_t qm_serial_init(serial_param_t *serial_param)
         return SERIAL_PARAM_ERR;
     }
 
-    serial_context=(serial_context_t*)serial_malloc(sizeof(serial_context_t));
+    serial_context=(serial_context_t*)qm_serial_malloc(sizeof(serial_context_t));
     if(NULL==serial_context)
     {
        SERIAL_LOG("not enough memory.");
@@ -1548,8 +1548,8 @@ int32_t qm_serial_init(serial_param_t *serial_param)
     memset(serial_context, 0, sizeof(serial_context_t));
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_context->serial_mutex=serial_mutex_init();
-    serial_context->send_sem=serial_sem_init(2);
+    serial_context->serial_mutex=qm_serial_mutex_init();
+    serial_context->send_sem=qm_serial_sem_init(2);
 #endif
 
     serial_context->send_queue=qm_list_new();
@@ -1609,7 +1609,7 @@ int32_t qm_serial_init(serial_param_t *serial_param)
     serial_context->module_prodtst_status = MODULE_PRODTST_STATUS_NONE;
     serial_context->prodtst_type = MODULE_PRODTST_TYPE_NONE;
     
-    serial_context->handle = serial_uart_init();
+    serial_context->handle = qm_serial_uart_init();
 
     g_serial_context = serial_context;
     
@@ -1632,7 +1632,7 @@ static int serial_recv_cycle(serial_context_t *pcontext, qm_utils_time_t *timer)
     uint32_t left_t = qm_utils_time_left(timer);
     uint16_t need_len = pcontext->need_len;
 
-    recv_len = serial_recv(pcontext->handle, pcontext->pread_buf+pcontext->read_pos, need_len, left_t);
+    recv_len = qm_serial_recv(pcontext->handle, pcontext->pread_buf+pcontext->read_pos, need_len, left_t);
     pcontext->read_pos += recv_len;
     
     switch(pcontext->parse_state){
@@ -1730,15 +1730,15 @@ int32_t qm_serial_send_loop(void)
         return SERIAL_NO_INIT_ERR;
     }
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_sem_wait(context->send_sem, 0);
+    qm_serial_sem_wait(context->send_sem, 0);
 #endif
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     send_queue_len = context->send_queue->len;
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
 
     if(send_queue_len == 0)
@@ -1748,24 +1748,24 @@ int32_t qm_serial_send_loop(void)
          goto exit;
     }
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     node = qm_list_lpop(context->send_queue);
 
     send_queue_len = context->send_queue->len;
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
     if(node){
         info = (frame_info_t*)node;
-        serial_send(context->handle, info->data, info->len);
+        qm_serial_send(context->handle, info->data, info->len);
         SERIAL_HEX_LOG("serial send", info->data, info->len);
         if(info->resend){
             local_id = local_id_get(info->data);
             serial_id_uptime(local_id);
         }else{
-            serial_free(info);
+            qm_serial_free(info);
         }
     }
 
@@ -1780,13 +1780,13 @@ exit:
 #ifdef SERIAL_RTOS_SUPPORT
 
     if(send_queue_len > 0){
-        serial_sem_signal(context->send_sem);
+        qm_serial_sem_signal(context->send_sem);
         left = qm_utils_time_left(&context->send_interval_time);
         if (left > 50){
-            serial_msleep(left);
+            qm_serial_msleep(left);
         }
         else{
-            serial_msleep(50);
+            qm_serial_msleep(50);
         }
     }
 
@@ -1858,10 +1858,10 @@ int32_t qm_serial_recv_loop(int32_t timeout_ms)
             left_t= qm_utils_time_left(&yield_time);
             //serial_printf("error occur ");
             if (left_t > 50){
-                serial_msleep(left_t);
+                qm_serial_msleep(left_t);
             }
             else{
-                serial_msleep(50);
+                qm_serial_msleep(50);
             }
         }
 #endif
@@ -1905,7 +1905,7 @@ int32_t qm_serial_raw_send(uint8_t *data, uint16_t len)
         return SERIAL_NO_INIT_ERR;
     }
     sum_len=data_len+sizeof(qm_list_node_t)+2;
-    buf=serial_malloc(sum_len);
+    buf=qm_serial_malloc(sum_len);
     if(buf==NULL){
         return SERIAL_ALLOC_MEM_ERR;
     }
@@ -1915,15 +1915,15 @@ int32_t qm_serial_raw_send(uint8_t *data, uint16_t len)
     memcpy(buf+sizeof(qm_list_node_t)+2, data, len);
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_lock(context->serial_mutex);
+    qm_serial_mutex_lock(context->serial_mutex);
 #endif
     qm_list_rpush(context->send_queue, node);
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_mutex_unlock(context->serial_mutex);
+    qm_serial_mutex_unlock(context->serial_mutex);
 #endif
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_sem_signal(context->send_sem);
+    qm_serial_sem_signal(context->send_sem);
 #endif
 
     return SERIAL_NO_ERR;
@@ -1934,10 +1934,10 @@ int32_t qm_serial_raw_send(uint8_t *data, uint16_t len)
 #ifdef SERIAL_LOWPOWER_SUPPORT
 int32_t qm_serial_process_reset(void)
 {
-	serial_context_t *context = NULL;
+    serial_context_t *context = NULL;
     context = qm_serial_context_get();
     if(context == NULL){
-    	return SERIAL_NO_INIT_ERR;
+        return SERIAL_NO_INIT_ERR;
     }
 
     context->state = SERIAL_STATE_HEARTBEAT;
