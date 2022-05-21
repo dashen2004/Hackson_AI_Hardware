@@ -788,7 +788,7 @@ int qm_cli_register_command(const struct qm_cli_command *cmd)
     return QM_ENOMEM;
 }
 
-int aos_cli_unregister_command(const struct qm_cli_command *cmd)
+int qm_cli_unregister_command(const struct qm_cli_command *cmd)
 {
     int i;
     if (!cmd->name || !cmd->function)

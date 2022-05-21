@@ -161,7 +161,7 @@ typedef struct
 
 typedef struct 
 {
-    uint8_t timezone;
+    int8_t timezone;
     uint8_t year;
     uint8_t month;
     uint8_t day;

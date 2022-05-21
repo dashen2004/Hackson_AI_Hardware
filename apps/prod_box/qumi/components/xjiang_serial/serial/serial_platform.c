@@ -4,6 +4,7 @@
 #include "qm_errno.h"
 #include "qm_uart.h"
 #include "qm_log.h"
+#include "ntpdate.h"
 
 /**
  * @brief Create a mutex.
@@ -228,10 +229,26 @@ int serial_recv(void *handle, uint8_t* buffer, uint32_t length, uint32_t timeout
 
 int serial_get_time(serial_time_info_t *time_info)
 {
+    qm_err_t ret = QM_EOK;
+    qm_time_info_t info = {0};
     if(time_info == NULL){
         return -QM_EINVAL;
     }
 
+    info.timezone = time_info->timezone;
+
+    ret = qm_time_info_get(&info);
+    if(ret != QM_EOK){
+        return ret;
+    }
+
+    time_info->year = info.year;
+    time_info->month = info.month;
+    time_info->day = info.day;
+    time_info->hour = info.hour;
+    time_info->minute = info.minute;
+    time_info->second = info.second;
+    time_info->wday = info.wday;
     
     return 0;
 }

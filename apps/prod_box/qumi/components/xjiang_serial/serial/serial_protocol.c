@@ -735,9 +735,12 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
        case CMD_TIMEGET:
 
+            if(len < FRAME_MIN_LEN+1){
+                return SERIAL_PACKET_LEN_ERR;
+            }
+            time_info.timezone = *(data+FRAME_HEAD_LEN);
             err = qm_serial_get_time(&time_info);
             if(err != 0){
-                memset(&time_info, 0, sizeof(time_info));
                 serial_generate_send_with_code(cmd, 0, SERIAL_COM_ERROR, (uint8_t*)&time_info, sizeof(time_info));
             }else{
                 serial_generate_send_with_code(cmd, 0, SERIAL_COM_OK, (uint8_t*)&time_info, sizeof(time_info));
