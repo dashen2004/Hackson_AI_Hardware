@@ -7,12 +7,17 @@
 
 #define LOG_TAG  "ntpdate"
 
+#define TIMESTAMP_2000  943891200  /* 1970~2000 in seconds */
+
 static qm_task_t time_task = {0};
-static qm_sem_t time_sem = {0};
 static qm_timer_t timer = {0};
 static qm_mutex_t time_lock = {0};
 static uint32_t utc_timestamp = 0;
 static uint32_t notify_time = 0;
+static int is_qm_time_init = 0;
+static int is_time_aync = 0;
+
+static void qm_time_task(void *arg);
 
 //get utc time informatinon
 int qm_time_info_get(qm_time_info_t* info)
@@ -67,7 +72,7 @@ int qm_timestamp_get(uint32_t *timestamp)
     m_timestamp = utc_timestamp;
     qm_mutex_unlock(&time_lock);
 
-    if(m_timestamp == 0){
+    if(m_timestamp <= TIMESTAMP_2000){
         return -QM_ERROR;
     }
 
@@ -79,14 +84,21 @@ int qm_timestamp_get(uint32_t *timestamp)
 //notify time aynchronization form ntp server
 int qm_time_aync_notify(void)
 {
-    if(time_task.hdl == NULL){
+    qm_err_t ret = QM_EOK;
+
+    if(!is_qm_time_init){
         return -QM_ERROR;
     }
-    if(utc_timestamp == 0){
-        return qm_sem_signal(&time_sem);
-    }else{
-        return QM_EOK;
+
+    if(is_time_aync){
+        return -QM_ERROR;
     }
+
+    ret = qm_task_new(&time_task, "time", qm_time_task, NULL, CONFIG_QM_TIME_TASK_SIZE, CONFIG_QM_TIME_TASK_PRIO);
+    if(ret != QM_EOK){
+        return ret;
+    }
+    return QM_EOK;
 }
 
 static void qm_time_task(void *arg)
@@ -94,11 +106,9 @@ static void qm_time_task(void *arg)
     qm_err_t ret = QM_EOK;
     struct timeval_t time = {0};
 
+    is_time_aync = 1;
+
     while(1){
-        ret = qm_sem_wait(&time_sem, QM_WAIT_FOREVER);
-        if(ret != QM_EOK){
-            continue;
-        }
         ret = qm_utils_get_epoch_time_from_ntp(&time);
         if(ret != QM_EOK){
             continue;
@@ -109,6 +119,8 @@ static void qm_time_task(void *arg)
         QM_LOGD(LOG_TAG, "utc timestamp: %u", utc_timestamp);
         qm_timer_stop(&timer);
         qm_timer_start(&timer);
+        is_time_aync = 0;
+        qm_task_exit(&time_task);
     }
 
 }
@@ -119,16 +131,16 @@ static void qm_timer_callback( qm_timer_t *timer, void *arg)
     notify_time++;
     if(notify_time >= CONFIG_QM_TIME_AYNC_TIMEOUT){
         notify_time = 0;
-        qm_sem_signal(&time_sem);
+        qm_time_aync_notify();
     }
 }
 //time service initialization
 int qm_time_init(void)
 {
     qm_err_t ret = QM_EOK;
-    ret = qm_sem_new(&time_sem, 1);
-    if(ret != QM_EOK){
-        goto __exit;
+
+    if(is_qm_time_init){
+        return QM_EOK;
     }
 
     ret = qm_timer_new(&timer, qm_timer_callback, NULL, 1000, 1);
@@ -140,19 +152,13 @@ int qm_time_init(void)
     if(ret != QM_EOK){
         goto __exit;
     }
-    
-    ret = qm_task_new(&time_task, "time", qm_time_task, NULL, CONFIG_QM_TIME_TASK_SIZE, CONFIG_QM_TIME_TASK_PRIO);
-    if(ret != QM_EOK){
-        goto __exit;
-    }
+
+    is_qm_time_init = 1;
 
     return QM_EOK;
 
 __exit:
 
-    if(time_sem.hdl){
-        qm_sem_free(&time_sem);
-    }
     if(timer.hdl){
         qm_timer_free(&timer);
     }

@@ -4,11 +4,11 @@
 #include "qm_types.h"
 
 #ifndef CONFIG_QM_TIME_TASK_SIZE  
-#define CONFIG_QM_TIME_TASK_SIZE                 2*1024    
+#define CONFIG_QM_TIME_TASK_SIZE                 4*1024    
 #endif
 
 #ifndef CONFIG_QM_TIME_TASK_PRIO  
-#define CONFIG_QM_TIME_TASK_PRIO                 20    
+#define CONFIG_QM_TIME_TASK_PRIO                 21    
 #endif
 
 #ifndef CONFIG_QM_TIME_AYNC_TIMEOUT  
