@@ -1552,7 +1552,7 @@ int32_t qm_serial_init(serial_param_t *serial_param)
 
 #ifdef SERIAL_RTOS_SUPPORT
     serial_context->serial_mutex=qm_serial_mutex_init();
-    serial_context->send_sem=qm_serial_sem_init(2);
+    serial_context->send_sem=qm_serial_sem_init(0);
 #endif
 
     serial_context->send_queue=qm_list_new();

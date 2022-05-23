@@ -120,7 +120,7 @@ int qm_mutex_is_valid(qm_mutex_t *mutex);
  *
  * @param[out]  sem    pointer of semaphore object, semaphore object must be alloced,
  *                     hdl pointer in qm_sem_t will refer a kernel obj internally.
- * @param[in]   count  initial semaphore counter.
+ * @param[in]   count  the init count of the semaphore
  *
  * @return  0:success.
  */

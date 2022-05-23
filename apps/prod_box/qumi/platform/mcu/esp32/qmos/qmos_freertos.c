@@ -82,7 +82,7 @@ int qm_mutex_is_valid(qm_mutex_t *mutex)
 
 int qm_sem_new(qm_sem_t *sem, int count)
 {
-    SemaphoreHandle_t s = xSemaphoreCreateCounting(count, 0);
+    SemaphoreHandle_t s = xSemaphoreCreateCounting(100, count);
     sem->hdl = s;
     return 0;
 }
