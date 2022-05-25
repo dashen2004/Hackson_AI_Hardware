@@ -14,14 +14,21 @@ typedef enum{
 }led_type_t;
 
 typedef enum{
+    LED_COLOUR_NONE = 0,
+    LED_COLOUR_GREEN,
+    LED_COLOUR_RED,
+    LED_COLOUR_MAX,
+}led_colour_t;
+
+typedef enum{
     LED_BLINK_FAST,
     LED_BLINK_SLOW,
     LED_BLINK_MAX,
 }led_blink_t;
 
 
-void led_on(led_type_t type);
+void led_on(led_type_t type, led_colour_t colour);
 void led_off(led_type_t type);
-void led_blink(led_type_t type, led_blink_t blink);
+void led_blink(led_type_t type, led_colour_t colour, led_blink_t blink);
 void led_init(void);
 #endif

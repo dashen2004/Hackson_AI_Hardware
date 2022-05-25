@@ -7,23 +7,22 @@ void prodtst_notify_callback(int channel, int prodtst_status)
     switch(prodtst_status){
 
         case PRODTST_STATUS_START:
-            led_blink(LED_TYPE_PRODTST_CHANNEL_1, LED_BLINK_SLOW);
+            led_blink(LED_TYPE_PRODTST_CHANNEL_1,LED_COLOUR_GREEN, LED_BLINK_SLOW);
 
         break;
 
         case PRODTST_STATUS_SUCCESS:
-            led_on(LED_TYPE_PRODTST_CHANNEL_1);
+            led_on(LED_TYPE_PRODTST_CHANNEL_1, LED_COLOUR_GREEN);
 
         break;
 
         case PRODTST_STATUS_FAIL:
-            led_on(LED_TYPE_PRODTST_CHANNEL_2);
-            led_off(LED_TYPE_PRODTST_CHANNEL_1);
+            led_on(LED_TYPE_PRODTST_CHANNEL_1, LED_COLOUR_RED);
 
         break;
 
         case PRODTST_STATUS_READY:
-            led_on(LED_TYPE_PRODTST_READY);
+            led_on(LED_TYPE_PRODTST_READY, LED_COLOUR_NONE);
 
         break;
 
@@ -34,7 +33,6 @@ void prodtst_notify_callback(int channel, int prodtst_status)
 
         case PRODTST_STATUS_NEXT_ROUND:
             led_off(LED_TYPE_PRODTST_CHANNEL_1);
-            led_off(LED_TYPE_PRODTST_CHANNEL_2);
             beep_off();
 
         break;

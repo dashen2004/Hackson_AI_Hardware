@@ -100,7 +100,7 @@ static void cloud_event_monitor( int event )
 
             retry_interval_ms_set(500, RETRY_INTERVAL_MAX_MS);
 
-            led_on(LED_TYPE_NETWORK);
+            led_on(LED_TYPE_NETWORK, LED_COLOUR_NONE);
 
         break;
 
