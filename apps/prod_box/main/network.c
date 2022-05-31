@@ -61,10 +61,9 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
                  event->event_info.sta_connected.aid);
 
         prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_CONNECTED;
+        prodtst_wifi_event.event_info.sta_connected.aid = event->event_info.sta_disconnected.aid;
         memcpy(prodtst_wifi_event.event_info.sta_connected.mac, event->event_info.sta_connected.mac, 6);
         prodtst_wifi_ap_event_set(&prodtst_wifi_event);
-
-        //esp_wifi_deauth_sta(event->event_info.sta_connected.aid);
 
         break;
         
@@ -74,7 +73,8 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
                  event->event_info.sta_disconnected.aid);
         
         prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_DISCONNECTED;
-        memcpy(prodtst_wifi_event.event_info.sta_connected.mac, event->event_info.sta_connected.mac, 6);
+        prodtst_wifi_event.event_info.sta_disconnected.aid = event->event_info.sta_disconnected.aid;
+        memcpy(prodtst_wifi_event.event_info.sta_disconnected.mac, event->event_info.sta_disconnected.mac, 6);
         prodtst_wifi_event.type = PRODTST_WIFI_EVENT_AP_DISCONNECTED;
         prodtst_wifi_ap_event_set(&prodtst_wifi_event);
 

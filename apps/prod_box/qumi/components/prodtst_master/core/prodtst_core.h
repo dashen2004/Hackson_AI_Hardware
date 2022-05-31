@@ -43,8 +43,10 @@ enum{
 };
 
 typedef enum{
+    PRODTST_STATUS_NONE,
     PRODTST_STATUS_SUCCESS,
     PRODTST_STATUS_FAIL,
+    PRODTST_STATUS_CONFIG_READY,
     PRODTST_STATUS_READY,
     PRODTST_STATUS_NOT_READY,
     PRODTST_STATUS_START,
@@ -54,7 +56,6 @@ typedef enum{
     PRODTST_STATUS_FUN_SUCCESS,
     PRODTST_STATUS_SPECIAL_START,
     PRODTST_STATUS_SPECIAL_SUCCESS,
-    PRODTST_STATUS_NEXT_ROUND,
 }prodtst_status_t;
 
 typedef enum{
@@ -202,6 +203,7 @@ typedef struct {
 typedef struct{
     char uuid[32+1];
     int index;
+    prodtst_status_t status;
     prodtst_state_t state;
     qm_task_t task;
     qm_queue_t notify;
@@ -224,6 +226,7 @@ typedef struct{
 }prodtst_obj_info_t;
 
 typedef struct{
+    int ready;
     int start;
     int test_time;
     int test_num;
@@ -253,6 +256,7 @@ int prodtst_config_notify(int test_time, char *platform, char *module_name, char
 int prodtst_special_down_notify(char *uuid, int id, char *data, int len);
 int prodtst_result_notify(char *uuid, int id, char *step, int result);
 int prodtst_next_round_notify(void);
+int is_prodtst_ready(void);
 /*****************************/
 
 int prodtst_device_num_get(void);

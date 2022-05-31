@@ -41,12 +41,16 @@ void prodtst_wifi_event_callback(prodtst_wifi_event_t *event, void *arg)
     switch(event->type){
 
         case PRODTST_WIFI_EVENT_AP_CONNECTED:
-            memcpy(mac, event->event_info.sta_connected.mac, 6);
+            //memcpy(mac, event->event_info.sta_disconnected.mac, 6);
+            if(!is_prodtst_ready()){
+                QM_LOGI(LOG_TAG, "prodtst is not ready, deauth sta");
+                prodtst_wifi_deauth_sta(event->event_info.sta_disconnected.aid);
+            }
 
         break;
 
         case PRODTST_WIFI_EVENT_AP_DISCONNECTED:
-            memcpy(mac, event->event_info.sta_disconnected.mac, 6);
+            //memcpy(mac, event->event_info.sta_disconnected.mac, 6);
 
         break;
 
@@ -56,7 +60,7 @@ void prodtst_wifi_event_callback(prodtst_wifi_event_t *event, void *arg)
 
         break;
 
-        default:
+        default: 
         break;
     }
 
@@ -89,7 +93,8 @@ static void prodtst_accept_task(void *arg)
     while(1){
         ret = prodtst_tcp_accept(server_fd, 1000);
         if(ret >= 0){
-             prodtst_wifi_dut_found_notify(ret);
+            QM_LOGE(LOG_TAG, "tcp client connect fd: %d", ret);
+            prodtst_wifi_dut_found_notify(ret);
         }else if(ret == -QM_EIO){
             break;
         }

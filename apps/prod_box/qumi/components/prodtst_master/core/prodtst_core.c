@@ -30,7 +30,7 @@ static prodtst_context_t g_prodtst_ctx = {0};
 extern prodtst_adapter_t wifi_prodtst_adapter;
 
 static prodtst_testsuite_t  g_prodtst_testsuite[] = {
-    {"harmony", "W70", "wifi", 4096, 6, &prodtst_wifi_generic_cmd, 5, &prodtst_hw_wifi_specific_cmd, 2, &wifi_prodtst_adapter},
+    {"harmony", "W70", "wifi", 4096, 1, &prodtst_wifi_generic_cmd, 5, &prodtst_hw_wifi_specific_cmd, 2, &wifi_prodtst_adapter},
 
  
 };
@@ -327,10 +327,15 @@ static void prodtst_status_notify(prodtst_obj_t *prodtst_obj, int prodtst_status
     if(prodtst_obj == NULL){
         channel = 0;
     }else{
-        channel = prodtst_obj->index+1;
+        channel = prodtst_obj->index + 1;
     }
+
+    if(prodtst_obj ){
+        prodtst_obj->status = prodtst_status;
+    }
+        
     if(g_prodtst_ctx.notify_cb){
-        g_prodtst_ctx.notify_cb(channel, prodtst_status);
+        g_prodtst_ctx.notify_cb(channel, prodtst_status);    
     }
 }
 
@@ -910,7 +915,6 @@ static int prodtst_obj_init(prodtst_obj_t *prodtst_obj)
         adapter->destroy(prodtst_obj->channel_handle);
         prodtst_obj->channel_handle = NULL;
     }
-
     prodtst_obj_state_set(prodtst_obj, PRODTST_STATE_NONE);
     return QM_EOK;
 }
@@ -1032,8 +1036,10 @@ static void prodtst_obj_task(void *arg)
     prodtst_special_t *special = NULL;
     prodtst_step_type_t step_type = 0;
     prodtst_obj_t *prodtst_obj = (prodtst_obj_t*)arg;
+    int obj_over = 0;
 
     prodtst_obj->state = PRODTST_STATE_SETUP;
+    prodtst_obj->status = PRODTST_STATUS_NONE;
 
     adapter = prodtst_adapter_get();
 
@@ -1216,6 +1222,7 @@ static void prodtst_obj_task(void *arg)
                 prodtst_result_report(&prodtst_obj->data_tbl, PRODTST_STEP_TYPE_SPECIAL, prodtst_obj->uuid, PRODTST_RESULT_FAIL, NULL);
                 prodtst_status_notify(prodtst_obj, PRODTST_STATUS_FAIL);
                 prodtst_generic_notify(prodtst_obj, PRODTST_EVENT_RESET);
+                qm_free(spcl_buf);
                 break;
             }
 
@@ -1254,7 +1261,8 @@ static void prodtst_obj_task(void *arg)
                     prodtst_status_notify(prodtst_obj, PRODTST_STATUS_FAIL);
                     QM_LOGI(LOG_TAG, "--- prodtst failed result:%d ---", notify.dat.result_info.result);
                 }
-                prodtst_obj_init(prodtst_obj);
+                prodtst_generic_notify(prodtst_obj, PRODTST_EVENT_RESET);
+                obj_over = 1;
             }else if(step_type == PRODTST_STEP_TYPE_GENERIC){
                 if(notify.dat.result_info.result == PRODTST_RESULT_OK){
                     QM_LOGI(LOG_TAG, "--- prodtst generic success ---");
@@ -1282,23 +1290,36 @@ static void prodtst_obj_task(void *arg)
 
         case PRODTST_EVENT_TIMEOUT:
 
-            prodtst_notify_handler(prodtst_obj, "FAC", PRODTST_RESULT_FAIL);
             QM_LOGI(LOG_TAG, "prodtst timeout failed");
+
+            if(obj_over){
+                break;
+            }
+
+            prodtst_notify_handler(prodtst_obj, "FAC", PRODTST_RESULT_FAIL);
             prodtst_status_notify(prodtst_obj, PRODTST_STATUS_FAIL);
+
             prodtst_generic_notify(prodtst_obj, PRODTST_EVENT_RESET);
 
         break;
 
         case PRODTST_EVENT_CHANNEL_DOWN:
             QM_LOGI(LOG_TAG, "prodtst channel down");
-            prodtst_status_notify(prodtst_obj, PRODTST_STATUS_FAIL);
-            prodtst_generic_notify(prodtst_obj, PRODTST_EVENT_RESET);
+            QM_LOGI(LOG_TAG, "prodtst status: %d", prodtst_obj->status);
+            if(obj_over){
+                break;
+            }
+        
+            prodtst_status_notify(prodtst_obj, PRODTST_STATUS_FAIL); 
+            prodtst_generic_notify(prodtst_obj, PRODTST_EVENT_RESET); 
             
         break;
 
         case PRODTST_EVENT_RESET:
             QM_LOGI(LOG_TAG, "prodtst reset");
             prodtst_obj_init(prodtst_obj);
+            prodtst_obj->status = PRODTST_STATUS_NONE;
+            obj_over = 0;
 
         break;
 
@@ -1321,6 +1342,11 @@ static void prodtst_obj_task(void *arg)
     qm_task_exit(&prodtst_obj->task);
 }
 
+int is_prodtst_ready(void)
+{
+    return g_prodtst_ctx.ready;
+}
+
 static void prodtst_core_task(void *arg)
 {
     qm_err_t ret = QM_EOK;
@@ -1333,6 +1359,7 @@ static void prodtst_core_task(void *arg)
     void *channel_handle = NULL;
     prodtst_obj_info_t obj_info = {0};
     adapter = prodtst_adapter_get();
+    int prodtst_status = PRODTST_STATUS_NONE;
 
     while(1){
         ret = qm_queue_recv(&prodtst_ctx->notify, &notify, &size, QM_WAIT_FOREVER);
@@ -1343,6 +1370,8 @@ static void prodtst_core_task(void *arg)
         switch(notify.event){
 
             case PRODTST_EVENT_CONFIG:
+
+                prodtst_ctx->ready = 0;
                 
                 info.platform = &notify.dat.config_info.platform;
                 info.module_name = &notify.dat.config_info.module_name;
@@ -1361,10 +1390,12 @@ static void prodtst_core_task(void *arg)
 
                 ret = prodtst_start(&info);
                 if(ret != QM_EOK){
+                    prodtst_status = PRODTST_STATUS_NOT_READY;
                     prodtst_status_notify(NULL, PRODTST_STATUS_NOT_READY);
                     QM_LOGE(LOG_TAG, "prodtst start failed");
                 }else{
-                    prodtst_status_notify(NULL, PRODTST_STATUS_READY);
+                    prodtst_status = PRODTST_STATUS_CONFIG_READY;
+                    prodtst_status_notify(NULL, PRODTST_STATUS_CONFIG_READY);
                     QM_LOGI(LOG_TAG, "prodtst start success");
                 }
 
@@ -1378,6 +1409,8 @@ static void prodtst_core_task(void *arg)
                 }else{
                     qm_queue_send(&prodtst_obj->notify, (void*)&notify, sizeof(prodtst_notify_t));
                 }
+
+                prodtst_ctx->ready = 0;
 
                 memset(&obj_info, 0, sizeof(prodtst_obj_info_t));
                 prodtst_obj_info_get(&obj_info);
@@ -1422,9 +1455,14 @@ static void prodtst_core_task(void *arg)
 
             case PRODTST_EVENT_NEXT_ROUND:
                 
-                QM_LOGI(LOG_TAG, "prodtst nest round");
+                prodtst_ctx->ready = 1;
                 prodtst_all_obj_reset();
-                prodtst_status_notify(NULL, PRODTST_STATUS_NEXT_ROUND);
+                if(prodtst_status == PRODTST_STATUS_CONFIG_READY){
+                    QM_LOGI(LOG_TAG, "prodtst ready");
+                    prodtst_status_notify(NULL, PRODTST_STATUS_READY);
+                }else{
+                    QM_LOGI(LOG_TAG, "first prodtst config");
+                }
 
             break;
 
@@ -1445,7 +1483,7 @@ int  prodtst_init(prodtst_notify_cb notify_cb)
         return ret;
     }
 
-    ret = qm_sem_new(&g_prodtst_ctx.exit_sem, 1);
+    ret = qm_sem_new(&g_prodtst_ctx.exit_sem, 0);
     if(ret != QM_EOK){
         return ret;
     }

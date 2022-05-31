@@ -780,6 +780,7 @@ static void client_parser(void *arg)
         }else if(ret == -QM_EIO){
             if(client->cb){
                 client->cb(QM_AT_RESULT_CHANNEL_DOWN, client->arg);
+                client->exit = 1;
             }
         }
     }
@@ -841,7 +842,7 @@ qm_at_client_t* qm_at_client_init(qm_at_client_param_t *param)
     if(ret != QM_EOK){
         goto __exit;
     }
-    ret = qm_sem_new(&client->resp_notice, 1);
+    ret = qm_sem_new(&client->resp_notice, 0);
     if(ret != QM_EOK){
         goto __exit;
     }
@@ -873,8 +874,9 @@ int32_t qm_at_client_deinit(qm_at_client_t *client)
     if(client == NULL){
         return -QM_EINVAL;
     }
-
-    client->exit = 1;
+    if(client->task.hdl){
+        client->exit = 1;
+    }
     return QM_EOK;
 }
 

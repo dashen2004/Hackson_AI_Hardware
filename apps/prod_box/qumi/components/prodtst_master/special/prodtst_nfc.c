@@ -13,7 +13,7 @@ typedef struct{
 }spcl_handle_t;
 
 static spcl_handle_t g_spcl_handle = {0};
-#define PRODTST_NFC_UART_CHANNEL   PRODTST_UART_NUM_0
+#define PRODTST_NFC_UART_CHANNEL   PRODTST_UART_NUM_7
 
 #pragma pack(1)
 

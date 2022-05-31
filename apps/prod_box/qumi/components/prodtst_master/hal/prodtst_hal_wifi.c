@@ -14,6 +14,16 @@
 static prodtst_wifi_event_cb prodtst_wifi_event_callback = NULL;
 static void *wifi_event_cb_arg = NULL;
 
+int prodtst_wifi_deauth_sta(uint16_t aid)
+{
+    int ret = 0;
+    ret = esp_wifi_deauth_sta(aid);
+    if(ret != ESP_OK){
+        return -QM_ERROR;
+    }else{
+        return QM_EOK;
+    }
+}
 
 int prodtst_wifi_ap_init(char *ssid, char *pwd, int channel, int max_conn)
 {

@@ -26,63 +26,53 @@ typedef struct{
     uint8_t colour;
 }led_ctrl_t;
 
-#if 0
-    {LED_TYPE_PRODTST_CHANNEL_1, 1, {}GPIO_EXT_OC_Pin_8},
-    {LED_TYPE_PRODTST_CHANNEL_2, GPIO_EXT_OC_Pin_9},
-    {LED_TYPE_PRODTST_CHANNEL_3, GPIO_EXT_OC_Pin_10},
-    {LED_TYPE_PRODTST_CHANNEL_4, GPIO_EXT_OC_Pin_11},
-    {LED_TYPE_PRODTST_CHANNEL_5, GPIO_EXT_OC_Pin_12},
-    {LED_TYPE_PRODTST_CHANNEL_6, GPIO_EXT_OC_Pin_13},
-    {LED_TYPE_NETWORK, GPIO_EXT_OC_Pin_6},
-    {LED_TYPE_PRODTST_READY, GPIO_EXT_OC_Pin_7},
-    #endif
 
 static led_info_t g_led_info[LED_TYPE_MAX] = {
 
     [LED_TYPE_PRODTST_CHANNEL_1] = {
         .colour_support = 1, 
-        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_8},
-        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_IO_Pin_7}
+        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_0},
+        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_8}
     },
 
     [LED_TYPE_PRODTST_CHANNEL_2] = {
         .colour_support = 1, 
-        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_9},
-        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_IO_Pin_6}
+        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_1},
+        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_9}
     },
 
     [LED_TYPE_PRODTST_CHANNEL_3] = {
         .colour_support = 1, 
-        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_10},
-        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_2}
+        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_2},
+        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_10}
     },
 
     [LED_TYPE_PRODTST_CHANNEL_4] = {
         .colour_support = 1, 
-        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_11},
-        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_3}
+        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_3},
+        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_11}
     },
 
     [LED_TYPE_PRODTST_CHANNEL_5] = {
         .colour_support = 1, 
-        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_12},
-        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_4}
+        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_4},
+        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_12}
     },
 
     [LED_TYPE_PRODTST_CHANNEL_6] = {
         .colour_support = 1, 
-        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_13},
-        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_5}
+        .gpio[LED_COLOUR_GREEN] = { .gpio_pin = GPIO_EXT_OC_Pin_5},
+        .gpio[LED_COLOUR_RED] = {.gpio_pin = GPIO_EXT_OC_Pin_13}
     },
 
     [LED_TYPE_PRODTST_READY] = {
         .colour_support = 0, 
-        .gpio[LED_COLOUR_NONE] = {.gpio_pin = GPIO_EXT_OC_Pin_7}
+        .gpio[LED_COLOUR_NONE] = {.gpio_pin = GPIO_EXT_OC_Pin_6}
     },
 
     [LED_TYPE_NETWORK] = {
         .colour_support = 0, 
-        .gpio[LED_COLOUR_NONE] = {.gpio_pin = GPIO_EXT_OC_Pin_6}
+        .gpio[LED_COLOUR_NONE] = {.gpio_pin = GPIO_EXT_OC_Pin_7}
     },
 };
 
@@ -99,6 +89,13 @@ void led_on(led_type_t type, led_colour_t colour)
         return;
     }
 
+    led_ctrl[type].active = 0;
+    led_ctrl[type].status = 1;
+    
+    if(!is_led_active()){
+        qm_timer_stop(&led_timer);
+    }
+
     if(g_led_info[type].colour_support){
         if(led_ctrl[type].colour){
             gpio_ext_set(g_led_info[type].gpio[led_ctrl[type].colour].gpio_pin, 0);
@@ -107,13 +104,9 @@ void led_on(led_type_t type, led_colour_t colour)
     }else{
         gpio_ext_set(g_led_info[type].gpio[LED_COLOUR_NONE].gpio_pin, 1);
     }
-    
-    led_ctrl[type].active = 0;
-    led_ctrl[type].status = 1;
+
     led_ctrl[type].colour = colour;
-    if(!is_led_active()){
-        qm_timer_stop(&led_timer);
-    }
+
 }
 
 void led_off(led_type_t type)
@@ -122,18 +115,20 @@ void led_off(led_type_t type)
         return;
     }
 
+    led_ctrl[type].active = 0;
+    led_ctrl[type].status = 0;
+
+    if(!is_led_active()){
+        qm_timer_stop(&led_timer);
+    }
+
     if(g_led_info[type].colour_support){
         gpio_ext_set(g_led_info[type].gpio[led_ctrl[type].colour].gpio_pin, 0);
     }else{
         gpio_ext_set(g_led_info[type].gpio[LED_COLOUR_NONE].gpio_pin, 0);
     }
 
-    led_ctrl[type].active = 0;
-    led_ctrl[type].status = 0;
     led_ctrl[type].colour = LED_COLOUR_NONE;
-    if(!is_led_active()){
-        qm_timer_stop(&led_timer);
-    }
 }
 
 static void led_timeout(qm_timer_t *timer, void *arg)
@@ -183,7 +178,6 @@ static int is_led_active(void)
 void led_blink(led_type_t type, led_colour_t colour, led_blink_t blink)
 {
     qm_err_t ret = QM_EOK;
-    led_ctrl[type].active = 0;
 
     if(type >= LED_TYPE_MAX){
         return;
@@ -223,15 +217,9 @@ void led_blink(led_type_t type, led_colour_t colour, led_blink_t blink)
 void led_all_off(void)
 {
     int i = 0;
-    for(i = 0; i < LED_TYPE_MAX; i++){
 
-        if(g_led_info[i].colour_support){
-            if(led_ctrl[i].colour){
-                gpio_ext_set(g_led_info[i].gpio[led_ctrl[i].colour].gpio_pin, 0);
-            }
-        }else{
-            gpio_ext_set(g_led_info[i].gpio[LED_COLOUR_NONE].gpio_pin, 0);
-        }
+    for(i = 0; i < LED_TYPE_MAX; i++){
+        led_off(i);
     }
 }
 

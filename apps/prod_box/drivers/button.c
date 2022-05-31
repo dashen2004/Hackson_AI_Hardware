@@ -8,6 +8,8 @@
 #include "freertos/queue.h"
 #include "freertos/timers.h"
 
+#include "prodtst_core.h"
+
 
 #define GPIO_SET_BUTTON_IO                 35             
 #define GPIO_SET_BUTTON_INPUT_PIN_SEL     (1ULL<<GPIO_SET_BUTTON_IO)
@@ -56,13 +58,15 @@ void BTN1_PRESS_DOWN_Handler(void* btn)
 {
 	//do something...
 
-     printf("press down\n");
+     //printf("press down\n");
 }
 
 void BTN1_PRESS_UP_Handler(void* btn)
 {
 	//do something...
-    printf("press up\n");
+    //printf("press up\n");
+
+    prodtst_next_round_notify();
     
     xTimerStop(button_timer, 0);
     is_button_timer_started = false;
@@ -72,31 +76,31 @@ void BTN1_PRESS_UP_Handler(void* btn)
 void BTN1_PRESS_REPEAT_Handler(void* btn)
 {
 	//do something...
-    printf("press repeat\n");
+    //printf("press repeat\n");
 }
 
 void BTN1_SINGLE_Click_Handler(void* btn)
 {
 	//do something...
-    printf("single click\n");
+    ////printf("single click\n");
 }
 
 void BTN1_DOUBLE_Click_Handler(void* btn)
 {
 	//do something...
-    printf("double click\n");
+    //printf("double click\n");
 }
 
 void BTN1_LONG_PRESS_START_Handler(void* btn)
 {
 	//do something...
-    printf("long press start\n");
+    //printf("long press start\n");
 }
 
 void BTN1_LONG_PRESS_HOLD_Handler(void* btn)
 {
 	//do something...
-    printf("long press hold\n");
+    //printf("long press hold\n");
 }
 
 

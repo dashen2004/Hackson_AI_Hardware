@@ -12,11 +12,13 @@ typedef enum{
 
 typedef struct 
 {
+    uint16_t aid;
     uint8_t mac[6]; 
 }prodtst_wifi_event_ap_stadisconnected_t;
 
 typedef struct 
 {
+    uint16_t aid;
     uint8_t mac[6]; 
 }prodtst_wifi_event_ap_staconnected_t;
 
@@ -39,6 +41,9 @@ typedef struct
 
 
 typedef void (*prodtst_wifi_event_cb)(prodtst_wifi_event_t *event, void *arg);
+
+
+int prodtst_wifi_deauth_sta(uint16_t aid);
 
 int prodtst_wifi_ap_init(char *ssid, char *pwd, int channel, int max_conn);
 
