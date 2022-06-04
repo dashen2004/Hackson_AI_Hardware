@@ -42,6 +42,7 @@ typedef struct {
 
 /* Node prototypes. */
 qm_list_node_t *qm_list_node_new(void *val);
+void qm_list_node_destroy(qm_list_node_t *node);
 
 void qm_list_node_init(qm_list_node_t *node, void *val);
 

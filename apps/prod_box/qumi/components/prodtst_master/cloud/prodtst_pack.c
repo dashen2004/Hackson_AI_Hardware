@@ -38,7 +38,6 @@ int prodtst_generic_pack(prodtst_data_table_t *prodtst_tbl, char **data, int *le
             //TODO need free json item
             if(prodtst_data->name && prodtst_data->type == PRODTST_DATA_JSON){
                 cJSON_AddItemToObject(root, prodtst_data->name, (cJSON*)prodtst_data->data);\
-                prodtst_data->data = NULL;
             }
         }
     }

@@ -39,6 +39,7 @@ set(include_dirs
 "utility/string"
 "utility/timer"
 "utility/epochtime"
+"utility/mtrace"
 )
 
 set(srcs            "components/xjiang_cloud/cloud/cloud_dynreg.c"
@@ -119,6 +120,7 @@ set(srcs            "components/xjiang_cloud/cloud/cloud_dynreg.c"
                     "utility/string/qm_utils_string.c"
                     "utility/timer/qm_utils_timer.c"
                     "utility/epochtime/qm_utils_epochtime.c"
+                    "utility/mtrace/mtrace.c"
 ) 
 
 idf_component_register(SRCS "${srcs}"

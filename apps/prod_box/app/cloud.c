@@ -13,7 +13,7 @@
 #include "qm_utils_string.h"
 #include "drivers.h"
 #include "prodtst_core.h"
-
+#include "mtrace.h"
 
 #define LOG_TAG  "cloud"
 
@@ -38,6 +38,7 @@ static void network_handle(void *arg);
 static void handle_xjiang_key(char *pwbuf, int blen, int argc, char **argv);
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv);
 static void prodtst_ready(char *pwbuf, int blen, int argc, char **argv);
+static void mtrace_handle(char *pwbuf, int blen, int argc, char **argv);
 
 static struct qm_cli_command xjiang_key = {
     .name = "xjiang_key",
@@ -57,11 +58,21 @@ static struct qm_cli_command prodtst_ready_key = {
     .function = prodtst_ready
 };
 
+static struct qm_cli_command mtrace_key = {
+    .name = "mtrace",
+    .help = "mtrace",
+    .function = mtrace_handle
+};
+
 static void prodtst_ready(char *pwbuf, int blen, int argc, char **argv)
 {
     prodtst_next_round_notify();
 }
 
+static void mtrace_handle(char *pwbuf, int blen, int argc, char **argv)
+{
+    mtrace_dump_memory_usage();
+}
 
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv)
 {
@@ -333,6 +344,7 @@ void xjiang_cloud_init(void)
     qm_cli_register_command(&xjiang_key);
     qm_cli_register_command(&meminfo_key);
     qm_cli_register_command(&prodtst_ready_key);
+    qm_cli_register_command(&mtrace_key);
 
     iot_event_register(IOT_EVENT_PRODTST_SET, prodtst_set_handler);
     iot_event_register(IOT_EVENT_PRODTST_REPORT_REPLY, prodtst_report_reply_handler);

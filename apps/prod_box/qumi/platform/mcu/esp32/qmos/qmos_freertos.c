@@ -314,6 +314,8 @@ int qm_timer_change(qm_timer_t *timer, int ms)
     return  0;
 }
 
+#if !CONFIG_QM_MTRACE
+
 void *qm_zalloc(unsigned int size)
 {
     return calloc(size, 1);
@@ -333,6 +335,8 @@ void qm_free(void *mem)
 {
     free(mem);
 }
+
+#endif
 
 static struct timeval sys_start_time;
 

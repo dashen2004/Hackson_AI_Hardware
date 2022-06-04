@@ -299,6 +299,12 @@ qm_list_node_t *qm_list_node_new(void *val)
     return self;
 }
 
+void qm_list_node_destroy(qm_list_node_t *node)
+{
+    qm_free(node);
+    node = NULL;
+}
+
 void qm_list_node_init(qm_list_node_t *node, void *val)
 {
     if (!node) {

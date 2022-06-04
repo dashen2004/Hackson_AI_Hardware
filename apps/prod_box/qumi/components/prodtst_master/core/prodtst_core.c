@@ -144,14 +144,15 @@ static int prodtst_data_table_reset(prodtst_data_table_t *prodtst_tbl)
 {
     int i = 0, j = 0;
     prodtst_data_t *prodtst_data = NULL;
+    prodtst_data_t *m_prodtst_data = NULL;
     for(i = 0; i < CONFIG_QM_PRODTST_DATA_TABLE_NUM; i++){
-        prodtst_data = prodtst_tbl->data[i];
-        if(prodtst_data == NULL){
+        m_prodtst_data = prodtst_tbl->data[i];
+        if(m_prodtst_data == NULL){
             continue;
         }
                 
         for(j = 0; j < prodtst_tbl->num[i]; j++){
-            prodtst_data = (prodtst_data+j);  
+            prodtst_data = (m_prodtst_data+j);  
             if(prodtst_data->name){
                 qm_free(prodtst_data->name);
             }
@@ -163,9 +164,9 @@ static int prodtst_data_table_reset(prodtst_data_table_t *prodtst_tbl)
                 if(prodtst_data->data){
                     cJSON_Delete((cJSON*)prodtst_data->data);
                 }
-            }
-            qm_free(prodtst_data);
+            }        
         }
+        qm_free(m_prodtst_data);
     }
 
     memset(prodtst_tbl, 0, sizeof(prodtst_data_table_t));
@@ -480,6 +481,10 @@ static int prodtst_fun_handler(prodtst_obj_t *prodtst_obj, char *type, char *met
     }
 
     resp = qm_at_client_create_resp(fun_cmd->recv_size, 0, fun_cmd->timeout);
+    if(resp == NULL){
+        ret = -QM_ENOMEM;
+        goto __exit;
+    }
     ret = qm_at_client_obj_exec_cmd(prodtst_obj->at_client, resp, "%s=\"%s\",\"%s\"", fun_cmd->cmd, method, data);
     if(ret == -QM_ETIMEOUT){
         QM_LOGE(LOG_TAG, "wait fun response timeout");
@@ -498,9 +503,10 @@ static int prodtst_fun_handler(prodtst_obj_t *prodtst_obj, char *type, char *met
         if(prodtst_data && num > 0){
             ret = prodtst_data_table_set(&prodtst_obj->data_tbl, prodtst_data, num);
         }
-        qm_at_client_delete_resp(resp);
-        resp = NULL;
     }
+
+    qm_at_client_delete_resp(resp);
+    resp = NULL;
 
     return ret;
 

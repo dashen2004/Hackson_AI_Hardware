@@ -4,7 +4,7 @@
 
 void *hal_mutex_create(void)
 {
-    qm_mutex_t *mutex = qm_malloc(sizeof(qm_mutex_t));
+    qm_mutex_t *mutex = hal_malloc(sizeof(qm_mutex_t));
     if(!mutex){
         return NULL;
     }
@@ -22,7 +22,7 @@ void hal_mutex_destory(_IN_ void *mutex)
         return;
     }
     qm_mutex_free((qm_mutex_t*)mutex);
-    qm_free(mutex);
+    hal_free(mutex);
 }
 
 void hal_mutex_lock(_IN_ void *mutex)

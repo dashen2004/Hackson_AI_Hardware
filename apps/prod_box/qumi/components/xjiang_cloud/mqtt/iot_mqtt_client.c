@@ -238,6 +238,7 @@ static int MQTTPublish(iot_mc_client_t *c, const char *topicName, iot_mqtt_topic
             /* If failed, remove from list */
             hal_mutex_lock(c->lock_list_pub);
             qm_list_remove(c->list_pub_wait_ack, node);
+            qm_list_node_destroy(node);
             hal_mutex_unlock(c->lock_list_pub);
         }
 
@@ -338,6 +339,7 @@ static int MQTTSubscribe(iot_mc_client_t *c, const char *topicFilter, iot_mqtt_q
         /* If send failed, remove it */
         hal_mutex_lock(c->lock_list_sub);
         qm_list_remove(c->list_sub_wait_ack, node);
+        qm_list_node_destroy(node);
         hal_mutex_unlock(c->lock_list_sub);
         hal_mutex_unlock(c->lock_write_buf);
         log_err("run sendPacket error!");
@@ -386,6 +388,7 @@ static int MQTTUnsubscribe(iot_mc_client_t *c, const char *topicFilter, unsigned
         /* remove from list */
         hal_mutex_lock(c->lock_list_sub);
         qm_list_remove(c->list_sub_wait_ack, node);
+        qm_list_node_destroy(node);
         hal_mutex_unlock(c->lock_list_sub);
         hal_mutex_unlock(c->lock_write_buf);
         return MQTT_NETWORK_ERROR;
@@ -1698,6 +1701,7 @@ static int MQTTSubInfoProc(iot_mc_client_t *pClient)
 
             if (NULL != tempNode) {
                 qm_list_remove(pClient->list_sub_wait_ack, tempNode);
+                qm_list_node_destroy(tempNode);
                 tempNode = NULL;
             }
 
@@ -1859,6 +1863,7 @@ static int MQTTPubInfoProc(iot_mc_client_t *pClient)
 
             if (NULL != tempNode) {
                 qm_list_remove(pClient->list_pub_wait_ack, tempNode);
+                qm_list_node_destroy(tempNode);
                 tempNode = NULL;
             }
 

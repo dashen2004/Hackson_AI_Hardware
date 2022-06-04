@@ -78,6 +78,7 @@ void prodtst_notify_callback(int channel, int prodtst_status)
 
 }
 
+#include "mtrace.h"
 
 void prodtst_app_init(void)
 {

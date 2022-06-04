@@ -670,6 +670,7 @@ int32_t push_ack_info_remove(cloud_context_t *cloud_context, uint16_t mqtt_packe
 
             if (NULL != tempNode) {
                 qm_list_remove(cloud_context->push_ack_list, tempNode);
+                qm_list_node_destroy(tempNode);
                 tempNode = NULL;
             }
 
