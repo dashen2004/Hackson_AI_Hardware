@@ -43,11 +43,15 @@ void miot_qrcode_task(void *arg)
         QM_LOGI(LOG_TAG, "qrcode: %s", buf);
 
         prodtst_uart_write(MIOT_QRCODE_UART_NUM, entery_prodtst_cmd, sizeof(entery_prodtst_cmd));
+        qm_msleep(500);
+
+        uart_ext_fifo_clear(MIOT_QRCODE_UART_NUM);
 
         at_client = qm_at_client_init(&at_param);
         if(at_client == NULL){
             continue;
         }
+
         resp = qm_at_client_create_resp(64, 0, 2000);
         if(resp == NULL){
             continue;

@@ -156,5 +156,6 @@ void uart_ext_init(void);
 int uart_ext_config(uart_ext_port_t uart_num, uint32_t baudrate, int rx_buffer_size, int tx_buffer_size);
 int uart_ext_write_bytes(uart_ext_port_t uart_num, const uint8_t* buf, uint32_t length);
 int uart_ext_read_bytes(uart_ext_port_t uart_num, uint8_t* buf, uint32_t length, uint32_t timeout);
+int uart_ext_fifo_clear(uart_ext_port_t uart_num);
 
 #endif

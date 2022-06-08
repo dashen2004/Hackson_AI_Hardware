@@ -51,7 +51,9 @@ typedef struct{
     uint8_t chan;
     uint8_t port;
 
+    int rx_size;
     RingbufHandle_t rx_ringbuf;
+    int tx_size;
     RingbufHandle_t tx_ringbuf;
     
 }uart_ext_dev_t;
@@ -59,15 +61,15 @@ typedef struct{
 
 static uart_ext_dev_t g_uart_ext_dev[UART_EXT_NUM_MAX] = {
 
-    {WK_CHAN_A, 1, NULL, NULL},
-    {WK_CHAN_A, 2, NULL, NULL},
-    {WK_CHAN_A, 3, NULL, NULL},
-    {WK_CHAN_A, 4, NULL, NULL},
+    {WK_CHAN_A, 1, 0, NULL, 0, NULL},
+    {WK_CHAN_A, 2, 0, NULL, 0, NULL},
+    {WK_CHAN_A, 3, 0, NULL, 0, NULL},
+    {WK_CHAN_A, 4, 0, NULL, 0, NULL},
 
-    {WK_CHAN_B, 1, NULL, NULL},
-    {WK_CHAN_B, 2, NULL, NULL},
-    {WK_CHAN_B, 3, NULL, NULL},
-    {WK_CHAN_B, 4, NULL, NULL},
+    {WK_CHAN_B, 1, 0, NULL, 0, NULL},
+    {WK_CHAN_B, 2, 0, NULL, 0, NULL},
+    {WK_CHAN_B, 3, 0, NULL, 0, NULL},
+    {WK_CHAN_B, 4, 0, NULL, 0, NULL},
 
 };
 
@@ -508,6 +510,9 @@ int uart_ext_config(uart_ext_port_t uart_num, uint32_t baudrate, int rx_buffer_s
         g_uart_ext_dev[uart_num].rx_ringbuf = NULL;
     }
 
+    g_uart_ext_dev[uart_num].rx_size = rx_buffer_size;
+    g_uart_ext_dev[uart_num].tx_size = tx_buffer_size;
+
     g_uart_ext_dev[uart_num].rx_ringbuf = xRingbufferCreate(rx_buffer_size, RINGBUF_TYPE_BYTEBUF);
     g_uart_ext_dev[uart_num].tx_ringbuf = xRingbufferCreate(tx_buffer_size, RINGBUF_TYPE_BYTEBUF);
 
@@ -550,6 +555,24 @@ static int uart_ext_ringbuf_send(uart_ext_port_t uart_num, const uint8_t* src, u
     return 0;
 }
 
+int uart_ext_fifo_clear(uart_ext_port_t uart_num)
+{
+    if(uart_num >= UART_EXT_NUM_MAX){
+        return -1;
+    }
+
+    if(!g_uart_ext_dev[uart_num].rx_ringbuf){
+        return -1;
+    }
+
+    vRingbufferDelete(g_uart_ext_dev[uart_num].tx_ringbuf);
+    vRingbufferDelete(g_uart_ext_dev[uart_num].rx_ringbuf);
+
+    g_uart_ext_dev[uart_num].rx_ringbuf = xRingbufferCreate(g_uart_ext_dev[uart_num].rx_size, RINGBUF_TYPE_BYTEBUF);
+    g_uart_ext_dev[uart_num].tx_ringbuf = xRingbufferCreate(g_uart_ext_dev[uart_num].tx_size, RINGBUF_TYPE_BYTEBUF);
+
+    return 0;
+}
 
 int uart_ext_write_bytes(uart_ext_port_t uart_num, const uint8_t* buf, uint32_t length)
 {
@@ -712,6 +735,7 @@ static void uart_ext_rx_thread(void *arg)
         
     }
 }
+
 
 void uart_ext_test_thread(void *arg)
 {
