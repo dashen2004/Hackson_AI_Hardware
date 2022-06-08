@@ -7,7 +7,7 @@
 #include "led.h"
 #include "multi_button.h"
 #include "uart_ext.h"
-
+#include "scanner.h"
 
 
 void drivers_init(void);

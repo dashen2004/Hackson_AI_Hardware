@@ -27,9 +27,17 @@ void scanner_thread(void *arg)
 }
 
 
+int scanner_read(uint8_t* buf, uint32_t length, uint32_t timeout)
+{
+    return uart_ext_read_bytes(UART_EXT_NUM_7, buf, length, timeout);
+}
+
+static uint8_t recvbuf[256] = {0};
+
  void scanner_init(void)
  {
 
+     uart_ext_config(UART_EXT_NUM_7, 9600, 256, 0);
      xTaskCreate(scanner_thread, "scanner", 2048, (void *)0, 10, NULL);
 
  }

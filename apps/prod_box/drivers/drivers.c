@@ -10,7 +10,7 @@ void drivers_init(void)
 
     led_init();
 
-    //beep_work(500, 500, 1);
-
     uart_ext_init();
+
+    scanner_init();
 }
