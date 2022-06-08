@@ -413,7 +413,7 @@ int32_t qm_at_client_obj_send(qm_at_client_t *client, char *buf, uint32_t size)
         return 0;
     }
 
-#ifdef CONFIG_QM_AT_PRINT_RAW_CMD
+#if CONFIG_QM_AT_PRINT_RAW_CMD
     qm_at_print_raw_cmd("sendline", buf, size);
 #endif
 
@@ -693,7 +693,7 @@ static int qm_at_recv_readline(qm_at_client_t *client)
         last_ch = ch;
     }
 
-#ifdef CONFIG_QM_AT_PRINT_RAW_CMD
+#if CONFIG_QM_AT_PRINT_RAW_CMD
     qm_at_print_raw_cmd("recvline", client->recv_line_buf, read_len);
 #endif
 
