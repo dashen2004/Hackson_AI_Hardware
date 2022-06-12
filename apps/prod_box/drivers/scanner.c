@@ -37,7 +37,7 @@ static uint8_t recvbuf[256] = {0};
  void scanner_init(void)
  {
 
-     uart_ext_config(UART_EXT_NUM_7, 9600, 256, 0);
-     xTaskCreate(scanner_thread, "scanner", 2048, (void *)0, 10, NULL);
+     uart_ext_config(UART_EXT_NUM_7, 9600, 256, 256);
+     //xTaskCreate(scanner_thread, "scanner", 2048, (void *)0, 10, NULL);
 
  }

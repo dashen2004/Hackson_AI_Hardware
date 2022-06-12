@@ -787,8 +787,12 @@ static void client_parser(void *arg)
 
     QM_LOGI(LOG_TAG, "at client exit");
 
-    qm_sem_free(&client->resp_notice);
+    qm_mutex_lock(&client->lock, QM_WAIT_FOREVER);
+    qm_mutex_unlock(&client->lock);
     qm_mutex_free(&client->lock);
+
+    qm_sem_free(&client->resp_notice);
+    
     qm_free(client->recv_line_buf);
     memcpy(&task, &client->task, sizeof(task));
     memset(client, 0, sizeof(qm_at_client_t));

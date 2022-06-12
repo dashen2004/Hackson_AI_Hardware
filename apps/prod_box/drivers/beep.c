@@ -85,8 +85,10 @@ static void beep_timeout(qm_timer_t *timer, void *arg)
             qm_timer_change(&beep_timer, beep_ctrl.on_time);
             qm_timer_start(&beep_timer);   
         }else{
+            beep_ctrl.count--;
             if(beep_ctrl.count > 0){
-                beep_ctrl.count--;
+                beep_ctrl.status = BEEP_ON;
+                gpio_ext_set(BEEP_GPIO_PIN, BEEP_ON);
                 qm_timer_change(&beep_timer, beep_ctrl.on_time);
                 qm_timer_start(&beep_timer);  
             }

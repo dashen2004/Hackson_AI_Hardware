@@ -31,6 +31,9 @@ void app_main()
 
     qm_main();
 
+    //extern void miot_qrcode_init(void);
+    //miot_qrcode_init();
+
     network_init();
 
     prodtst_app_init();
