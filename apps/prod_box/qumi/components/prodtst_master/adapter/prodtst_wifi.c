@@ -21,7 +21,8 @@ typedef struct{
 }prodtst_wifi_channel_t;
 
 
-static uint8_t mac[6];
+static uint8_t g_mac[6];
+static int g_aid = 0;
 static char buffer[16] = {0};
 static char prodtst_ssid[32] = {0};
 
@@ -40,17 +41,20 @@ void prodtst_wifi_event_callback(prodtst_wifi_event_t *event, void *arg)
     char *ip_str = NULL;
     switch(event->type){
 
-        case PRODTST_WIFI_EVENT_AP_CONNECTED:
-            //memcpy(mac, event->event_info.sta_disconnected.mac, 6);
+        case PRODTST_WIFI_EVENT_AP_STACONNECTED:
+            memcpy(g_mac, event->event_info.sta_connected.mac, 6);
+            g_aid = event->event_info.sta_connected.aid;
             if(!is_prodtst_ready()){
                 QM_LOGI(LOG_TAG, "prodtst is not ready, deauth sta");
-                prodtst_wifi_deauth_sta(event->event_info.sta_disconnected.aid);
+                prodtst_wifi_deauth_sta(g_aid);
+                g_aid = 0;
             }
 
         break;
 
-        case PRODTST_WIFI_EVENT_AP_DISCONNECTED:
-            //memcpy(mac, event->event_info.sta_disconnected.mac, 6);
+        case PRODTST_WIFI_EVENT_AP_STADISCONNECTED:
+            g_aid = 0;
+            memcpy(g_mac, event->event_info.sta_disconnected.mac, 6);
 
         break;
 
@@ -225,6 +229,9 @@ static int channel_destroy(void *handle)
     prodtst_tcp_destroy(channel->fd);
     qm_free(handle);
     QM_LOGI(LOG_TAG, "tcp closed");
+    if(g_aid > 0){
+        prodtst_wifi_deauth_sta(g_aid);
+    }
     return QM_EOK;
 }
 

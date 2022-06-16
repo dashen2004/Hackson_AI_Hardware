@@ -10,14 +10,15 @@
 #define MESSAGES_SYNC_SUPPORT
 //#define MESSAGES_ASYNC_SUPPORT
 
-#define MESSAGE_ID_INT_ATTR_ID      0xF1
+#define MESSAGE_ID_ATTR_ID          0xF1
+#define MESSAGE_ALI_ID_MAP          0xF2
+#define MESSAGE_XM_ID_MAP           0xF3
 #define MESSAGE_ID_STRING_ATTR_ID   0xFC
-#define MESSAGE_XM_ID_MAP       0xF3
-#define MESSAGE_ONENET_ID_MAP   0xF9
-#define MESSAGE_PID_STRING      0xFA
-#define MESSAGE_PID_INT         0xF7
-#define MESSAGE_MESH_GROUP_ADDR 0xF4
-#define RAW_DATA_ATTR_ID        0xFF
+#define MESSAGE_ONENET_ID_MAP       0xF9
+#define MESSAGE_PID_STRING          0xFA
+#define MESSAGE_PID_INT             0xF7
+#define MESSAGE_MESH_GROUP_ADDR     0xF4
+#define RAW_DATA_ATTR_ID            0xFF
 
 #define MAX_MESSAGE_BASIC_LEN  6 // typeid + attr_id + value(sizeof(int))
 #define MIN_MESSAGE_LEN        3 // typeid + attr_id + value
@@ -54,7 +55,7 @@ typedef enum{
     DATA_TYPE_GROUP           = 23,
     DATA_TYPE_STRING_ARRAY    = 24,
     DATA_TYPE_RAW,
-    DATA_TYPE_MAX = DATA_TYPE_GROUP,
+    DATA_TYPE_MAX = DATA_TYPE_STRING_ARRAY,
 }data_type_t;
 
 enum{

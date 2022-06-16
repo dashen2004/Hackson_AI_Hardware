@@ -260,7 +260,7 @@ message_context_t *message_parse(uint8_t *data, uint16_t len, message_parse_type
     message_context->type=*data;
     ++offset;
 
-    if(*(data+2) != MESSAGE_ID_INT_ATTR_ID && *(data+2) != MESSAGE_ID_STRING_ATTR_ID){
+    if(*(data+2) != MESSAGE_ID_ATTR_ID && *(data+2) != MESSAGE_ID_STRING_ATTR_ID){
         goto raw;
     }
 
@@ -519,13 +519,13 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
     int64_t tmp_i64 = 0;
     switch(REAL_TYPEID_GET(object->type_id)){
         case DATA_TYPE_BOOL:
-            *data=object->value.value_bool;
+            *(uint64_t*)data=object->value.value_bool;
         break;
         case DATA_TYPE_UINT8:
-            *data=object->value.value_u8;
+            *(uint64_t*)data=object->value.value_u8;
         break;
         case DATA_TYPE_INT8:
-            *data = object->value.value_i8;
+            *(uint64_t*)data = object->value.value_i8;
         break;
         case DATA_TYPE_UINT16:
         case DATA_TYPE_FLOAT_ONE_UINT16:
@@ -535,7 +535,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
                 tmp_u16 = object->value.value_u16;
             }
-            memcpy(data, &tmp_u16, sizeof(uint16_t));
+            *(uint64_t*)data = tmp_u16;
         break;
         case DATA_TYPE_INT16:
         case DATA_TYPE_FLOAT_ONE_INT16:
@@ -545,7 +545,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
                 tmp_i16 = object->value.value_i16;
             }
-            memcpy(data, &tmp_i16, sizeof(uint16_t));
+            *(uint64_t*)data = tmp_i16;
         break;
 #ifdef MESSAGE_INT_SUPPORT
         case DATA_TYPE_UINT32:
@@ -556,7 +556,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
                 tmp_u32 = object->value.value_u32;
             }
-            memcpy(data, &tmp_u32, sizeof(uint32_t));
+            *(uint64_t*)data = tmp_u32;
         break;
         case DATA_TYPE_INT32:
         case DATA_TYPE_FLOAT_ONE_INT32:
@@ -566,7 +566,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
                 tmp_i32 = object->value.value_i32;
             }
-            memcpy(data, &tmp_i32, sizeof(int32_t));
+            *(uint64_t*)data = tmp_i32;
         break;
 #endif
 #ifdef MESSAGE_INT64_SUPPORT
@@ -576,7 +576,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
             	tmp_u64 = object->value.value_u64;
             }
-            memcpy(data, &tmp_u64, sizeof(uint64_t));
+            *(uint64_t*)data = tmp_u64;
         break;
         case DATA_TYPE_INT64:
             if(byte_order == BYTE_ORDER_LITTLE_ENDIAN){
@@ -584,7 +584,7 @@ int32_t message_value_serialize(message_info_t *object, uint8_t *data, uint8_t l
             }else{
             	tmp_i64 = object->value.value_i64;
             }
-            memcpy(data, &tmp_i64, sizeof(int64_t));
+            *(uint64_t*)data = tmp_i64;
         break;
 #endif
         default:
