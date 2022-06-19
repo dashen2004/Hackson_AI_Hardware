@@ -37,7 +37,6 @@ int qm_time_info_get(qm_time_info_t* info)
 
     ret = qm_timestamp_get(&timestamp);
     if(ret != QM_EOK){
-        qm_time_aync_notify();
         return ret;
     }
     timestamp += info->timezone*3600;
