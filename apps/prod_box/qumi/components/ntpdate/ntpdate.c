@@ -14,8 +14,10 @@ static qm_timer_t timer = {0};
 static qm_mutex_t time_lock = {0};
 static uint32_t utc_timestamp = 0;
 static uint32_t notify_time = 0;
-static int is_qm_time_init = 0;
-static int is_time_aync = 0;
+static int need_sync = 0;
+static int is_time_init = 0;
+static int is_time_sync = 0;
+static int is_time_sync_start = 0;
 
 static void qm_time_task(void *arg);
 
@@ -39,6 +41,7 @@ int qm_time_info_get(qm_time_info_t* info)
     if(ret != QM_EOK){
         return ret;
     }
+
     timestamp += info->timezone*3600;
     time = (time_t)timestamp;
     tm = localtime(&time);
@@ -81,18 +84,36 @@ int qm_timestamp_get(uint32_t *timestamp)
     return QM_EOK;
 }
 
-//notify time aynchronization form ntp server
-int qm_time_aync_notify(void)
+//start notify time aynchronization form ntp server
+int qm_time_sync_start(void)
 {
     qm_err_t ret = QM_EOK;
 
-    if(!is_qm_time_init){
+    if(!is_time_init){
         return -QM_ERROR;
     }
 
-    if(is_time_aync){
-        return -QM_ERROR;
+    if(is_time_sync && !need_sync){
+        return QM_EOK;
     }
+
+    qm_mutex_lock(&time_lock, QM_WAIT_FOREVER);
+    is_time_sync_start = 1;
+    qm_mutex_unlock(&time_lock);
+
+    ret = qm_task_new(&time_task, "time", qm_time_task, NULL, CONFIG_QM_TIME_TASK_SIZE, CONFIG_QM_TIME_TASK_PRIO);
+    if(ret != QM_EOK){
+        return ret;
+    }
+    
+    need_sync = 0;
+
+    return QM_EOK;
+}
+
+static int time_sync_start(void)
+{
+    qm_err_t ret = QM_EOK;
 
     ret = qm_task_new(&time_task, "time", qm_time_task, NULL, CONFIG_QM_TIME_TASK_SIZE, CONFIG_QM_TIME_TASK_PRIO);
     if(ret != QM_EOK){
@@ -101,25 +122,39 @@ int qm_time_aync_notify(void)
     return QM_EOK;
 }
 
+//stop notify time aynchronization form ntp server
+int qm_time_sync_stop(void)
+{
+    qm_err_t ret = QM_EOK;
+
+    if(!is_time_init){
+        return -QM_ERROR;
+    }
+
+    qm_mutex_lock(&time_lock, QM_WAIT_FOREVER);
+    is_time_sync_start = 0;
+    qm_mutex_unlock(&time_lock);
+
+    return QM_EOK;
+}
+
 static void qm_time_task(void *arg)
 {
     qm_err_t ret = QM_EOK;
     struct timeval_t time = {0};
-
-    is_time_aync = 1;
 
     while(1){
         ret = qm_utils_get_epoch_time_from_ntp(&time);
         if(ret != QM_EOK){
             continue;
         }
+        is_time_sync = 1;
+        qm_timer_stop(&timer);
         qm_mutex_lock(&time_lock, QM_WAIT_FOREVER);
         utc_timestamp = time.tv_sec;
         qm_mutex_unlock(&time_lock);
         QM_LOGD(LOG_TAG, "utc timestamp: %u", utc_timestamp);
-        qm_timer_stop(&timer);
         qm_timer_start(&timer);
-        is_time_aync = 0;
         qm_task_exit(&time_task);
     }
 
@@ -128,10 +163,17 @@ static void qm_time_task(void *arg)
 static void qm_timer_callback( qm_timer_t *timer, void *arg)
 {
     utc_timestamp++;
-    notify_time++;
-    if(notify_time >= CONFIG_QM_TIME_AYNC_TIMEOUT){
+    if(!need_sync){
+        notify_time++;
+    }
+    if(notify_time >= CONFIG_QM_TIME_SYNC_TIMEOUT){
         notify_time = 0;
-        qm_time_aync_notify();
+        if(is_time_sync_start){
+            need_sync = 0;
+            time_sync_start();
+        }else{
+            need_sync = 1;
+        }
     }
 }
 //time service initialization
@@ -139,7 +181,7 @@ int qm_time_init(void)
 {
     qm_err_t ret = QM_EOK;
 
-    if(is_qm_time_init){
+    if(is_time_init){
         return QM_EOK;
     }
 
@@ -153,7 +195,9 @@ int qm_time_init(void)
         goto __exit;
     }
 
-    is_qm_time_init = 1;
+    qm_timer_start(&timer);
+
+    is_time_init = 1;
 
     return QM_EOK;
 

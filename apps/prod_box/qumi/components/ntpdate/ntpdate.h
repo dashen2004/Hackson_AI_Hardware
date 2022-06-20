@@ -11,8 +11,8 @@
 #define CONFIG_QM_TIME_TASK_PRIO                 21    
 #endif
 
-#ifndef CONFIG_QM_TIME_AYNC_TIMEOUT  
-#define CONFIG_QM_TIME_AYNC_TIMEOUT              6*3600   
+#ifndef CONFIG_QM_TIME_SYNC_TIMEOUT  
+#define CONFIG_QM_TIME_SYNC_TIMEOUT              6*3600   
 #endif
 
 typedef struct 
@@ -31,8 +31,10 @@ typedef struct
 int qm_time_info_get(qm_time_info_t* info);
 //get utc timestamp
 int qm_timestamp_get(uint32_t *timestamp);
-//notify time aynchronization from ntp server
-int qm_time_aync_notify(void);
+//start notify time synchronization from ntp server
+int qm_time_sync_start(void);
+//stop notify time synchronization from ntp server
+int qm_time_sync_stop(void);
 //time service initialization
 int qm_time_init(void);
 
