@@ -84,7 +84,7 @@ int qm_timestamp_get(uint32_t *timestamp)
     return QM_EOK;
 }
 
-//start notify time aynchronization form ntp server
+//start notify time synchronization form ntp server
 int qm_time_sync_start(void)
 {
     qm_err_t ret = QM_EOK;
@@ -122,7 +122,7 @@ static int time_sync_start(void)
     return QM_EOK;
 }
 
-//stop notify time aynchronization form ntp server
+//stop notify time synchronization form ntp server
 int qm_time_sync_stop(void)
 {
     qm_err_t ret = QM_EOK;
