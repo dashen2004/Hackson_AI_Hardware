@@ -8,6 +8,8 @@
 #include <hal/soc/qm_gpio.h>
 #include <hal/soc/qm_pwm.h>
 #include <hal/soc/qm_uart.h>
-
+#include <hal/soc/qm_i2c.h>
+#include <hal/soc/qm_timer.h>
+#include <hal/soc/qm_wdg.h>
 
 #endif /* QM_SOC_H */
