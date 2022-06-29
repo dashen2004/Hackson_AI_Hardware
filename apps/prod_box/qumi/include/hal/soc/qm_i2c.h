@@ -36,10 +36,19 @@ typedef struct {
     uint16_t dev_addr;      /**< slave device addr */
 } qm_i2c_config_t;
 
+/**
+ * @brief i2c pins
+ */
+typedef struct {
+    uint8_t sda_pin;
+    uint8_t sck_pin;
+} qm_i2c_pins_t;
+
 /* This struct define i2c main handle */
 typedef struct {
     uint8_t          port;   /**< i2c port */
     qm_i2c_config_t  config; /**< i2c config */
+    qm_i2c_pins_t    pins;    /**< i2c pins*/
     void             *priv;   /**< priv data */
 } qm_i2c_dev_t;
 

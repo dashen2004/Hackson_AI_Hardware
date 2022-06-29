@@ -14,6 +14,12 @@ extern "C" {
 
 #include "qmos/qm_types.h"
 
+/**
+ * @brief pwm pin
+ */
+typedef struct {
+    uint8_t pwm_pin;
+} qm_pwm_pin_t;
 
 typedef struct {
     uint32_t pulse;     /**< the pwm pulse */
@@ -23,6 +29,7 @@ typedef struct {
 typedef struct {
     uint8_t       port;   /**< pwm port */
     qm_pwm_config_t  config; /**< spi config */
+    qm_pwm_pin_t    pin;   /**< pwm pin */
     void         *priv;   /**< priv data */
 } qm_pwm_dev_t;
 

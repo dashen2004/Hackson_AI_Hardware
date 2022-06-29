@@ -13,13 +13,19 @@ extern "C" {
 
 #include "qmos/qm_types.h"
 
+/**
+ * @brief adc pin
+ */
+typedef struct {
+    uint8_t adc_pin;
+} qm_adc_pin_t;
 
 /* Define ADC dev hal handle */
 typedef struct {
     uint8_t      port;   /**< adc port */
+    qm_adc_pin_t pin;    /**< adc pin */
     void        *priv;   /**< priv data */
 } qm_adc_dev_t;
-
 
 /**
  * Initialises an ADC interface, Prepares an ADC hardware interface for sampling
