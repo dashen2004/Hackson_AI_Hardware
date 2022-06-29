@@ -11,5 +11,6 @@
 #include <hal/soc/qm_i2c.h>
 #include <hal/soc/qm_timer.h>
 #include <hal/soc/qm_wdg.h>
+#include <hal/soc/qm_rtc.h>
 
 #endif /* QM_SOC_H */
