@@ -25,7 +25,7 @@ typedef enum {
     QM_GPIO_INTR_LOW_LEVEL = 4,   /*!< GPIO interrupt type : input low level trigger      */
     QM_GPIO_INTR_HIGH_LEVEL = 5,  /*!< GPIO interrupt type : input high level trigger     */
     QM_GPIO_INTR_MAX,
-} qm_gpio_int_type_t;
+} qm_gpio_intr_type_t;
 
 
 typedef enum {
@@ -50,7 +50,7 @@ typedef enum {
  */
 typedef struct {
     qm_gpio_mode_t mode;                  /*!< GPIO mode: set input/output mode                  */
-    qm_gpio_pull_mode_t pull_en;               /*!< GPIO pull nmode                                   */        
+    qm_gpio_pull_mode_t pull_en;          /*!< GPIO pull nmode                                   */        
     qm_gpio_int_type_t intr_type;         /*!< GPIO interrupt type                               */
 } qm_gpio_config_t;
 
@@ -62,6 +62,12 @@ typedef struct {
     qm_gpio_config_t  config; /**< gpio config */
     void          *priv;   /**< priv data */
 } qm_gpio_dev_t;
+
+/*
+ * GPIO interrupt callback handler
+ */
+typedef void (*qm_gpio_irq_handler_t)(void *arg);
+
 
 /**
  * Initialises a GPIO pin
@@ -97,6 +103,42 @@ int32_t qm_gpio_set_level(qm_gpio_dev_t *gpio, uint8_t level);
  *
  */
 uint8_t qm_gpio_get_level(qm_gpio_dev_t *gpio);
+
+/**
+ * Enables an interrupt trigger for an input GPIO pin.
+ * Using this function on a gpio pin which is set to
+ * output mode is undefined.
+ *
+ * @param[in]  gpio     the gpio pin which will provide the interrupt trigger
+ * @param[in]  intr_type  the type of trigger (rising/falling edge or both)
+ * @param[in]  handler  a function pointer to the interrupt handler
+ * @param[in]  arg      an argument that will be passed to the interrupt handler
+ *
+ * @return  0 : on success,  otherwise is error
+ */
+int32_t qm_gpio_enable_irq(qm_gpio_dev_t *gpio, qm_gpio_intr_type_t intr_type,
+                            qm_gpio_irq_handler_t handler, void *arg);
+
+/**
+ * Disables an interrupt trigger for an input GPIO pin.
+ * Using this function on a gpio pin which has not been setted up using
+ * @ref hal_gpio_input_irq_enable is undefined.
+ *
+ * @param[in]  gpio  the gpio pin which provided the interrupt trigger
+ *
+ * @return  0 : on success,  otherwise is error
+ */
+int32_t qm_gpio_disable_irq(qm_gpio_dev_t *gpio);
+
+/**
+ * Clear an interrupt status for an input GPIO pin.
+ * Using this function on a gpio pin which has generated a interrupt.
+ *
+ * @param[in]  gpio  the gpio pin which provided the interrupt trigger
+ *
+ * @return  0 : on success,  otherwise is error
+ */
+int32_t qm_gpio_clear_irq(qm_gpio_dev_t *gpio);
 
 /**
  * Set a GPIO pin in default state.
