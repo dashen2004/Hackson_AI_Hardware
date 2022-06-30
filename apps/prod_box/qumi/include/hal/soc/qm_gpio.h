@@ -51,7 +51,6 @@ typedef enum {
 typedef struct {
     qm_gpio_mode_t mode;                  /*!< GPIO mode: set input/output mode                  */
     qm_gpio_pull_mode_t pull_en;          /*!< GPIO pull nmode                                   */        
-    qm_gpio_int_type_t intr_type;         /*!< GPIO interrupt type                               */
 } qm_gpio_config_t;
 
 /*
