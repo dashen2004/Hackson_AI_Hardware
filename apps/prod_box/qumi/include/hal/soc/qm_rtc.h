@@ -71,6 +71,26 @@ int32_t qm_rtc_get_time(qm_rtc_dev_t *rtc, qm_rtc_time_t *time);
 int32_t qm_rtc_set_time(qm_rtc_dev_t *rtc, const qm_rtc_time_t *time);
 
 /**
+ * This function will return the value of time read from the on board CPU real time clock.
+ *
+ * @param[in]   rtc   rtc device
+ * @param[out]  timestamp  pointer to a timestamp
+ *
+ * @return  0 : on success,  otherwise is error
+ */
+int32_t qm_rtc_get_timestamp(qm_rtc_dev_t *rtc, uint32_t *timestamp);
+
+/**
+ * This function will set MCU RTC time to a new value.
+ *
+ * @param[in]   rtc   rtc device
+ * @param[in]   timestamp  timestamp
+ *
+ * @return  0 : on success,  otherwise is error
+ */
+int32_t qm_rtc_set_timestamp(qm_rtc_dev_t *rtc, uint32_t timestamp);
+
+/**
  * De-initialises an RTC interface, Turns off an RTC hardware interface
  *
  * @param[in]  RTC  the interface which should be de-initialised
