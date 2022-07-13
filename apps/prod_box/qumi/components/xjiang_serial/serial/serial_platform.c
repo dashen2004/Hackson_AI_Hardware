@@ -3,7 +3,6 @@
 #include "qm_kernel.h"
 #include "qm_errno.h"
 #include "qm_uart.h"
-#include "qm_log.h"
 #include "ntpdate.h"
 
 /**

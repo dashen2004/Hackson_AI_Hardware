@@ -12,7 +12,7 @@ static inline unsigned int qm_log_get_level(void)
     return qm_log_level;
 }
 
-enum log_level_bit {
+enum qm_log_level_bit {
     QM_LL_V_NONE_BIT = -1,
     QM_LL_V_FATAL_BIT,
     QM_LL_V_ERROR_BIT,

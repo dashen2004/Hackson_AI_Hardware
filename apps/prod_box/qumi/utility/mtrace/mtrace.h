@@ -3,6 +3,11 @@
 
 #define MAX_FILE_NAME_LENGTH  128
 
+#ifndef CONFIG_QM_MTRACE
+#define CONFIG_QM_MTRACE   0
+#endif
+
+
 /** Structure holding the details of a memory allocation/deallocation event. */
 typedef struct mem_event {
     unsigned int      size;

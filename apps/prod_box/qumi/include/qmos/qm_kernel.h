@@ -1,11 +1,13 @@
 #ifndef QM_KERNEL_H
 #define QM_KERNEL_H
 
-#include "mtrace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include "qm_types.h"
+#include "mtrace.h"
 
 #define QM_WAIT_FOREVER    0xffffffffu
 #define QM_NO_WAIT         0x0
@@ -408,7 +410,7 @@ void qm_free(void *mem);
  *
  * @return  elapsed time in mini seconds from system starting.
  */
-long long qm_now_ms(void);
+uint32_t qm_now_ms(void);
 
 /**
  * Msleep.

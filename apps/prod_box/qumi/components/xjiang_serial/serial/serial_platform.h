@@ -5,6 +5,10 @@
 #include "serial_common.h"
 #include "serial_protocol.h"
 
+#ifdef SERIAL_QM_PRINTF_SUPPORT
+#include "qm_log.h"
+#endif
+
 #ifdef SERIAL_RTOS_SUPPORT
 /*********************************** mutex interface ***********************************/
 
@@ -164,7 +168,7 @@ void qm_serial_free(void *ptr);
 #ifndef SERIAL_QM_PRINTF_SUPPORT
 int qm_serial_printf(const char *fmt, ...);
 #else
-#define qm_serial_printf  qm_printf
+#define qm_serial_printf  QM_LOGD
 #endif
 
 

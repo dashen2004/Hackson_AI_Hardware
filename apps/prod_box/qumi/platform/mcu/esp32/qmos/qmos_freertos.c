@@ -340,8 +340,7 @@ void qm_free(void *mem)
 
 static struct timeval sys_start_time;
 
-
-long long qm_now_ms(void)
+uint32_t qm_now_ms(void)
 {
     struct timeval tv;
     long long ms;
