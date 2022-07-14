@@ -2,20 +2,21 @@
 #include "qm_utils_md5.h"
 #include "qm_utils_sha1.h"
 #include "qm_utils_hmac.h"
+#include "qm_errno.h"
 
 #define KEY_IOPAD_SIZE 64
 
 #define MD5_DIGEST_SIZE 16
 #define SHA1_DIGEST_SIZE 20
 
-void qm_utils_hmac_md5(const char *msg, int msg_len, char *digest, const char *key, int key_len)
+int qm_utils_hmac_md5(const char *msg, int msg_len, char *digest, const char *key, int key_len)
 {
     if((NULL == msg) || (NULL == digest) || (NULL == key)) {
-        return;
+        return -QM_EINVAL;
     }
 
     if(key_len > KEY_IOPAD_SIZE) {
-        return;
+        return -QM_EINVAL;
     }
 
     qm_md5_context context;
@@ -54,16 +55,17 @@ void qm_utils_hmac_md5(const char *msg, int msg_len, char *digest, const char *k
         digest[i * 2] = qm_utils_hb2hex(out[i] >> 4);
         digest[i * 2 + 1] = qm_utils_hb2hex(out[i]);
     }
+    return QM_EOK;
 }
 
-void qm_utils_hmac_sha1(const char *msg, int msg_len, char *digest, const char *key, int key_len)
+int qm_utils_hmac_sha1(const char *msg, int msg_len, char *digest, const char *key, int key_len)
 {
     if((NULL == msg) || (NULL == digest) || (NULL == key)) {
-        return;
+        return -QM_EINVAL;
     }
 
     if(key_len > KEY_IOPAD_SIZE) {
-        return;
+        return -QM_EINVAL;
     }
 
     qm_sha1_context context;
@@ -102,5 +104,7 @@ void qm_utils_hmac_sha1(const char *msg, int msg_len, char *digest, const char *
         digest[i * 2] = qm_utils_hb2hex(out[i] >> 4);
         digest[i * 2 + 1] = qm_utils_hb2hex(out[i]);
     }
+
+    return QM_EOK;
 }
 
