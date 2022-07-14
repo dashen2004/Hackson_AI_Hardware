@@ -52,22 +52,9 @@ void app_main()
     // prodtst_app_init();
 
     // xjiang_cloud_init();
-    #include "totp.h"
 
-    totp_t totp = {0};
-    totp_t last_totp = {0};
 
-    uint8_t mac[6] = {0x11, 0x11, 0x11, 0x11, 0x11, 0x11};
-
-    totp_get_keys(1800, mac, 6, 1657711869, &totp, &last_totp);
-    #if 1
-    for(int i = 0; i < 8; i++){
-        printf("passwd: %u\n", totp[i]);   
-    }
-
-    for(int i = 0; i < 8; i++){
-        printf("last passwd: %u\n", last_totp[i]);   
-    }
-    #endif
+    extern void at_server_product_init(void);
+    at_server_product_init();
 
 }

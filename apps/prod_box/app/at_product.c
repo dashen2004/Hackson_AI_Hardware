@@ -18,6 +18,14 @@ static char product_uart_buf[BUF_SIZE];
 static int product_uart_send(void *handle, char *buf, int len);
 static int product_uart_recv(void *handle, char *buf, int len, int timeout);
 
+static qm_at_result_t at_exec(void *channel);
+
+static qm_at_cmd_t prodtst_at_cmd[] = {
+    {"ATS", NULL, NULL, NULL, NULL, at_exec},
+};
+
+#define PRODTST_AT_CMD_NUM (sizeof(prodtst_at_cmd) / sizeof(prodtst_at_cmd[0]))
+
 
 static qm_at_server_param_t at_server_param = {
     1,
@@ -28,6 +36,12 @@ static qm_at_server_param_t at_server_param = {
     product_uart_send,
     product_uart_recv,
 };
+
+
+static qm_at_result_t at_exec(void *channel)
+{
+    return QM_AT_RESULT_OK;
+}
 
 
 static int product_uart_send(void *handle, char *data, int len)
@@ -55,6 +69,8 @@ void at_server_product_init(void)
     uart_driver_install(UART_NUM_1, BUF_SIZE * 2, 0, 0, NULL, 0);
 
     product_uart_channel = qm_at_server_init(&at_server_param);
+
+    qm_at_register_commands(product_uart_channel, prodtst_at_cmd, PRODTST_AT_CMD_NUM);
 
 } 
 
