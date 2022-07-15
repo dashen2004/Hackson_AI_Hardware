@@ -43,7 +43,6 @@ static qm_at_result_t at_exec(void *channel)
     return QM_AT_RESULT_OK;
 }
 
-
 static int product_uart_send(void *handle, char *data, int len)
 {
     return uart_write_bytes(UART_NUM_1, data, len);
