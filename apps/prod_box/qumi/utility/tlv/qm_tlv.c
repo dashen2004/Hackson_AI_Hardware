@@ -113,22 +113,27 @@ int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
     return QM_EOK;
 }
 
-int qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t* tlv_block)
+qm_tlv_block_t *qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, uint16_t tag)
 {
     qm_tlv_block_t *m_tlv_block = NULL;
-    if(tlv_ctx == NULL || tlv_block == NULL){
-        return -QM_EINVAL;
+    if(tlv_ctx == NULL){
+        return NULL;
     }
     m_tlv_block = tlv_ctx->tlv_block;
     while(m_tlv_block){
-        if(m_tlv_block->tag == tlv_block->tag){
+        #if CONFIG_QM_TLV_LENGTH_SIZE == 1
+        if(m_tlv_block->tag == (uint8_t)tag){
             break;
         }
+    #elif CONFIG_QM_TLV_LENGTH_SIZE == 2
+        if(m_tlv_block->tag == (uint16_t)tag){
+            break;
+        }
+    #endif
         m_tlv_block = m_tlv_block->next;
     }
-    memcpy(tlv_block, m_tlv_block, sizeof(qm_tlv_block_t));
-
-    return QM_EOK;
+    
+    return m_tlv_block;
 }
 
 int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len)
@@ -189,7 +194,7 @@ int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len)
     return QM_EOK;
 }
 
-int qm_tlv_parse(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int len)
+int qm_tlv_deserialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int len)
 {
     int index = 0;
 #if (CONFIG_QM_TLV_TAG_SIZE == 2) || (CONFIG_QM_TLV_LENGTH_SIZE == 2)
@@ -265,6 +270,8 @@ int qm_tlv_parse(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int len)
         qm_tlv_block_add(tlv_ctx, tlv_block);
     }
 
+    return QM_EOK;
+
 __exit:
     if(tlv_block){
         tlv_free(tlv_block);
@@ -333,7 +340,6 @@ int qm_tlv_unpack_bytes(qm_tlv_block_t *tlv_block, uint8_t *bytes, int *size)
     }
   
     *size = (int)tlv_block->len;
-    return QM_EOK;
 
     if(bytes == NULL){
         return QM_EOK;
@@ -355,7 +361,6 @@ int qm_tlv_unpack_string(qm_tlv_block_t *tlv_block, char *str, int *size)
     }
   
     *size = (int)tlv_block->len;
-    return QM_EOK;
 
     if(str == NULL){
         return QM_EOK;
@@ -443,6 +448,16 @@ int qm_tlv_pack_bytes(qm_tlv_block_t *tlv_block, uint8_t *bytes, int size)
     if(tlv_block == NULL){
         return -QM_EINVAL;
     }
+
+#if CONFIG_QM_TLV_LENGTH_SIZE == 1
+    if(size > 0xFF){
+        return -QM_EINVAL;
+    }
+#elif CONFIG_QM_TLV_LENGTH_SIZE == 2
+    if(size > 0xFFFF){
+        return -QM_EINVAL;
+    }
+#endif
 
     if(size <= QM_TLV_BYTES_SIZE){
         memcpy(tlv_block->value.bytes, bytes, size);

@@ -76,6 +76,17 @@ void qm_set_log_level(qm_log_level_t log_level);
 #define QM_LOGD(mod, fmt, ...) QM_LOGD_IMPL(mod, fmt, ##__VA_ARGS__)
 
 
+#define QM_HEX_LOGD(mod, name, p_data, len) QM_HEX_LOGD_IMPL(mod, name, p_data, len)
+
+#define QM_HEX_LOGI(mod, name, p_data, len) QM_HEX_LOGI_IMPL(mod, name, p_data, len)
+
+#define QM_HEX_LOGW(mod, name, p_data, len) QM_HEX_LOGW_IMPL(mod, name, p_data, len)
+
+#define QM_HEX_LOGE(mod, name, p_data, len) QM_HEX_LOGE_IMPL(mod, name, p_data, len)
+
+#define QM_HEX_LOGF(mod, name, p_data, len) QM_HEX_LOGF_IMPL(mod, name, p_data, len)
+
+
 /* Exported macro ------------------------------------------------------------*/
 #ifdef  CONFIG_FULL_ASSERT
 /**

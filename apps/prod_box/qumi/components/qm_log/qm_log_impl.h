@@ -73,6 +73,20 @@ extern void qm_log_print_simple(unsigned int log_level, const char *fmt, ...);
             qm_printf("\r\n"); \
         } \
     } while (0)
+
+#define qm_hex_log_print(CON, MOD, COLOR, LVL, name, p_data, len) \
+    do{\
+        uint32_t i = 0; \
+        if (QM_LOG_LEVEL & CON) { \
+            qm_printf("[%06d]<" LVL "> ", (unsigned)qm_now_ms()); \
+            qm_printf("%s ", name);  \
+            for(i = 0; i<len; i++)\
+            {\
+                qm_printf("%02X ", *(p_data+i));\
+            }\
+            qm_printf("\n");\
+        }\
+      }while(0)
 #endif
 #endif
 
@@ -91,6 +105,12 @@ extern int qm_printf(const char *fmt, ...);
 #define QM_LOGW_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
 #define QM_LOGI_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
 #define QM_LOGD_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
+
+#define QM_HEX_LOGF_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
+#define QM_HEX_LOGE_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
+#define QM_HEX_LOGW_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
+#define QM_HEX_LOGI_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
+#define QM_HEX_LOGD_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
 #else
 
 #define QM_LOGD_IMPL(mod, fmt, ...) \
@@ -103,6 +123,18 @@ extern int qm_printf(const char *fmt, ...);
         qm_log_print(QM_LL_V_WARN, mod, COL_BLU, "W", fmt, ##__VA_ARGS__)
 #define QM_LOGI_IMPL(mod, fmt, ...) \
         qm_log_print(QM_LL_V_INFO, mod, COL_GRE, "I", fmt, ##__VA_ARGS__)
+
+
+#define QM_HEX_LOGD_IMPL(mod, name, p_data, len) \
+        qm_hex_log_print(QM_LL_V_DEBUG, mod, COL_WHE, "D", name, p_data, len)
+#define QM_HEX_LOGF_IMPL(mod, name, p_data, len) \
+        qm_hex_log_print(QM_LL_V_FATAL, mod, COL_RED, "F", name, p_data, len)
+#define QM_HEX_LOGE_IMPL(mod, name, p_data, len) \
+        qm_hex_log_print(QM_LL_V_ERROR, mod, COL_YEL, "E", name, p_data, len)
+#define QM_HEX_LOGW_IMPL(mod, name, p_data, len) \
+        qm_hex_log_print(QM_LL_V_WARN, mod, COL_BLU, "W", name, p_data, len)
+#define QM_HEX_LOGI_IMPL(mod, name, p_data, len) \
+        qm_hex_log_print(QM_LL_V_INFO, mod, COL_GRE, "I", name, p_data, len)
 
 #endif /* CONFIG_LOGMACRO_SILENT */
 

@@ -53,8 +53,7 @@ void app_main()
 
     // xjiang_cloud_init();
 
-
-    extern void at_server_product_init(void);
-    at_server_product_init();
+    extern void qm_tlv_test(void);
+    qm_tlv_test();
 
 }

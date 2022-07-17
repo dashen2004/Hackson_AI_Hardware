@@ -67,9 +67,9 @@ int qm_tlv_ctx_delete(qm_tlv_ctx_t *tlv_ctx);
 
 int qm_tlv_block_delete(qm_tlv_block_t *tlv_block);
 
-int qm_tlv_parse(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int len);
+int qm_tlv_deserialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int len);
 
-int qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t* tlv_block);
+qm_tlv_block_t *qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, uint16_t tag);
 
 int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block);
 
