@@ -53,7 +53,7 @@ void app_main()
 
     // xjiang_cloud_init();
 
-    extern void qm_tlv_test(void);
-    qm_tlv_test();
+    extern void opple_serial_test(void);
+    opple_serial_test();
 
 }

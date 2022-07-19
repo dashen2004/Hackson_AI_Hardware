@@ -127,6 +127,13 @@ void qm_tlv_test(void)
         QM_LOGD("tlv_test", "tlv ctx creat fail");
     }
 
+    tlv_block = NULL;
+    tlv_block = qm_tlv_block_next(tlv_ctx, NULL);
+    while(tlv_block){
+        QM_LOGD("tlv_test", "tag %d", tlv_block->tag);
+        tlv_block = qm_tlv_block_next(tlv_ctx, tlv_block);
+    }
+
     tlv_block = qm_tlv_block_find(tlv_ctx, 0x01);
     if(tlv_block == NULL){
         QM_LOGD("tlv_test", "tlv block find fail");

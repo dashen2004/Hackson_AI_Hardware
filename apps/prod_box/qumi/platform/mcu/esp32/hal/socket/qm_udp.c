@@ -69,7 +69,7 @@ void *qm_udp_client_create(char *host, uint16_t port)
     struct sockaddr_in     *sa = NULL;
 
     if (NULL == host) {
-        return -QM_EINVAL;
+        return NULL;
     }
 
     snprintf(port_ptr, 6, "%u", port);
@@ -81,7 +81,7 @@ void *qm_udp_client_create(char *host, uint16_t port)
     rc = getaddrinfo(host, port_ptr, &hints, &res);
     if (0 != rc) {
         QM_LOGE(LOG_TAG, "getaddrinfo error");
-        return -QM_EIO;
+        return NULL;
     }
 
     for (ainfo = res; ainfo != NULL; ainfo = ainfo->ai_next) {

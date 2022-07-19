@@ -75,6 +75,10 @@ int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block);
 
 int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len);
 
+int qm_tlv_merge(qm_tlv_ctx_t *dest_tlv_ctx, qm_tlv_ctx_t *src_tlv_ctx);
+
+qm_tlv_block_t *qm_tlv_block_next(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block);
+
 int qm_tlv_pack_bool(qm_tlv_block_t *tlv_block, bool_t value);
 int qm_tlv_pack_uint8(qm_tlv_block_t *tlv_block, uint8_t value);
 int qm_tlv_pack_int8(qm_tlv_block_t *tlv_block, int8_t value);

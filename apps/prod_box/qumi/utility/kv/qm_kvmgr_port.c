@@ -37,7 +37,6 @@ int qm_kv_set(const char *key, const void *value, int len, int sync)
 {
     esp_err_t err;
     nvs_handle handle;
-    uint32_t length;
 
     err = nvs_open(QM_KV_STORAGE_NAMESPACE, NVS_READWRITE, &handle);
     if(err != ESP_OK){

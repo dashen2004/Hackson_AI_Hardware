@@ -86,6 +86,7 @@ int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
 
     if(tlv_ctx->tlv_block == NULL){
         tlv_ctx->tlv_block = tlv_block; 
+        tlv_block->next = NULL;
         tlv_ctx->count++;
         return QM_EOK;
     }
@@ -280,6 +281,42 @@ __exit:
 
     qm_tlv_ctx_delete(tlv_ctx);
     return ret;
+}
+
+int qm_tlv_merge(qm_tlv_ctx_t *dest_tlv_ctx, qm_tlv_ctx_t *src_tlv_ctx)
+{
+    qm_err_t ret = QM_EOK;
+    qm_tlv_block_t *tlv_block = NULL;
+    if(dest_tlv_ctx == NULL || src_tlv_ctx == NULL){
+        return -QM_EINVAL;
+    }
+
+    tlv_block = src_tlv_ctx->tlv_block;
+    while(tlv_block){
+        ret = qm_tlv_block_add(dest_tlv_ctx, tlv_block);
+        if(ret != QM_EOK){
+            return ret;
+        }
+        tlv_block = tlv_block->next;
+    }
+
+    src_tlv_ctx->tlv_block = NULL;
+    src_tlv_ctx->count = 0;
+
+    return QM_EOK;
+}
+
+qm_tlv_block_t *qm_tlv_block_next(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
+{
+    if(tlv_ctx == NULL){
+        return -QM_EINVAL;
+    }
+
+    if(tlv_block == NULL){
+        return tlv_ctx->tlv_block;
+    }else{
+        return tlv_block->next;
+    }
 }
 
 int qm_tlv_unpack_bool(qm_tlv_block_t *tlv_block, bool_t *value)
