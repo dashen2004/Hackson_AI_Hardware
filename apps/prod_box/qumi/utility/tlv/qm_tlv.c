@@ -35,6 +35,9 @@ int qm_tlv_ctx_delete(qm_tlv_ctx_t *tlv_ctx)
         tlv_free(tmp_block);
         tmp_block = NULL;
     }
+
+    tlv_free(tlv_ctx);
+
     return QM_EOK;
 }
 
