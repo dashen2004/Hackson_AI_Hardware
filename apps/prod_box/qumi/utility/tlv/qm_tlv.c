@@ -115,6 +115,7 @@ int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
 
     tlv_block_pre->next = tlv_block;
     tlv_block->next = NULL;
+    tlv_ctx->count++;
     return QM_EOK;
 }
 
@@ -291,17 +292,19 @@ int qm_tlv_merge(qm_tlv_ctx_t *dest_tlv_ctx, qm_tlv_ctx_t *src_tlv_ctx)
 {
     qm_err_t ret = QM_EOK;
     qm_tlv_block_t *tlv_block = NULL;
+    qm_tlv_block_t *m_tlv_block = NULL;
     if(dest_tlv_ctx == NULL || src_tlv_ctx == NULL){
         return -QM_EINVAL;
     }
 
     tlv_block = src_tlv_ctx->tlv_block;
     while(tlv_block){
+        m_tlv_block = tlv_block->next;
         ret = qm_tlv_block_add(dest_tlv_ctx, tlv_block);
         if(ret != QM_EOK){
             return ret;
         }
-        tlv_block = tlv_block->next;
+        tlv_block = m_tlv_block;
     }
 
     src_tlv_ctx->tlv_block = NULL;
