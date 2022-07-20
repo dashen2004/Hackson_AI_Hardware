@@ -62,7 +62,7 @@ void opple_serial_test(void)
 
     opple_serial_init(&serial_param);
 
-    opple_serial_module_status_set(OPPLE_MODULE_UNCONFIGURD_NETWORK);
+    opple_serial_module_status_set(OPPLE_MODULE_CONNECTED);
     
     qm_task_new(&send_task, "serial send", serial_send_thread, NULL, 4*1024, 20);
     qm_task_new(&recv_task, "serial recv", serial_recv_thread, NULL, 4*1024, 20);

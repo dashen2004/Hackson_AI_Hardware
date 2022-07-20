@@ -4,6 +4,7 @@
 #include "qm_errno.h"
 #include "qm_uart.h"
 #include "ntpdate.h"
+#include "qm_kvmgr.h"
 
 /**
  * @brief Create a mutex.
@@ -223,6 +224,41 @@ int opple_serial_recv(void *handle, uint8_t* buffer, uint32_t length, uint32_t t
     }else{
         return 0;
     }
+}
+
+int opple_serial_kv_set(const char *key, const void *value, int len)
+{
+    return qm_kv_set(key, value, len, 1);
+}
+
+/**
+ * Get the KV pair's value stored in buffer by its key.
+ *
+ * @note: the buffer_len should be larger than the real length of the value,
+ *        otherwise buffer would be NULL.
+ *
+ * @param[in]      key         the key of the KV pair to get.
+ * @param[out]     buffer      the memory to store the value.
+ * @param[in-out]  buffer_len  in: the length of the input buffer.
+ *                             out: the real length of the value.
+ *
+ * @return  0 on success, negative error on failure.
+ */
+int opple_serial_kv_get(const char *key, void *buffer, int *buffer_len)
+{
+    return qm_kv_get(key, buffer, buffer_len);
+}
+
+/**
+ * Delete the KV pair by its key.
+ *
+ * @param[in]  key  the key of the KV pair to delete.
+ *
+ * @return  0 on success, negative error on failure.
+ */
+int opple_serial_kv_del(const char *key)
+{
+    return qm_kv_del(key);
 }
 
 

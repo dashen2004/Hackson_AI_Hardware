@@ -106,16 +106,20 @@ typedef enum
 {
     OPPLE_CMD_GET                 = 0x03,
     OPPLE_CMD_SET                 = 0x01,
-    OPPLE_CMD_GET_FLASH                 = 0x01,
+    OPPLE_CMD_GET_FLASH           = 0x04,
+    OPPLE_CMD_SET_FLASH           = 0x05,
     OPPLE_CMD_NOTIFY_STATUS       = 0x22,
+    OPPLE_CMD_GET_STATUS          = 0x27,
+    OPPLE_CMD_MCU_RESET           = 0x28,
     OPPLE_CMD_REPORT              = 0x10,
     OPPLE_CMD_GET_SNAPSHOT        = 0x24,
     OPPLE_CMD_TIMEGET             = 0x26,
     OPPLE_CMD_NETCONFIG           = 0x23,
     OPPLE_CMD_GETMOD              = 0x50,
     OPPLE_CMD_SETMOD              = 0x51,
-    OPPLE_CMD_EVENT               = 0x11,
-    OPPLE_CMD_ACTION              = 0x12,
+    OPPLE_CMD_BEACON              = 0x11,
+    OPPLE_CMD_EVENT               = 0x13,
+    OPPLE_CMD_ACTION              = 0x14,
 #ifdef OPPLE_SERIAL_OTA_SUPPORT
     OPPLE_CMD_OTA_START		      = 0x30,
     OPPLE_CMD_OTA_TRANSFER	      = 0x31,
@@ -348,6 +352,7 @@ int32_t opple_serial_send_loop(void);
 int32_t opple_serial_cloud_set(opple_platform_id_t id, uint8_t *data, uint16_t len);
 int32_t opple_serial_cloud_get(opple_platform_id_t id, uint8_t *data, uint16_t len);
 int32_t opple_serial_cloud_action(opple_platform_id_t id, uint8_t *data, uint16_t len);
+int32_t opple_serial_beacon_set(opple_platform_id_t id, uint8_t *data, uint16_t len);
 opple_module_status_t opple_serial_module_status_get(void);
 int32_t opple_serial_module_status_set(opple_module_status_t status);
 int32_t opple_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t err_code, uint8_t *data, uint16_t len);
