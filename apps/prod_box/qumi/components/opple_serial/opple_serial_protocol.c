@@ -11,9 +11,8 @@ static void frame_head_init(uint8_t *buffer, opple_frame_cmd_t cmd, uint8_t seq,
 static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t code, uint8_t *data, uint16_t data_len, uint8_t *buf, uint16_t *buf_len);
 static int32_t serial_generate_send(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t *data, uint16_t len);
 static int32_t serial_generate_send_with_code(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t code, uint8_t *data, uint16_t len);
-static int32_t serial_keepalive(opple_serial_context_t *pcontext);
 static int32_t serial_id_info_push(opple_platform_id_t platform_id, uint8_t local_id, uint8_t *data);
-static int32_t serial_id_update(uint8_t local_id);
+static int32_t serial_id_uptime(uint8_t local_id);
 static int32_t serial_cloud_generate_send(opple_frame_cmd_t cmd, opple_platform_id_t id, uint8_t *data, uint16_t len);
 static int id_match(void *a, void *b);
 static int32_t serial_local_id_find(uint8_t local_id, opple_platform_id_t *platform_id);
@@ -23,6 +22,7 @@ static int32_t serial_snapshot_get_send(void);
 static int32_t serial_process_cycle(opple_serial_context_t *pcontext);
 static int32_t id_check_cycle(opple_serial_context_t *pcontext);
 static int32_t down_queue_send(void);
+static uint8_t packet_id_get(void);
 
 
 static opple_serial_context_t *g_serial_context = NULL;
@@ -93,7 +93,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
             return OPPLE_SERIAL_PACKET_LEN_ERR;
         }
 
-        serial_generate_send(cmd, 0, NULL, 0);
+        serial_generate_send(cmd, head->seq, NULL, 0);
 
         if(context->state != OPPLE_SERIAL_STATE_NORMAL){
             OPPLE_SERIAL_LOG("process error");
@@ -197,7 +197,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
                return SERIAL_PACKET_LEN_ERR;
            }
 
-           serial_generate_send(cmd, 0, NULL, 0);
+           serial_generate_send(cmd, head->seq, NULL, 0);
 
            if(context->state != SERIAL_STATE_NORMAL){
                OPPLE_SERIAL_LOG("process error");
@@ -238,10 +238,17 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
             return OPPLE_SERIAL_DATA_TYPE_ERR;
         }
 
-        serial_generate_send(cmd, 0, NULL, 0);
+        serial_generate_send(cmd, head->seq, NULL, 0);
         if(context->callbacks.m_network_configcb){
             context->callbacks.m_network_configcb(config_type);
         }
+
+       break;
+
+       case OPPLE_CMD_NOTIFY_STATUS:
+       
+            local_id = head->seq;
+            serial_local_id_find(local_id, &platform_id);
 
        break;
 
@@ -253,9 +260,9 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
             time_info.timezone = *(data + OPPLE_FRAME_HEAD_LEN);
             err = opple_serial_get_time(&time_info);
             if(err != 0){
-                serial_generate_send_with_code(cmd, 0, OPPLE_SERIAL_COM_ERROR, (uint8_t*)&time_info, sizeof(time_info));
+                serial_generate_send_with_code(cmd, head->seq, OPPLE_SERIAL_COM_ERROR, (uint8_t*)&time_info, sizeof(time_info));
             }else{
-                serial_generate_send_with_code(cmd, 0, OPPLE_SERIAL_COM_OK, (uint8_t*)&time_info, sizeof(time_info));
+                serial_generate_send_with_code(cmd, head->seq, OPPLE_SERIAL_COM_OK, (uint8_t*)&time_info, sizeof(time_info));
             }
 
        break;
@@ -267,7 +274,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         }
 
         if(context->callbacks.m_extinfocb){
-            context->callbacks.m_extinfocb(cmd, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN);
+            context->callbacks.m_extinfocb(cmd, head->seq, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN);
         }
 
        break;
@@ -309,7 +316,7 @@ static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t cod
         if(buf && *buf_len >= len){
             frame_unit = (opple_frame_unit_t*)buf;
             frame_head_init(buf, cmd, packet_id, len);
-            frame_unit->chksum = frame_chksum(buf+1, len-5);
+            frame_unit->chksum = frame_chksum(buf+2, len-5);
             frame_unit->tail = cpu_to_be16(OPPLE_FRAME_TAIL);
         }
         *buf_len = len;
@@ -323,7 +330,7 @@ static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t cod
             frame_generic=(opple_frame_generic_t*)buf;
             frame_head_init(buf, cmd, packet_id, len);
             frame_generic->data = *data;
-            frame_generic->chksum = frame_chksum(buf+1, len-5);
+            frame_generic->chksum = frame_chksum(buf+2, len-5);
             frame_generic->tail = cpu_to_be16(OPPLE_FRAME_TAIL);
         }
         *buf_len = len;
@@ -338,7 +345,7 @@ static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t cod
             frame_head_init(buf, cmd, packet_id, len);
             memcpy(buf + OPPLE_FRAME_HEAD_LEN, data, data_len);
             frame_tail = (opple_frame_tail_t*)(buf + len - 3);
-            frame_tail->chksum = frame_chksum(buf+1, len-5);
+            frame_tail->chksum = frame_chksum(buf+2, len-5);
             frame_tail->tail = cpu_to_be16(OPPLE_FRAME_TAIL);
         }
         *buf_len = len;
@@ -355,7 +362,7 @@ static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t cod
             memcpy(buf + OPPLE_FRAME_HEAD_LEN, &code, 1);
             memcpy(buf + OPPLE_FRAME_HEAD_LEN + 1, data, data_len);
             frame_tail = (opple_frame_tail_t*)(buf + len - 3);
-            frame_tail->chksum = frame_chksum(buf+1, len-5);
+            frame_tail->chksum = frame_chksum(buf+2, len-5);
             frame_tail->tail = cpu_to_be16(OPPLE_FRAME_TAIL);
         }
         *buf_len = len;
@@ -592,7 +599,7 @@ static uint8_t is_serial_id_update(void)
     return is_update;
 }
 
-static int32_t serial_id_update(uint8_t local_id)
+static int32_t serial_id_uptime(uint8_t local_id)
 {
     opple_serial_context_t *context = NULL;
     opple_serial_id_info_t id_info = {0};
@@ -682,22 +689,23 @@ static int32_t serial_cloud_generate_send(opple_frame_cmd_t cmd, opple_platform_
 
 #ifdef OPPLE_SERIAL_RESEND_SUPPORT
 
-    err = serial_id_info_push(id, local_id, NULL);
-    if(err != OPPLE_SERIAL_NO_ERR){
-        return err;
-    }
-
     err = serial_generate_resend(cmd, local_id, data, len, &buf);
     if(err != OPPLE_SERIAL_NO_ERR){
         return err;
     }
+
+    err = serial_id_info_push(id, local_id, buf);
+    if(err != OPPLE_SERIAL_NO_ERR){
+        return err;
+    }
 #else
-    err = serial_id_info_push(id, local_id, NULL);
+
+    err = serial_generate_send(cmd, local_id, data, len);
     if(err != OPPLE_SERIAL_NO_ERR){
         return err;
     }
 
-    err = serial_generate_send(cmd, local_id, data, len);
+    err = serial_id_info_push(id, local_id, NULL);
     if(err != OPPLE_SERIAL_NO_ERR){
         return err;
     }
@@ -739,16 +747,17 @@ static int32_t down_queue_send(void)
         return OPPLE_SERIAL_SEND_BUSY_ERR;
     }
 
-#ifdef SERIAL_RTOS_SUPPORT
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_lock(context->serial_mutex);
 #endif
     node = qm_list_lpop(down_queue);
 
-#ifdef SERIAL_RTOS_SUPPORT
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_unlock(context->serial_mutex);
 #endif
 
     queue_push(send_queue, (uint8_t*)node);
+
     return OPPLE_SERIAL_NO_ERR;
 }
 
@@ -800,7 +809,6 @@ static int32_t id_check_cycle(opple_serial_context_t *pcontext)
             }else{
                 qm_list_rpush(pcontext->send_queue, (qm_list_node_t*)id_info->data);
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
-
                 opple_serial_sem_signal(pcontext->send_sem);
 #endif
             }
@@ -824,7 +832,7 @@ static int32_t id_check_cycle(opple_serial_context_t *pcontext)
 
 static int32_t serial_snapshot_get_send(void)
 {
-    return serial_generate_send(OPPLE_CMD_GET_SNAPSHOT, 0, NULL, 0);
+    return serial_generate_send(OPPLE_CMD_GET_SNAPSHOT, 1, NULL, 0);
 }
 
 int32_t opple_serial_state_set(opple_serial_state_t state)
@@ -903,7 +911,7 @@ int32_t opple_serial_module_status_set(opple_module_status_t status)
     }
 
     if(need_notify){
-        serial_generate_send(OPPLE_CMD_NOTIFY_STATUS, 0, &context->module_status, 1);
+        serial_cloud_generate_send(OPPLE_CMD_NOTIFY_STATUS, 0, &context->module_status, 1);
     }
 
 #ifndef OPPLE_SERIAL_LOWPOWER_SUPPORT
@@ -931,7 +939,7 @@ int32_t qm_serial_cloud_get(opple_platform_id_t id, uint8_t *data, uint16_t len)
     return serial_cloud_generate_send(OPPLE_CMD_GET, id, data, len);
 }
 
-int32_t qm_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t err_code, uint8_t *data, uint16_t len)
+int32_t qm_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t err_code, uint8_t *data, uint16_t len)
 {
     uint8_t *buf = NULL;
     int32_t err = OPPLE_SERIAL_NO_ERR;
@@ -943,10 +951,10 @@ int32_t qm_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t err_code, uint8_t *
         }
         memcpy(buf, &code, 1);
         memcpy(buf+1, data, len);
-        err = serial_generate_send(cmd, 0, buf, len+1);
+        err = serial_generate_send(cmd, packet_id, buf, len+1);
         opple_serial_free(buf);
     }else{
-        err = serial_generate_send(cmd, 0, &code, 1);
+        err = serial_generate_send(cmd, packet_id, &code, 1);
     }
     return err;
 }
@@ -1006,8 +1014,9 @@ int32_t opple_serial_init(opple_serial_param_t *serial_param)
 
     serial_context->parse_state = OPPLE_PARSE_STATE_HEAD;
     serial_context->need_len = 1;
-    serial_context->state = OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT;
-    serial_context->module_status = OPPLE_MODULE_UNCONFIGURD_NETWORK;
+    serial_context->packet_id = OPPLE_SEQ_MAX;
+    serial_context->state = OPPLE_SERIAL_STATE_NORMAL;
+    serial_context->module_status = OPPLE_MODULE_STATUS_NONE;
     
     serial_context->handle = opple_serial_uart_init();
 
@@ -1193,7 +1202,7 @@ int32_t opple_serial_send_loop(void)
         OPPLE_SERIAL_HEX_LOG("serial send", (char*)info->data, (int)info->len);
         if(info->resend){
             frame_header = (opple_frame_header_t*)info->data;
-            serial_id_update(frame_header->seq);
+            serial_id_uptime(frame_header->seq);
         }else{
             opple_serial_free(info);
         }
@@ -1243,14 +1252,14 @@ static int32_t serial_process_cycle(opple_serial_context_t *pcontext)
     return OPPLE_SERIAL_NO_ERR;
 }
 
-int32_t opple_serial_recv_loop(int32_t timeout_ms)
+int32_t opple_serial_recv_loop(void)
 {
     int32_t rc = OPPLE_SERIAL_NO_ERR;
     qm_utils_time_t yield_time = {0};
     uint32_t left_t = 0;
     opple_serial_context_t *context = NULL;
     qm_utils_time_init(&yield_time);
-    qm_utils_time_countdown_ms(&yield_time, timeout_ms);
+    qm_utils_time_countdown_ms(&yield_time, OPPLE_SERIAL_RECV_TIMEOUT_DEFAULT_MS);
 
     context = opple_serial_context_get();
     if(context == NULL){
@@ -1260,8 +1269,7 @@ int32_t opple_serial_recv_loop(int32_t timeout_ms)
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
     do {
         if (OPPLE_SERIAL_NO_ERR != rc) {
-            left_t= qm_utils_time_left(&yield_time);
-            //serial_printf("error occur ");
+            left_t = qm_utils_time_left(&yield_time);
             if (left_t > 50){
                 opple_serial_msleep(left_t);
             }

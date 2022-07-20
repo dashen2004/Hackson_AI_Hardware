@@ -76,6 +76,7 @@ typedef enum
     OPPLE_MODULE_UNCONFIGURD_NETWORK              = 0x04,
     OPPLE_MODULE_ENTER_LOWPOWER                   = 0x05,
     OPPLE_MODULE_REMOTE_CONTROL_PAIR              = 0x06,
+    OPPLE_MODULE_STATUS_NONE                      = 0xFF,
 }opple_module_status_t;
 
 typedef enum
@@ -208,7 +209,7 @@ typedef enum{
 }opple_parse_state_t;
 
 typedef enum{
-   OPPLE_SERIAL_STATE_NONE=0,
+   OPPLE_SERIAL_STATE_NONE = 0,
    OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT,
    OPPLE_SERIAL_STATE_NORMAL,
 }opple_serial_state_t;
@@ -219,16 +220,12 @@ typedef enum{
 #define OPPLE_SERIAL_REQUEST_TIMEOUT_MAX_MS               (1500)
 #define OPPLE_SERIAL_REQUEST_TIMEOUT_DEFAULT_MS           (1000)
 /* Default timeout interval of usart send in millisecond */
-#define OPPLE_SERIAL_SEND_INTERVAL_TIMEOUT_DEFAULT_MS     (200)
-
-#define OPPLE_SERIAL_KEPPALIVE_TIMEOUT_DEFAULT_MS         (10000)
-#define OPPLE_SERIAL_KEPPALIVE_TIMEOUT_FAST_MS            (1000)
+#define OPPLE_SERIAL_SEND_INTERVAL_TIMEOUT_DEFAULT_MS     (100)
 
 #define OPPLE_SERIAL_PROCESS_TIMEOUT_MS                  (1000)
+
 #define OPPLE_SERIAL_RECV_TIMEOUT_DEFAULT_MS              (500)
-
-#define OPPLE_SERIAL_ACK_TIMEOUT_DEFAULT_MS               (1000)
-
+#define OPPLE_SERIAL_ACK_TIMEOUT_DEFAULT_MS               (500)
 #define OPPLE_SERIAL_ID_CHECK_TIMEOUT_MS                  (500)
 
 #define OPPLE_SERIAL_SEND_QUEUE_NUM_MAX                    (16)
@@ -238,7 +235,7 @@ typedef enum{
 typedef void (*opple_serial_response_fn)(opple_frame_cmd_t cmd, opple_platform_id_t id, uint8_t *data, uint16_t len);
 typedef void (*opple_serial_report_fn)(opple_frame_cmd_t cmd, uint8_t *data, uint16_t len);
 typedef void (*opple_serial_network_config_fn)(opple_network_config_type_t type);
-typedef void (*opple_serial_extinfo_fn)(opple_frame_cmd_t cmd, uint8_t *data, uint16_t len);
+typedef void (*opple_serial_extinfo_fn)(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t *data, uint16_t len);
 
 
 typedef struct
@@ -345,7 +342,7 @@ typedef struct
 }opple_serial_param_t;
 
 int32_t opple_serial_init( opple_serial_param_t *serial_param);
-int32_t opple_serial_recv_loop(int32_t timeout_ms);
+int32_t opple_serial_recv_loop(void);
 int32_t opple_serial_send_loop(void);
 int32_t opple_serial_cloud_set(opple_platform_id_t id, uint8_t *data, uint16_t len);
 int32_t opple_serial_cloud_get(opple_platform_id_t id, uint8_t *data, uint16_t len);
@@ -356,10 +353,6 @@ int32_t opple_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t err_code, uint8_
 opple_serial_context_t *opple_serial_context_get(void);
 int32_t opple_serial_state_set(opple_serial_state_t state);
 int32_t opple_serial_state_get(opple_serial_state_t *state);
-
-#ifdef SERIAL_RAW_SUPPORT
-int32_t opple_serial_raw_send(uint8_t *data, uint16_t len);
-#endif
 
 opple_serial_snapshot_info_t* opple_serial_snapshot_info_get(void);
 

@@ -20,7 +20,7 @@ static void serial_response_callback(opple_frame_cmd_t cmd, opple_platform_id_t 
     QM_HEX_LOGD("test", "response", data, len);
 }
 
-static void serial_extinfo_callback(opple_frame_cmd_t cmd, uint8_t *data, uint16_t len)
+static void serial_extinfo_callback(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t *data, uint16_t len)
 {
     QM_HEX_LOGD("test", "extinfo", data, len);
 }
@@ -41,7 +41,7 @@ static void serial_recv_thread(void *arg)
 
     while(1)
     {
-        opple_serial_recv_loop(1000);
+        opple_serial_recv_loop();
     }
 }
 
@@ -62,6 +62,8 @@ void opple_serial_test(void)
 
     opple_serial_init(&serial_param);
 
+    opple_serial_module_status_set(OPPLE_MODULE_UNCONFIGURD_NETWORK);
+    
     qm_task_new(&send_task, "serial send", serial_send_thread, NULL, 4*1024, 20);
     qm_task_new(&recv_task, "serial recv", serial_recv_thread, NULL, 4*1024, 20);
 
