@@ -112,8 +112,6 @@ int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
         tlv_block_pre = m_tlv_block;
         m_tlv_block = m_tlv_block->next;  
     }
-
-    tlv_block_pre->next = tlv_block;
     return QM_EOK;
 }
 
