@@ -106,6 +106,7 @@ typedef enum
 {
     OPPLE_CMD_GET                 = 0x03,
     OPPLE_CMD_SET                 = 0x01,
+    OPPLE_CMD_GET_FLASH                 = 0x01,
     OPPLE_CMD_NOTIFY_STATUS       = 0x22,
     OPPLE_CMD_REPORT              = 0x10,
     OPPLE_CMD_GET_SNAPSHOT        = 0x24,
@@ -349,7 +350,7 @@ int32_t opple_serial_cloud_get(opple_platform_id_t id, uint8_t *data, uint16_t l
 int32_t opple_serial_cloud_action(opple_platform_id_t id, uint8_t *data, uint16_t len);
 opple_module_status_t opple_serial_module_status_get(void);
 int32_t opple_serial_module_status_set(opple_module_status_t status);
-int32_t opple_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t err_code, uint8_t *data, uint16_t len);
+int32_t opple_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t err_code, uint8_t *data, uint16_t len);
 opple_serial_context_t *opple_serial_context_get(void);
 int32_t opple_serial_state_set(opple_serial_state_t state);
 int32_t opple_serial_state_get(opple_serial_state_t *state);

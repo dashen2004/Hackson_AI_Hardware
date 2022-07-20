@@ -116,12 +116,10 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
         tlv_ctx = qm_tlv_ctx_creat();
         if(tlv_ctx == NULL){
-            OPPLE_SERIAL_LOG("tlv ctx creat fail");
             return OPPLE_SERIAL_ALLOC_MEM_ERR;
         }
         err = qm_tlv_deserialize(tlv_ctx, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN);
         if(err != 0){
-            OPPLE_SERIAL_LOG("tlv ctx creat fail");
             qm_tlv_ctx_delete(tlv_ctx);
             return OPPLE_SERIAL_PARAM_ERR;
         }
@@ -169,12 +167,10 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
         tlv_ctx = qm_tlv_ctx_creat();
         if(tlv_ctx == NULL){
-            OPPLE_SERIAL_LOG("tlv ctx creat fail");
             return OPPLE_SERIAL_ALLOC_MEM_ERR;
         }
         err = qm_tlv_deserialize(tlv_ctx, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN);
         if(err != 0){
-            OPPLE_SERIAL_LOG("tlv ctx creat fail");
             qm_tlv_ctx_delete(tlv_ctx);
             return OPPLE_SERIAL_PARAM_ERR;
         }
@@ -246,7 +242,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
        break;
 
        case OPPLE_CMD_NOTIFY_STATUS:
-       
+
             local_id = head->seq;
             serial_local_id_find(local_id, &platform_id);
 
@@ -924,22 +920,22 @@ int32_t opple_serial_module_status_set(opple_module_status_t status)
     return OPPLE_SERIAL_NO_ERR;
 }
 
-int32_t qm_serial_cloud_set(opple_platform_id_t id, uint8_t *data, uint16_t len)
+int32_t opple_serial_cloud_set(opple_platform_id_t id, uint8_t *data, uint16_t len)
 {
     return serial_cloud_generate_send(OPPLE_CMD_SET, id, data, len);
 }
 
-int32_t qm_serial_cloud_action(opple_platform_id_t id, uint8_t *data, uint16_t len)
+int32_t opple_serial_cloud_action(opple_platform_id_t id, uint8_t *data, uint16_t len)
 {
 	return serial_cloud_generate_send(OPPLE_CMD_ACTION, id, data, len);
 }
 
-int32_t qm_serial_cloud_get(opple_platform_id_t id, uint8_t *data, uint16_t len)
+int32_t opple_serial_cloud_get(opple_platform_id_t id, uint8_t *data, uint16_t len)
 {
     return serial_cloud_generate_send(OPPLE_CMD_GET, id, data, len);
 }
 
-int32_t qm_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t err_code, uint8_t *data, uint16_t len)
+int32_t opple_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t err_code, uint8_t *data, uint16_t len)
 {
     uint8_t *buf = NULL;
     int32_t err = OPPLE_SERIAL_NO_ERR;
