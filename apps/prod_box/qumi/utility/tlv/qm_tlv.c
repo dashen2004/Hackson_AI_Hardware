@@ -142,7 +142,16 @@ qm_tlv_block_t *qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, uint16_t tag)
     return m_tlv_block;
 }
 
-int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len)
+int qm_tlv_block_serialize(qm_tlv_block_t *tlv_block)
+{
+    if(tlv_block == NULL){
+        return -QM_EINVAL;
+    }
+    tlv_block->serialization = 1;
+    return QM_EOK;
+}
+
+int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, int partial)
 {
     int index = 0;
     #if (CONFIG_QM_TLV_TAG_SIZE == 2) || (CONFIG_QM_TLV_LENGTH_SIZE == 2)
@@ -156,6 +165,15 @@ int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len)
     tlv_block = tlv_ctx->tlv_block;
 
     while(tlv_block){
+
+        if(partial){
+            if(!tlv_block->serialization){
+                tlv_block = tlv_block->next;
+                continue;
+            }else{
+                tlv_block->serialization = 0;
+            }
+        }
 
     #if CONFIG_QM_TLV_TAG_SIZE == 1
         if(msg){
@@ -437,6 +455,9 @@ int qm_tlv_pack_uint8(qm_tlv_block_t *tlv_block, uint8_t value)
     #elif CONFIG_QM_TLV_LENGTH_SIZE == 2
     tlv_block->len = (uint16_t)sizeof(uint8_t);
     #endif
+    if(tlv_block->value.pdata){
+        qm_free(tlv_block->value.pdata);
+    }
     return QM_EOK;
 }
 
@@ -458,6 +479,9 @@ int qm_tlv_pack_uint16(qm_tlv_block_t *tlv_block, uint16_t value)
     #elif CONFIG_QM_TLV_LENGTH_SIZE == 2
     tlv_block->len = (uint16_t)sizeof(uint16_t);
     #endif
+    if(tlv_block->value.pdata){
+        qm_free(tlv_block->value.pdata);
+    }
     return QM_EOK;
 }
 
@@ -479,6 +503,9 @@ int qm_tlv_pack_uint32(qm_tlv_block_t *tlv_block, uint32_t value)
     #elif CONFIG_QM_TLV_LENGTH_SIZE == 2
     tlv_block->len = (uint16_t)sizeof(uint32_t);
     #endif
+    if(tlv_block->value.pdata){
+        qm_free(tlv_block->value.pdata);
+    }
     return QM_EOK;
 }
 
@@ -502,6 +529,9 @@ int qm_tlv_pack_bytes(qm_tlv_block_t *tlv_block, uint8_t *bytes, int size)
         return -QM_EINVAL;
     }
 #endif
+    if(tlv_block->value.pdata){
+        qm_free(tlv_block->value.pdata);
+    }
 
     if(size <= QM_TLV_BYTES_SIZE){
         memcpy(tlv_block->value.bytes, bytes, size);

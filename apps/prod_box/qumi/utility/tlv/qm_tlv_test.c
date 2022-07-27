@@ -107,11 +107,11 @@ void qm_tlv_test(void)
     uint8_t msg[100] = {0};
     int len = 0;
 
-    qm_tlv_serialize(tlv_ctx, NULL, &len);
+    qm_tlv_serialize(tlv_ctx, NULL, &len, 0);
 
     QM_LOGD("tlv_test", "serialize len: %d", len);
 
-    qm_tlv_serialize(tlv_ctx, msg, &len);
+    qm_tlv_serialize(tlv_ctx, msg, &len, 0);
 
     QM_HEX_LOGD("tlv_test", "serialize msg: ", msg, len);
 

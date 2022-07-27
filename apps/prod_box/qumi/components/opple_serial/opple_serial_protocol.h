@@ -77,12 +77,38 @@ typedef enum
     OPPLE_MODULE_ENTER_LOWPOWER                   = 0x05,
     OPPLE_MODULE_REMOTE_CONTROL_PAIR              = 0x06,
     OPPLE_MODULE_STATUS_NONE                      = 0xFF,
-}opple_module_status_t;
+}opple_module_network_status_t;
+
+enum{
+    OPPLE_MODULE_STATUS_KEY_NETWORK         = 0x42,
+    OPPLE_MODULE_STATUS_KEY_RESET           = 0x44,
+    OPPLE_MODULE_STATUS_KEY_REMOTE_PAIR     = 0x45,
+    OPPLE_MCU_STATUS_KEY_REBOOT             = 0x50,
+};
 
 typedef enum
 {
-	OPPLE_MCU_ENTER_LOWPOWER              		= 0x01,
+    OPPLE_MCU_ENTER_LOWPOWER              		= 0x01,
 }opple_mcu_status_t;
+
+typedef enum
+{
+    OPPLE_WIFI_TYPE_NORMAL                      = 0x00,
+    OPPLE_WIFI_TYPE_TEST                        = 0x01,
+}opple_wifi_type_t;
+
+typedef enum
+{
+    OPPLE_REMOTE_PAIR_STATUS_FAIL            = 0x00,
+    OPPLE_REMOTE_PAIR_STATUS_SUCCESS         = 0x01,
+}opple_remote_pair_status_t;
+
+typedef enum
+{
+    OPPLE_MODULE_STATUS_TYPE_NETWORK           = 0x42,
+    OPPLE_MODULE_STATUS_TYPE_RESET             = 0x44,
+    OPPLE_MODULE_STATUS_TYPE_REMOTE_PAIR       = 0x45,
+}opple_module_status_type_t;
 
 typedef enum
 {
@@ -110,7 +136,7 @@ typedef enum
     OPPLE_CMD_SET_FLASH           = 0x05,
     OPPLE_CMD_NOTIFY_STATUS       = 0x22,
     OPPLE_CMD_GET_STATUS          = 0x27,
-    OPPLE_CMD_MCU_RESET           = 0x28,
+    OPPLE_CMD_MCU_NOTIFY_STATUS   = 0x28,
     OPPLE_CMD_REPORT              = 0x10,
     OPPLE_CMD_GET_SNAPSHOT        = 0x24,
     OPPLE_CMD_TIMEGET             = 0x26,
@@ -120,13 +146,7 @@ typedef enum
     OPPLE_CMD_BEACON              = 0x11,
     OPPLE_CMD_EVENT               = 0x13,
     OPPLE_CMD_ACTION              = 0x14,
-#ifdef OPPLE_SERIAL_OTA_SUPPORT
-    OPPLE_CMD_OTA_START		      = 0x30,
-    OPPLE_CMD_OTA_TRANSFER	      = 0x31,
-    OPPLE_CMD_OTA_QUERYCRC        = 0x32,
-    OPPLE_CMD_OTA_VERIFY          = 0x33,
-    OPPLE_CMD_OTA_SWITCH          = 0x34,
-#endif
+
 } opple_frame_cmd_t;
 
 #pragma pack(1)
@@ -187,6 +207,13 @@ typedef struct
     opple_serial_time_info_t info;
 }opple_serial_time_packet_t;
 
+typedef struct
+{
+    uint8_t network_status;
+    int8_t rssi;
+    uint8_t mac[6];
+}opple_serial_network_info_t;
+
 #pragma pack()
 
 typedef uint32_t opple_platform_id_t;
@@ -237,28 +264,26 @@ typedef enum{
 #define OPPLE_SERIAL_DOWN_QUEUE_NUM_MAX                    (16)
 #define OPPLE_SERIAL_SEND_RETRY_COUNT_MAX                  (2)
 
-typedef void (*opple_serial_response_fn)(opple_frame_cmd_t cmd, opple_platform_id_t id, uint8_t *data, uint16_t len);
-typedef void (*opple_serial_report_fn)(opple_frame_cmd_t cmd, uint8_t *data, uint16_t len);
+typedef void (*opple_serial_response_fn)(opple_frame_cmd_t cmd, opple_platform_id_t id, uint8_t *data, uint16_t len, void *arg);
+typedef void (*opple_serial_report_fn)(opple_frame_cmd_t cmd, uint8_t *data, uint16_t len, void *arg);
 typedef void (*opple_serial_network_config_fn)(opple_network_config_type_t type);
-typedef void (*opple_serial_extinfo_fn)(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t *data, uint16_t len);
-
+typedef int32_t (*opple_serial_setmode_fn)(void *arg);
+typedef int32_t (*opple_serial_getmode_fn)(void *arg);
 
 typedef struct
 {
     opple_serial_report_fn                m_reportcb;
     opple_serial_response_fn              m_responsecb;
     opple_serial_network_config_fn        m_network_configcb;
-    opple_serial_extinfo_fn               m_extinfocb;
-#ifdef SERIAL_RAW_SUPPORT
-    opple_serial_raw_fn                   m_ramcb;
-#endif
-#ifdef SERIAL_HEARTBEAT_NOTIFY_SUPPORT
-    opple_serial_heartbeat_fn             m_heartbeatcb;
-#endif
-#ifdef SERIAL_OTA_SUPPORT
-    opple_serial_ota_event_notify_fn  	  ota_event_notifycb;
-#endif
+
 }opple_serial_callbacks_t;
+
+typedef struct
+{
+    opple_serial_setmode_fn  m_setmode;
+    opple_serial_getmode_fn  m_getmode;
+
+}opple_serial_mode_callbacks_t;
 
 typedef struct{
     uint8_t *data;
@@ -280,14 +305,6 @@ typedef struct{
     qm_tlv_ctx_t *tlv_ctx;
 }opple_serial_snapshot_info_t;
 
-#ifdef OPPLE_SERIAL_EVENT_SUPPORT
-#ifdef OPPLE_SERIAL_EVENT_CACHE_SUPPORT
-typedef struct{
-    qm_list_t *serial_event_queue;
-}opple_serial_event_info_t;
-#endif
-#endif
-
 typedef struct
 {
     uint8_t is_exist;
@@ -306,11 +323,7 @@ typedef struct
     void *send_sem;
     opple_serial_data_info_t changed_data;
     opple_serial_snapshot_info_t serial_snapshot_info;
-#ifdef SERIAL_EVENT_SUPPORT
-#ifdef SERIAL_EVENT_CACHE_SUPPORT
-    opple_serial_event_info_t event_info;
-#endif
-#endif
+
     opple_parse_state_t parse_state;
     uint8_t packet_len;
     uint8_t need_len;
@@ -331,6 +344,8 @@ typedef struct
     qm_list_t *down_queue;
 #endif
 
+    qm_tlv_ctx_t *tlv_ctx;
+
     void *handle;
 
     opple_serial_callbacks_t callbacks;
@@ -349,13 +364,20 @@ typedef struct
 int32_t opple_serial_init( opple_serial_param_t *serial_param);
 int32_t opple_serial_recv_loop(void);
 int32_t opple_serial_send_loop(void);
-int32_t opple_serial_cloud_set(opple_platform_id_t id, uint8_t *data, uint16_t len);
-int32_t opple_serial_cloud_get(opple_platform_id_t id, uint8_t *data, uint16_t len);
-int32_t opple_serial_cloud_action(opple_platform_id_t id, uint8_t *data, uint16_t len);
-int32_t opple_serial_beacon_set(opple_platform_id_t id, uint8_t *data, uint16_t len);
-opple_module_status_t opple_serial_module_status_get(void);
-int32_t opple_serial_module_status_set(opple_module_status_t status);
-int32_t opple_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t err_code, uint8_t *data, uint16_t len);
+int32_t opple_serial_cloud_set(opple_platform_id_t id, uint8_t *data, uint8_t len);
+int32_t opple_serial_cloud_get(opple_platform_id_t id, uint8_t *data, uint8_t len);
+int32_t opple_serial_cloud_action(opple_platform_id_t id, uint8_t *data, uint8_t len);
+int32_t opple_serial_beacon_set(opple_platform_id_t id, uint8_t *data, uint8_t len);
+
+opple_module_network_status_t opple_serial_module_network_status_get(void);
+int32_t opple_serial_module_network_status_set(opple_wifi_type_t wifi_type, opple_module_network_status_t network_status);
+int32_t opple_serial_module_remote_pair_status_set(opple_remote_pair_status_t pair_status);
+int32_t opple_serial_module_reset(void);
+
+int32_t opple_serial_module_status_set(opple_module_status_type_t status_type, uint8_t *data, uint8_t len);
+
+int32_t opple_serial_mode_register(uint8_t key, opple_serial_setmode_fn setmode_fn, opple_serial_getmode_fn getmode_fn);
+
 opple_serial_context_t *opple_serial_context_get(void);
 int32_t opple_serial_state_set(opple_serial_state_t state);
 int32_t opple_serial_state_get(opple_serial_state_t *state);

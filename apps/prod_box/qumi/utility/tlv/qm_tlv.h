@@ -27,6 +27,7 @@ extern "C" {
 
 typedef struct qm_tlv_block{
 
+    uint8_t serialization;
     #if CONFIG_QM_TLV_TAG_SIZE == 1
         uint8_t tag;
     #elif CONFIG_QM_TLV_TAG_SIZE == 2
@@ -47,6 +48,8 @@ typedef struct qm_tlv_block{
         uint8_t bytes[QM_TLV_BYTES_SIZE];
         uint8_t *pdata;
     }value;
+
+    void *arg;
 
     struct qm_tlv_block *next;
 
@@ -71,9 +74,11 @@ int qm_tlv_deserialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int len);
 
 qm_tlv_block_t *qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, uint16_t tag);
 
+int qm_tlv_block_serialize(qm_tlv_block_t *tlv_block);
+
 int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block);
 
-int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len);
+int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, int partial);
 
 int qm_tlv_merge(qm_tlv_ctx_t *dest_tlv_ctx, qm_tlv_ctx_t *src_tlv_ctx);
 

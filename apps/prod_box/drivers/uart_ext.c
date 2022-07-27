@@ -761,11 +761,11 @@ void uart_ext_test_thread(void *arg)
 void uart_ext_init(void)
 {
 
-    _gpio_init();
-    wk2xxx_init();
-
     uart_ext_tx_queue = xQueueCreate(UART_EXT_TX_QUEUE_SIZE, sizeof(uint32_t));
     uart_ext_rx_queue = xQueueCreate(UART_EXT_RX_QUEUE_SIZE, sizeof(uint32_t));
+
+    _gpio_init();
+    wk2xxx_init();
 
     xTaskCreate(uart_ext_rx_thread, "uart ext rx", 2048, (void *)0, 20, NULL);
     xTaskCreate(uart_ext_tx_thread, "uart ext tx", 2048, (void *)0, 19, NULL);

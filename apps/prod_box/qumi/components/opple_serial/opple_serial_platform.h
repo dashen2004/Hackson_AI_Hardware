@@ -168,6 +168,26 @@ int opple_serial_get_time(opple_serial_time_info_t *time_info);
 uint32_t opple_serial_get_timems( void );
 
 /**
+ * @brief get wifi rssi
+ *
+ * @param None.
+ * @return wifi rssi
+ * @see None.
+ * @note None.
+ */
+int opple_serial_wifi_rssi_get(void);
+
+/**
+ * @brief get wifi mac address
+ *
+ * @param mac.
+ * @return wifi mac
+ * @see None.
+ * @note None.
+ */
+int opple_serial_wifi_mac_get(uint8_t mac[6]);
+
+/**
  * @brief sleep thread itself.
  *
  * @param[in] ms @n the time interval for which execution is to be suspended, in milliseconds.
