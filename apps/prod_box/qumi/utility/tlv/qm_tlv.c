@@ -171,7 +171,9 @@ int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, int partial)
                 tlv_block = tlv_block->next;
                 continue;
             }else{
-                tlv_block->serialization = 0;
+                if(msg){
+                    tlv_block->serialization = 0;
+                }
             }
         }
 

@@ -913,7 +913,7 @@ static int32_t serial_send_by_key(opple_frame_cmd_t cmd, uint8_t *key, uint8_t n
         return OPPLE_SERIAL_NO_INIT_ERR;
     }
 
-    if(key == NULL && num == 0){
+    if(key == NULL || num == 0){
         return OPPLE_SERIAL_PARAM_ERR;
     }
 
@@ -955,17 +955,17 @@ __exit:
 
 
     if(response){
-        if(ret != 0){
-            return serial_generate_send_with_code(cmd, packet_id, OPPLE_SERIAL_COM_ERROR, NULL, 0);
+        if(ret == 0){
+            ret = serial_generate_send_with_code(cmd, packet_id, OPPLE_SERIAL_COM_OK, alloc_buf, tlv_len);
+        }else{
+            ret = serial_generate_send_with_code(cmd, packet_id, OPPLE_SERIAL_COM_ERROR, NULL, 0);
         }
-        return serial_generate_send_with_code(cmd, packet_id, OPPLE_SERIAL_COM_OK, alloc_buf, tlv_len);
     }else{
-        if(ret != 0){
-            return ret;
+        if(ret == 0){
+            ret = serial_cloud_generate_send(cmd, 0, alloc_buf, tlv_len);
         }
-        return serial_cloud_generate_send(cmd, 0, alloc_buf, tlv_len);
     }
-
+    
     if(need_free){
         opple_serial_free(alloc_buf);
         alloc_buf = NULL;
@@ -1382,7 +1382,7 @@ static int32_t serial_mode_set_handle(uint8_t *data, uint8_t len)
 
         mode_callbacks = (opple_serial_mode_callbacks_t*)m_tlv_block->arg;
         if(mode_callbacks){
-            if(mode_callbacks->m_getmode){
+            if(mode_callbacks->m_setmode){
                 ret = mode_callbacks->m_setmode((void*)tlv_block);
                 if(ret != 0){
                     ret =  OPPLE_SERIAL_PARAM_ERR;
