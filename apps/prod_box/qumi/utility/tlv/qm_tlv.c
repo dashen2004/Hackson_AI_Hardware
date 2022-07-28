@@ -440,6 +440,27 @@ int qm_tlv_unpack_string(qm_tlv_block_t *tlv_block, char *str, int *size)
     return QM_EOK;
 }
 
+int qm_tlv_unpack_bytes_direct(qm_tlv_block_t *tlv_block, uint8_t **bytes, int *size)
+{
+    if(tlv_block == NULL || *bytes == NULL || size == NULL){
+        return -QM_EINVAL;
+    }
+
+    *size = (int)tlv_block->len;
+
+    if(tlv_block->len <= QM_TLV_BYTES_SIZE){
+        *bytes = tlv_block->value.bytes;
+    }else{
+        *bytes = tlv_block->value.pdata;
+    }
+
+    return QM_EOK;
+}
+
+int qm_tlv_unpack_string_direct(qm_tlv_block_t *tlv_block, char **str, int *size)
+{
+    return qm_tlv_unpack_bytes_direct(tlv_block, (uint8_t**)str, size);
+}
 
 int qm_tlv_pack_bool(qm_tlv_block_t *tlv_block, bool_t value)
 {

@@ -306,11 +306,7 @@ typedef struct{
 
 typedef struct
 {
-    uint8_t is_exist;
-    uint8_t is_status_changed;
-    uint8_t module_prodtst_status;
-    uint8_t module_status;
-    uint8_t prodtst_type;
+    uint8_t network_status;
     uint8_t packet_id;
     uint8_t *pwrite_buf;
     uint32_t write_buf_size; /* Specify size of write-buffer in byte */
@@ -320,7 +316,7 @@ typedef struct
     uint32_t read_buf_size;  /* Specify size of read-buffer in byte */
     void *serial_mutex;
     void *send_sem;
-    opple_serial_data_info_t changed_data;
+
     opple_serial_snapshot_info_t serial_snapshot_info;
 
     opple_parse_state_t parse_state;
@@ -382,6 +378,7 @@ int32_t opple_serial_state_set(opple_serial_state_t state);
 int32_t opple_serial_state_get(opple_serial_state_t *state);
 
 opple_serial_snapshot_info_t* opple_serial_snapshot_info_get(void);
+
 
 
 #endif

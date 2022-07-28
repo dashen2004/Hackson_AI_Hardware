@@ -104,6 +104,8 @@ int qm_tlv_unpack_int32(qm_tlv_block_t *tlv_block, int32_t *value);
 int qm_tlv_unpack_bytes(qm_tlv_block_t *tlv_block, uint8_t *bytes, int *size);
 int qm_tlv_unpack_string(qm_tlv_block_t *tlv_block, char *str, int *size);
 
+int qm_tlv_unpack_bytes_direct(qm_tlv_block_t *tlv_block, uint8_t **bytes, int *size);
+int qm_tlv_unpack_string_direct(qm_tlv_block_t *tlv_block, char **str, int *size);
 
 #ifdef __cplusplus
 }

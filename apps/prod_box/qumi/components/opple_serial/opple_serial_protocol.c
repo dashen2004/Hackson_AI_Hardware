@@ -30,6 +30,15 @@ static int32_t serial_kv_get(uint8_t *data, uint8_t len, uint8_t *buf, uint8_t *
 static int32_t serial_send_by_key(opple_frame_cmd_t cmd, uint8_t *key, uint8_t num, int response, uint8_t packet_id);
 static int32_t serial_mode_get_handle(uint8_t *key, uint8_t num, uint8_t packet_id);
 static int32_t serial_mode_set_handle(uint8_t *data, uint8_t len);
+typedef int32_t (*opple_serial_key_handler)(qm_tlv_block_t *tlv_block);
+static int32_t serial_key_register(uint8_t key, opple_serial_key_handler handler, uint8_t *init_data, uint8_t len);
+static int32_t serial_key_set(uint8_t key, uint8_t *data, uint8_t len, int32_t force);
+static int32_t serial_key_generic_handler(qm_tlv_block_t *tlv_block);
+static int32_t serial_key_network_status_handler(opple_module_network_status_t network_status);
+static int32_t serial_key_reset_handler(void);
+static int32_t serial_key_remote_pair_handler(void);
+static int32_t mcu_reboot_status_handler(void);
+static int32_t mcu_notify_status_handler(uint8_t *data, uint8_t len);
 
 static opple_serial_context_t *g_serial_context = NULL;
 
@@ -338,9 +347,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         }
         serial_generate_send(cmd, head->seq, NULL, 0);
 
-        if(OPPLE_MODULE_CONNECTED == opple_serial_module_network_status_get()){
-            context->state = OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT;
-        }
+        mcu_notify_status_handler(data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN);
 
        break;
 
@@ -351,6 +358,39 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
     return OPPLE_SERIAL_NO_ERR;
 }
 
+static int32_t mcu_notify_status_handler(uint8_t *data, uint8_t len)
+{
+    int32_t ret = 0;
+    uint8_t *buf = NULL;
+    int32_t size = 0;
+    qm_tlv_ctx_t *tlv_ctx = NULL;
+    qm_tlv_block_t *tlv_block = NULL;
+
+    tlv_ctx = qm_tlv_ctx_creat();
+    if(tlv_ctx == NULL){
+        return OPPLE_SERIAL_ALLOC_MEM_ERR;
+    }
+    ret = qm_tlv_deserialize(tlv_ctx, data, len);
+    if(ret != 0){
+        ret = OPPLE_SERIAL_PARAM_ERR;
+    }
+
+    tlv_block = qm_tlv_block_next(tlv_ctx, NULL);
+
+    while(tlv_block){
+
+        qm_tlv_unpack_bytes_direct(tlv_block, &buf, &size);
+        ret = serial_key_set(tlv_block->tag, buf, size, 1);
+        if(ret != 0){
+            goto __exit;
+        }
+        tlv_block = qm_tlv_block_next(tlv_ctx, tlv_block);
+    }
+
+__exit:
+    qm_tlv_ctx_delete(tlv_ctx);
+    return ret;
+}
 
 static void frame_head_init(uint8_t *buffer, opple_frame_cmd_t cmd, uint8_t seq, uint8_t len)
 {
@@ -938,7 +978,7 @@ static int32_t serial_send_by_key(opple_frame_cmd_t cmd, uint8_t *key, uint8_t n
     if(tlv_len <= SERIAL_NOTIFY_BUF_LEN){
         alloc_buf = buf;
     }else{
-        alloc_buf = opple_serial_malloc(tlv_len);
+        alloc_buf = (uint8_t*)opple_serial_malloc(tlv_len);
         if(alloc_buf == NULL){
             ret = OPPLE_SERIAL_COM_MEM_ERROR;
             goto __exit;
@@ -1143,36 +1183,96 @@ opple_module_network_status_t opple_serial_module_network_status_get(void)
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_lock(context->serial_mutex);
 #endif
-    status = context->module_status;
+    status = context->network_status;
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_unlock(context->serial_mutex);
 #endif
     return status;
 }
 
-int32_t opple_serial_module_network_status_set(opple_module_network_status_t network_status)
+
+static int32_t serial_key_network_status_handler(opple_module_network_status_t network_status)
 {
-    int32_t ret = 0;
-    int32_t need_notify = 0;
-    uint8_t mac[6] = {0};
     uint8_t key = 0;
-    opple_serial_network_info_t network_info = {0};
     opple_serial_context_t *context = NULL;
     context = opple_serial_context_get();
-    if(context == NULL){
-        return OPPLE_SERIAL_NO_INIT_ERR;
-    }
 
-    if(context->module_status != network_status){
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
-        opple_serial_mutex_lock(context->serial_mutex);
+    opple_serial_mutex_lock(context->serial_mutex);
 #endif
-        context->module_status = network_status;
+    context->network_status = network_status;
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
-        opple_serial_mutex_unlock(context->serial_mutex);
+    opple_serial_mutex_unlock(context->serial_mutex);
 #endif
-        need_notify = 1;
+
+    #ifndef OPPLE_SERIAL_LOWPOWER_SUPPORT
+    if(network_status == OPPLE_MODULE_CONNECTED){
+        if(context->state == OPPLE_SERIAL_STATE_NONE){
+            context->state = OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT;
+        }
     }
+#endif
+
+    key = OPPLE_MODULE_STATUS_KEY_NETWORK;
+    serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
+    return OPPLE_SERIAL_NO_ERR;
+}
+
+static int32_t serial_key_reset_handler(void)
+{
+    uint8_t key = OPPLE_MODULE_STATUS_KEY_RESET;
+    serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
+    return OPPLE_SERIAL_NO_ERR;
+}
+
+static int32_t serial_key_remote_pair_handler(void)
+{
+    uint8_t key = OPPLE_MODULE_STATUS_KEY_REMOTE_PAIR;
+    serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
+    return OPPLE_SERIAL_NO_ERR;
+}
+
+static int32_t mcu_reboot_status_handler(void)
+{
+    opple_serial_context_t *context = NULL;
+    context = opple_serial_context_get();
+    if(OPPLE_MODULE_CONNECTED == opple_serial_module_network_status_get()){
+        context->state = OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT;
+    }
+    return OPPLE_SERIAL_NO_ERR;
+}
+
+static int32_t serial_key_generic_handler(qm_tlv_block_t *tlv_block)
+{
+    switch(tlv_block->tag){
+
+        case OPPLE_MODULE_STATUS_KEY_NETWORK:
+            return serial_key_network_status_handler((opple_module_network_status_t)tlv_block->value.bytes[0]);
+        break;
+
+        case OPPLE_MODULE_STATUS_KEY_RESET:
+            return serial_key_reset_handler();
+        break;
+
+        case OPPLE_MODULE_STATUS_KEY_REMOTE_PAIR:
+            
+            return serial_key_remote_pair_handler();
+        break;
+
+        case OPPLE_MCU_STATUS_KEY_REBOOT:
+            return mcu_reboot_status_handler();
+        break;
+
+        default:
+        break;
+    }
+    return OPPLE_SERIAL_NO_ERR;
+}
+
+int32_t opple_serial_module_network_status_set(opple_module_network_status_t network_status)
+{
+    uint8_t mac[6] = {0};
+    opple_serial_network_info_t network_info = {0};
 
     network_info.network_status = network_status;
 
@@ -1185,51 +1285,88 @@ int32_t opple_serial_module_network_status_set(opple_module_network_status_t net
         network_info.rssi = -127;
     }
 
-#ifndef OPPLE_SERIAL_LOWPOWER_SUPPORT
-    if(network_status == OPPLE_MODULE_CONNECTED && need_notify){
-        if(context->state == OPPLE_SERIAL_STATE_NONE){
-            context->state = OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT;
-        }
-    }
-#endif
-    ret = opple_serial_module_status_set(OPPLE_MODULE_STATUS_TYPE_NETWORK, (uint8_t*)&network_info, sizeof(opple_serial_network_info_t));
-    if(ret != 0){
-        return ret;
-    }
-
-    if(need_notify){
-        key = OPPLE_MODULE_STATUS_KEY_NETWORK;
-        serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
-    }
-
-    return OPPLE_SERIAL_NO_ERR;
+    return serial_key_set(OPPLE_MODULE_STATUS_KEY_NETWORK, (uint8_t*)&network_info, sizeof(opple_serial_network_info_t), 0);
 }
 
 int32_t opple_serial_module_remote_pair_status_set(opple_remote_pair_status_t pair_status)
 {
-    uint8_t key = 0;
-    int32_t ret = 0;
-    ret = opple_serial_module_status_set(OPPLE_MODULE_STATUS_TYPE_REMOTE_PAIR, (uint8_t*)&pair_status, 1);
-    if(ret != 0){
-        return ret;
-    }
-    key = OPPLE_MODULE_STATUS_TYPE_REMOTE_PAIR;
-    serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
-
-    return OPPLE_SERIAL_NO_ERR;
+    return serial_key_set(OPPLE_MODULE_STATUS_TYPE_REMOTE_PAIR, (uint8_t*)&pair_status, sizeof(uint8_t), 1);
 }
 
 int32_t opple_serial_module_reset(void)
 {
-    uint8_t key = 0;
-    int32_t ret = 0;
     uint8_t status = 0x01;
-    ret = opple_serial_module_status_set(OPPLE_MODULE_STATUS_TYPE_RESET, (uint8_t*)&status, 1);
-    if(ret != 0){
-        return ret;
+    return serial_key_set(OPPLE_MODULE_STATUS_TYPE_RESET, (uint8_t*)&status, sizeof(uint8_t), 1);
+}
+
+
+static int32_t serial_key_register(uint8_t key, opple_serial_key_handler handler, uint8_t *init_data, uint8_t len)
+{
+    int32_t ret = 0;
+    qm_tlv_block_t *tlv_block = NULL;
+    opple_serial_context_t *context = NULL;
+
+    context = opple_serial_context_get();
+    if(context == NULL){
+        return OPPLE_SERIAL_NO_INIT_ERR;
     }
-    key = OPPLE_MODULE_STATUS_TYPE_RESET;
-    serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
+
+    tlv_block = qm_tlv_block_creat();
+    if(!tlv_block){
+        return OPPLE_SERIAL_ALLOC_MEM_ERR;
+    }
+
+    tlv_block->tag = key;
+    tlv_block->arg = (void*)handler;
+
+    if(init_data && len > 0){
+        ret = qm_tlv_pack_bytes(tlv_block, init_data, len);
+        if(ret != 0){
+            qm_tlv_block_delete(tlv_block);
+            return OPPLE_SERIAL_ALLOC_MEM_ERR;
+        }
+    }
+    qm_tlv_block_add(context->tlv_ctx, tlv_block);
+
+    return OPPLE_SERIAL_NO_ERR;
+}
+
+static int32_t serial_key_set(uint8_t key, uint8_t *data, uint8_t len, int32_t force)
+{
+    int32_t ret = 0;
+    uint8_t *buf = NULL;
+    int32_t size = 0;
+    opple_serial_context_t *context = NULL;
+
+    context = opple_serial_context_get();
+
+    qm_tlv_block_t *tlv_block = NULL;
+    opple_serial_key_handler handler = NULL;
+
+    tlv_block = qm_tlv_block_find(context->tlv_ctx, (uint16_t)key);
+    if(tlv_block == NULL){
+        return OPPLE_SERIAL_PARAM_ERR;
+    }
+
+    handler = (opple_serial_key_handler)tlv_block->arg;
+
+    if(force || (!force && tlv_block->len == 0) || (!force && tlv_block->len != len)){
+        ret = qm_tlv_pack_bytes(tlv_block, data, len);
+        if(ret != 0){
+            return OPPLE_SERIAL_ALLOC_MEM_ERR;
+        }
+        if(handler){
+            ret = handler(tlv_block);
+        }
+    }else{
+        qm_tlv_unpack_bytes_direct(tlv_block, &buf, &size);
+        if(0 == memcmp(buf, data, len)){
+            return OPPLE_SERIAL_NO_ERR;
+        }
+        if(handler){
+            ret = handler(tlv_block);
+        }
+    }    
 
     return OPPLE_SERIAL_NO_ERR;
 }
@@ -1444,7 +1581,7 @@ int32_t opple_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t packet_id, uint8
     int32_t err = OPPLE_SERIAL_NO_ERR;
     uint8_t code = err_code;
     if(data != NULL && len >0){
-        buf = opple_serial_malloc(len+1);
+        buf = (uint8_t*)opple_serial_malloc(len+1);
         if(buf == NULL){
             return OPPLE_SERIAL_ALLOC_MEM_ERR;
         }
@@ -1509,9 +1646,14 @@ int32_t opple_serial_init(opple_serial_param_t *serial_param)
     serial_context->need_len = 1;
     serial_context->packet_id = OPPLE_SEQ_MAX;
     serial_context->state = OPPLE_SERIAL_STATE_NONE;
-    serial_context->module_status = OPPLE_MODULE_STATUS_NONE;
+    serial_context->network_status = OPPLE_MODULE_STATUS_NONE;
 
     serial_context->tlv_ctx = qm_tlv_ctx_creat();
+
+    serial_key_register(OPPLE_MODULE_STATUS_KEY_NETWORK, serial_key_generic_handler, (uint8_t*)&serial_context->network_status, sizeof(uint8_t));
+    serial_key_register(OPPLE_MODULE_STATUS_KEY_RESET, serial_key_generic_handler, NULL, 0);
+    serial_key_register(OPPLE_MODULE_STATUS_KEY_REMOTE_PAIR, serial_key_generic_handler, NULL, 0);
+    serial_key_register(OPPLE_MCU_STATUS_KEY_REBOOT, serial_key_generic_handler, NULL, 0);
     
     serial_context->handle = opple_serial_uart_init();
 
