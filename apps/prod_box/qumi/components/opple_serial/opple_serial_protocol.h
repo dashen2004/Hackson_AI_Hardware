@@ -261,7 +261,7 @@ typedef enum{
 
 #define OPPLE_SERIAL_SEND_QUEUE_NUM_MAX                    (16)
 #define OPPLE_SERIAL_DOWN_QUEUE_NUM_MAX                    (16)
-#define OPPLE_SERIAL_SEND_RETRY_COUNT_MAX                  (2)
+#define OPPLE_SERIAL_SEND_RETRY_COUNT_MAX                  (1)
 
 typedef void (*opple_serial_response_fn)(opple_frame_cmd_t cmd, opple_platform_id_t id, uint8_t *data, uint16_t len, void *arg);
 typedef void (*opple_serial_report_fn)(opple_frame_cmd_t cmd, uint8_t *data, uint16_t len, void *arg);
