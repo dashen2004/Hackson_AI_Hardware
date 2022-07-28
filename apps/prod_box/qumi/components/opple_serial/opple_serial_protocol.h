@@ -74,8 +74,7 @@ typedef enum
     OPPLE_MODULE_CONNECT_ROUTER_UNCONNECT_CLOUD   = 0x02,
     OPPLE_MODULE_CONFIGURING_NETWORK              = 0x03,
     OPPLE_MODULE_UNCONFIGURD_NETWORK              = 0x04,
-    OPPLE_MODULE_ENTER_LOWPOWER                   = 0x05,
-    OPPLE_MODULE_REMOTE_CONTROL_PAIR              = 0x06,
+    OPPLE_MODULE_TEST_CONNECTED                   = 0x05,
     OPPLE_MODULE_STATUS_NONE                      = 0xFF,
 }opple_module_network_status_t;
 
@@ -370,7 +369,7 @@ int32_t opple_serial_cloud_action(opple_platform_id_t id, uint8_t *data, uint8_t
 int32_t opple_serial_beacon_set(opple_platform_id_t id, uint8_t *data, uint8_t len);
 
 opple_module_network_status_t opple_serial_module_network_status_get(void);
-int32_t opple_serial_module_network_status_set(opple_wifi_type_t wifi_type, opple_module_network_status_t network_status);
+int32_t opple_serial_module_network_status_set(opple_module_network_status_t network_status);
 int32_t opple_serial_module_remote_pair_status_set(opple_remote_pair_status_t pair_status);
 int32_t opple_serial_module_reset(void);
 

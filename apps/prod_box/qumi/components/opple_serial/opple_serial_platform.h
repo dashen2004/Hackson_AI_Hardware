@@ -175,7 +175,7 @@ uint32_t opple_serial_get_timems( void );
  * @see None.
  * @note None.
  */
-int opple_serial_wifi_rssi_get(void);
+int8_t opple_serial_wifi_rssi_get(void);
 
 /**
  * @brief get wifi mac address

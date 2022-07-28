@@ -303,7 +303,7 @@ uint32_t opple_serial_get_timems( void )
     return (uint32_t)qm_now_ms();
 }
 
-int opple_serial_wifi_rssi_get(void)
+int8_t opple_serial_wifi_rssi_get(void)
 {
     return 0;
 }

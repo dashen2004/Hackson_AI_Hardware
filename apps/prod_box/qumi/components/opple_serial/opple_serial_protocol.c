@@ -965,7 +965,7 @@ __exit:
             ret = serial_cloud_generate_send(cmd, 0, alloc_buf, tlv_len);
         }
     }
-    
+
     if(need_free){
         opple_serial_free(alloc_buf);
         alloc_buf = NULL;
@@ -1149,7 +1149,7 @@ opple_module_network_status_t opple_serial_module_network_status_get(void)
     return status;
 }
 
-int32_t opple_serial_module_network_status_set(opple_wifi_type_t wifi_type, opple_module_network_status_t network_status)
+int32_t opple_serial_module_network_status_set(opple_module_network_status_t network_status)
 {
     int32_t ret = 0;
     int32_t need_notify = 0;
@@ -1254,6 +1254,8 @@ int32_t opple_serial_module_status_set(opple_module_status_type_t status_type, u
             ret = OPPLE_SERIAL_ALLOC_MEM_ERR;
             goto __exit;
         }
+
+        tlv_block->tag = (uint8_t)status_type;
 
         ret = qm_tlv_pack_bytes(tlv_block, data, len);
         if(ret != 0){

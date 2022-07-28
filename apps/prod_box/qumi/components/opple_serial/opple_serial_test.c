@@ -110,7 +110,7 @@ void opple_serial_test(void)
 
     opple_serial_init(&serial_param);
 
-    opple_serial_module_network_status_set(OPPLE_WIFI_TYPE_NORMAL, OPPLE_MODULE_CONNECTED);
+    opple_serial_module_network_status_set(OPPLE_MODULE_CONNECTED);
 
     opple_serial_mode_register(0xF1, mac_setmode_callback, mac_getmode_callback);
     
