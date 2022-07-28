@@ -241,6 +241,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
        break;
 
        case OPPLE_CMD_NOTIFY_STATUS:
+       case OPPLE_CMD_BEACON:
 
         if(len < OPPLE_FRAME_MIN_LEN){
             return OPPLE_SERIAL_PACKET_LEN_ERR;
@@ -337,8 +338,6 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         }
         serial_generate_send(cmd, head->seq, NULL, 0);
 
-        serial_cloud_generate_send(cmd, packet_id_get(), &context->module_status, 1);
-
         if(OPPLE_MODULE_CONNECTED == opple_serial_module_network_status_get()){
             context->state = OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT;
         }
@@ -407,6 +406,8 @@ static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t cod
        case OPPLE_CMD_GET:
        case OPPLE_CMD_SET:
        case OPPLE_CMD_ACTION:
+       case OPPLE_CMD_BEACON:
+
         len = OPPLE_FRAME_MIN_LEN + data_len;
         if(buf && *buf_len >= len){
             frame_head_init(buf, cmd, packet_id, len);
@@ -1213,7 +1214,7 @@ int32_t opple_serial_module_remote_pair_status_set(opple_remote_pair_status_t pa
         return ret;
     }
     key = OPPLE_MODULE_STATUS_TYPE_REMOTE_PAIR;
-    serial_send_by_key(OPPLE_MODULE_STATUS_TYPE_REMOTE_PAIR, &key, 1, 0, 0);
+    serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
 
     return OPPLE_SERIAL_NO_ERR;
 }
@@ -1228,7 +1229,7 @@ int32_t opple_serial_module_reset(void)
         return ret;
     }
     key = OPPLE_MODULE_STATUS_TYPE_RESET;
-    serial_send_by_key(OPPLE_MODULE_STATUS_TYPE_RESET, &key, 1, 0, 0);
+    serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
 
     return OPPLE_SERIAL_NO_ERR;
 }
