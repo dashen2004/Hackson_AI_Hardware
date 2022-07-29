@@ -1596,6 +1596,7 @@ int32_t opple_serial_ext_cmd_ack(opple_frame_cmd_t cmd, uint8_t packet_id, uint8
 
 int32_t opple_serial_init(opple_serial_param_t *serial_param)
 {
+    opple_serial_network_info_t network_info = {0};
     opple_serial_context_t *serial_context = NULL;
     if(serial_param == NULL || serial_param->pread_buf == NULL){
         return OPPLE_SERIAL_PARAM_ERR;
@@ -1653,7 +1654,8 @@ int32_t opple_serial_init(opple_serial_param_t *serial_param)
 
     g_serial_context = serial_context;
 
-    serial_key_register(OPPLE_MODULE_STATUS_KEY_NETWORK, serial_key_generic_handler, (uint8_t*)&serial_context->network_status, sizeof(uint8_t));
+    network_info.network_status = serial_context->network_status;
+    serial_key_register(OPPLE_MODULE_STATUS_KEY_NETWORK, serial_key_generic_handler, (uint8_t*)&network_info, sizeof(network_info));
     serial_key_register(OPPLE_MODULE_STATUS_KEY_RESET, serial_key_generic_handler, NULL, 0);
     serial_key_register(OPPLE_MODULE_STATUS_KEY_REMOTE_PAIR, serial_key_generic_handler, NULL, 0);
     serial_key_register(OPPLE_MCU_STATUS_KEY_REBOOT, serial_key_generic_handler, NULL, 0);
