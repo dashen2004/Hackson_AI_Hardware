@@ -1347,25 +1347,22 @@ static int32_t serial_key_set(uint8_t key, uint8_t *data, uint8_t len, int32_t f
         return OPPLE_SERIAL_PARAM_ERR;
     }
 
-    handler = (opple_serial_key_handler)tlv_block->arg;
+    handler = (opple_serial_key_handler)tlv_block->arg; 
 
-    if(force || (!force && tlv_block->len == 0) || (!force && tlv_block->len != len)){
-        ret = qm_tlv_pack_bytes(tlv_block, data, len);
-        if(ret != 0){
-            return OPPLE_SERIAL_ALLOC_MEM_ERR;
-        }
-        if(handler){
-            ret = handler(tlv_block);
-        }
-    }else{
+    if(!force && tlv_block->len == len){
         qm_tlv_unpack_bytes_direct(tlv_block, &buf, &size);
         if(0 == memcmp(buf, data, len)){
             return OPPLE_SERIAL_NO_ERR;
         }
-        if(handler){
-            ret = handler(tlv_block);
-        }
-    }    
+    }
+
+    ret = qm_tlv_pack_bytes(tlv_block, data, len);
+    if(ret != 0){
+        return OPPLE_SERIAL_ALLOC_MEM_ERR;
+    }
+    if(handler){
+        ret = handler(tlv_block);
+    }
 
     return OPPLE_SERIAL_NO_ERR;
 }
