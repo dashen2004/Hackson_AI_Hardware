@@ -104,13 +104,6 @@ typedef enum
 
 typedef enum
 {
-    OPPLE_MODULE_STATUS_TYPE_NETWORK           = 0x42,
-    OPPLE_MODULE_STATUS_TYPE_RESET             = 0x44,
-    OPPLE_MODULE_STATUS_TYPE_REMOTE_PAIR       = 0x45,
-}opple_module_status_type_t;
-
-typedef enum
-{
     OPPLE_MODULE_PRODTST_SUCCESS                  = 0x00,
     OPPLE_MODULE_PRODTST_START                    = 0x01,
     OPPLE_MODULE_PRODTST_FAILED                   = 0x02,
@@ -368,8 +361,6 @@ opple_module_network_status_t opple_serial_module_network_status_get(void);
 int32_t opple_serial_module_network_status_set(opple_module_network_status_t network_status);
 int32_t opple_serial_module_remote_pair_status_set(opple_remote_pair_status_t pair_status);
 int32_t opple_serial_module_reset(void);
-
-int32_t opple_serial_module_status_set(opple_module_status_type_t status_type, uint8_t *data, uint8_t len);
 
 int32_t opple_serial_mode_register(uint8_t key, opple_serial_setmode_fn setmode_fn, opple_serial_getmode_fn getmode_fn);
 

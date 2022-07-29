@@ -1293,13 +1293,13 @@ int32_t opple_serial_module_network_status_set(opple_module_network_status_t net
 
 int32_t opple_serial_module_remote_pair_status_set(opple_remote_pair_status_t pair_status)
 {
-    return serial_key_set(OPPLE_MODULE_STATUS_TYPE_REMOTE_PAIR, (uint8_t*)&pair_status, sizeof(uint8_t), 1);
+    return serial_key_set(OPPLE_MODULE_STATUS_KEY_REMOTE_PAIR, (uint8_t*)&pair_status, sizeof(uint8_t), 1);
 }
 
 int32_t opple_serial_module_reset(void)
 {
     uint8_t status = 0x01;
-    return serial_key_set(OPPLE_MODULE_STATUS_TYPE_RESET, (uint8_t*)&status, sizeof(uint8_t), 1);
+    return serial_key_set(OPPLE_MODULE_STATUS_KEY_RESET, (uint8_t*)&status, sizeof(uint8_t), 1);
 }
 
 
@@ -1369,59 +1369,6 @@ static int32_t serial_key_set(uint8_t key, uint8_t *data, uint8_t len, int32_t f
     }
 
     return OPPLE_SERIAL_NO_ERR;
-}
-
-int32_t opple_serial_module_status_set(opple_module_status_type_t status_type, uint8_t *data, uint8_t len)
-{
-    int32_t ret = 0;
-    qm_tlv_block_t *tlv_block = NULL;
-    opple_serial_context_t *context = NULL;
-    context = opple_serial_context_get();
-    if(context == NULL){
-        return OPPLE_SERIAL_NO_INIT_ERR;
-    }
-
-#ifdef OPPLE_SERIAL_RTOS_SUPPORT
-    opple_serial_mutex_lock(context->serial_mutex);
-#endif
-
-    tlv_block = qm_tlv_block_find(context->tlv_ctx, (uint16_t)status_type);
-    if(!tlv_block){
-        tlv_block = qm_tlv_block_creat();
-        if(!tlv_block){
-            ret = OPPLE_SERIAL_ALLOC_MEM_ERR;
-            goto __exit;
-        }
-
-        tlv_block->tag = (uint8_t)status_type;
-
-        ret = qm_tlv_pack_bytes(tlv_block, data, len);
-        if(ret != 0){
-            qm_tlv_block_delete(tlv_block);
-            ret = OPPLE_SERIAL_ALLOC_MEM_ERR;
-            goto __exit;
-        }
-        qm_tlv_block_add(context->tlv_ctx, tlv_block);
-    }else{
-        ret = qm_tlv_pack_bytes(tlv_block, data, len);
-        if(ret != 0){
-            ret = OPPLE_SERIAL_ALLOC_MEM_ERR;
-            goto __exit;
-        }
-    }
-
-#ifdef OPPLE_SERIAL_RTOS_SUPPORT
-    opple_serial_mutex_unlock(context->serial_mutex);
-#endif
-
-    return OPPLE_SERIAL_NO_ERR;
-
-__exit:
-
-#ifdef OPPLE_SERIAL_RTOS_SUPPORT
-    opple_serial_mutex_unlock(context->serial_mutex);
-#endif
-    return ret;
 }
 
 int32_t opple_serial_cloud_set(opple_platform_id_t id, uint8_t *data, uint8_t len)
