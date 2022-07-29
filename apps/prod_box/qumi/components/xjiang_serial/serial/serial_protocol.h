@@ -101,8 +101,8 @@ typedef enum{
     MODULE_PRODTST_TYPE_END                   
 }module_prodtst_type_t;
 
-typedef enum
-{
+    typedef enum
+    {
     CMD_SET                 = 0x01,
     CMD_SERVICE             = 0x02,
     CMD_GET                 = 0x03,
@@ -116,18 +116,18 @@ typedef enum
     CMD_NETCONFIG           = 0x23,
     CMD_GETMOD              = 0x50,
     CMD_SETMOD              = 0x51,
-	CMD_EVENT               = 0x11,
-	CMD_ACTION              = 0x12,
-#ifdef SERIAL_OTA_SUPPORT
-	CMD_OTA_START		    = 0x30,
-	CMD_OTA_TRANSFER	    = 0x31,
-	CMD_OTA_QUERYCRC        = 0x32,
-	CMD_OTA_VERIFY          = 0x33,
-	CMD_OTA_SWITCH          = 0x34,
-#endif
+    CMD_EVENT               = 0x11,
+    CMD_ACTION              = 0x12,
+    #ifdef SERIAL_OTA_SUPPORT
+    CMD_OTA_START		    = 0x30,
+    CMD_OTA_TRANSFER	    = 0x31,
+    CMD_OTA_QUERYCRC        = 0x32,
+    CMD_OTA_VERIFY          = 0x33,
+    CMD_OTA_SWITCH          = 0x34,
+    #endif
     CMD_PRODTST_ENTERY      = 0x61,
     CMD_PRODTST_STATUS      = 0x60,
-} frame_cmd_t;
+    } frame_cmd_t;
 
 #pragma pack(1)
 
@@ -380,6 +380,8 @@ typedef struct
 #ifdef SERIAL_OTA_SUPPORT
     serial_ota_context_t *ota_context;
 #endif
+
+    message_context_t *service_ctx;
 
     serial_callbacks_t callbacks;
 

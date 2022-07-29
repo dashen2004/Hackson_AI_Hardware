@@ -34,7 +34,7 @@ typedef int32_t (*opple_serial_key_handler)(qm_tlv_block_t *tlv_block);
 static int32_t serial_key_register(uint8_t key, opple_serial_key_handler handler, uint8_t *init_data, uint8_t len);
 static int32_t serial_key_set(uint8_t key, uint8_t *data, uint8_t len, int32_t force);
 static int32_t serial_key_generic_handler(qm_tlv_block_t *tlv_block);
-static int32_t serial_key_network_status_handler(opple_module_network_status_t network_status);
+static int32_t serial_key_network_status_handler(qm_tlv_block_t *tlv_block);
 static int32_t serial_key_reset_handler(void);
 static int32_t serial_key_remote_pair_handler(void);
 static int32_t mcu_reboot_status_handler(void);
@@ -1190,22 +1190,26 @@ opple_module_network_status_t opple_serial_module_network_status_get(void)
 }
 
 
-static int32_t serial_key_network_status_handler(opple_module_network_status_t network_status)
+static int32_t serial_key_network_status_handler(qm_tlv_block_t *tlv_block)
 {
     uint8_t key = 0;
+    int32_t size = 0;
     opple_serial_context_t *context = NULL;
+    opple_serial_network_info_t *network_info = NULL;
     context = opple_serial_context_get();
+
+    qm_tlv_unpack_bytes_direct(tlv_block, (uint8_t**)&network_info, &size);
 
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_lock(context->serial_mutex);
 #endif
-    context->network_status = network_status;
+    context->network_status = network_info->network_status;
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_unlock(context->serial_mutex);
 #endif
 
-    #ifndef OPPLE_SERIAL_LOWPOWER_SUPPORT
-    if(network_status == OPPLE_MODULE_CONNECTED){
+#ifndef OPPLE_SERIAL_LOWPOWER_SUPPORT
+    if(context->network_status == OPPLE_MODULE_CONNECTED){
         if(context->state == OPPLE_SERIAL_STATE_NONE){
             context->state = OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT;
         }
@@ -1246,7 +1250,7 @@ static int32_t serial_key_generic_handler(qm_tlv_block_t *tlv_block)
     switch(tlv_block->tag){
 
         case OPPLE_MODULE_STATUS_KEY_NETWORK:
-            return serial_key_network_status_handler((opple_module_network_status_t)tlv_block->value.bytes[0]);
+            return serial_key_network_status_handler(tlv_block);
         break;
 
         case OPPLE_MODULE_STATUS_KEY_RESET:
