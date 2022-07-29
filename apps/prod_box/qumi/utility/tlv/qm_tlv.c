@@ -442,7 +442,7 @@ int qm_tlv_unpack_string(qm_tlv_block_t *tlv_block, char *str, int *size)
 
 int qm_tlv_unpack_bytes_direct(qm_tlv_block_t *tlv_block, uint8_t **bytes, int *size)
 {
-    if(tlv_block == NULL || *bytes == NULL || size == NULL){
+    if(tlv_block == NULL || bytes == NULL || size == NULL){
         return -QM_EINVAL;
     }
 
@@ -552,8 +552,10 @@ int qm_tlv_pack_bytes(qm_tlv_block_t *tlv_block, uint8_t *bytes, int size)
         return -QM_EINVAL;
     }
 #endif
-    if(tlv_block->value.pdata){
+
+    if(tlv_block->len > QM_TLV_BYTES_SIZE){
         qm_free(tlv_block->value.pdata);
+        tlv_block->value.pdata = NULL;
     }
 
     if(size <= QM_TLV_BYTES_SIZE){

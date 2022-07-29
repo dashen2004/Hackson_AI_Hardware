@@ -48,97 +48,97 @@ static serial_context_t *g_serial_context;
 #ifdef SERIAL_EVENT_CACHE_SUPPORT
 static int event_handler(uint8_t *data, uint16_t len)
 {
-	serial_context_t *context = NULL;
-	uint8_t *buf = NULL;
-	uint16_t buf_len = 0;
-	context = qm_serial_context_get();
+    serial_context_t *context = NULL;
+    uint8_t *buf = NULL;
+    uint16_t buf_len = 0;
+    context = qm_serial_context_get();
 
-	qm_list_node_t *node=NULL;
-	qm_list_node_t *tmp_node=NULL;
+    qm_list_node_t *node = NULL;
+    qm_list_node_t *tmp_node = NULL;
 
-	buf_len = len + sizeof(qm_list_node_t)+2;
-	buf = qm_serial_malloc(buf_len);
-	if(buf == NULL){
-		return SERIAL_ALLOC_MEM_ERR;
-	}
-	node = (qm_list_node_t*)buf;
-	qm_list_node_init(node, buf+sizeof(qm_list_node_t));
-	memcpy(buf+sizeof(qm_list_node_t), &len, 2);
-	memcpy(buf+sizeof(qm_list_node_t)+2, data, len);
+    buf_len = len + sizeof(qm_list_node_t)+2;
+    buf = qm_serial_malloc(buf_len);
+    if(buf == NULL){
+        return SERIAL_ALLOC_MEM_ERR;
+    }
+    node = (qm_list_node_t*)buf;
+    qm_list_node_init(node, buf + sizeof(qm_list_node_t));
+    memcpy(buf+sizeof(qm_list_node_t), &len, 2);
+    memcpy(buf+sizeof(qm_list_node_t) + 2, data, len);
 
-	#ifdef SERIAL_RTOS_SUPPORT
-	qm_serial_mutex_lock(context->serial_mutex);
-	#endif
-	if(context->event_info.serial_event_queue->len < MAX_SERIAL_EVENT_NUM){
-		qm_list_rpush(context->event_info.serial_event_queue, node);
-	}else{
-		tmp_node = qm_list_lpop(context->event_info.serial_event_queue);
-		if(tmp_node){
-			qm_serial_free(tmp_node);
-		}
-		qm_list_rpush(context->event_info.serial_event_queue, node);
-	}
-	#ifdef SERIAL_RTOS_SUPPORT
-	qm_serial_mutex_unlock(context->serial_mutex);
-	#endif
+    #ifdef SERIAL_RTOS_SUPPORT
+    qm_serial_mutex_lock(context->serial_mutex);
+    #endif
+    if(context->event_info.serial_event_queue->len < MAX_SERIAL_EVENT_NUM){
+        qm_list_rpush(context->event_info.serial_event_queue, node);
+    }else{
+        tmp_node = qm_list_lpop(context->event_info.serial_event_queue);
+        if(tmp_node){
+            qm_serial_free(tmp_node);
+        }
+        qm_list_rpush(context->event_info.serial_event_queue, node);
+    }
+    #ifdef SERIAL_RTOS_SUPPORT
+    qm_serial_mutex_unlock(context->serial_mutex);
+    #endif
 
 	return SERIAL_NO_ERR;
 }
 
 uint8_t is_event_info_update(void)
 {
-	serial_context_t *context = NULL;
-	context = qm_serial_context_get();
+    serial_context_t *context = NULL;
+    context = qm_serial_context_get();
     if(context == NULL){
-    	return 0;
+        return 0;
     }
     if(context->event_info.serial_event_queue->len){
-    	return 1;
+        return 1;
     }else{
-    	return 0;
+        return 0;
     }
 }
 
 int32_t qm_serial_event_info_get(uint8_t *buf, uint16_t *buf_len)
 {
-	serial_context_t *context = NULL;
-	qm_list_node_t *node = NULL;
-	uint8_t *tmp_buf = NULL;
-	uint16_t tmp_buf_len = 0;
-	context = qm_serial_context_get();
+    serial_context_t *context = NULL;
+    qm_list_node_t *node = NULL;
+    uint8_t *tmp_buf = NULL;
+    uint16_t tmp_buf_len = 0;
+    context = qm_serial_context_get();
     if(context == NULL){
-    	return SERIAL_NO_INIT_ERR;
+        return SERIAL_NO_INIT_ERR;
     }
 
     if(buf == NULL){
-    	return SERIAL_PARAM_ERR;
+        return SERIAL_PARAM_ERR;
     }
 
     if(context->event_info.serial_event_queue->len == 0){
-    	*buf_len = 0;
-    	return SERIAL_NO_ERR;
+        *buf_len = 0;
+        return SERIAL_NO_ERR;
     }
 
-	#ifdef SERIAL_RTOS_SUPPORT
-	qm_serial_mutex_lock(context->serial_mutex);
-	#endif
+    #ifdef SERIAL_RTOS_SUPPORT
+    qm_serial_mutex_lock(context->serial_mutex);
+    #endif
 
-	node = qm_list_lpop(context->event_info.serial_event_queue);
-	if(node){
-		tmp_buf = (uint8_t*)node;
-		memcpy(&tmp_buf_len, tmp_buf+sizeof(qm_list_node_t), 2);
-		if(*buf_len >= tmp_buf_len){
-			memcpy(buf, tmp_buf+sizeof(qm_list_node_t)+2, tmp_buf_len);
-			*buf_len = tmp_buf_len;
-		}
-		qm_serial_free(tmp_buf);
-	}
+    node = qm_list_lpop(context->event_info.serial_event_queue);
+    if(node){
+        tmp_buf = (uint8_t*)node;
+        memcpy(&tmp_buf_len, tmp_buf+sizeof(qm_list_node_t), 2);
+        if(*buf_len >= tmp_buf_len){
+            memcpy(buf, tmp_buf+sizeof(qm_list_node_t)+2, tmp_buf_len);
+            *buf_len = tmp_buf_len;
+        }
+        qm_serial_free(tmp_buf);
+    }
 
-	#ifdef SERIAL_RTOS_SUPPORT
-	qm_serial_mutex_unlock(context->serial_mutex);
-	#endif
+    #ifdef SERIAL_RTOS_SUPPORT
+    qm_serial_mutex_unlock(context->serial_mutex);
+    #endif
 
-	return SERIAL_NO_ERR;
+    return SERIAL_NO_ERR;
 }
 #endif
 #endif
@@ -162,12 +162,12 @@ static uint8_t frame_chksum(uint8_t *buffer, uint16_t length)
 
 static uint8_t packet_id_get(void)
 {
-    serial_context_t *serial_context=NULL;
-    serial_context=qm_serial_context_get();
+    serial_context_t *serial_context = NULL;
+    serial_context = qm_serial_context_get();
 #ifdef SERIAL_RTOS_SUPPORT
     qm_serial_mutex_lock(serial_context->serial_mutex);
 #endif
-    serial_context->packet_id =(serial_context->packet_id == (MAX_SERIAL_MCU_PACKET_ID+1)) ? MIN_SERIAL_MCU_PACKET_ID : serial_context->packet_id + 1;
+    serial_context->packet_id = (serial_context->packet_id == (MAX_SERIAL_MCU_PACKET_ID+1)) ? MIN_SERIAL_MCU_PACKET_ID : serial_context->packet_id + 1;
 #ifdef SERIAL_RTOS_SUPPORT
     qm_serial_mutex_unlock(serial_context->serial_mutex);
 #endif
@@ -188,7 +188,7 @@ static serial_data_type_t data_type_get(uint8_t local_id)
 #ifdef SERIAL_MESH_GROUP_ADDR_SUPPORT
 int32_t mesh_group_addr_get(uint16_t *addr)
 {
-    serial_context_t *context=NULL;
+    serial_context_t *context = NULL;
     if(addr == NULL){
         return SERIAL_PARAM_ERR;
     }
@@ -205,7 +205,7 @@ int32_t mesh_group_addr_get(uint16_t *addr)
 #ifdef SERIAL_ID_MAP_SUPPORT
 id_map_context_t* id_map_context_get(void)
 {
-    serial_context_t *context=NULL;
+    serial_context_t *context = NULL;
     context = qm_serial_context_get();
     if(context == NULL){
         return NULL;
@@ -216,7 +216,7 @@ id_map_context_t* id_map_context_get(void)
 
 serial_snapshot_info_t* qm_serial_snapshot_info_get(void)
 {
-    serial_context_t *context=NULL;
+    serial_context_t *context = NULL;
     context = qm_serial_context_get();
     if(context == NULL){
         return NULL;
@@ -228,7 +228,7 @@ serial_snapshot_info_t* qm_serial_snapshot_info_get(void)
 
 void *qm_serial_pid_get(void)
 {
-    serial_context_t *context=NULL;
+    serial_context_t *context = NULL;
     context = qm_serial_context_get();
     if(context == NULL){
         return NULL;
@@ -246,7 +246,7 @@ void *qm_serial_pid_get(void)
 
 static int32_t deviceinfo_handler(serial_context_t *context, uint8_t *data, uint16_t len)
 {
-    int32_t err=SERIAL_NO_ERR;
+    int32_t err = SERIAL_NO_ERR;
     message_info_t *object = NULL;
     uint8_t *map_data = NULL;
     uint16_t map_data_len = 0;
@@ -285,7 +285,7 @@ static int32_t deviceinfo_handler(serial_context_t *context, uint8_t *data, uint
         SERIAL_LOG("missing pid");
         goto exit;
     }
-    context->pid = (char*)qm_serial_malloc(object->len+1);
+    context->pid = (char*)qm_serial_malloc(object->len + 1);
     if(context->pid == NULL){
         err = SERIAL_ALLOC_MEM_ERR;
         goto exit;
@@ -373,22 +373,22 @@ exit:
 
 static int32_t frame_parse(uint8_t *data, uint16_t len)
 {
-    int32_t err=SERIAL_NO_ERR;
+    int32_t err = SERIAL_NO_ERR;
     serial_context_t *context;
     frame_header_t *head = (frame_header_t *)data;
     frame_cmd_t cmd = head->cmd;
     context=qm_serial_context_get();
     uint8_t local_id=0;
-    platform_id_t platform_id=0;
-    serial_data_type_t type=0;
-    device_ver_t ver={0};
-    uint8_t heartbeat_type=0;
+    platform_id_t platform_id = 0;
+    serial_data_type_t type = 0;
+    device_ver_t ver = {0};
+    uint8_t heartbeat_type = 0;
     uint8_t config_type = 0;
     uint16_t changed_data_len = 0;
     uint8_t is_update = 0;
     serial_time_info_t time_info = {0};
 
-    if(*(data+len-1)!=frame_chksum(data, len-1)){
+    if(*(data + len - 1) != frame_chksum(data, len - 1)){
         return SERIAL_CHKSUM_ERR;
     }
 
@@ -419,7 +419,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
             return SERIAL_PROCESS_ERR;
         }
 
-        err = message_object_add_update(context->serial_snapshot_info.message_context, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1, &is_update);
+        err = message_object_add_update(context->serial_snapshot_info.message_context, data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN-1, &is_update);
         if(err != SERIAL_NO_ERR){
             SERIAL_LOG("report data err");
             return SERIAL_DATA_TYPE_ERR;
@@ -436,12 +436,12 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 #endif
             return SERIAL_NO_ERR;
         }else{
-        	context->serial_snapshot_info.is_changed = 1;
+            context->serial_snapshot_info.is_changed = 1;
         }
 
         SERIAL_LOG("need report");
 
-#ifdef SERIAL_REPORT_SUPPORT
+    #ifdef SERIAL_REPORT_SUPPORT
         message_serialize(context->serial_snapshot_info.message_context, NULL, &changed_data_len, SERIALIZE_TYPE_CHANGED);
         if(changed_data_len > 0){
             if(context->changed_data.data){
@@ -467,96 +467,96 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
             }
         }
 
-#else
+    #else
 
-	   if(context->callbacks.m_reportcb){
-		   message_serialize(context->serial_snapshot_info.message_context, NULL, &changed_data_len, SERIALIZE_TYPE_CHANGED_ONLY);
-		   if(changed_data_len > 0){
-			   if(context->changed_data.data){
-				   if(context->changed_data.len < changed_data_len){
-					   qm_serial_free(context->changed_data.data);
-					   context->changed_data.data = NULL;
-					   context->changed_data.data = (uint8_t*)qm_serial_malloc(changed_data_len);
-					   if(context->changed_data.data == NULL){
-						   return SERIAL_ALLOC_MEM_ERR;
-					   }
-				   }
-			   }else{
-				   context->changed_data.data = (uint8_t*)qm_serial_malloc(changed_data_len);
-				   if(context->changed_data.data == NULL){
-					   return SERIAL_ALLOC_MEM_ERR;
-				   }
-			   }
-			   message_serialize(context->serial_snapshot_info.message_context, context->changed_data.data, &changed_data_len, SERIALIZE_TYPE_CHANGED_ONLY);
-			   context->changed_data.len = changed_data_len;
-			   context->callbacks.m_reportcb(cmd, context->changed_data.data, context->changed_data.len);
-		   }
-	   }
-#endif
+        if(context->callbacks.m_reportcb){
+            message_serialize(context->serial_snapshot_info.message_context, NULL, &changed_data_len, SERIALIZE_TYPE_CHANGED_ONLY);
+            if(changed_data_len > 0){
+                if(context->changed_data.data){
+                    if(context->changed_data.len < changed_data_len){
+                        qm_serial_free(context->changed_data.data);
+                        context->changed_data.data = NULL;
+                        context->changed_data.data = (uint8_t*)qm_serial_malloc(changed_data_len);
+                        if(context->changed_data.data == NULL){
+                            return SERIAL_ALLOC_MEM_ERR;
+                        }
+                    }
+                }else{
+                    context->changed_data.data = (uint8_t*)qm_serial_malloc(changed_data_len);
+                    if(context->changed_data.data == NULL){
+                        return SERIAL_ALLOC_MEM_ERR;
+                    }
+                }
+                message_serialize(context->serial_snapshot_info.message_context, context->changed_data.data, &changed_data_len, SERIALIZE_TYPE_CHANGED_ONLY);
+                context->changed_data.len = changed_data_len;
+                context->callbacks.m_reportcb(cmd, context->changed_data.data, context->changed_data.len);
+            }
+        }
+    #endif
 
-       break;
+        break;
 
-       case CMD_GET:
-       case CMD_SET:
+        case CMD_GET:
+        case CMD_SET:
 
-        if(len < FRAME_MIN_LEN+1){
+        if(len < FRAME_MIN_LEN + 1){
             return SERIAL_PACKET_LEN_ERR;
         }
 
-        local_id=*(data+FRAME_HEAD_LEN);
-        type=data_type_get(local_id);
-        if(type==TYPE_MCU){
-            err=serial_local_id_find(local_id, &platform_id);
-            if(err==SERIAL_NO_ERR){
+        local_id = *(data+FRAME_HEAD_LEN);
+        type = data_type_get(local_id);
+        if(type == TYPE_MCU){
+            err = serial_local_id_find(local_id, &platform_id);
+            if(err == SERIAL_NO_ERR){
                 if(context->callbacks.m_responsecb){
-                   context->callbacks.m_responsecb(cmd, platform_id, data+FRAME_HEAD_LEN+1, len-FRAME_HEAD_LEN-2);
+                    context->callbacks.m_responsecb(cmd, platform_id, data + FRAME_HEAD_LEN + 1, len - FRAME_HEAD_LEN - 2);
                 }
             }
         }
         else if(type > TYPE_MCU && type < TYPE_MAX){
-#ifdef SERIAL_RAW_SUPPORT
+    #ifdef SERIAL_RAW_SUPPORT
             if(context->callbacks.m_ramcb){
                 context->callbacks.m_ramcb(type, data, len);
             }
-#endif
+    #endif
         }
 
-       break;
+        break;
 
-       case CMD_GET_SNAPSHOT:
+        case CMD_GET_SNAPSHOT:
         if(len < FRAME_SNAPSHOT_MIN_LEN){
             return SERIAL_PACKET_LEN_ERR;
         }
 
         if(context->state != SERIAL_STATE_GETDEVICESNAPSHOT){
-        	return SERIAL_PROCESS_ERR;
+            return SERIAL_PROCESS_ERR;
         }
 
-		if(context->serial_snapshot_info.message_context){
-			message_delete(context->serial_snapshot_info.message_context);
-			context->serial_snapshot_info.message_context = NULL;
-		}
-		context->serial_snapshot_info.message_context = message_parse(data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1, PARSE_TYPE_BASIC);
-		if(context->serial_snapshot_info.message_context == NULL){
-			SERIAL_LOG("snapshot err");
-			return SERIAL_PARAM_ERR;
-		}
+        if(context->serial_snapshot_info.message_context){
+            message_delete(context->serial_snapshot_info.message_context);
+            context->serial_snapshot_info.message_context = NULL;
+        }
+        context->serial_snapshot_info.message_context = message_parse(data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1, PARSE_TYPE_BASIC);
+        if(context->serial_snapshot_info.message_context == NULL){
+            SERIAL_LOG("snapshot err");
+            return SERIAL_PARAM_ERR;
+        }
 
-		context->serial_snapshot_info.is_changed = 1;
+        context->serial_snapshot_info.is_changed = 1;
 
-		context->state = SERIAL_STATE_NORMAL;
+        context->state = SERIAL_STATE_NORMAL;
 
-		SERIAL_LOG("need report");
+        SERIAL_LOG("need report");
 
 #ifdef SERIAL_REPORT_SUPPORT
         message_changed_flag_clear(context->serial_snapshot_info.message_context);
 
         if(context->callbacks.m_reportcb){
-            context->callbacks.m_reportcb(CMD_GET_SNAPSHOT, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
+            context->callbacks.m_reportcb(CMD_GET_SNAPSHOT, data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1);
         }
         #else
         if(context->callbacks.m_reportcb){
-            context->callbacks.m_reportcb(CMD_GET_SNAPSHOT, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
+            context->callbacks.m_reportcb(CMD_GET_SNAPSHOT, data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1);
         }
 #endif
 
@@ -564,26 +564,26 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
        case CMD_HEARTBEAT:
 
-           if(len < FRAME_MIN_LEN+1){
+           if(len < FRAME_MIN_LEN + 1){
                return SERIAL_PACKET_LEN_ERR;
            }
 
            heartbeat_type = *(data+FRAME_HEAD_LEN);
 
-           if(context->state==SERIAL_STATE_HEARTBEAT ){
-               context->state=SERIAL_STATE_GETDEVICEINFO;
+           if(context->state == SERIAL_STATE_HEARTBEAT ){
+               context->state = SERIAL_STATE_GETDEVICEINFO;
                serial_generate_send(CMD_NOTIFY_STATUS, 0, &context->module_status, 1);
                if(context->module_prodtst_status != MODULE_PRODTST_STATUS_NONE){
                     serial_generate_send(CMD_PRODTST_STATUS, 0, &context->module_prodtst_status, 1);
                }
-               context->keep_alive_interval=SERIAL_KEPPALIVE_TIMEOUT_DEFAULT_MS;
+               context->keep_alive_interval = SERIAL_KEPPALIVE_TIMEOUT_DEFAULT_MS;
                qm_utils_time_countdown_ms(&context->next_ping_time, context->keep_alive_interval);
                qm_utils_time_start(&context->process_get_time);
 
            }else{
                  if(heartbeat_type == HEARTBEAT_RESET){
                       serial_generate_send(CMD_NOTIFY_STATUS, 0, &context->module_status, 1);
-                      context->state=SERIAL_STATE_GETDEVICEINFO;
+                      context->state = SERIAL_STATE_GETDEVICEINFO;
                       qm_utils_time_start(&context->process_get_time);
                  }else if(heartbeat_type == HEARTBEAT_COMMON){
 
@@ -602,7 +602,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 #ifdef SERIAL_EVENT_SUPPORT
 
        case CMD_EVENT:
-           if(len < FRAME_MIN_LEN+1){
+           if(len < FRAME_MIN_LEN + 1){
                return SERIAL_PACKET_LEN_ERR;
            }
 
@@ -613,44 +613,44 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
                return SERIAL_PROCESS_ERR;
            }
 #ifdef SERIAL_EVENT_CACHE_SUPPORT
-           event_handler(data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
+           event_handler(data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1);
 #else
            if(context->callbacks.m_reportcb){
-               context->callbacks.m_reportcb(CMD_EVENT, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
+               context->callbacks.m_reportcb(CMD_EVENT, data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1);
            }
 #endif
 
        break;  
-#endif
-#ifdef SERIAL_ACTION_SUPPORT
-       case CMD_ACTION:
-           if(len < FRAME_MIN_LEN+1){
-               return SERIAL_PACKET_LEN_ERR;
-           }
+    #endif
+    #ifdef SERIAL_ACTION_SUPPORT
+        case CMD_ACTION:
+            if(len < FRAME_MIN_LEN + 1){
+                return SERIAL_PACKET_LEN_ERR;
+            }
 
-           local_id=*(data+FRAME_HEAD_LEN);
-           type=data_type_get(local_id);
-		   err=serial_local_id_find(local_id, &platform_id);
-		   if(err==SERIAL_NO_ERR){
-			   if(context->callbacks.m_responsecb){
-				  context->callbacks.m_responsecb(cmd, platform_id, data+FRAME_HEAD_LEN+1, len-FRAME_HEAD_LEN-2);
-			   }
-		   }
+            local_id = *(data + FRAME_HEAD_LEN);
+            type = data_type_get(local_id);
+            err = serial_local_id_find(local_id, &platform_id);
+            if(err == SERIAL_NO_ERR){
+                if(context->callbacks.m_responsecb){
+                    context->callbacks.m_responsecb(cmd, platform_id, data + FRAME_HEAD_LEN + 1, len - FRAME_HEAD_LEN - 2);
+                }
+            }
 
-       break;
-#endif
-       case CMD_NOTIFY_STATUS:
+        break;
+    #endif
+        case CMD_NOTIFY_STATUS:
 
 
        break;
        
        case CMD_MCU_NOTIFY_STATUS:
-        if(len < FRAME_MIN_LEN+1){
+        if(len < FRAME_MIN_LEN + 1){
             return SERIAL_PACKET_LEN_ERR;
         }
         
         if(context->callbacks.m_mcu_status_notifycb){
-            context->callbacks.m_mcu_status_notifycb(*(data+FRAME_HEAD_LEN));
+            context->callbacks.m_mcu_status_notifycb(*(data + FRAME_HEAD_LEN));
         }
        
        break;
@@ -661,10 +661,10 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
        case CMD_NETCONFIG:
 
-        if(len < FRAME_MIN_LEN+1){
+        if(len < FRAME_MIN_LEN + 1){
             return SERIAL_PACKET_LEN_ERR;
         }
-        config_type = *(data+FRAME_HEAD_LEN);
+        config_type = *(data + FRAME_HEAD_LEN);
         if(config_type < NETWORK_CONFIG_START || config_type > NETWORK_CONFIG_END){
             return SERIAL_DATA_TYPE_ERR;
         }
@@ -677,10 +677,10 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
        case CMD_PRODTST_ENTERY:
 
-        if(len < FRAME_MIN_LEN+1){
+        if(len < FRAME_MIN_LEN + 1){
             return SERIAL_PACKET_LEN_ERR;
         }
-        config_type = *(data+FRAME_HEAD_LEN);
+        config_type = *(data + FRAME_HEAD_LEN);
         if(config_type <= MODULE_PRODTST_TYPE_START || config_type >= MODULE_PRODTST_TYPE_END){
             return SERIAL_DATA_TYPE_ERR;
         }
@@ -701,12 +701,12 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
                return SERIAL_PROCESS_ERR;
            }
 
-           ver.main_ver=*(data+FRAME_HEAD_LEN);
-           ver.sub_ver=*(data+FRAME_HEAD_LEN+1);
-           ver.fix_ver=*(data+FRAME_HEAD_LEN+2);
+           ver.main_ver = *(data + FRAME_HEAD_LEN);
+           ver.sub_ver = *(data + FRAME_HEAD_LEN + 1);
+           ver.fix_ver = *(data + FRAME_HEAD_LEN + 2);
 
            if(len - FRAME_DEVICEINFO_GET_MIN_LEN ){
-               err = deviceinfo_handler(context, data+FRAME_HEAD_LEN+FRAME_VER_LEN, len-FRAME_MIN_LEN-FRAME_VER_LEN);
+               err = deviceinfo_handler(context, data + FRAME_HEAD_LEN + FRAME_VER_LEN, len - FRAME_MIN_LEN - FRAME_VER_LEN);
                if(err != SERIAL_NO_ERR){
                    SERIAL_LOG("device info handler err");
                    return err;
@@ -725,7 +725,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
            if(context->callbacks.m_device_onlivecb){
                if(len - FRAME_DEVICEINFO_GET_MIN_LEN ){
-                   context->callbacks.m_device_onlivecb(&ver, data+FRAME_HEAD_LEN+FRAME_VER_LEN, len-FRAME_MIN_LEN-FRAME_VER_LEN);
+                   context->callbacks.m_device_onlivecb(&ver, data + FRAME_HEAD_LEN + FRAME_VER_LEN, len - FRAME_MIN_LEN - FRAME_VER_LEN);
                }else{
                    context->callbacks.m_device_onlivecb(&ver, NULL, 0);
                }
@@ -735,10 +735,10 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
        case CMD_TIMEGET:
 
-            if(len < FRAME_MIN_LEN+1){
+            if(len < FRAME_MIN_LEN + 1){
                 return SERIAL_PACKET_LEN_ERR;
             }
-            time_info.timezone = *(data+FRAME_HEAD_LEN);
+            time_info.timezone = *(data + FRAME_HEAD_LEN);
             err = qm_serial_get_time(&time_info);
             if(err != 0){
                 serial_generate_send_with_code(cmd, 0, SERIAL_COM_ERROR, (uint8_t*)&time_info, sizeof(time_info));
@@ -750,22 +750,27 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
 
        case CMD_GETMOD:
        case CMD_SETMOD:
-        if(len < FRAME_MIN_LEN+1){
+        if(len < FRAME_MIN_LEN + 1){
             return SERIAL_PACKET_LEN_ERR;
         }
 
         if(context->callbacks.m_extinfocb){
-            context->callbacks.m_extinfocb(cmd, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
+            context->callbacks.m_extinfocb(cmd, data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1);
         }
+
+       break;
+
+       case CMD_SERVICE:
+
 
        break;
 
        default:
 #ifdef SERIAL_OTA_SUPPORT
-            if(len < FRAME_MIN_LEN+1){
+            if(len < FRAME_MIN_LEN + 1){
                 return SERIAL_PACKET_LEN_ERR;
             }
-            qm_serial_ota_parse(cmd, data+FRAME_HEAD_LEN, len-FRAME_HEAD_LEN-1);
+            qm_serial_ota_parse(cmd, data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1);
 #endif
            break;
     }
@@ -786,8 +791,8 @@ static void frame_head_init(uint8_t *buffer, frame_cmd_t cmd, uint16_t len)
 
 static int32_t frame_creat(frame_cmd_t cmd, uint8_t packet_id, uint8_t code, uint8_t *data, uint16_t data_len, uint8_t *buf, uint16_t *buf_len)
 {
-    frame_unit_t *frame_unit=NULL;
-    frame_generic_t *frame_generic=NULL;
+    frame_unit_t *frame_unit = NULL;
+    frame_generic_t *frame_generic = NULL;
 
     switch (cmd){
 
@@ -801,12 +806,12 @@ static int32_t frame_creat(frame_cmd_t cmd, uint8_t packet_id, uint8_t code, uin
 #endif
        case CMD_PRODTST_ENTERY:
 
-           if(buf && *buf_len>=sizeof(frame_unit_t)){
-               frame_unit=(frame_unit_t*)buf;
+           if(buf && *buf_len >= sizeof(frame_unit_t)){
+               frame_unit = (frame_unit_t*)buf;
                frame_head_init(buf, cmd, 0);
-               frame_unit->chksum=frame_chksum(buf, sizeof(frame_unit_t)-1);
+               frame_unit->chksum = frame_chksum(buf, sizeof(frame_unit_t) - 1);
            }
-           *buf_len=sizeof(frame_unit_t);
+           *buf_len = sizeof(frame_unit_t);
 
        break;
 
@@ -817,26 +822,27 @@ static int32_t frame_creat(frame_cmd_t cmd, uint8_t packet_id, uint8_t code, uin
 #endif
        case CMD_PRODTST_STATUS:
 
-           if(buf && *buf_len>=sizeof(frame_generic_t)){
-               frame_generic=(frame_generic_t*)buf;
+           if(buf && *buf_len >= sizeof(frame_generic_t)){
+               frame_generic = (frame_generic_t*)buf;
                frame_head_init(buf, cmd, 1);
-               frame_generic->data=*data;
-               frame_generic->chksum=frame_chksum(buf, sizeof(frame_generic_t)-1);
+               frame_generic->data = *data;
+               frame_generic->chksum = frame_chksum(buf, sizeof(frame_generic_t) - 1);
            }
-           *buf_len=sizeof(frame_generic_t);
+           *buf_len = sizeof(frame_generic_t);
 
        break;
 
        case CMD_GET:
        case CMD_SET:
        case CMD_ACTION:
-           if(buf && *buf_len>=FRAME_MIN_LEN+data_len+1){
-               frame_head_init(buf, cmd, data_len+1);
-               *(buf+FRAME_HEAD_LEN)=packet_id;
-               memcpy(buf+FRAME_HEAD_LEN+1, data, data_len);
-               *(buf+FRAME_HEAD_LEN+data_len+1)=frame_chksum(buf, FRAME_HEAD_LEN+data_len+1);
+       case CMD_SERVICE:
+           if(buf && *buf_len >= FRAME_MIN_LEN + data_len + 1){
+               frame_head_init(buf, cmd, data_len + 1);
+               *(buf + FRAME_HEAD_LEN) = packet_id;
+               memcpy(buf + FRAME_HEAD_LEN + 1, data, data_len);
+               *(buf + FRAME_HEAD_LEN + data_len + 1) = frame_chksum(buf, FRAME_HEAD_LEN + data_len + 1);
            }
-           *buf_len=FRAME_MIN_LEN+data_len+1;
+           *buf_len = FRAME_MIN_LEN + data_len + 1;
 
        break;
 
@@ -847,22 +853,22 @@ static int32_t frame_creat(frame_cmd_t cmd, uint8_t packet_id, uint8_t code, uin
        case CMD_OTA_VERIFY:
 #endif
 
-        if(buf && *buf_len>=FRAME_MIN_LEN+data_len){
+        if(buf && *buf_len >= FRAME_MIN_LEN + data_len){
            frame_head_init(buf, cmd, data_len);
-           memcpy(buf+FRAME_HEAD_LEN, data, data_len);
-           *(buf+FRAME_HEAD_LEN+data_len)=frame_chksum(buf, FRAME_HEAD_LEN+data_len);
+           memcpy(buf + FRAME_HEAD_LEN, data, data_len);
+           *(buf + FRAME_HEAD_LEN + data_len) = frame_chksum(buf, FRAME_HEAD_LEN + data_len);
         }
-        *buf_len=FRAME_MIN_LEN+data_len;
+        *buf_len = FRAME_MIN_LEN+data_len;
        break;
 
        case CMD_TIMEGET:
-        if(buf && *buf_len >= FRAME_MIN_LEN+data_len+1){
-           frame_head_init(buf, cmd, data_len+1);
-           memcpy(buf+FRAME_HEAD_LEN, &code, 1);
-           memcpy(buf+FRAME_HEAD_LEN+1, data, data_len);
-           *(buf+FRAME_HEAD_LEN+data_len+1) = frame_chksum(buf, FRAME_HEAD_LEN+data_len+1);
+        if(buf && *buf_len >= FRAME_MIN_LEN + data_len + 1){
+           frame_head_init(buf, cmd, data_len + 1);
+           memcpy(buf + FRAME_HEAD_LEN, &code, 1);
+           memcpy(buf + FRAME_HEAD_LEN + 1, data, data_len);
+           *(buf + FRAME_HEAD_LEN + data_len + 1) = frame_chksum(buf, FRAME_HEAD_LEN + data_len + 1);
         }
-        *buf_len = FRAME_MIN_LEN+data_len+1;
+        *buf_len = FRAME_MIN_LEN + data_len + 1;
         
        break;
 
@@ -912,7 +918,7 @@ static int32_t serial_frame_info_creat(frame_cmd_t cmd, uint8_t packet_id, uint8
 
 static uint32_t queue_len_get(qm_list_t *queue)
 {
-    uint32_t queue_len;
+    uint32_t queue_len = 0;
     serial_context_t *context = NULL;
     context = qm_serial_context_get();
 #ifdef SERIAL_RTOS_SUPPORT
@@ -1516,17 +1522,17 @@ int32_t qm_serial_cloud_get(platform_id_t id, uint8_t *data, uint16_t len)
 
 int32_t qm_serial_ext_cmd_ack(frame_cmd_t cmd, uint8_t err_code, uint8_t *data, uint16_t len)
 {
-    uint8_t *buf=NULL;
-    int32_t err=SERIAL_NO_ERR;
-    uint8_t code=err_code;
-    if(data!=NULL && len >0){
-        buf=qm_serial_malloc(len+1);
-        if(buf==NULL){
+    uint8_t *buf = NULL;
+    int32_t err = SERIAL_NO_ERR;
+    uint8_t code = err_code;
+    if(data != NULL && len > 0){
+        buf = qm_serial_malloc(len + 1);
+        if(buf == NULL){
             return SERIAL_ALLOC_MEM_ERR;
         }
         memcpy(buf, &code, 1);
-        memcpy(buf+1, data, len);
-        err=serial_generate_send(cmd, 0, buf, len+1);
+        memcpy(buf + 1, data, len);
+        err = serial_generate_send(cmd, 0, buf, len + 1);
         qm_serial_free(buf);
     }else{
         err=serial_generate_send(cmd, 0, &code, 1);
@@ -1536,13 +1542,13 @@ int32_t qm_serial_ext_cmd_ack(frame_cmd_t cmd, uint8_t err_code, uint8_t *data, 
 }
 int32_t qm_serial_init(serial_param_t *serial_param)
 {
-    serial_context_t *serial_context=NULL;
+    serial_context_t *serial_context = NULL;
     if(serial_param == NULL || serial_param->pread_buf == NULL){
         return SERIAL_PARAM_ERR;
     }
 
     serial_context=(serial_context_t*)qm_serial_malloc(sizeof(serial_context_t));
-    if(NULL==serial_context)
+    if(NULL == serial_context)
     {
        SERIAL_LOG("not enough memory.");
        return SERIAL_ALLOC_MEM_ERR;
@@ -1551,15 +1557,15 @@ int32_t qm_serial_init(serial_param_t *serial_param)
     memset(serial_context, 0, sizeof(serial_context_t));
 
 #ifdef SERIAL_RTOS_SUPPORT
-    serial_context->serial_mutex=qm_serial_mutex_init();
-    serial_context->send_sem=qm_serial_sem_init(0);
+    serial_context->serial_mutex = qm_serial_mutex_init();
+    serial_context->send_sem = qm_serial_sem_init(0);
 #endif
 
-    serial_context->send_queue=qm_list_new();
-    serial_context->id_queue=qm_list_new();
+    serial_context->send_queue = qm_list_new();
+    serial_context->id_queue = qm_list_new();
 
 #ifdef SERIAL_RESEND_SUPPORT
-    serial_context->down_queue=qm_list_new();
+    serial_context->down_queue = qm_list_new();
 #endif
 
 #ifdef SERIAL_EVENT_SUPPORT
@@ -1567,40 +1573,40 @@ int32_t qm_serial_init(serial_param_t *serial_param)
     serial_context->event_info.serial_event_queue = qm_list_new();
 #endif
 #endif
-    serial_context->id_queue->match=id_match;
+    serial_context->id_queue->match = id_match;
 
     qm_utils_time_init(&serial_context->next_ping_time);
-    serial_context->keep_alive_interval=SERIAL_KEPPALIVE_TIMEOUT_FAST_MS;
+    serial_context->keep_alive_interval = SERIAL_KEPPALIVE_TIMEOUT_FAST_MS;
     qm_utils_time_countdown_ms(&serial_context->next_ping_time, serial_context->keep_alive_interval);
 
     qm_utils_time_init(&serial_context->process_get_time);
-    serial_context->process_get_interval=SERIAL_PROCESS_TIMEOUT_MS;
+    serial_context->process_get_interval = SERIAL_PROCESS_TIMEOUT_MS;
     qm_utils_time_countdown_ms(&serial_context->process_get_time, serial_context->process_get_interval);
 
     qm_utils_time_init(&serial_context->send_interval_time);
-    serial_context->send_interval=SERIAL_SEND_INTERVAL_TIMEOUT_DEFAULT_MS;
+    serial_context->send_interval = SERIAL_SEND_INTERVAL_TIMEOUT_DEFAULT_MS;
     qm_utils_time_countdown_ms(&serial_context->send_interval_time, serial_context->send_interval);
 
     qm_utils_time_init(&serial_context->id_check_time);
-    serial_context->id_check_interval=SERIAL_ID_CHECK_TIMEOUT_MS;
+    serial_context->id_check_interval = SERIAL_ID_CHECK_TIMEOUT_MS;
     qm_utils_time_countdown_ms(&serial_context->id_check_time, serial_context->id_check_interval);
 
-    serial_context->callbacks.m_network_configcb=serial_param->callbacks.m_network_configcb;
-    serial_context->callbacks.m_reportcb=serial_param->callbacks.m_reportcb;
-    serial_context->callbacks.m_responsecb=serial_param->callbacks.m_responsecb;
-    serial_context->callbacks.m_device_onlivecb=serial_param->callbacks.m_device_onlivecb;
-    serial_context->callbacks.m_extinfocb=serial_param->callbacks.m_extinfocb;
-    serial_context->callbacks.m_prodtst_configcb=serial_param->callbacks.m_prodtst_configcb;
-    serial_context->callbacks.m_mcu_status_notifycb=serial_param->callbacks.m_mcu_status_notifycb;
+    serial_context->callbacks.m_network_configcb = serial_param->callbacks.m_network_configcb;
+    serial_context->callbacks.m_reportcb = serial_param->callbacks.m_reportcb;
+    serial_context->callbacks.m_responsecb = serial_param->callbacks.m_responsecb;
+    serial_context->callbacks.m_device_onlivecb = serial_param->callbacks.m_device_onlivecb;
+    serial_context->callbacks.m_extinfocb = serial_param->callbacks.m_extinfocb;
+    serial_context->callbacks.m_prodtst_configcb = serial_param->callbacks.m_prodtst_configcb;
+    serial_context->callbacks.m_mcu_status_notifycb = serial_param->callbacks.m_mcu_status_notifycb;
 #ifdef SERIAL_OTA_SUPPORT
-    serial_context->callbacks.ota_event_notifycb=serial_param->callbacks.ota_event_notifycb;
+    serial_context->callbacks.ota_event_notifycb = serial_param->callbacks.ota_event_notifycb;
 #endif
 #ifdef SERIAL_HEARTBEAT_NOTIFY_SUPPORT
     serial_context->callbacks.m_heartbeatcb = serial_param->callbacks.m_heartbeatcb;
 #endif
 
 #ifdef SERIAL_RAW_SUPPORT
-    serial_context->callbacks.m_ramcb=serial_context->callbacks.m_ramcb;
+    serial_context->callbacks.m_ramcb = serial_context->callbacks.m_ramcb;
 #endif
     serial_context->pread_buf = serial_param->pread_buf;
     serial_context->read_buf_size = serial_param->read_buf_size;
@@ -1621,28 +1627,29 @@ int32_t qm_serial_init(serial_param_t *serial_param)
 
 static uint16_t get_packet_len(uint8_t*packet_buffer)
 {
-    if(packet_buffer==NULL)
+    if(packet_buffer == NULL){
         return 0;
+    }
 
-    return  (be16_to_cpu((packet_buffer[5]<<8)+(packet_buffer[4])));
+    return  (be16_to_cpu((packet_buffer[5] << 8) + (packet_buffer[4])));
 }
 
 static int serial_recv_cycle(serial_context_t *pcontext, qm_utils_time_t *timer)
 {
     int rc = SERIAL_NO_ERR;
     int recv_len = 0;
-    uint16_t packet_len;
+    uint16_t packet_len = 0;
     uint32_t left_t = qm_utils_time_left(timer);
     uint16_t need_len = pcontext->need_len;
 
     recv_len = qm_serial_recv(pcontext->handle, pcontext->pread_buf+pcontext->read_pos, need_len, left_t);
     pcontext->read_pos += recv_len;
-    
+
     switch(pcontext->parse_state){
 
         case PARSE_STATE_NONE:
 
-            if(pcontext->pread_buf[pcontext->read_pos-1] != FRAME_HEAD_PART){
+            if(pcontext->pread_buf[pcontext->read_pos - 1] != FRAME_HEAD_PART){
                 goto clear;
             }else{
                 pcontext->parse_state = PARSE_STATE_HEAD;
@@ -1652,29 +1659,29 @@ static int serial_recv_cycle(serial_context_t *pcontext, qm_utils_time_t *timer)
         break;
 
         case PARSE_STATE_HEAD:
-        	if(pcontext->need_len <= recv_len){
-				if(pcontext->pread_buf[pcontext->read_pos-1] != FRAME_HEAD_PART){
-					goto clear;
-				}else{
-					pcontext->parse_state = PARSE_STATE_VER;
-					pcontext->need_len = 1;
-				}
-        	}else{
-        		pcontext->need_len = pcontext->need_len - recv_len;
-        	}
+            if(pcontext->need_len <= recv_len){
+                if(pcontext->pread_buf[pcontext->read_pos - 1] != FRAME_HEAD_PART){
+                    goto clear;
+                }else{
+                    pcontext->parse_state = PARSE_STATE_VER;
+                    pcontext->need_len = 1;
+                }
+            }else{
+                pcontext->need_len = pcontext->need_len - recv_len;
+            }
 
         break;
         case PARSE_STATE_VER:
-        	if(pcontext->need_len <= recv_len){
-				if(pcontext->pread_buf[pcontext->read_pos-1] != PROTOCOL_VER){
-					goto clear;
-				}else{
-					pcontext->parse_state = PARSE_STATE_LEN;
-					pcontext->need_len = 3;
-				}
-        	}else{
-        		pcontext->need_len = pcontext->need_len - recv_len;
-        	}
+            if(pcontext->need_len <= recv_len){
+                if(pcontext->pread_buf[pcontext->read_pos - 1] != PROTOCOL_VER){
+                    goto clear;
+                }else{
+                    pcontext->parse_state = PARSE_STATE_LEN;
+                    pcontext->need_len = 3;
+                }
+            }else{
+                pcontext->need_len = pcontext->need_len - recv_len;
+            }
 
         break;
         case PARSE_STATE_LEN:
@@ -1682,28 +1689,28 @@ static int serial_recv_cycle(serial_context_t *pcontext, qm_utils_time_t *timer)
             if(pcontext->need_len <= recv_len){
                 packet_len = get_packet_len(pcontext->pread_buf);
                 if(packet_len > (pcontext->read_buf_size - pcontext->read_pos)){
-                  SERIAL_LOG("serial recv buffer over flow");
-                  goto clear;
+                    SERIAL_LOG("serial recv buffer over flow");
+                    goto clear;
                 }else{
                     pcontext->parse_state = PARSE_STATE_DATA;
-                    pcontext->need_len = packet_len+1;
+                    pcontext->need_len = packet_len + 1;
                 }
-        	}else{
-        		pcontext->need_len = pcontext->need_len - recv_len;
-        	}
+            }else{
+                pcontext->need_len = pcontext->need_len - recv_len;
+            }
 
         break;
 
         case PARSE_STATE_DATA:
 
-        	if(pcontext->need_len <= recv_len){
-				SERIAL_LOG("serial recv len %d", pcontext->read_pos);
-				SERIAL_HEX_LOG("serial recv data", pcontext->pread_buf, pcontext->read_pos);
-				rc = frame_parse(pcontext->pread_buf, pcontext->read_pos);
-				goto clear;
-        	}else{
-        		pcontext->need_len = pcontext->need_len - recv_len;
-        	}
+            if(pcontext->need_len <= recv_len){
+                SERIAL_LOG("serial recv len %d", pcontext->read_pos);
+                SERIAL_HEX_LOG("serial recv data", pcontext->pread_buf, pcontext->read_pos);
+                rc = frame_parse(pcontext->pread_buf, pcontext->read_pos);
+                goto clear;
+            }else{
+                pcontext->need_len = pcontext->need_len - recv_len;
+            }
 
         break;
 
@@ -1843,15 +1850,15 @@ static int32_t serial_process_cycle(serial_context_t *pcontext)
 
 int32_t qm_serial_recv_loop(int32_t timeout_ms)
 {
-    int32_t rc=SERIAL_NO_ERR;
-    qm_utils_time_t  yield_time;
-    uint32_t left_t=0;
-    serial_context_t *context=NULL;
+    int32_t rc = SERIAL_NO_ERR;
+    qm_utils_time_t yield_time = {0};
+    uint32_t left_t = 0;
+    serial_context_t *context = NULL;
     qm_utils_time_init(&yield_time);
     qm_utils_time_countdown_ms(&yield_time, timeout_ms);
 
-    context=qm_serial_context_get();
-    if(context==NULL){
+    context = qm_serial_context_get();
+    if(context == NULL){
         return SERIAL_NO_INIT_ERR;
     }
 
@@ -1895,27 +1902,27 @@ int32_t qm_serial_recv_loop(int32_t timeout_ms)
 #ifdef SERIAL_RAW_SUPPORT
 int32_t qm_serial_raw_send(uint8_t *data, uint16_t len)
 {
-    uint16_t data_len=len;
-    uint16_t sum_len=0;
-    uint8_t *buf=NULL;
-    qm_list_node_t *node=NULL;
-    serial_context_t *context=NULL;
-    if(data==NULL || len==0){
+    uint16_t data_len = len;
+    uint16_t sum_len = 0;
+    uint8_t *buf = NULL;
+    qm_list_node_t *node = NULL;
+    serial_context_t *context = NULL;
+    if(data == NULL || len == 0){
         return SERIAL_PARAM_ERR;
     }
-    context=qm_serial_context_get();
-    if(context==NULL){
+    context = qm_serial_context_get();
+    if(context == NULL){
         return SERIAL_NO_INIT_ERR;
     }
-    sum_len=data_len+sizeof(qm_list_node_t)+2;
-    buf=qm_serial_malloc(sum_len);
-    if(buf==NULL){
+    sum_len = data_len + sizeof(qm_list_node_t) + 2;
+    buf = qm_serial_malloc(sum_len);
+    if(buf == NULL){
         return SERIAL_ALLOC_MEM_ERR;
     }
-    node=(qm_list_node_t*)buf;
-    qm_list_node_init(node, buf+sizeof(qm_list_node_t));
-    memcpy(buf+sizeof(qm_list_node_t), &data_len, 2);
-    memcpy(buf+sizeof(qm_list_node_t)+2, data, len);
+    node = (qm_list_node_t*)buf;
+    qm_list_node_init(node, buf + sizeof(qm_list_node_t));
+    memcpy(buf + sizeof(qm_list_node_t), &data_len, 2);
+    memcpy(buf + sizeof(qm_list_node_t) + 2, data, len);
 
 #ifdef SERIAL_RTOS_SUPPORT
     qm_serial_mutex_lock(context->serial_mutex);

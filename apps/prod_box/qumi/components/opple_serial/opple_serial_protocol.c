@@ -75,7 +75,7 @@ static uint8_t packet_id_get(void)
 
 opple_serial_snapshot_info_t* opple_serial_snapshot_info_get(void)
 {
-    opple_serial_context_t *context=NULL;
+    opple_serial_context_t *context = NULL;
     context = opple_serial_context_get();
     if(context == NULL){
         return NULL;
@@ -944,7 +944,7 @@ static int32_t serial_send_by_key(opple_frame_cmd_t cmd, uint8_t *key, uint8_t n
     int32_t need_free = 0;
     int32_t tlv_len = 0;
     uint8_t buf[SERIAL_NOTIFY_BUF_LEN] = {0};
-    uint8_t alloc_buf = NULL;
+    uint8_t *alloc_buf = NULL;
     uint8_t index = 0;
     int32_t ret = 0;
     qm_tlv_block_t *tlv_block = NULL;
@@ -993,7 +993,6 @@ __exit:
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_unlock(context->serial_mutex);
 #endif
-
 
     if(response){
         if(ret == 0){
@@ -1338,10 +1337,10 @@ static int32_t serial_key_set(uint8_t key, uint8_t *data, uint8_t len, int32_t f
     int32_t size = 0;
     opple_serial_context_t *context = NULL;
 
-    context = opple_serial_context_get();
-
     qm_tlv_block_t *tlv_block = NULL;
     opple_serial_key_handler handler = NULL;
+
+    context = opple_serial_context_get();
 
     tlv_block = qm_tlv_block_find(context->tlv_ctx, (uint16_t)key);
     if(tlv_block == NULL){
@@ -1650,14 +1649,14 @@ int32_t opple_serial_init(opple_serial_param_t *serial_param)
 
     serial_context->tlv_ctx = qm_tlv_ctx_creat();
 
+    serial_context->handle = opple_serial_uart_init();
+
+    g_serial_context = serial_context;
+
     serial_key_register(OPPLE_MODULE_STATUS_KEY_NETWORK, serial_key_generic_handler, (uint8_t*)&serial_context->network_status, sizeof(uint8_t));
     serial_key_register(OPPLE_MODULE_STATUS_KEY_RESET, serial_key_generic_handler, NULL, 0);
     serial_key_register(OPPLE_MODULE_STATUS_KEY_REMOTE_PAIR, serial_key_generic_handler, NULL, 0);
     serial_key_register(OPPLE_MCU_STATUS_KEY_REBOOT, serial_key_generic_handler, NULL, 0);
-    
-    serial_context->handle = opple_serial_uart_init();
-
-    g_serial_context = serial_context;
     
     return OPPLE_SERIAL_NO_ERR;
 }

@@ -103,8 +103,9 @@ typedef enum{
 
 typedef enum
 {
-    CMD_GET                 = 0x03,
     CMD_SET                 = 0x01,
+    CMD_SERVICE             = 0x02,
+    CMD_GET                 = 0x03,
     CMD_NOTIFY_STATUS       = 0x22,
     CMD_REPORT              = 0x10,
     CMD_HEARTBEAT           = 0x20,

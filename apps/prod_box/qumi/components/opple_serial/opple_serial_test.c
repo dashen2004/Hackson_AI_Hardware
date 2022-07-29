@@ -112,7 +112,7 @@ void opple_serial_test(void)
 
     opple_serial_module_network_status_set(OPPLE_MODULE_CONNECTED);
 
-    opple_serial_mode_register(0xF1, mac_setmode_callback, mac_getmode_callback);
+    //opple_serial_mode_register(0xF1, mac_setmode_callback, mac_getmode_callback);
     
     qm_task_new(&send_task, "serial send", serial_send_thread, NULL, 4*1024, 20);
     qm_task_new(&recv_task, "serial recv", serial_recv_thread, NULL, 4*1024, 20);
