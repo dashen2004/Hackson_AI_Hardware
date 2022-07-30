@@ -428,20 +428,6 @@ static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t cod
 
        break;
 
-       case OPPLE_CMD_GET_STATUS:
-
-        len = sizeof(opple_frame_generic_t);
-        if(buf && *buf_len >= len){
-            frame_generic=(opple_frame_generic_t*)buf;
-            frame_head_init(buf, cmd, packet_id, len);
-            frame_generic->data = *data;
-            frame_generic->chksum = frame_chksum(buf+2, len-5);
-            frame_generic->tail = cpu_to_be16(OPPLE_FRAME_TAIL);
-        }
-        *buf_len = len;
-
-       break;
-
        case OPPLE_CMD_NOTIFY_STATUS:
        case OPPLE_CMD_GET:
        case OPPLE_CMD_SET:
@@ -465,6 +451,7 @@ static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t cod
        case OPPLE_CMD_TIMEGET:
        case OPPLE_CMD_GET_FLASH:
        case OPPLE_CMD_SET_FLASH:
+       case OPPLE_CMD_GET_STATUS:
 
         len = OPPLE_FRAME_MIN_LEN + data_len + 1;
         if(buf && *buf_len >= len){
@@ -968,7 +955,7 @@ static int32_t serial_send_by_key(opple_frame_cmd_t cmd, uint8_t *key, uint8_t n
             qm_tlv_block_serialize(tlv_block);
         }else{
             ret = OPPLE_SERIAL_PARAM_ERR;
-            break;
+            goto __exit;
         }
 
         index ++;
