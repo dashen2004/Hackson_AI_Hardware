@@ -117,6 +117,8 @@ typedef struct message
 
     }value;
 
+    void *arg;
+
     struct message *next;
 
 }message_info_t;
@@ -324,5 +326,6 @@ uint8_t is_message_update(message_context_t *context);
 
 int32_t message_serialize_by_attrid(message_context_t *context, uint8_t* attr_id, uint16_t attr_id_count, uint8_t *buf, uint16_t *len);
 
+message_info_t *message_object_next(message_context_t *context, message_info_t *object);
 
 #endif

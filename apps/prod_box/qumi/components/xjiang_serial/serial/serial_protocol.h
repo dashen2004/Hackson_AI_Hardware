@@ -67,6 +67,14 @@ enum{
 #define FRAME_SNAPSHOT_MIN_LEN  (FRAME_MIN_LEN+3)
 #define FRAME_REPORT_MIN_LEN  (FRAME_MIN_LEN+3)
 
+
+//service list
+typedef enum
+{
+    MODULE_SERVICE_LOWPOWER = 0xD1,
+
+}module_service_type_t;
+
 //define module status
 typedef enum
 {
@@ -101,8 +109,8 @@ typedef enum{
     MODULE_PRODTST_TYPE_END                   
 }module_prodtst_type_t;
 
-    typedef enum
-    {
+typedef enum
+{
     CMD_SET                 = 0x01,
     CMD_SERVICE             = 0x02,
     CMD_GET                 = 0x03,
@@ -127,7 +135,7 @@ typedef enum{
     #endif
     CMD_PRODTST_ENTERY      = 0x61,
     CMD_PRODTST_STATUS      = 0x60,
-    } frame_cmd_t;
+} frame_cmd_t;
 
 #pragma pack(1)
 
@@ -261,6 +269,7 @@ typedef void (*serial_device_online_fn)(device_ver_t *ver, uint8_t *data, uint16
 typedef void (*serial_extinfo_fn)(frame_cmd_t cmd, uint8_t *data, uint16_t len);
 typedef void (*serial_prodtst_config_fn)(module_prodtst_type_t type);
 typedef void (*serial_mcu_status_notify_fn)(mcu_status_t status);
+typedef int32_t (*serial_service_fn)(void *arg);
 
 #ifdef SERIAL_RAW_SUPPORT
 typedef void (*serial_raw_fn)(serial_data_type_t type, uint8_t *data, uint16_t len);
@@ -289,6 +298,12 @@ typedef struct
     serial_ota_event_notify_fn  	ota_event_notifycb;
 #endif
 }serial_callbacks_t;
+
+typedef struct 
+{
+    serial_service_fn extern_fn;
+    serial_service_fn inner_fn;
+}serial_service_callbacks_t;
 
 typedef struct{
     uint8_t *data;
@@ -409,6 +424,7 @@ serial_context_t *qm_serial_context_get(void);
 int32_t qm_serial_state_set(serial_state_t state);
 int32_t qm_serial_state_get(serial_state_t *state);
 int32_t qm_serial_module_prodtst_status_set(module_prodtst_status_t status);
+int32_t qm_serial_service_register(module_service_type_t service_type, serial_service_fn fn);
 
 #ifdef SERIAL_RAW_SUPPORT
 int32_t qm_serial_raw_send(uint8_t *data, uint16_t len);

@@ -1071,3 +1071,15 @@ int32_t message_serialize_by_attrid(message_context_t *context, uint8_t* attr_id
 }
 
 
+message_info_t *message_object_next(message_context_t *context, message_info_t *object)
+{
+    if(context == NULL){
+        return NULL;
+    }
+    if(object == NULL){
+        return context->object;
+    }else{
+        return object->next;
+    }
+}
+
