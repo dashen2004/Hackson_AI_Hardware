@@ -34,6 +34,7 @@ static int32_t deviceinfo_handler(serial_context_t *context, uint8_t *data, uint
 static uint8_t local_id_get(uint8_t *raw);
 static int32_t down_queue_send(void);
 static int32_t serial_service_register(module_service_type_t service_type, serial_service_fn fn, int32_t is_inner);
+static int32_t serial_service_handler(uint8_t *data, uint16_t len);
 
 #ifdef SERIAL_EVENT_SUPPORT
 #ifdef SERIAL_EVENT_CACHE_SUPPORT
@@ -383,7 +384,7 @@ static int32_t serial_service_handler(uint8_t *data, uint16_t len)
 
     context = qm_serial_context_get();
 
-    message_ctx = message_parse(data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1, PARSE_TYPE_BASIC);
+    message_ctx = message_parse(data, len, PARSE_TYPE_BASIC);
     if(message_ctx == NULL){
         return SERIAL_PARAM_ERR;
     }
