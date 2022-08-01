@@ -392,7 +392,7 @@ static int32_t serial_service_handler(uint8_t *data, uint16_t len)
     info = message_object_next(message_ctx, NULL);
 
     while(info){
-        
+   
         service_info = message_object_get(context->service_ctx, info->attr_id);
         if(service_info == NULL){
             ret = SERIAL_PARAM_ERR;
@@ -2059,6 +2059,7 @@ static int32_t serial_service_register(module_service_type_t service_type, seria
         }
         memset(service_callbacks, 0, sizeof(serial_service_callbacks_t));
         info->arg = (void*)service_callbacks;
+        info->attri_id = (uint8_t)service_type;
 
         message_object_add(context->service_ctx, info);
     }
