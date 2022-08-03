@@ -1331,6 +1331,9 @@ static int32_t down_queue_send(void)
 #endif
 
     queue_push(send_queue, (uint8_t*)node);
+
+    qm_serial_sem_signal(context->send_sem);
+
     return SERIAL_NO_ERR;
 }
 
@@ -2059,7 +2062,7 @@ static int32_t serial_service_register(module_service_type_t service_type, seria
         }
         memset(service_callbacks, 0, sizeof(serial_service_callbacks_t));
         info->arg = (void*)service_callbacks;
-        info->attri_id = (uint8_t)service_type;
+        info->attr_id = (uint8_t)service_type;
 
         message_object_add(context->service_ctx, info);
     }

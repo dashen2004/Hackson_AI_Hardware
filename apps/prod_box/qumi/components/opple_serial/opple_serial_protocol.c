@@ -161,8 +161,12 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
             return err;
         }
 
+#ifdef OPPLE_SERIAL_RESEND_SUPPORT
+        down_queue_send();
+#endif
+
         if(context->callbacks.m_responsecb){
-            context->callbacks.m_responsecb(cmd, platform_id, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN, (void*)tlv_ctx);
+            context->callbacks.m_responsecb(cmd, platform_id, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN, NULL);
         }
 
        break;
@@ -1044,6 +1048,8 @@ static int32_t down_queue_send(void)
 
     queue_push(send_queue, (uint8_t*)node);
 
+    opple_serial_sem_signal(context->send_sem);
+
     return OPPLE_SERIAL_NO_ERR; 
 }
 
@@ -1065,9 +1071,6 @@ static int32_t id_check_cycle(opple_serial_context_t *pcontext)
     qm_utils_time_countdown_ms(&pcontext->id_check_time, pcontext->id_check_interval);
 
     if(queue_len_get(pcontext->id_queue) == 0){
-#ifdef OPPLE_SERIAL_RESEND_SUPPORT
-        down_queue_send();
-#endif
         return OPPLE_SERIAL_NO_ERR;
     }
 
@@ -1753,8 +1756,9 @@ int32_t opple_serial_send_loop(void)
     opple_serial_mutex_unlock(context->serial_mutex);
 #endif
 
-    if(send_queue_len == 0)
+    if(send_queue_len == 0){
         goto exit;
+    }
 
     if (!qm_utils_time_is_expired(&context->send_interval_time)) {
          goto exit;
