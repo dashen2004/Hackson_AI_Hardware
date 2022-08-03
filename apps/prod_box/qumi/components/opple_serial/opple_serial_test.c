@@ -25,11 +25,9 @@ static void report_callback(opple_frame_cmd_t cmd, uint8_t *data, uint16_t len, 
         tlv_block = qm_tlv_block_next(tlv_ctx, tlv_block);
     }
 
-
     uint8_t test[] = {0x01, 0x01, 0x01};
 
     opple_serial_cloud_set(1, test, sizeof(test));
-    opple_serial_cloud_set(2, test, sizeof(test));
 
 }
 

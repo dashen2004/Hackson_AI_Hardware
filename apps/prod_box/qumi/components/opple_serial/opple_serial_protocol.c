@@ -881,6 +881,9 @@ static int32_t serial_local_id_find(uint8_t local_id, opple_platform_id_t *platf
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
         opple_serial_mutex_unlock(context->serial_mutex);
 #endif
+        if(id->data){
+            opple_serial_free(id->data);
+        }
         opple_serial_free(node);
     }else{
         return OPPLE_SERIAL_MSG_NUM_ERR;

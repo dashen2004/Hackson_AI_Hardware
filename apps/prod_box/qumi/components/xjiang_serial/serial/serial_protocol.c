@@ -1244,6 +1244,9 @@ static int32_t serial_local_id_find(uint8_t local_id, platform_id_t *platform_id
 #ifdef SERIAL_RTOS_SUPPORT
         qm_serial_mutex_unlock(context->serial_mutex);
 #endif
+        if(id->data){
+            qm_serial_free(id->data);
+        }
         qm_serial_free(node);
     }else{
         return SERIAL_MSG_NUM_ERR;
@@ -1334,8 +1337,6 @@ static int32_t down_queue_send(void)
 #endif
 
     queue_push(send_queue, (uint8_t*)node);
-
-    qm_serial_sem_signal(context->send_sem);
 
     return SERIAL_NO_ERR;
 }
