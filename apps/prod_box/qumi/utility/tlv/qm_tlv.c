@@ -472,15 +472,19 @@ int qm_tlv_pack_uint8(qm_tlv_block_t *tlv_block, uint8_t value)
     if(tlv_block == NULL){
         return -QM_EINVAL;
     }
+    
+    if(tlv_block->len > QM_TLV_BYTES_SIZE){
+        qm_free(tlv_block->value.pdata);
+        tlv_block->value.pdata = NULL;
+    }
+    
     tlv_block->value.bytes[0] = (uint8_t)value;
     #if CONFIG_QM_TLV_LENGTH_SIZE == 1
     tlv_block->len = (uint8_t)sizeof(uint8_t);
     #elif CONFIG_QM_TLV_LENGTH_SIZE == 2
     tlv_block->len = (uint16_t)sizeof(uint8_t);
     #endif
-    if(tlv_block->value.pdata){
-        qm_free(tlv_block->value.pdata);
-    }
+
     return QM_EOK;
 }
 
@@ -495,6 +499,12 @@ int qm_tlv_pack_uint16(qm_tlv_block_t *tlv_block, uint16_t value)
     if(tlv_block == NULL){
         return -QM_EINVAL;
     }
+
+    if(tlv_block->len > QM_TLV_BYTES_SIZE){
+        qm_free(tlv_block->value.pdata);
+        tlv_block->value.pdata = NULL;
+    }
+
     tmp = cpu_to_be16(value);
     memcpy(tlv_block->value.bytes, &tmp, sizeof(uint16_t));
     #if CONFIG_QM_TLV_LENGTH_SIZE == 1
@@ -502,9 +512,7 @@ int qm_tlv_pack_uint16(qm_tlv_block_t *tlv_block, uint16_t value)
     #elif CONFIG_QM_TLV_LENGTH_SIZE == 2
     tlv_block->len = (uint16_t)sizeof(uint16_t);
     #endif
-    if(tlv_block->value.pdata){
-        qm_free(tlv_block->value.pdata);
-    }
+
     return QM_EOK;
 }
 
@@ -519,6 +527,12 @@ int qm_tlv_pack_uint32(qm_tlv_block_t *tlv_block, uint32_t value)
     if(tlv_block == NULL){
         return -QM_EINVAL;
     }
+
+    if(tlv_block->len > QM_TLV_BYTES_SIZE){
+        qm_free(tlv_block->value.pdata);
+        tlv_block->value.pdata = NULL;
+    }
+
     tmp = cpu_to_be32(value);
     memcpy(tlv_block->value.bytes, &tmp, sizeof(uint32_t));
     #if CONFIG_QM_TLV_LENGTH_SIZE == 1
@@ -526,9 +540,7 @@ int qm_tlv_pack_uint32(qm_tlv_block_t *tlv_block, uint32_t value)
     #elif CONFIG_QM_TLV_LENGTH_SIZE == 2
     tlv_block->len = (uint16_t)sizeof(uint32_t);
     #endif
-    if(tlv_block->value.pdata){
-        qm_free(tlv_block->value.pdata);
-    }
+
     return QM_EOK;
 }
 

@@ -1044,7 +1044,7 @@ static int32_t down_queue_send(void)
 
     queue_push(send_queue, (uint8_t*)node);
 
-    return OPPLE_SERIAL_NO_ERR;
+    return OPPLE_SERIAL_NO_ERR; 
 }
 
 #endif
