@@ -561,6 +561,9 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         if(type == TYPE_MCU){
             err = serial_local_id_find(local_id, &platform_id);
             if(err == SERIAL_NO_ERR){
+            #ifdef SERIAL_RESEND_SUPPORT
+                down_queue_send();
+            #endif
                 if(context->callbacks.m_responsecb){
                     context->callbacks.m_responsecb(cmd, platform_id, data + FRAME_HEAD_LEN + 1, len - FRAME_HEAD_LEN - 2);
                 }
@@ -1356,9 +1359,6 @@ static int32_t id_check_cycle(serial_context_t *pcontext)
     qm_utils_time_countdown_ms(&pcontext->id_check_time, pcontext->id_check_interval);
 
     if(queue_len_get(pcontext->id_queue) == 0){
-#ifdef SERIAL_RESEND_SUPPORT
-        down_queue_send();
-#endif
         return SERIAL_NO_ERR;
     }
 

@@ -1048,8 +1048,6 @@ static int32_t down_queue_send(void)
 
     queue_push(send_queue, (uint8_t*)node);
 
-    opple_serial_sem_signal(context->send_sem);
-
     return OPPLE_SERIAL_NO_ERR; 
 }
 
