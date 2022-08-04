@@ -945,8 +945,8 @@ static int32_t serial_send_by_key(opple_frame_cmd_t cmd, uint8_t *key, uint8_t n
     opple_serial_context_t *context = NULL;
     context = opple_serial_context_get();
     if(context == NULL){
-    }
         return OPPLE_SERIAL_NO_INIT_ERR;
+    }
 
     if(key == NULL || num == 0){
         return OPPLE_SERIAL_PARAM_ERR;
