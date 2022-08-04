@@ -41,18 +41,8 @@
       }while(0)
 #else 
       
-#define SERIAL_LOG(format, ...)  qm_serial_printf("serial", format, ##__VA_ARGS__)
-#define SERIAL_HEX_LOG(name, p_data, len) \
-    do{\
-        uint32_t i; \
-        uint32_t length = len; \
-        char hex_buf[256] = {0};\
-        if(length > 128){ \
-            length = 128; \
-        } \
-        hex_to_strs(p_data, length, hex_buf);\
-        SERIAL_LOG("%s: %s", name, hex_buf);\
-      }while(0)   
+#define SERIAL_LOG(format, ...)           qm_serial_printf("serial", format, ##__VA_ARGS__)
+#define SERIAL_HEX_LOG(name, p_data, len) qm_serial_hex_printf("qm serial", name, p_data, len)
     
 #endif
 

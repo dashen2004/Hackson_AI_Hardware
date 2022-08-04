@@ -62,11 +62,11 @@ enum{
 #define FRAME_HEAD_LEN              6  /*HEAD + VER + CMD + LENGTH*/
 #define FRAME_MIN_LEN               7  /*HEAD + VER + CMD + LENGTH + CHKSUM*/
 #define PROTOCOL_VER                0x03
-#define FRAME_DEVICEINFO_GET_MIN_LEN  (FRAME_MIN_LEN+3)
+#define FRAME_DEVICEINFO_GET_MIN_LEN  (FRAME_MIN_LEN + 3)
 #define FRAME_VER_LEN               (3)
-#define FRAME_SNAPSHOT_MIN_LEN  (FRAME_MIN_LEN+3)
-#define FRAME_REPORT_MIN_LEN  (FRAME_MIN_LEN+3)
-
+#define FRAME_SNAPSHOT_MIN_LEN  (FRAME_MIN_LEN + 3)
+#define FRAME_REPORT_MIN_LEN    (FRAME_MIN_LEN + 3)
+#define FRAME_SETMODE_MIN_LEN   (FRAME_MIN_LEN + 3)
 
 //service list
 typedef enum
@@ -266,10 +266,11 @@ typedef void (*serial_response_fn)(frame_cmd_t cmd, platform_id_t id, uint8_t *d
 typedef void (*serial_report_fn)(frame_cmd_t cmd, uint8_t *data, uint16_t len);
 typedef void (*serial_network_config_fn)(network_config_type_t type);
 typedef void (*serial_device_online_fn)(device_ver_t *ver, uint8_t *data, uint16_t len);
-typedef void (*serial_extinfo_fn)(frame_cmd_t cmd, uint8_t *data, uint16_t len);
 typedef void (*serial_prodtst_config_fn)(module_prodtst_type_t type);
 typedef void (*serial_mcu_status_notify_fn)(mcu_status_t status);
 typedef int32_t (*serial_service_fn)(void *arg);
+typedef int32_t (*serial_setmode_fn)(void *arg);
+typedef int32_t (*serial_getmode_fn)(void *arg);
 
 #ifdef SERIAL_RAW_SUPPORT
 typedef void (*serial_raw_fn)(serial_data_type_t type, uint8_t *data, uint16_t len);
@@ -285,7 +286,6 @@ typedef struct
     serial_response_fn              m_responsecb;
     serial_network_config_fn        m_network_configcb;
     serial_device_online_fn         m_device_onlivecb;
-    serial_extinfo_fn               m_extinfocb;
     serial_prodtst_config_fn        m_prodtst_configcb;
     serial_mcu_status_notify_fn     m_mcu_status_notifycb;
 #ifdef SERIAL_RAW_SUPPORT
@@ -304,6 +304,12 @@ typedef struct
     serial_service_fn extern_fn;
     serial_service_fn inner_fn;
 }serial_service_callbacks_t;
+
+typedef struct
+{
+    serial_setmode_fn  m_setmode;
+    serial_getmode_fn  m_getmode;
+}serial_mode_callbacks_t;
 
 typedef struct{
     uint8_t *data;
@@ -396,7 +402,7 @@ typedef struct
     serial_ota_context_t *ota_context;
 #endif
 
-    message_context_t *service_ctx;
+    message_context_t *tlv_ctx;
 
     serial_callbacks_t callbacks;
 
@@ -419,12 +425,12 @@ int32_t qm_serial_cloud_get(platform_id_t id, uint8_t *data, uint16_t len);
 int32_t qm_serial_cloud_action(platform_id_t id, uint8_t *data, uint16_t len);
 module_status_t qm_serial_module_status_get(void);
 int32_t qm_serial_module_status_set(module_status_t status);
-int32_t qm_serial_ext_cmd_ack(frame_cmd_t cmd, uint8_t err_code, uint8_t *data, uint16_t len);
 serial_context_t *qm_serial_context_get(void);
 int32_t qm_serial_state_set(serial_state_t state);
 int32_t qm_serial_state_get(serial_state_t *state);
 int32_t qm_serial_module_prodtst_status_set(module_prodtst_status_t status);
 int32_t qm_serial_service_register(module_service_type_t service_type, serial_service_fn fn);
+int32_t qm_serial_mode_register(uint8_t attr_id, serial_setmode_fn setmode_fn, serial_getmode_fn getmode_fn);
 
 #ifdef SERIAL_RAW_SUPPORT
 int32_t qm_serial_raw_send(uint8_t *data, uint16_t len);

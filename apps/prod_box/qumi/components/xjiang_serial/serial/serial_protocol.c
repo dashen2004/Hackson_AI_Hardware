@@ -35,6 +35,9 @@ static uint8_t local_id_get(uint8_t *raw);
 static int32_t down_queue_send(void);
 static int32_t serial_service_register(module_service_type_t service_type, serial_service_fn fn, int32_t is_inner);
 static int32_t serial_service_handler(uint8_t *data, uint16_t len);
+static int32_t serial_setmode_handler(uint8_t *data, uint16_t len);
+static int32_t serial_getmode_handler(uint8_t *attr_id, uint16_t num);
+static int32_t serial_send_by_attrid(frame_cmd_t cmd, uint8_t *attr_id, uint16_t num, int response, uint8_t packet_id);
 
 #ifdef SERIAL_EVENT_SUPPORT
 #ifdef SERIAL_EVENT_CACHE_SUPPORT
@@ -371,57 +374,6 @@ exit:
         message_delete(message_context);
     }
     return err;
-}
-
-static int32_t serial_service_handler(uint8_t *data, uint16_t len)
-{
-    int32_t ret = 0;
-    serial_context_t *context = NULL;
-    message_context_t *message_ctx = NULL;
-    message_info_t *info = NULL;
-    message_info_t *service_info = NULL;
-    serial_service_callbacks_t *service_cbs = NULL;
-
-    context = qm_serial_context_get();
-
-    message_ctx = message_parse(data, len, PARSE_TYPE_BASIC);
-    if(message_ctx == NULL){
-        return SERIAL_PARAM_ERR;
-    }
-
-    info = message_object_next(message_ctx, NULL);
-
-    while(info){
-   
-        service_info = message_object_get(context->service_ctx, info->attr_id);
-        if(service_info == NULL){
-            ret = SERIAL_PARAM_ERR;
-            goto __exit;
-        }
-        service_cbs = (serial_service_callbacks_t*)service_info->arg;
-
-        if(service_cbs->inner_fn){
-            ret = service_cbs->inner_fn((void*)info);
-            if(ret != 0){
-                goto __exit;
-            }
-        }
-        if(service_cbs->extern_fn){
-            ret = service_cbs->extern_fn((void*)info);
-            if(ret != 0){
-                goto __exit;
-            }
-        }
-
-        info = message_object_next(message_ctx, info);
-    }
-
-__exit:
-
-    if(message_ctx){
-        message_delete(message_ctx);
-    }
-    return ret;
 }
 
 static int32_t frame_parse(uint8_t *data, uint16_t len)
@@ -805,13 +757,28 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
        break;
 
        case CMD_GETMOD:
-       case CMD_SETMOD:
+
         if(len < FRAME_MIN_LEN + 1){
             return SERIAL_PACKET_LEN_ERR;
         }
 
-        if(context->callbacks.m_extinfocb){
-            context->callbacks.m_extinfocb(cmd, data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1);
+        err = serial_getmode_handler(data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1);
+        if(err != 0){
+            serial_generate_send_with_code(cmd, 0, SERIAL_COM_ERROR, NULL, 0);
+        }
+
+       break;
+
+       case CMD_SETMOD:
+        if(len < FRAME_SETMODE_MIN_LEN){
+            return SERIAL_PACKET_LEN_ERR;
+        }
+
+        err = serial_setmode_handler(data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1);
+        if(err != 0){
+            serial_generate_send_with_code(cmd, 0, SERIAL_COM_ERROR, NULL, 0);
+        }else{
+            serial_generate_send_with_code(cmd, 0, SERIAL_COM_OK, NULL, 0);
         }
 
        break;
@@ -1661,7 +1628,6 @@ int32_t qm_serial_init(serial_param_t *serial_param)
     serial_context->callbacks.m_reportcb = serial_param->callbacks.m_reportcb;
     serial_context->callbacks.m_responsecb = serial_param->callbacks.m_responsecb;
     serial_context->callbacks.m_device_onlivecb = serial_param->callbacks.m_device_onlivecb;
-    serial_context->callbacks.m_extinfocb = serial_param->callbacks.m_extinfocb;
     serial_context->callbacks.m_prodtst_configcb = serial_param->callbacks.m_prodtst_configcb;
     serial_context->callbacks.m_mcu_status_notifycb = serial_param->callbacks.m_mcu_status_notifycb;
 #ifdef SERIAL_OTA_SUPPORT
@@ -1686,7 +1652,7 @@ int32_t qm_serial_init(serial_param_t *serial_param)
     
     serial_context->handle = qm_serial_uart_init();
 
-    serial_context->service_ctx = message_creat(TYPE_MESSAGE_BASIC);
+    serial_context->tlv_ctx = message_creat(TYPE_MESSAGE_BASIC);
 
     g_serial_context = serial_context;
     
@@ -2036,6 +2002,188 @@ serial_state_t serial_state_get(void)
     return context->state;   
 }
 
+static int32_t serial_send_by_attrid(frame_cmd_t cmd, uint8_t *attr_id, uint16_t num, int response, uint8_t packet_id)
+{
+    #define SERIAL_TLV_BUF_LEN   16
+    int32_t need_free = 0;
+    uint16_t len = 0;
+    uint8_t buf[SERIAL_TLV_BUF_LEN] = {0};
+    uint8_t *alloc_buf = NULL;
+    int32_t ret = 0;
+    serial_context_t *context = NULL;
+
+    context = qm_serial_context_get();
+
+    ret = message_serialize_by_attrid(context->tlv_ctx, attr_id, num, NULL, &len);
+    if(ret != 0){
+        goto __exit;
+    }
+
+    if(len <= SERIAL_TLV_BUF_LEN){
+        alloc_buf = buf;
+    }else{
+        alloc_buf = (uint8_t*)qm_serial_malloc(len);
+        if(alloc_buf == NULL){
+            ret = SERIAL_ALLOC_MEM_ERR;
+            goto __exit;
+        }
+        need_free = 1;
+    }
+    
+    ret = message_serialize_by_attrid(context->tlv_ctx, attr_id, num, alloc_buf, &len);
+    if(ret != 0){
+        goto __exit;
+    }
+
+__exit:
+
+    if(response){
+        if(ret == 0){
+            ret = serial_generate_send_with_code(cmd, packet_id, SERIAL_COM_OK, alloc_buf, len);
+        }else{
+            ret = serial_generate_send_with_code(cmd, packet_id, SERIAL_COM_ERROR, NULL, 0);
+        }
+    }else{
+        if(ret == 0){
+            ret = serial_cloud_generate_send(cmd, 0, alloc_buf, len);
+        }
+    }
+
+    if(need_free){
+        qm_serial_free(alloc_buf);
+        alloc_buf = NULL;
+    }
+
+    return ret;
+}
+
+static int32_t serial_getmode_handler(uint8_t *attr_id, uint16_t num)
+{
+    int32_t ret = 0;
+    uint16_t index = 0;
+    serial_context_t *context = NULL;
+    message_info_t *mode_info = NULL;
+    serial_mode_callbacks_t *mode_cbs = NULL;
+
+    context = qm_serial_context_get();
+
+    while(index < num){
+   
+        mode_info = message_object_get(context->tlv_ctx, attr_id[index]);
+        if(mode_info == NULL){
+            return SERIAL_PARAM_ERR;
+        }
+        mode_cbs = (serial_mode_callbacks_t*)mode_info->arg;
+
+        if(mode_cbs->m_getmode){
+            ret = mode_cbs->m_getmode((void*)mode_info);
+            if(ret != 0){
+                return ret;
+            }
+        }
+        index ++;
+    }
+
+    serial_send_by_attrid(CMD_GETMOD, attr_id, num, 1, 0);
+
+    return SERIAL_NO_ERR;
+}
+
+static int32_t serial_setmode_handler(uint8_t *data, uint16_t len)
+{
+    int32_t ret = 0;
+    serial_context_t *context = NULL;
+    message_context_t *message_ctx = NULL;
+    message_info_t *info = NULL;
+    message_info_t *mode_info = NULL;
+    serial_mode_callbacks_t *mode_cbs = NULL;
+
+    context = qm_serial_context_get();
+
+    message_ctx = message_parse(data, len, PARSE_TYPE_BASIC);
+    if(message_ctx == NULL){
+        return SERIAL_PARAM_ERR;
+    }
+
+    info = message_object_next(message_ctx, NULL);
+
+    while(info){
+   
+        mode_info = message_object_get(context->tlv_ctx, info->attr_id);
+        if(mode_info == NULL){
+            ret = SERIAL_PARAM_ERR;
+            goto __exit;
+        }
+        mode_cbs = (serial_mode_callbacks_t*)mode_info->arg;
+
+        if(mode_cbs->m_setmode){
+            ret = mode_cbs->m_setmode((void*)info);
+            if(ret != 0){
+                goto __exit;
+            }
+        }
+        
+        info = message_object_next(message_ctx, info);
+    }
+    
+__exit:
+
+    if(message_ctx){
+        message_delete(message_ctx);
+    }
+    return ret;
+}
+
+static int32_t serial_service_handler(uint8_t *data, uint16_t len)
+{
+    int32_t ret = 0;
+    serial_context_t *context = NULL;
+    message_context_t *message_ctx = NULL;
+    message_info_t *info = NULL;
+    message_info_t *service_info = NULL;
+    serial_service_callbacks_t *service_cbs = NULL;
+
+    context = qm_serial_context_get();
+
+    message_ctx = message_parse(data, len, PARSE_TYPE_BASIC);
+    if(message_ctx == NULL){
+        return SERIAL_PARAM_ERR;
+    }
+
+    info = message_object_next(message_ctx, NULL);
+
+    while(info){
+   
+        service_info = message_object_get(context->tlv_ctx, info->attr_id);
+        if(service_info == NULL){
+            ret = SERIAL_PARAM_ERR;
+            goto __exit;
+        }
+        service_cbs = (serial_service_callbacks_t*)service_info->arg;
+
+        if(service_cbs->inner_fn){
+            ret = service_cbs->inner_fn((void*)info);
+            if(ret != 0){
+                goto __exit;
+            }
+        }
+        if(service_cbs->extern_fn){
+            ret = service_cbs->extern_fn((void*)info);
+            if(ret != 0){
+                goto __exit;
+            }
+        }
+
+        info = message_object_next(message_ctx, info);
+    }
+
+__exit:
+
+    if(message_ctx){
+        message_delete(message_ctx);
+    }
+    return ret;
+}
 
 static int32_t serial_service_register(module_service_type_t service_type, serial_service_fn fn, int32_t is_inner)
 {
@@ -2048,7 +2196,7 @@ static int32_t serial_service_register(module_service_type_t service_type, seria
         return SERIAL_NO_INIT_ERR;
     } 
 
-    info = message_object_get(context->service_ctx, (uint8_t)service_type);
+    info = message_object_get(context->tlv_ctx, (uint8_t)service_type);
     if(info){
         service_callbacks = (serial_service_callbacks_t*)info->arg;
     }else{
@@ -2065,7 +2213,7 @@ static int32_t serial_service_register(module_service_type_t service_type, seria
         info->arg = (void*)service_callbacks;
         info->attr_id = (uint8_t)service_type;
 
-        message_object_add(context->service_ctx, info);
+        message_object_add(context->tlv_ctx, info);
     }
 
     if(is_inner){
@@ -2080,4 +2228,41 @@ static int32_t serial_service_register(module_service_type_t service_type, seria
 int32_t qm_serial_service_register(module_service_type_t service_type, serial_service_fn fn)
 {
     return serial_service_register(service_type, fn, 0);
+}
+
+int32_t qm_serial_mode_register(uint8_t attr_id, serial_setmode_fn setmode_fn, serial_getmode_fn getmode_fn)
+{
+    serial_context_t *context = NULL;
+    message_info_t *info = NULL;
+    serial_mode_callbacks_t *mode_callbacks = NULL;
+
+    context = qm_serial_context_get();
+    if(context == NULL){
+        return SERIAL_NO_INIT_ERR;
+    } 
+
+    info = message_object_get(context->tlv_ctx, (uint8_t)attr_id);
+    if(info){
+        mode_callbacks = (serial_mode_callbacks_t*)info->arg;
+    }else{
+        info = message_info_new();
+        if(info == NULL){
+            return SERIAL_ALLOC_MEM_ERR;
+        }
+        mode_callbacks = (serial_mode_callbacks_t*)qm_serial_malloc(sizeof(serial_mode_callbacks_t));
+        if(mode_callbacks == NULL){
+            message_info_delete(info);
+            return SERIAL_ALLOC_MEM_ERR;
+        }
+        memset(mode_callbacks, 0, sizeof(serial_mode_callbacks_t));
+        info->arg = (void*)mode_callbacks;
+        info->attr_id = (uint8_t)attr_id;
+
+        message_object_add(context->tlv_ctx, info);
+    }
+
+    mode_callbacks->m_getmode = getmode_fn;
+    mode_callbacks->m_setmode = setmode_fn;
+    
+    return SERIAL_NO_ERR;
 }

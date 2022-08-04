@@ -13,7 +13,7 @@
  * @note None.
  */
 #ifdef SERIAL_RTOS_SUPPORT
-void *serial_mutex_init(void)
+void *qm_serial_mutex_init(void)
 {
     qm_err_t ret = QM_EOK;
     qm_mutex_t *qm_mutex = NULL;
@@ -46,7 +46,7 @@ __exit:
  * @note None.
  */
 
-int serial_mutex_deinit( void *mutex )
+int qm_serial_mutex_deinit( void *mutex )
 {
     qm_mutex_t *qm_mutex = (qm_mutex_t*)mutex;
     if(mutex == NULL){
@@ -65,7 +65,7 @@ int serial_mutex_deinit( void *mutex )
  * @see None.
  * @note None.
  */
-int serial_mutex_lock(void *mutex )
+int qm_serial_mutex_lock(void *mutex )
 {
     qm_mutex_t *qm_mutex = (qm_mutex_t*)mutex;
     if(mutex == NULL){
@@ -82,7 +82,7 @@ int serial_mutex_lock(void *mutex )
  * @see None.
  * @note None.
  */
-int serial_mutex_unlock(void *mutex )
+int qm_serial_mutex_unlock(void *mutex )
 {
     qm_mutex_t *qm_mutex = (qm_mutex_t*)mutex;
     if(mutex == NULL){
@@ -92,7 +92,7 @@ int serial_mutex_unlock(void *mutex )
 }
 
 
-void *serial_sem_init(uint8_t count)
+void *qm_serial_sem_init(uint8_t count)
 {
     qm_err_t ret = QM_EOK;
     qm_sem_t *qm_sem = NULL;
@@ -118,7 +118,7 @@ __exit:
 /**
  * @brief Signals a semaphore
  * @param sem the semaphore to signal */
-int serial_sem_signal(void *sem)
+int qm_serial_sem_signal(void *sem)
 {
     qm_sem_t *qm_sem = (qm_sem_t*)sem;
     if(qm_sem == NULL){
@@ -132,7 +132,7 @@ int serial_sem_signal(void *sem)
  * @param timeout timeout in milliseconds to wait (0 = wait forever)
  * @return time (in milliseconds) waited for the semaphore
  *         or mbus_ARCH_TIMEOUT on timeout */
-int serial_sem_wait(void *sem, uint32_t timeout)
+int qm_serial_sem_wait(void *sem, uint32_t timeout)
 {
     qm_sem_t *qm_sem = (qm_sem_t*)sem;
     if(qm_sem == NULL){
@@ -147,7 +147,7 @@ int serial_sem_wait(void *sem, uint32_t timeout)
 /**
  * @brief Delete a semaphore
  * @param sem semaphore to delete */
-int serial_sem_deinit(void *sem)
+int qm_serial_sem_deinit(void *sem)
 {
     qm_mutex_t *qm_sem = (qm_mutex_t*)qm_sem;
     if(qm_sem == NULL){
@@ -158,15 +158,15 @@ int serial_sem_deinit(void *sem)
 }
 #endif
 
-void *serial_uart_init(void)
+void *qm_serial_uart_init(void)
 {
     qm_uart_dev_t uart = {
         .config = {
             .baud_rate = 9600,
             .data_bits = QM_UART_DATA_8_BITS,
             .parity    = QM_UART_PARITY_NONE,
-            .pins.tx_pin = 3,
-            .pins.rx_pin = 4,
+            .pins.tx_pin = 16,
+            .pins.rx_pin = 17,
             .stop_bits = QM_UART_STOP_BITS_1 ,
         },
         .port = 1,
@@ -190,7 +190,7 @@ void *serial_uart_init(void)
  * @see None.
  * @note None.
  */
-int serial_send(void *handle, uint8_t* buffer, uint32_t length)
+int qm_serial_send(void *handle, uint8_t* buffer, uint32_t length)
 {
     qm_uart_dev_t *uart_dev = (qm_uart_dev_t*)handle;
     if(uart_dev == NULL){
@@ -209,7 +209,7 @@ int serial_send(void *handle, uint8_t* buffer, uint32_t length)
  * @see None.
  * @note None.
  */
-int serial_recv(void *handle, uint8_t* buffer, uint32_t length, uint32_t timeout_ms)
+int qm_serial_recv(void *handle, uint8_t* buffer, uint32_t length, uint32_t timeout_ms)
 {
     int ret = 0; 
     qm_uart_dev_t *uart_dev = (qm_uart_dev_t*)handle;
@@ -226,7 +226,7 @@ int serial_recv(void *handle, uint8_t* buffer, uint32_t length, uint32_t timeout
 }
 
 
-int serial_get_time(serial_time_info_t *time_info)
+int qm_serial_get_time(serial_time_info_t *time_info)
 {
     qm_err_t ret = QM_EOK;
     qm_time_info_t info = {0};
@@ -262,7 +262,7 @@ int serial_get_time(serial_time_info_t *time_info)
  * @note None.
  */
 
-uint32_t serial_get_timems( void )
+uint32_t qm_serial_get_timems( void )
 {
     return (uint32_t)qm_now_ms();
 }
@@ -278,7 +278,7 @@ uint32_t serial_get_timems( void )
  */
 
 #ifdef SERIAL_RTOS_SUPPORT
-void serial_msleep(uint32_t ms)
+void qm_serial_msleep(uint32_t ms)
 {
    qm_msleep(ms);
 }
@@ -292,7 +292,7 @@ void serial_msleep(uint32_t ms)
  * @see None.
  * @note Block value is indeterminate.
  */
-void *serial_malloc(uint32_t size)
+void *qm_serial_malloc(uint32_t size)
 {
     return qm_malloc(size);
 }
@@ -305,14 +305,22 @@ void *serial_malloc(uint32_t size)
  * @see None.
  * @note None.
  */
-void serial_free(void *ptr)
+void qm_serial_free(void *ptr)
 {
     qm_free(ptr);
 }
 
 #ifndef SERIAL_QM_PRINTF_SUPPORT
-int serial_printf(const char *fmt, ...)
+int qm_serial_printf(const char *fmt, ...)
 {
     return 0;
 }
+
+int qm_serial_hex_printf(char *name, uint8_t *p_data, int len)
+{
+    return 0;
+}
+
 #endif
+
+

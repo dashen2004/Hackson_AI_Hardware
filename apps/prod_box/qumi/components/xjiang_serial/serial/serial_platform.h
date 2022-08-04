@@ -32,7 +32,7 @@ void *qm_serial_mutex_init(void);
  * @see None.
  * @note None.
  */
-int serial_mutex_deinit(void *mutex);
+int qm_serial_mutex_deinit(void *mutex);
 
 /**
  * @brief Waits until the specified mutex is in the signaled state.
@@ -167,8 +167,10 @@ void qm_serial_free(void *ptr);
 
 #ifndef SERIAL_QM_PRINTF_SUPPORT
 int qm_serial_printf(const char *fmt, ...);
+int qm_serial_hex_printf(char *name, uint8_t *p_data, int len);
 #else
-#define qm_serial_printf  QM_LOGD
+#define qm_serial_printf      QM_LOGD
+#define qm_serial_hex_printf  QM_HEX_LOGD
 #endif
 
 
