@@ -875,8 +875,6 @@ static int32_t frame_creat(frame_cmd_t cmd, uint8_t packet_id, uint8_t code, uin
 
        break;
 
-       case CMD_GETMOD:
-       case CMD_SETMOD:
 #ifdef SERIAL_OTA_SUPPORT
        case CMD_OTA_TRANSFER:
        case CMD_OTA_VERIFY:
@@ -890,11 +888,13 @@ static int32_t frame_creat(frame_cmd_t cmd, uint8_t packet_id, uint8_t code, uin
         *buf_len = FRAME_MIN_LEN+data_len;
        break;
 
+       case CMD_GETMOD:
+       case CMD_SETMOD:
        case CMD_TIMEGET:
        case CMD_SERVICE:
         if(buf && *buf_len >= FRAME_MIN_LEN + data_len + 1){
-           frame_head_init(buf, cmd, data_len + 1);
-           memcpy(buf + FRAME_HEAD_LEN, &code, 1);
+            frame_head_init(buf, cmd, data_len + 1);
+            memcpy(buf + FRAME_HEAD_LEN, &code, 1);
             if(data && data_len > 0){
                 memcpy(buf + FRAME_HEAD_LEN + 1, data, data_len);
             }
@@ -2045,7 +2045,7 @@ __exit:
         }
     }else{
         if(ret == 0){
-            ret = serial_cloud_generate_send(cmd, 0, alloc_buf, len);
+            ret = serial_generate_send(cmd, 0, alloc_buf, len);
         }
     }
 

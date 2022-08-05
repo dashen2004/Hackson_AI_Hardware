@@ -93,7 +93,6 @@ void qm_serial_test(void)
     qm_task_new(&send_task, "serial send", serial_send_thread, NULL, 4*1024, 20);
     qm_task_new(&recv_task, "serial recv", serial_recv_thread, NULL, 4*1024, 20);
 
-
     return 0;
 
 }

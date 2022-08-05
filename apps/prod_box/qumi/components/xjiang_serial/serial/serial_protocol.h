@@ -254,7 +254,7 @@ typedef enum{
 #define SERIAL_PROCESS_TIMEOUT_MS                  (1000)
 #define SERIAL_RECV_TIMEOUT_DEFAULT_MS              (500)
 
-#define SERIAL_ACK_TIMEOUT_DEFAULT_MS               (1000)
+#define SERIAL_ACK_TIMEOUT_DEFAULT_MS               (500)
 
 #define SERIAL_ID_CHECK_TIMEOUT_MS                  (500)
 
