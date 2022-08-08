@@ -2080,6 +2080,8 @@ static int32_t serial_getmode_handler(uint8_t *attr_id, uint16_t num)
             if(ret != 0){
                 return ret;
             }
+        }else{
+            return SERIAL_PARAM_ERR;
         }
         index ++;
     }
@@ -2121,6 +2123,9 @@ static int32_t serial_setmode_handler(uint8_t *data, uint16_t len)
             if(ret != 0){
                 goto __exit;
             }
+        }else{
+            ret = SERIAL_PARAM_ERR;
+            goto __exit;
         }
         
         info = message_object_next(message_ctx, info);
