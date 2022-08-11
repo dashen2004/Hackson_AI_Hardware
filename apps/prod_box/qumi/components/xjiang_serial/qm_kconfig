@@ -4,4 +4,5 @@ menu "xjiang serial"
         bool "xjiang serial support"
         default "n"
         
+        
 endmenu

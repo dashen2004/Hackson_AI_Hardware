@@ -1185,30 +1185,33 @@ static int32_t serial_key_network_status_handler(qm_tlv_block_t *tlv_block)
 {
     uint8_t key = 0;
     int32_t size = 0;
+    int32_t need_notify = 0;
     opple_serial_context_t *context = NULL;
     opple_serial_network_info_t *network_info = NULL;
     context = opple_serial_context_get();
 
     qm_tlv_unpack_bytes_direct(tlv_block, (uint8_t**)&network_info, &size);
 
-#ifdef OPPLE_SERIAL_RTOS_SUPPORT
-    opple_serial_mutex_lock(context->serial_mutex);
-#endif
-    context->network_status = network_info->network_status;
-#ifdef OPPLE_SERIAL_RTOS_SUPPORT
-    opple_serial_mutex_unlock(context->serial_mutex);
-#endif
-
+    if(context->network_status != network_info->network_status){
+    #ifdef OPPLE_SERIAL_RTOS_SUPPORT
+        opple_serial_mutex_lock(context->serial_mutex);
+    #endif
+        context->network_status = network_info->network_status;
+    #ifdef OPPLE_SERIAL_RTOS_SUPPORT
+        opple_serial_mutex_unlock(context->serial_mutex);
+    #endif
+        need_notify = 1;
+    }
+    
 #ifndef OPPLE_SERIAL_LOWPOWER_SUPPORT
-    if(context->network_status == OPPLE_MODULE_CONNECTED){
-        if(context->state == OPPLE_SERIAL_STATE_NONE){
-            context->state = OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT;
-        }
+    if(context->network_status == OPPLE_MODULE_CONNECTED && need_notify){
+        context->state = OPPLE_SERIAL_STATE_GETDEVICESNAPSHOT;
     }
 #endif
-
-    key = OPPLE_MODULE_STATUS_KEY_NETWORK;
-    serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
+    if(need_notify){
+        key = OPPLE_MODULE_STATUS_KEY_NETWORK;
+        serial_send_by_key(OPPLE_CMD_NOTIFY_STATUS, &key, 1, 0, 0);
+    }
     return OPPLE_SERIAL_NO_ERR;
 }
 
