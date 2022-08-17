@@ -87,6 +87,8 @@ int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
         return -QM_EINVAL;
     }
 
+    tlv_block->update = 1;
+
     if(tlv_ctx->tlv_block == NULL){
         tlv_ctx->tlv_block = tlv_block; 
         tlv_block->next = NULL;
@@ -148,6 +150,17 @@ int qm_tlv_block_serialize(qm_tlv_block_t *tlv_block)
         return -QM_EINVAL;
     }
     tlv_block->serialization = 1;
+    return QM_EOK;
+}
+
+int qm_tlv_block_is_update(qm_tlv_block_t *tlv_block, int *is_update)
+{
+    if(tlv_block == NULL){
+        return -QM_EINVAL;
+    }
+
+    *is_update = (int)tlv_block->update;
+
     return QM_EOK;
 }
 
@@ -357,6 +370,7 @@ int qm_tlv_unpack_uint8(qm_tlv_block_t *tlv_block, uint8_t *value)
         return -QM_EINVAL;
     }
     *value = (uint8_t)tlv_block->value.bytes[0];
+    tlv_block->update = 0;
     return QM_EOK;
 }
 
@@ -373,6 +387,7 @@ int qm_tlv_unpack_uint16(qm_tlv_block_t *tlv_block, uint16_t *value)
     }
     memcpy(&tmp, tlv_block->value.bytes, sizeof(uint16_t));
     *value = be16_to_cpu(tmp);
+    tlv_block->update = 0;
     return QM_EOK;
 }
 
@@ -389,6 +404,7 @@ int qm_tlv_unpack_uint32(qm_tlv_block_t *tlv_block, uint32_t *value)
     }
     memcpy(&tmp, tlv_block->value.bytes, sizeof(uint32_t));
     *value = be32_to_cpu(tmp);
+    tlv_block->update = 0;
     return QM_EOK;
 }
 
@@ -414,6 +430,7 @@ int qm_tlv_unpack_bytes(qm_tlv_block_t *tlv_block, uint8_t *bytes, int *size)
     }else{
         memcpy(bytes, tlv_block->value.pdata, tlv_block->len);
     }
+    tlv_block->update = 0;
 
     return QM_EOK;
 }
@@ -437,6 +454,7 @@ int qm_tlv_unpack_string(qm_tlv_block_t *tlv_block, char *str, int *size)
     }
 
     *(str+tlv_block->len) = '\0';
+    tlv_block->update = 0;
     return QM_EOK;
 }
 
@@ -453,6 +471,7 @@ int qm_tlv_unpack_bytes_direct(qm_tlv_block_t *tlv_block, uint8_t **bytes, int *
     }else{
         *bytes = tlv_block->value.pdata;
     }
+    tlv_block->update = 0;
 
     return QM_EOK;
 }
