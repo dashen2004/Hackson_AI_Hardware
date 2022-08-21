@@ -2,7 +2,6 @@
 #ifndef _OTA_LIB_C_
 #define _OTA_LIB_C_
 
-#include <stdio.h>
 #include "iot_ota.h"
 #include "iot_ota_internal.h"
 #include "qm_utils_md5.h"
@@ -10,7 +9,7 @@
 #include "qm_iot_import.h"
 #include "cloud_common.h"
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
 
 static const char *otalib_JsonValueOf(const char *json, uint32_t json_len, const char *key, uint32_t *val_len)
 {

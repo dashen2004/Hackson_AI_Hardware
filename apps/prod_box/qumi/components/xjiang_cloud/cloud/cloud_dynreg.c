@@ -9,8 +9,9 @@
 #include "qm_utils_base64.h"
 #include "qm_utils_string.h"
 #include "iot_guider.h"
+#include "qm_config.h"
 
-#ifdef DYN_REG_SUPPORT
+#if CONFIG_DYN_REG_SUPPORT
 
 #define DEVICE_DYN_REG_SIGN_LEN            (64)
 #define DEVICE_DYNREG_NONCE_MAX  ((1U << 31) - 1)

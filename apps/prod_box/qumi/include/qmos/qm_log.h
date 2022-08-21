@@ -75,35 +75,51 @@ void qm_set_log_level(qm_log_level_t log_level);
  */
 #define QM_LOGD(mod, fmt, ...) QM_LOGD_IMPL(mod, fmt, ##__VA_ARGS__)
 
-
+/*
+ * Log at debug level.
+ *
+ * @param[in]  mod  string description of module.
+ * @param[in]  name  string description of data.
+ * @param[in]  p_data  pointer of data.
+ * @param[in]  len  length of data.
+ */
 #define QM_HEX_LOGD(mod, name, p_data, len) QM_HEX_LOGD_IMPL(mod, name, p_data, len)
-
+/*
+ * Log at info level.
+ *
+ * @param[in]  mod  string description of module.
+ * @param[in]  name  string description of data.
+ * @param[in]  p_data  pointer of data.
+ * @param[in]  len  length of data.
+ */
 #define QM_HEX_LOGI(mod, name, p_data, len) QM_HEX_LOGI_IMPL(mod, name, p_data, len)
-
+/*
+ * Log at warning level.
+ *
+ * @param[in]  mod  string description of module.
+ * @param[in]  name  string description of data.
+ * @param[in]  p_data  pointer of data.
+ * @param[in]  len  length of data.
+ */
 #define QM_HEX_LOGW(mod, name, p_data, len) QM_HEX_LOGW_IMPL(mod, name, p_data, len)
-
+/*
+ * Log at error level.
+ *
+ * @param[in]  mod  string description of module.
+ * @param[in]  name  string description of data.
+ * @param[in]  p_data  pointer of data.
+ * @param[in]  len  length of data.
+ */
 #define QM_HEX_LOGE(mod, name, p_data, len) QM_HEX_LOGE_IMPL(mod, name, p_data, len)
-
+/*
+ * Log at fatal level.
+ *
+ * @param[in]  mod  string description of module.
+ * @param[in]  name  string description of data.
+ * @param[in]  p_data  pointer of data.
+ * @param[in]  len  length of data.
+ */
 #define QM_HEX_LOGF(mod, name, p_data, len) QM_HEX_LOGF_IMPL(mod, name, p_data, len)
-
-
-/* Exported macro ------------------------------------------------------------*/
-#ifdef  CONFIG_FULL_ASSERT
-/**
-  * @brief  The assert_param macro is used for function's parameters check.
-  * @param  expr: If expr is false, it calls assert_failed function
-  *         which reports the name of the source file and the source
-  *         line number of the call that failed.
-  *         If expr is true, it returns no value.
-  * @retval None
-  */
-  #define QM_ASSERT(expr) ((expr) ? (void)0U : qm_assert_failed((uint8_t *)__FILE__, __LINE__))
-/* Exported functions ------------------------------------------------------- */
-  void qm_assert_failed(uint8_t* file, uint32_t line);
-#else
-  #define QM_ASSERT(expr) ((void)0U)
-#endif /* USE_FULL_ASSERT */
-
 
 
 #ifdef __cplusplus

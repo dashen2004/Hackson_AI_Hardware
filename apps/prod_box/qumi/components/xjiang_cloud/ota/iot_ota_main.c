@@ -3,7 +3,7 @@
 #include "qm_utils_string.h"
 #include "iot_event.h"
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
 int ota_loop(void** handle, void *pcontext)
 {
      int rc = 0;

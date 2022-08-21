@@ -8,7 +8,7 @@
 #include "iot_mqtt.h"
 #include "cloud_common.h"
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
 
 /* OSC, OTA signal channel */
 

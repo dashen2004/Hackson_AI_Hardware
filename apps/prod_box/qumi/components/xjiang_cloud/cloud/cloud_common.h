@@ -4,16 +4,25 @@
 #include "cloudapi.h"
 #include "qm_utils_list.h"
 #include "iot_device.h"
-
+#include "qm_config.h"
+#include "qm_types.h"
 
 #define SDK_VERSION       "3.0"
 
 
 //#define TEST_CLOUD
-#define OTA_SUPPORT
+
+#ifndef CONFIG_OTA_SUPPORT
+#define CONFIG_OTA_SUPPORT      1
+#endif
+
 //#define STANDARD_SUPPORT
 //#define RAW_SUPPORT
-//#define DYN_REG_SUPPORT
+
+#ifndef CONFIG_DYN_REG_SUPPORT
+#define CONFIG_DYN_REG_SUPPORT  1
+#endif
+
 #define PRODTST_SUPPORT
 //#define MCU_OTA_SUPPORT
 //#define DEVICE_GATEWAY_SUPPORT

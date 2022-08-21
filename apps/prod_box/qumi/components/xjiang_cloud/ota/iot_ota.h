@@ -6,7 +6,7 @@
 #include "iot_mqtt_debug.h"
 #include "cloud_common.h"
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
 
 #define OTA_LOG_ERROR       log_err
 #define OTA_MALLOC          hal_malloc
@@ -102,7 +102,7 @@ typedef struct  {
     
     iot_ota_type_t ota_type;
 
-    unsigned int product_id;    /* point to product key */
+    uint32_t product_id;    /* point to product key */
     const char *device_id;    /* point to device name */
 
     uint32_t id;                /* message id */

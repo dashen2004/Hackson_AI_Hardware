@@ -1,6 +1,11 @@
 #ifndef __NTPDATE_H__
 #define __NTPDATE_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "qm_config.h"
 #include "qm_types.h"
 
 #ifndef CONFIG_QM_TIME_TASK_SIZE  
@@ -37,5 +42,9 @@ int qm_time_sync_start(void);
 int qm_time_sync_stop(void);
 //time service initialization
 int qm_time_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

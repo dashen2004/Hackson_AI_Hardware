@@ -6,11 +6,12 @@ menu "components"
     source "components/qm_log/qm_kconfig" 
     source "components/qm_work/qm_kconfig"
     source "components/qm_ringbuf/qm_kconfig"
-    source "components/qm_ble/qm_kconfig"
     source "components/xjiang_cloud/qm_kconfig"
+    source "components/qm_ble/qm_kconfig"
     source "components/xjiang_serial/qm_kconfig"
-
-
+    source "components/network/qm_kconfig"
+    source "components/ntpdate/qm_kconfig"
+    source "components/http/qm_kconfig"
 endmenu
 
 menu "utility"

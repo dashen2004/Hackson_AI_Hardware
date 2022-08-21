@@ -1,0 +1,15 @@
+menu "NTP"
+
+    config QM_TIME_TASK_PRIO
+        int "time sync task priority"
+        default 21
+
+    config QM_TIME_TASK_SIZE
+        int "time sync task size"
+        default 4096
+
+    config QM_TIME_SYNC_TIMEOUT
+        int "time sync timeout Unit: seconds"
+        default 21600
+
+endmenu

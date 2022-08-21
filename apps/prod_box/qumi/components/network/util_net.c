@@ -16,115 +16,105 @@
  *
  */
 
-#include <qmos/qm_types.h>
-#include "qm_iot_import.h"
-#include "util_net.h"
-#include "iot_mqtt_debug.h"
-#include "iot_guider.h"
-
+#include "qm_config.h"
+#include "qm_types.h"
+#include "qm_tcp.h"
+#include "qm_errno.h"
 
 /*** TCP connection ***/
 static int read_tcp(util_network_pt pNetwork, char *buffer, uint32_t len, uint32_t timeout_ms)
 {
-    return hal_tcp_read(pNetwork->fd, buffer, len, timeout_ms);
+    return (pNetwork->fd, buffer, len, timeout_ms);
 }
 
 
 static int write_tcp(util_network_pt pNetwork, const char *buffer, uint32_t len, uint32_t timeout_ms)
 {
-    return hal_tcp_write(pNetwork->fd, buffer, len, timeout_ms);
+    return qm_tcp_write(pNetwork->fd, buffer, len, timeout_ms);
 }
 
 static int disconnect_tcp(util_network_pt pNetwork)
 {
     if (0 == pNetwork->handle) {
-        return -1;
+        return -QM_EINVAL;
     }
 
-    hal_tcp_destroy(pNetwork->fd);
-    pNetwork->fd = 0 ;
-    pNetwork->handle = 0;
-    return 0;
+    qm_tcp_destroy(pNetwork->handle);
+    pNetwork->handle = NULL;
+    return QM_EOK;
 }
 
 static int connect_tcp(util_network_pt pNetwork)
 {
     if (NULL == pNetwork) {
-        log_err("network is null");
-        return 1;
+        return -QM_EINVAL;
     }
 
-    pNetwork->fd = hal_tcp_establish(pNetwork->pHostAddress, pNetwork->port);
-    if (pNetwork->fd <0) {
-        return -1;
+    pNetwork->handle = qm_tcp_establish(pNetwork->pHostAddress, pNetwork->port);
+    if (pNetwork->handle == NULL) {
+        return -QM_EIO;
     }
 
-    pNetwork->handle=(uintptr_t)(&pNetwork->fd);
-
-    return 0;
+    return QM_EOK;
 }
 
 /*** SSL connection ***/
-#ifndef IOT_WITHOUT_TLS
+#if CONFIG_QM_NETWORK_TLS_SUPPORT
 static int read_ssl(util_network_pt pNetwork, char *buffer, uint32_t len, uint32_t timeout_ms)
 {
     if (NULL == pNetwork) {
-        log_err("network is null");
-        return -1;
+        return -QM_EINVAL;
     }
 
-    return hal_ssl_read((uintptr_t)pNetwork->handle, buffer, len, timeout_ms);
+    return qm_ssl_read(pNetwork->handle, buffer, len, timeout_ms);
 }
 
 static int write_ssl(util_network_pt pNetwork, const char *buffer, uint32_t len, uint32_t timeout_ms)
 {
     if (NULL == pNetwork) {
-        log_err("network is null");
-        return -1;
+        return -QM_EINVAL;
     }
 
-    return hal_ssl_write((uintptr_t)pNetwork->handle, buffer, len, timeout_ms);
+    return hal_ssl_write(pNetwork->handle, buffer, len, timeout_ms);
 }
 
 static int disconnect_ssl(util_network_pt pNetwork)
 {
     if (NULL == pNetwork) {
-        log_err("network is null");
-        return -1;
+        return -QM_EINVAL;
     }
 
     hal_ssl_destroy((uintptr_t)pNetwork->handle);
-    pNetwork->handle = 0;
+    pNetwork->handle = NULL;
 
-    return 0;
+    return ;
 }
 
 static int connect_ssl(util_network_pt pNetwork)
 {
     if (NULL == pNetwork) {
-        log_err("network is null");
-        return 1;
+        return -QM_EINVAL;
     }
 
-    if (0 != (pNetwork->handle = (intptr_t)hal_ssl_establish(
+    if (NULL != (pNetwork->handle = qm_ssl_establish(
                                      pNetwork->pHostAddress,
                                      pNetwork->port,
                                      pNetwork->ca_crt,
                                      pNetwork->ca_crt_len + 1))) {
-        return 0;
+        return QM_EOK;
     } else {
         /* TODO SHOLUD not remove this handle space */
         /* The space will be freed by calling disconnect_ssl() */
         /* util_memory_free((void *)pNetwork->handle); */
-        return -1;
+        return -QM_EIO;
     }
 }
-#endif  /* #ifndef IOT_WITHOUT_TLS */
+#endif  /* #if CONFIG_QM_NETWORK_TLS_SUPPORT */
 
 /****** network interface ******/
 int util_net_read(util_network_pt pNetwork, char *buffer, uint32_t len, uint32_t timeout_ms)
 {
-    int     ret = 0;
+    int ret = 0;
 
     if (NULL == pNetwork->ca_crt) {
         ret = read_tcp(pNetwork, buffer, len, timeout_ms);
@@ -143,37 +133,35 @@ int util_net_write(util_network_pt pNetwork, const char *buffer, uint32_t len, u
 
     if (NULL == pNetwork->ca_crt) {
         ret = write_tcp(pNetwork, buffer, len, timeout_ms);
-#ifndef IOT_WITHOUT_TLS
+#if CONFIG_QM_NETWORK_TLS_SUPPORT
     } else {
         ret = write_ssl(pNetwork, buffer, len, timeout_ms);
 #endif
     }
-
     return ret;
 }
 
-int iot_net_disconnect(util_network_pt pNetwork)
+int util_net_disconnect(util_network_pt pNetwork)
 {
     int     ret = 0;
 
     if (NULL == pNetwork->ca_crt) {
         ret = disconnect_tcp(pNetwork);
-#ifndef IOT_WITHOUT_TLS
+#if CONFIG_QM_NETWORK_TLS_SUPPORT
     } else {
        ret =  disconnect_ssl(pNetwork);
 #endif
     }
-
     return  ret;
 }
 
-int iot_net_connect(util_network_pt pNetwork)
+int util_net_connect(util_network_pt pNetwork)
 {
-    int     ret = 0;
+    int  ret = 0;
 
     if (NULL == pNetwork->ca_crt) {
         ret = connect_tcp(pNetwork);
-#ifndef IOT_WITHOUT_TLS
+#if CONFIG_QM_NETWORK_TLS_SUPPORT
     } else {
         ret = connect_ssl(pNetwork);
 #endif
@@ -182,11 +170,10 @@ int iot_net_connect(util_network_pt pNetwork)
     return ret;
 }
 
-int iot_net_init(util_network_pt pNetwork, const char *host, uint16_t port, const char *ca_crt)
+int util_net_init(util_network_pt pNetwork, const char *host, uint16_t port, const char *ca_crt)
 {
     if (!pNetwork || !host) {
-        log_err("parameter error! pNetwork=%p, host = %p", pNetwork, host);
-        return -1;
+        return -QM_EINVAL;
     }
     pNetwork->pHostAddress = host;
     pNetwork->port = port;
@@ -201,8 +188,8 @@ int iot_net_init(util_network_pt pNetwork, const char *host, uint16_t port, cons
     pNetwork->handle = 0;
     pNetwork->read = util_net_read;
     pNetwork->write = util_net_write;
-    pNetwork->disconnect = iot_net_disconnect;
-    pNetwork->connect = iot_net_connect;
+    pNetwork->disconnect = util_net_disconnect;
+    pNetwork->connect = util_net_connect;
 
     return 0;
 }

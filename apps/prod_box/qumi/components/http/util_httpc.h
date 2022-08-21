@@ -1,10 +1,7 @@
 #ifndef _IOT_COMMON_HTTPCLIENT_H_
 #define _IOT_COMMON_HTTPCLIENT_H_
 
-#include "qm_iot_import.h"
-#include "iot_mqtt_debug.h"
 #include "util_net.h"
-#include "iot_mqtt_errno.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,13 +30,31 @@ extern "C" {
  * @{
  */
 /** @brief   This macro defines the HTTP port.  */
-#define HTTP_PORT   80
+#ifndef CONFIG_HTTP_PORT
+#define CONFIG_HTTP_PORT   80
+#endif
 
 /** @brief   This macro defines the HTTPS port.  */
-#define HTTPS_PORT 443
+#ifndef CONFIG_HTTPS_PORT
+#define CONFIG_HTTPS_PORT   443
+#endif
 /**
  * @}
  */
+
+#define HTTP_TRUE    (1)     /* indicate boolean value true */
+#define HTTP_FALSE   (0)     /* indicate boolean value false */
+
+enum{
+    ERROR_HTTP_SUCCESS_RETURN = 0,
+    ERROR_HTTP_FAIL_RETURN = -1,
+    ERROR_HTTP_CONN = -2,                    /**< Connection failed. */
+    ERROR_HTTP_PARSE = -3,                   /**< A URL parse error occurred. */
+    ERROR_HTTP_UNRESOLVED_DNS = -4,           /**< Could not resolve the hostname. */
+    ERROR_HTTP_PRTCL = -5,                   /**< A protocol error occurred. */
+    ERROR_HTTP = -6,                         /**< An unknown error occurred. */
+    ERROR_HTTP_CLOSED = -7,                  /**< Connection was closed by a remote host. */
+}
 
 /** @defgroup httpclient_enum Enum
  *  @{
@@ -82,7 +97,7 @@ typedef struct {
 	
 } httpclient_data_t;
 
-int iot_post(httpclient_t *client,
+int http_client_post(httpclient_t *client,
               const char *url,
               int port,
               const char *ca_crt,

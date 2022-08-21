@@ -3,7 +3,6 @@
 #include "qm_types.h"
 #include "qm_errno.h"
 
-
 #include <lwip/def.h>
 #include <lwip/netdb.h>
 #include <lwip/sockets.h>
@@ -35,6 +34,7 @@ void *qm_udp_server_create(char *host, uint16_t port)
     if ((ret = setsockopt(socket_id, IPPROTO_IP, IP_RECVPKTINFO, &flag,
                           sizeof(flag))) < 0)
 #else  /* IP_RECVPKTINFO */
+#define IP_PKTINFO 4
     if ((ret = setsockopt(socket_id, IPPROTO_IP, IP_PKTINFO, &flag,
                           sizeof(flag))) < 0)
 #endif /* IP_RECVPKTINFO */
@@ -69,7 +69,7 @@ void *qm_udp_client_create(char *host, uint16_t port)
     struct sockaddr_in     *sa = NULL;
 
     if (NULL == host) {
-        return NULL;
+        return -QM_EINVAL;
     }
 
     snprintf(port_ptr, 6, "%u", port);
@@ -81,7 +81,7 @@ void *qm_udp_client_create(char *host, uint16_t port)
     rc = getaddrinfo(host, port_ptr, &hints, &res);
     if (0 != rc) {
         QM_LOGE(LOG_TAG, "getaddrinfo error");
-        return NULL;
+        return -QM_EIO;
     }
 
     for (ainfo = res; ainfo != NULL; ainfo = ainfo->ai_next) {
@@ -107,7 +107,7 @@ void *qm_udp_client_create(char *host, uint16_t port)
     return (void*)socket_id;
 }
 
-int qm_udp_close(void *handle)
+int32_t qm_udp_close(void *handle)
 {
     int socket_id = -1;
     socket_id = (int)handle;
@@ -119,7 +119,7 @@ int qm_udp_close(void *handle)
     return QM_EOK;
 }
 
-int qm_udp_sendto(void *handle, const char *buffer,
+int32_t qm_udp_sendto(void *handle, const char *buffer,
                 uint32_t length, qm_netaddr_t *netaddr, uint32_t timeout_ms)
 {
     int                rc        = -1;
@@ -146,7 +146,7 @@ int qm_udp_sendto(void *handle, const char *buffer,
     return rc;
 }
 
-int qm_udp_recvfrom( void *handle, char *buffer,
+int32_t qm_udp_recvfrom( void *handle, char *buffer,
                   uint32_t length, qm_netaddr_t *netaddr, uint32_t timeout_ms)
 {
     int             socket_id = -1;
@@ -201,7 +201,7 @@ int qm_udp_recvfrom( void *handle, char *buffer,
     return count;
 }
 
-int qm_udp_read(void *handle, char *buffer, uint32_t length)
+int32_t qm_udp_read(void *handle, char *buffer, uint32_t length)
 {
     int socket_id = -1;
     int  count    = -1;
@@ -220,7 +220,7 @@ int qm_udp_read(void *handle, char *buffer, uint32_t length)
     return count;
 }
 
-int qm_udp_readtimeout(void *handle, char *buffer, uint32_t length, uint32_t timeout_ms)
+int32_t qm_udp_readtimeout(void *handle, char *buffer, uint32_t length, uint32_t timeout_ms)
 {   
     int            ret;
     struct timeval tv;
@@ -262,7 +262,7 @@ int qm_udp_readtimeout(void *handle, char *buffer, uint32_t length, uint32_t tim
     return qm_udp_read((void*)socket_id, buffer, length);
 }
 
-int qm_udp_write(void *handle, char *buffer, uint32_t length, uint32_t timeout_ms)
+int32_t qm_udp_write(void *handle, char *buffer, uint32_t length, uint32_t timeout_ms)
 {
     int            ret = 0;
     int            sockfd = -1;

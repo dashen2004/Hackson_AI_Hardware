@@ -3,9 +3,9 @@
 
 #include "iot_device.h"
 #include "cloud_common.h"
+#include "qm_config.h"
 
-
-#ifdef DYN_REG_SUPPORT
+#if CONFIG_DYN_REG_SUPPORT
 
 typedef struct {
     

@@ -10,7 +10,7 @@ static uint32_t PRODUCT_ID = 158689;
 static char DEVICE_ID[DEVICE_ID_LEN+1] = "cE5ww5";
 static char DEVICE_SECRET[DEVICE_SECRET_LEN+1] = "80cec92c26da40cf85f716668feeb4c4";
 
-#ifdef DYN_REG_SUPPORT
+#ifdef CONFIG_DYN_REG_SUPPORT
 static char PRODUCT_SECRET[PRODUCT_SECRET_LEN+1] = "b81c7d2aa2e04a4391a8129e9af2517c";
 #endif
 
@@ -151,7 +151,7 @@ int hal_set_device_id(char *device_id, int len)
 
 
 
-#ifdef DYN_REG_SUPPORT
+#ifdef CONFIG_DYN_REG_SUPPORT
 
 int hal_get_product_secret(char *product_secret, int *len)
 {

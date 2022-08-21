@@ -1,7 +1,12 @@
 menu "xjiang cloud"
 
-    config XJIANG_CLOUD
-        bool "xjiang cloud support"
-        default "n"
+
+    config OTA_SUPPORT
+        bool "xjiang cloud ota support"
+        default "y"
+
+    config DYN_REG_SUPPORT
+        bool "xjiang cloud dynamic register"
+        default "y"
         
 endmenu

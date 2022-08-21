@@ -1,8 +1,8 @@
 
 #ifndef _IOT_EXPORT_MQTT_H_
 #define _IOT_EXPORT_MQTT_H_
-
-#include<qmos/qm_types.h>
+ 
+#include "qm_types.h"
 
 
 /* From mqtt_client.h */

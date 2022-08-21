@@ -3,6 +3,7 @@
 #include "qm_types.h"
 #include "qm_errno.h"
 
+
 #include <lwip/def.h>
 #include <lwip/netdb.h>
 #include <lwip/sockets.h>
@@ -19,14 +20,14 @@ void *qm_udp_server_create(char *host, uint16_t port)
 
     if ((socket_id = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         QM_LOGE(LOG_TAG, "socket create failed\r\n");
-        return (void*) - 1;
+        return NULL;
     }
 
     ret = setsockopt(socket_id, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
     if (ret < 0) {
         close(socket_id);
         QM_LOGE(LOG_TAG, "setsockopt SO_REUSEADDR failed");
-        return (void*) - 1;
+        return NULL;
     }
 
     flag = 1;
@@ -34,14 +35,13 @@ void *qm_udp_server_create(char *host, uint16_t port)
     if ((ret = setsockopt(socket_id, IPPROTO_IP, IP_RECVPKTINFO, &flag,
                           sizeof(flag))) < 0)
 #else  /* IP_RECVPKTINFO */
-#define IP_PKTINFO 4
     if ((ret = setsockopt(socket_id, IPPROTO_IP, IP_PKTINFO, &flag,
                           sizeof(flag))) < 0)
 #endif /* IP_RECVPKTINFO */
         if (ret < 0) {
             close(socket_id);
             QM_LOGE(LOG_TAG, "setsockopt IP_PKTINFO failed");
-            return (void*) - 1;
+            return NULL;
         }
 
 
@@ -69,7 +69,7 @@ void *qm_udp_client_create(char *host, uint16_t port)
     struct sockaddr_in     *sa = NULL;
 
     if (NULL == host) {
-        return -QM_EINVAL;
+        return NULL;
     }
 
     snprintf(port_ptr, 6, "%u", port);
@@ -81,7 +81,7 @@ void *qm_udp_client_create(char *host, uint16_t port)
     rc = getaddrinfo(host, port_ptr, &hints, &res);
     if (0 != rc) {
         QM_LOGE(LOG_TAG, "getaddrinfo error");
-        return -QM_EIO;
+        return NULL;
     }
 
     for (ainfo = res; ainfo != NULL; ainfo = ainfo->ai_next) {

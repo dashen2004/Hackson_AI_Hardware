@@ -13,7 +13,7 @@
 #include "qm_utils_base64.h"
 
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
 #include "iot_ota.h"
 #endif
 
@@ -21,7 +21,7 @@
 static cloud_context_t *mqtt_cloud_context;
 static iot_mqtt_topic_info_t topic_msg;
 
-#ifdef OTA_SUPPORT
+#ifdef CONFIG_OTA_SUPPORT
 void *h_ota = NULL;
 #endif
 static void *pclient;
@@ -944,7 +944,7 @@ int mqtt_client(void *arg)
 
     mqtt_cloud_context->pclient = pclient;
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
     h_ota = iot_ota_init(mqtt_cloud_context->product_info.product_id, mqtt_cloud_context->product_info.device_id, pclient);
     if (NULL == h_ota) {
        rc = -1;
@@ -1009,7 +1009,7 @@ do_exit:
         hal_free(msg_readbuf);
     }
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
 
     if (NULL != h_ota) {
         iot_ota_deinit(h_ota);
@@ -1202,7 +1202,7 @@ void cloud_loop(void)
 
     mqtt_loop(pclient);
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
     ota_loop(&h_ota,mqtt_cloud_context);
 #endif
     /* handle the MQTT packet received from TCP or SSL connection */

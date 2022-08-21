@@ -1,4 +1,8 @@
-#define CONFIG_QM_CLI 1
+/*
+ * Automatically generated file. DO NOT EDIT.
+ * QUMIOS Development Framework Configuration Header
+ */
+#pragma once
 #define CONFIG_QM_BLE 1
 #define CONFIG_QM_PRODTST_AP_SSID "xj_prodtst"
 #define CONFIG_QM_PRODTST_AP_PASSWD "asdf062516"
@@ -19,7 +23,12 @@
 #define CONFIG_QM_AT_CMD_TABLE_MAX_NUM 10
 #define CONFIG_QM_AT_URC_TABLE_MAX_NUM 3
 #define CONFIG_QM_AES 1
-#define CONFIG_QM_BASE64 1
+#define CONFIG_QM_NETWORK_TLS_SUPPORT 1
+#define CONFIG_QM_TIME_TASK_PRIO 21
+#define CONFIG_QM_TIME_TASK_SIZE 4096
+#define CONFIG_QM_TIME_SYNC_TIMEOUT 21600
+#define CONFIG_QM_HTTPS_SUPPORT 1
+#define CONFIG_QM_HMAC 1
 #define CONFIG_QM_SHA256 1
 #define CONFIG_QM_STRING 1
 #define CONFIG_QM_TIMER 1

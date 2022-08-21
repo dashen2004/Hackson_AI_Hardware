@@ -1,8 +1,8 @@
-#ifndef _IOT_MQTT__ERROR_H_
-#define _IOT_MQTT__ERROR_H_
+#ifndef _IOT_MQTT_ERROR_H_
+#define _IOT_MQTT_ERROR_H_
 /* From util_error.h */
 typedef enum IOT_RETURN_CODES {
-    ERROR_DEVICE_NOT_EXSIT = -311,
+        ERROR_DEVICE_NOT_EXSIT = -311,
        ERROR_NET_TIMEOUT = -310,
        ERROR_CERT_VERIFY_FAIL  = -309,
        ERROR_NET_SETOPT_TIMEOUT = -308,
@@ -64,14 +64,6 @@ typedef enum IOT_RETURN_CODES {
 
        ERROR_NO_SUPPORT = -12,
        ERROR_NO_PERSISTENCE = -11,
-       ERROR_HTTP_BREAK = -10,
-       ERROR_NULL_VALUE = -9,
-       ERROR_HTTP_CONN = -8,                    /**< Connection failed. */
-       ERROR_HTTP_PARSE = -7,                   /**< A URL parse error occurred. */
-       ERROR_HTTP_UNRESOLVED_DNS = -6,           /**< Could not resolve the hostname. */
-       ERROR_HTTP_PRTCL = -5,                   /**< A protocol error occurred. */
-       ERROR_HTTP = -4,                         /**< An unknown error occurred. */
-       ERROR_HTTP_CLOSED = -3,                  /**< Connection was closed by a remote host. */
        NULL_VALUE_ERROR = -2,
 
        FAIL_RETURN = -1,                        /**< generic error. */

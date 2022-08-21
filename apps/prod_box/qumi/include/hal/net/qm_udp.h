@@ -1,5 +1,5 @@
-#ifndef _QM_TCP_H_
-#define _QM_TCP_H_
+#ifndef _QM_UDP_H_
+#define _QM_UDP_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,7 +50,7 @@ void *qm_udp_client_create(char *host, uint16_t port);
  * @see None.
  * @note None.
  */
-int qm_udp_close(void *handle);
+int32_t qm_udp_close(void *handle);
 
 /**
  * @brief Sends data to a specific destination.
@@ -68,7 +68,7 @@ int qm_udp_close(void *handle);
  * @see None.
  * @note blocking API.
  */
-int qm_udp_sendto(void *handle, const char *buffer,
+int32_t qm_udp_sendto(void *handle, const char *buffer,
                 uint32_t length, qm_netaddr_t *netaddr, uint32_t timeout_ms);
 
 /**
@@ -88,7 +88,7 @@ int qm_udp_sendto(void *handle, const char *buffer,
  * @see None.
  * @note blocking API.
  */
-int qm_udp_recvfrom( void *handle, char *buffer,
+int32_t qm_udp_recvfrom( void *handle, char *buffer,
                   uint32_t length, qm_netaddr_t *netaddr, uint32_t timeout_ms);
 
 /**
@@ -106,7 +106,7 @@ int qm_udp_recvfrom( void *handle, char *buffer,
  * @see None.
  * @note blocking API.
  */
-int qm_udp_read(void *handle, char *buffer, uint32_t length);
+int32_t qm_udp_read(void *handle, char *buffer, uint32_t length);
 
 /**
  * @brief Receives data from a udp connection.
@@ -124,7 +124,7 @@ int qm_udp_read(void *handle, char *buffer, uint32_t length);
  * @see None.
  * @note blocking API.
  */
-int qm_udp_readtimeout(void *handle, char *buffer, uint32_t length, uint32_t timeout_ms);
+int32_t qm_udp_readtimeout(void *handle, char *buffer, uint32_t length, uint32_t timeout_ms);
 
 
 /**
@@ -142,10 +142,10 @@ int qm_udp_readtimeout(void *handle, char *buffer, uint32_t length, uint32_t tim
  * @see None.
  * @note blocking API.
  */
-int qm_udp_write(void *handle, char *buffer, uint32_t length, uint32_t timeout_ms);
+int32_t qm_udp_write(void *handle, char *buffer, uint32_t length, uint32_t timeout_ms);
 
 
 #ifdef __cplusplus
-extern "C" {
+}
 #endif
 #endif 

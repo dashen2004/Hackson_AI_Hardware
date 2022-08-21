@@ -1,7 +1,4 @@
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "iot_ota.h"
 #include "iot_ota_internal.h"
 #include "iot_mqtt_debug.h"
@@ -11,7 +8,7 @@
 #include "iot_event.h"
 
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
 
 #include "iot_ota_lib.c"
 #include "iot_ota_fetch.c"

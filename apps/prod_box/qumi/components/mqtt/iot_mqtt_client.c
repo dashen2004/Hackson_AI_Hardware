@@ -2,7 +2,6 @@
 #include "util_net.h"
 #include "qm_utils_list.h"
 #include "qm_utils_timer.h"
-#include "iot_guider.h"
 
 #include "MQTTPacket/MQTTPacket.h"
 #include "iot_mqtt_client.h"
@@ -1622,7 +1621,7 @@ static int iot_mc_init(iot_mc_client_t *pClient, iot_mqtt_param_t *pInitParams)
     }
     memset(pClient->ipstack, 0x0, sizeof(util_network_t));
 
-    rc = iot_net_init(pClient->ipstack, pInitParams->host, pInitParams->port, pInitParams->pub_key);
+    rc = util_net_init(pClient->ipstack, pInitParams->host, pInitParams->port, pInitParams->pub_key);
     if (SUCCESS_RETURN != rc) {
         mc_state = IOT_MC_STATE_INVALID;
         goto RETURN;

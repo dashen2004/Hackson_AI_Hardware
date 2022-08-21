@@ -2,11 +2,10 @@
 #ifndef __OTA_FETCH_C_H__
 #define __OTA_FETCH_C_H__
 
-#include <string.h>
 #include "iot_ota.h"
 #include "util_httpc.h"
 
-#ifdef OTA_SUPPORT
+#if CONFIG_OTA_SUPPORT
 
 /* ofc, OTA fetch channel */
 

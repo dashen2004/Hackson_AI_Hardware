@@ -112,6 +112,13 @@ only supported for backwards compatibility).
     kconf = kconfiglib.Kconfig(args.kconfig, suppress_traceback=True)
     kconf.load_config()
 
+
+    CONFIG_HEADING = """/*
+ * Automatically generated file. DO NOT EDIT.
+ * QUMIOS Development Framework Configuration Header
+ */
+#pragma once
+"""
     if args.header_path is None:
         if "KCONFIG_AUTOHEADER" in os.environ:
             kconf.write_autoconf()
@@ -120,7 +127,7 @@ only supported for backwards compatibility).
             # compatible with the C tools. 'config.h' is used here instead for
             # backwards compatibility. It's probably a saner default for tools
             # as well.
-            kconf.write_autoconf("config.h")
+            kconf.write_autoconf("config.h", header=CONFIG_HEADING)
     else:
         kconf.write_autoconf(args.header_path)
 
