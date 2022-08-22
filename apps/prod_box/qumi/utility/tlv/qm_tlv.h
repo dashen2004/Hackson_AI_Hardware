@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "qm_types.h"
+#include "qm_config.h"
 
 #ifndef CONFIG_QM_TLV_TAG_SIZE
 #define CONFIG_QM_TLV_TAG_SIZE        1

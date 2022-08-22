@@ -292,11 +292,6 @@ typedef struct
     uint8_t *data;
 }opple_serial_id_info_t;
 
-typedef struct{
-    int is_changed;
-    qm_tlv_ctx_t *tlv_ctx;
-}opple_serial_snapshot_info_t;
-
 typedef struct
 {
     uint8_t network_status;
@@ -309,9 +304,7 @@ typedef struct
     uint32_t read_buf_size;  /* Specify size of read-buffer in byte */
     void *serial_mutex;
     void *send_sem;
-
-    opple_serial_snapshot_info_t serial_snapshot_info;
-
+    
     opple_parse_state_t parse_state;
     uint8_t packet_len;
     uint8_t need_len;
