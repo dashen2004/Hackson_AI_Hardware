@@ -1,5 +1,5 @@
 #include "qm_tcp.h"
-#include "qnm_log.h"
+#include "qm_log.h"
 #include "qm_types.h"
 #include "qm_errno.h"
 
@@ -16,7 +16,7 @@ void* qm_tcp_establish(const char *host, uint16_t port)
     struct sockaddr_in addr = {0};
     struct hostent *hostent_content = NULL;
 
-    platform_log("host name: %s", host);
+    QM_LOGD(LOG_TAG, "host name: %s", host);
     hostent_content = gethostbyname( host );
     if(hostent_content == NULL){
         QM_LOGE(LOG_TAG, "gethostbyname err");
@@ -66,14 +66,12 @@ int32_t qm_tcp_destroy(void *handle)
     }
     //Shutdown both send and receive operations.
     rc = shutdown((int)handle, 2);
-
     if (0 != rc) {
         QM_LOGE(LOG_TAG, "shutdown error");
         return -QM_EIO;
     }
 
-    rc = close((int) fd);
-
+    rc = close((int) handle);
     if (0 != rc) {
         QM_LOGE(LOG_TAG, "closesocket error");
         return -QM_EIO;
@@ -164,6 +162,7 @@ int32_t qm_tcp_read(void *handle, char *buf, uint32_t len, uint32_t timeout_ms)
     uint32_t t_end = 0, t_left = 0;
     fd_set sets = {0};
     struct timeval timeout = {0};
+    int fd = (int)handle;
 
     if(handle == NULL || buf == NULL || len == 0){
         return -QM_EINVAL;

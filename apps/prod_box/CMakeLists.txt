@@ -4,8 +4,9 @@ cmake_minimum_required(VERSION 3.5)
 
 set(EXTRA_COMPONENT_DIRS $ENV{IDF_PATH}/apps/prod_box/qumi
                          $ENV{IDF_PATH}/apps/prod_box/drivers
-                         $ENV{IDF_PATH}/apps/prod_box/app
+                         
    )
+#$ENV{IDF_PATH}/apps/prod_box/app
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(prod_box)

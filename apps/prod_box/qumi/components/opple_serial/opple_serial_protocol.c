@@ -73,14 +73,47 @@ static uint8_t packet_id_get(void)
     return serial_context->packet_id;
 }
 
-opple_serial_snapshot_info_t* opple_serial_snapshot_info_get(void)
+int32_t opple_serial_updated_snapshot_get(qm_tlv_block_t *tlv_block)
 {
+    int32_t ret = 0;
+    int32_t err = OPPLE_SERIAL_NO_UPDATE_ERR;
+    int32_t is_update = 0;
+    qm_tlv_block_t *m_tlv_block = NULL;
     opple_serial_context_t *context = NULL;
     context = opple_serial_context_get();
     if(context == NULL){
-        return NULL;
+        return OPPLE_SERIAL_NO_INIT_ERR;
     }
-    return &context->serial_snapshot_info;
+
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+    opple_serial_mutex_lock(context->serial_mutex);
+#endif
+    m_tlv_block = qm_tlv_block_next(context->tlv_ctx, NULL);
+    while(m_tlv_block){
+
+        qm_tlv_block_is_update(m_tlv_block, &is_update);
+        if(is_update){
+            ret = qm_tlv_block_copy(tlv_block, m_tlv_block);
+            if(ret != 0){
+                err =  OPPLE_SERIAL_ALLOC_MEM_ERR;
+                goto __exit;
+            }
+            qm_tlv_block_update(m_tlv_block, 0);
+
+            err =  OPPLE_SERIAL_NO_ERR;
+            goto __exit;
+        }
+
+        m_tlv_block = qm_tlv_block_next(context->tlv_ctx, m_tlv_block);
+    }
+
+__exit:
+
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+    opple_serial_mutex_unlock(context->serial_mutex);
+#endif
+
+    return err;
 }
 
 static int32_t frame_parse(uint8_t *data, uint16_t len)
@@ -97,7 +130,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
     qm_tlv_block_t *tlv_block = NULL;
     uint8_t klv_len = 0;
 
-    if(*(data+len-3) != frame_chksum(data+2, len-5)){
+    if(*(data + len - 3) != frame_chksum(data + 2, len - 5)){
         return OPPLE_SERIAL_CHKSUM_ERR;
     }
 
@@ -144,7 +177,15 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
             context->callbacks.m_reportcb(cmd, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN, (void*)tlv_ctx);
         }
 
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+        opple_serial_mutex_lock(context->serial_mutex);
+#endif
+
         qm_tlv_merge(context->serial_snapshot_info.tlv_ctx, tlv_ctx);
+
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+        opple_serial_mutex_unlock(context->serial_mutex);
+#endif
         qm_tlv_ctx_delete(tlv_ctx);
 
 #endif
@@ -507,7 +548,7 @@ static int32_t serial_kv_set(uint8_t *data, uint8_t len)
 
         snprintf(key, 16, OPPLE_SERIAL_KEY_FORMAT, tlv_block->tag);
 
-        if(tlv_block->len <= QM_TLV_BYTES_SIZE){
+        if(tlv_block->len <= CONFIG_QM_TLV_BYTES_SIZE){
             err = opple_serial_kv_set(key, tlv_block->value.bytes, tlv_block->len);
             if(err != 0){
                 goto __exit;

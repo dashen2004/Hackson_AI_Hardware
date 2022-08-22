@@ -25,7 +25,7 @@ int qm_tlv_ctx_delete(qm_tlv_ctx_t *tlv_ctx)
 
     while(tlv_block){
 
-        if(tlv_block->len > QM_TLV_BYTES_SIZE){
+        if(tlv_block->len > CONFIG_QM_TLV_BYTES_SIZE){
             tlv_free(tlv_block->value.pdata);
             tlv_block->value.pdata = NULL;
         }
@@ -46,7 +46,7 @@ int qm_tlv_block_delete(qm_tlv_block_t *tlv_block)
     if(tlv_block == NULL){
         return -QM_EINVAL;
     }
-    if(tlv_block->len > QM_TLV_BYTES_SIZE){
+    if(tlv_block->len > CONFIG_QM_TLV_BYTES_SIZE){
         tlv_free(tlv_block->value.pdata);
     }
 
@@ -81,36 +81,25 @@ int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
 {
     qm_tlv_block_t *m_tlv_block = NULL;
     qm_tlv_block_t *tlv_block_pre = NULL;
-    qm_tlv_block_t *tlv_block_next = NULL;
 
     if(tlv_ctx == NULL || tlv_block == NULL){
         return -QM_EINVAL;
     }
 
-    tlv_block->update = 1;
-
     if(tlv_ctx->tlv_block == NULL){
         tlv_ctx->tlv_block = tlv_block; 
         tlv_block->next = NULL;
         tlv_ctx->count++;
+        tlv_block->update = 1;
         return QM_EOK;
     }
 
-    //first check tag
+    if(qm_tlv_block_check(tlv_ctx, tlv_block)){
+        return -QM_EINVAL;
+    }
+
     m_tlv_block = tlv_ctx->tlv_block;
     while(m_tlv_block){
-        if(tlv_block->tag == m_tlv_block->tag){   
-            if(tlv_ctx->tlv_block == m_tlv_block){
-                tlv_block_next = m_tlv_block->next;
-                tlv_ctx->tlv_block = tlv_block;
-                tlv_block->next = tlv_block_next;
-            }else{
-                tlv_block_pre->next = tlv_block;
-                tlv_block->next = m_tlv_block->next;
-            }
-            qm_tlv_block_delete(m_tlv_block);   
-            return QM_EOK;
-        }
         tlv_block_pre = m_tlv_block;
         m_tlv_block = m_tlv_block->next;  
     }
@@ -118,6 +107,8 @@ int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
     tlv_block_pre->next = tlv_block;
     tlv_block->next = NULL;
     tlv_ctx->count++;
+    tlv_block->update = 1;
+
     return QM_EOK;
 }
 
@@ -144,6 +135,40 @@ qm_tlv_block_t *qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, uint16_t tag)
     return m_tlv_block;
 }
 
+int qm_tlv_block_copy(qm_tlv_block_t *dest_tlv_block, qm_tlv_block_t *src_tlv_block)
+{
+    int ret = 0;
+
+    if(dest_tlv_block == NULL || src_tlv_block == NULL){
+        return -QM_EINVAL;
+    }
+
+    if(dest_tlv_block->tag != src_tlv_block->tag){
+       dest_tlv_block->tag = src_tlv_block->tag;
+       dest_tlv_block->update = 1;
+    }
+
+    if(dest_tlv_block->len == src_tlv_block->len){
+
+        if(dest_tlv_block->len <= CONFIG_QM_TLV_BYTES_SIZE){
+            if(0 != memcmp(dest_tlv_block->value.bytes, src_tlv_block->value.bytes, dest_tlv_block->len)){
+                ret = qm_tlv_pack_bytes(dest_tlv_block, src_tlv_block->value.bytes, dest_tlv_block->len);
+                dest_tlv_block->update = 1;
+            }
+        }else{
+            if(0 != memcmp(dest_tlv_block->value.pdata, src_tlv_block->value.pdata, dest_tlv_block->len)){
+                ret = qm_tlv_pack_bytes(dest_tlv_block, src_tlv_block->value.bytes, dest_tlv_block->len);
+                dest_tlv_block->update = 1;
+            }
+        }
+
+    }else{
+        ret = qm_tlv_pack_bytes(dest_tlv_block, src_tlv_block->value.bytes, dest_tlv_block->len);
+        dest_tlv_block->update = 1;
+    }
+    return ret;
+}
+
 int qm_tlv_block_serialize(qm_tlv_block_t *tlv_block)
 {
     if(tlv_block == NULL){
@@ -160,6 +185,17 @@ int qm_tlv_block_is_update(qm_tlv_block_t *tlv_block, int *is_update)
     }
 
     *is_update = (int)tlv_block->update;
+
+    return QM_EOK;
+}
+
+int qm_tlv_block_update(qm_tlv_block_t *tlv_block, int update)
+{
+    if(tlv_block == NULL){
+        return -QM_EINVAL;
+    }
+
+    tlv_block->update = update;
 
     return QM_EOK;
 }
@@ -216,7 +252,7 @@ int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, int partial)
         index += 2;
     #endif
         if(msg){
-            if(tlv_block->len <= QM_TLV_BYTES_SIZE){
+            if(tlv_block->len <= CONFIG_QM_TLV_BYTES_SIZE){
                 memcpy(msg + index, tlv_block->value.bytes, tlv_block->len);
             }else{
                 memcpy(msg + index, tlv_block->value.pdata, tlv_block->len);
@@ -288,7 +324,7 @@ int qm_tlv_deserialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int len)
             goto __exit;
         }
 
-        if(tlv_block->len <= QM_TLV_BYTES_SIZE){
+        if(tlv_block->len <= CONFIG_QM_TLV_BYTES_SIZE){
             memcpy(tlv_block->value.bytes, msg + index, tlv_block->len);
         }else{
             tlv_block->value.pdata = (uint8_t*)tlv_malloc(tlv_block->len);
@@ -301,12 +337,10 @@ int qm_tlv_deserialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int len)
 
         index += tlv_block->len;
 
-        if(qm_tlv_block_check(tlv_ctx, tlv_block)){
-            ret = -QM_EINVAL;
+        ret = qm_tlv_block_add(tlv_ctx, tlv_block);
+        if(ret != QM_EOK){
             goto __exit;
         }
-
-        qm_tlv_block_add(tlv_ctx, tlv_block);
     }
 
     return QM_EOK;
@@ -332,16 +366,33 @@ int qm_tlv_merge(qm_tlv_ctx_t *dest_tlv_ctx, qm_tlv_ctx_t *src_tlv_ctx)
 
     tlv_block = src_tlv_ctx->tlv_block;
     while(tlv_block){
-        m_tlv_block = tlv_block->next;
-        ret = qm_tlv_block_add(dest_tlv_ctx, tlv_block);
-        if(ret != QM_EOK){
-            return ret;
-        }
-        tlv_block = m_tlv_block;
-    }
 
-    src_tlv_ctx->tlv_block = NULL;
-    src_tlv_ctx->count = 0;
+        m_tlv_block = qm_tlv_block_find(dest_tlv_ctx, (uint16_t)tlv_block->tag);
+        if(!m_tlv_block){
+            ret = qm_tlv_block_copy(m_tlv_block, tlv_block);
+            if(ret != QM_EOK){
+                return ret;
+            }
+        }else{
+            m_tlv_block = qm_tlv_block_creat();
+            if(m_tlv_block == NULL){
+                return -QM_ENOMEM;
+            }
+
+            ret = qm_tlv_block_copy(m_tlv_block, tlv_block);
+            if(ret != QM_EOK){
+                return ret;
+            }
+
+            ret = qm_tlv_block_add(dest_tlv_ctx, m_tlv_block);
+            if(ret != QM_EOK){
+                return ret;
+            }
+
+        }
+
+        tlv_block = tlv_block->next;
+    }
 
     return QM_EOK;
 }
@@ -349,7 +400,7 @@ int qm_tlv_merge(qm_tlv_ctx_t *dest_tlv_ctx, qm_tlv_ctx_t *src_tlv_ctx)
 qm_tlv_block_t *qm_tlv_block_next(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
 {
     if(tlv_ctx == NULL){
-        return -QM_EINVAL;
+        return NULL;
     }
 
     if(tlv_block == NULL){
@@ -425,7 +476,7 @@ int qm_tlv_unpack_bytes(qm_tlv_block_t *tlv_block, uint8_t *bytes, int *size)
         return QM_EOK;
     }
 
-    if(tlv_block->len <= QM_TLV_BYTES_SIZE){
+    if(tlv_block->len <= CONFIG_QM_TLV_BYTES_SIZE){
         memcpy(bytes, tlv_block->value.bytes, tlv_block->len);
     }else{
         memcpy(bytes, tlv_block->value.pdata, tlv_block->len);
@@ -447,7 +498,7 @@ int qm_tlv_unpack_string(qm_tlv_block_t *tlv_block, char *str, int *size)
         return QM_EOK;
     }
 
-    if(tlv_block->len <= QM_TLV_BYTES_SIZE){
+    if(tlv_block->len <= CONFIG_QM_TLV_BYTES_SIZE){
         memcpy(str, tlv_block->value.bytes, tlv_block->len);
     }else{
         memcpy(str, tlv_block->value.pdata, tlv_block->len);
@@ -466,7 +517,7 @@ int qm_tlv_unpack_bytes_direct(qm_tlv_block_t *tlv_block, uint8_t **bytes, int *
 
     *size = (int)tlv_block->len;
 
-    if(tlv_block->len <= QM_TLV_BYTES_SIZE){
+    if(tlv_block->len <= CONFIG_QM_TLV_BYTES_SIZE){
         *bytes = tlv_block->value.bytes;
     }else{
         *bytes = tlv_block->value.pdata;
@@ -492,7 +543,7 @@ int qm_tlv_pack_uint8(qm_tlv_block_t *tlv_block, uint8_t value)
         return -QM_EINVAL;
     }
     
-    if(tlv_block->len > QM_TLV_BYTES_SIZE){
+    if(tlv_block->len > CONFIG_QM_TLV_BYTES_SIZE){
         qm_free(tlv_block->value.pdata);
         tlv_block->value.pdata = NULL;
     }
@@ -519,12 +570,13 @@ int qm_tlv_pack_uint16(qm_tlv_block_t *tlv_block, uint16_t value)
         return -QM_EINVAL;
     }
 
-    if(tlv_block->len > QM_TLV_BYTES_SIZE){
+    if(tlv_block->len > CONFIG_QM_TLV_BYTES_SIZE){
         qm_free(tlv_block->value.pdata);
         tlv_block->value.pdata = NULL;
     }
 
     tmp = cpu_to_be16(value);
+    memset(tlv_block->value.bytes, 0, CONFIG_QM_TLV_BYTES_SIZE);
     memcpy(tlv_block->value.bytes, &tmp, sizeof(uint16_t));
     #if CONFIG_QM_TLV_LENGTH_SIZE == 1
     tlv_block->len = (uint8_t)sizeof(uint16_t);
@@ -547,12 +599,13 @@ int qm_tlv_pack_uint32(qm_tlv_block_t *tlv_block, uint32_t value)
         return -QM_EINVAL;
     }
 
-    if(tlv_block->len > QM_TLV_BYTES_SIZE){
+    if(tlv_block->len > CONFIG_QM_TLV_BYTES_SIZE){
         qm_free(tlv_block->value.pdata);
         tlv_block->value.pdata = NULL;
     }
 
     tmp = cpu_to_be32(value);
+    memset(tlv_block->value.bytes, 0, CONFIG_QM_TLV_BYTES_SIZE);
     memcpy(tlv_block->value.bytes, &tmp, sizeof(uint32_t));
     #if CONFIG_QM_TLV_LENGTH_SIZE == 1
     tlv_block->len = (uint8_t)sizeof(uint32_t);
@@ -584,12 +637,13 @@ int qm_tlv_pack_bytes(qm_tlv_block_t *tlv_block, uint8_t *bytes, int size)
     }
 #endif
 
-    if(tlv_block->len > QM_TLV_BYTES_SIZE){
+    if(tlv_block->len > CONFIG_QM_TLV_BYTES_SIZE){
         qm_free(tlv_block->value.pdata);
         tlv_block->value.pdata = NULL;
     }
 
-    if(size <= QM_TLV_BYTES_SIZE){
+    if(size <= CONFIG_QM_TLV_BYTES_SIZE){
+        memset(tlv_block->value.bytes, 0, CONFIG_QM_TLV_BYTES_SIZE);
         memcpy(tlv_block->value.bytes, bytes, size);
     }else{
         tlv_block->value.pdata = (uint8_t*)tlv_malloc(size);

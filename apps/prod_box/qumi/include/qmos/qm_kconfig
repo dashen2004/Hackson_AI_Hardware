@@ -1,0 +1,19 @@
+menu "qumi kernel"
+
+    config QM_LOG
+        bool "qm log"
+        default y
+        if QM_LOG
+            choice
+                prompt "select log output levels"
+                default LOG_SIMPLE
+
+                config LOG_SIMPLE
+                    bool "log simple"
+
+                config LOG_DETAILS
+                    bool "log details"
+            endchoice
+        endif
+
+endmenu

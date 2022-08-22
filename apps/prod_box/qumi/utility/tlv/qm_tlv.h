@@ -15,7 +15,9 @@ extern "C" {
 #define CONFIG_QM_TLV_LENGTH_SIZE     1
 #endif
 
-#define QM_TLV_BYTES_SIZE             4
+#ifndef CONFIG_QM_TLV_BYTES_SIZE
+#define CONFIG_QM_TLV_BYTES_SIZE      4
+#endif
 
 #ifndef tlv_malloc
 #define tlv_malloc   qm_malloc
@@ -46,7 +48,7 @@ typedef struct qm_tlv_block{
     #endif
 
     union{
-        uint8_t bytes[QM_TLV_BYTES_SIZE];
+        uint8_t bytes[CONFIG_QM_TLV_BYTES_SIZE];
         uint8_t *pdata;
     }value;
 
@@ -79,7 +81,11 @@ int qm_tlv_block_serialize(qm_tlv_block_t *tlv_block);
 
 int qm_tlv_block_is_update(qm_tlv_block_t *tlv_block, int *is_update);
 
+int qm_tlv_block_update(qm_tlv_block_t *tlv_block, int update);
+
 int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block);
+
+int qm_tlv_block_copy(qm_tlv_block_t *dest_tlv_block, qm_tlv_block_t *src_tlv_block);
 
 int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, int partial);
 

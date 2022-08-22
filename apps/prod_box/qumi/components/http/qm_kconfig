@@ -13,7 +13,7 @@ menu "http"
         int "http client read buffer size"
         default 1024
 
-    onfig HTTPCLIENT_SEND_BUF_SIZE
+    config HTTPCLIENT_SEND_BUF_SIZE
         int "http client send buffer size"
         default 512
 

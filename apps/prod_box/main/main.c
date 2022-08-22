@@ -9,8 +9,8 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "network.h"
-#include "cloud.h"
-#include "prodtst_app.h"
+//#include "cloud.h"
+//#include "prodtst_app.h"
 #include "drivers.h"
 #include "qm.h"
 

@@ -26,7 +26,7 @@
 #define OPPLE_SERIAL_TYPE_ID_ERR         12
 #define OPPLE_SERIAL_PROCESS_ERR         13
 #define OPPLE_SERIAL_SEND_BUSY_ERR       14
-
+#define OPPLE_SERIAL_NO_UPDATE_ERR       15
 
 enum{
 	OPPLE_SERIAL_COM_OK,
@@ -368,8 +368,7 @@ opple_serial_context_t *opple_serial_context_get(void);
 int32_t opple_serial_state_set(opple_serial_state_t state);
 int32_t opple_serial_state_get(opple_serial_state_t *state);
 
-opple_serial_snapshot_info_t* opple_serial_snapshot_info_get(void);
-
+int32_t opple_serial_updated_snapshot_get(qm_tlv_block_t *tlv_block);
 
 
 #endif

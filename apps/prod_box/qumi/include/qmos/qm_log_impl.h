@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include "qm_config.h"
 
 extern unsigned int qm_log_level;
 static inline unsigned int qm_log_get_level(void)
@@ -45,8 +46,7 @@ enum qm_log_level_bit {
 #define COL_CYN "\x1B[36m"
 #define COL_MAG "\x1B[35m"
 
-extern int qm_printf(const char *fmt, ...);
-#ifdef CONFIG_LOGMACRO_DETAILS
+#if CONFIG_LOG_DETAILS
 #include <qmos/qm_kernel.h>
 #define qm_log_print(CON, MOD, COLOR, LVL, FMT, ...) \
     do {                                          \
@@ -57,13 +57,7 @@ extern int qm_printf(const char *fmt, ...);
         } \
     } while (0)
 #else
-#if defined(QM_LOG_SIMPLE)
-extern void qm_log_print_simple(unsigned int log_level, const char *fmt, ...);
-#define qm_log_print(CON, MOD, COLOR, LVL, FMT, ...) \
-    do {                                          \
-        qm_log_print_simple(CON, FMT, ##__VA_ARGS__);\
-    } while (0)
-#else
+#if CONFIG_LOG_SIMPLE
 #include <qmos/qm_kernel.h>
 #define qm_log_print(CON, MOD, COLOR, LVL, FMT, ...) \
     do { \
@@ -90,28 +84,10 @@ extern void qm_log_print_simple(unsigned int log_level, const char *fmt, ...);
 #endif
 #endif
 
-#define void_func(fmt, ...)
 
-#ifndef qm_printf
-int qm_printf(const char *fmt, ...);
-#else
+#if CONFIG_QM_LOG
+
 extern int qm_printf(const char *fmt, ...);
-#endif        
-
-
-#ifdef CONFIG_LOGMACRO_SILENT
-#define QM_LOGF_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
-#define QM_LOGE_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
-#define QM_LOGW_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
-#define QM_LOGI_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
-#define QM_LOGD_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
-
-#define QM_HEX_LOGF_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
-#define QM_HEX_LOGE_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
-#define QM_HEX_LOGW_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
-#define QM_HEX_LOGI_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
-#define QM_HEX_LOGD_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
-#else
 
 #define QM_LOGD_IMPL(mod, fmt, ...) \
         qm_log_print(QM_LL_V_DEBUG, mod, COL_WHE, "D", fmt, ##__VA_ARGS__)
@@ -136,7 +112,22 @@ extern int qm_printf(const char *fmt, ...);
 #define QM_HEX_LOGI_IMPL(mod, name, p_data, len) \
         qm_hex_log_print(QM_LL_V_INFO, mod, COL_GRE, "I", name, p_data, len)
 
-#endif /* CONFIG_LOGMACRO_SILENT */
+
+#else
+
+#define QM_LOGF_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
+#define QM_LOGE_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
+#define QM_LOGW_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
+#define QM_LOGI_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
+#define QM_LOGD_IMPL(mod, fmt, ...) void_func(fmt, ##__VA_ARGS__)
+
+#define QM_HEX_LOGF_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
+#define QM_HEX_LOGE_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
+#define QM_HEX_LOGW_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
+#define QM_HEX_LOGI_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
+#define QM_HEX_LOGD_IMPL(mod, name, p_data, len) void_func(mod, name, p_data, len)
+
+#endif /* CONFIG_QM_LOG */
 
 #ifdef __cplusplus
 }

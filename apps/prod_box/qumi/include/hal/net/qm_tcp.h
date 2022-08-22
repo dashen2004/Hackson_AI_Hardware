@@ -67,7 +67,7 @@ int32_t qm_tcp_write(void *handle, const char *buf, uint32_t len, uint32_t timeo
 
  * @see None.
  */
-int32_t qm_tcp_read(void *handle, char *buf, uint32_t len, uint32_t timeout_ms)
+int32_t qm_tcp_read(void *handle, char *buf, uint32_t len, uint32_t timeout_ms);
 
 
 
