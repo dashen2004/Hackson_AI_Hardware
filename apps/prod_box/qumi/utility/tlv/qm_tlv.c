@@ -368,7 +368,7 @@ int qm_tlv_merge(qm_tlv_ctx_t *dest_tlv_ctx, qm_tlv_ctx_t *src_tlv_ctx)
     while(tlv_block){
 
         m_tlv_block = qm_tlv_block_find(dest_tlv_ctx, (uint16_t)tlv_block->tag);
-        if(!m_tlv_block){
+        if(m_tlv_block){
             ret = qm_tlv_block_copy(m_tlv_block, tlv_block);
             if(ret != QM_EOK){
                 return ret;
@@ -388,9 +388,7 @@ int qm_tlv_merge(qm_tlv_ctx_t *dest_tlv_ctx, qm_tlv_ctx_t *src_tlv_ctx)
             if(ret != QM_EOK){
                 return ret;
             }
-
         }
-
         tlv_block = tlv_block->next;
     }
 
