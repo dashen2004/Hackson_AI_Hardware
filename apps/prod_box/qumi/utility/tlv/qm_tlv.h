@@ -9,16 +9,16 @@ extern "C" {
 #include "qm_config.h"
 
 
-#ifndef CONFIG_QM_TV_SUPPORT
-#define CONFIG_QM_TV_SUPPORT             1
+#ifndef CONFIG_QM_DTTV_SUPPORT
+#define CONFIG_QM_DTTV_SUPPORT             1
 #endif
 
 #ifndef CONFIG_QM_TLV_SUPPORT
 #define CONFIG_QM_TLV_SUPPORT            0
 #endif
 
-#if (CONFIG_QM_TV_SUPPORT || CONFIG_QM_TLV_SUPPORT) == 0
-#error must specify TLV or TV support
+#if (CONFIG_QM_DTTV_SUPPORT || CONFIG_QM_TLV_SUPPORT) == 0
+#error must specify TLV or DTTV support
 #endif
 
 #if CONFIG_QM_TLV_SUPPORT
@@ -28,14 +28,6 @@ extern "C" {
 
 #ifndef CONFIG_QM_TLV_LENGTH_SIZE
 #define CONFIG_QM_TLV_LENGTH_SIZE        1
-#endif
-
-#ifndef CONFIG_QM_TV_TAG_SIZE
-#define CONFIG_QM_TV_TAG_SIZE            1
-#endif
-
-#ifndef CONFIG_QM_TV_LENGTH_SIZE
-#define CONFIG_QM_TV_LENGTH_SIZE         1
 #endif
 
 #ifndef CONFIG_QM_TLV_INT16_SUPPORT
@@ -55,55 +47,64 @@ extern "C" {
 #endif
 #endif
 
-#if CONFIG_QM_TV_SUPPORT
-#ifndef CONFIG_QM_TV_INT16_SUPPORT
-#define CONFIG_QM_TV_INT16_SUPPORT       1
+#if CONFIG_QM_DTTV_SUPPORT
+
+#ifndef CONFIG_QM_DTTV_TAG_SIZE
+#define CONFIG_QM_DTTV_TAG_SIZE            1
 #endif
 
-#ifndef CONFIG_QM_TV_INT32_SUPPORT
-#define CONFIG_QM_TV_INT32_SUPPORT       1
+#ifndef CONFIG_QM_DTTV_LENGTH_SIZE
+#define CONFIG_QM_DTTV_LENGTH_SIZE         1
 #endif
 
-#ifndef CONFIG_QM_TV_INT64_SUPPORT
-#define CONFIG_QM_TV_INT64_SUPPORT       0
+#ifndef CONFIG_QM_DTTV_INT16_SUPPORT
+#define CONFIG_QM_DTTV_INT16_SUPPORT       1
 #endif
 
-#ifndef CONFIG_QM_TV_BYTES_SUPPORT
-#define CONFIG_QM_TV_BYTES_SUPPORT       1
+#ifndef CONFIG_QM_DTTV_INT32_SUPPORT
+#define CONFIG_QM_DTTV_INT32_SUPPORT       1
+#endif
+
+#ifndef CONFIG_QM_DTTV_INT64_SUPPORT
+#define CONFIG_QM_DTTV_INT64_SUPPORT       0
+#endif
+
+#ifndef CONFIG_QM_DTTV_BYTES_SUPPORT
+#define CONFIG_QM_DTTV_BYTES_SUPPORT       1
 #endif
 #endif
 
-#if CONFIG_QM_TLV_TAG_SIZE == 2 || CONFIG_QM_TV_TAG_SIZE == 2
+#if CONFIG_QM_TLV_TAG_SIZE == 2 || CONFIG_QM_DTTV_TAG_SIZE == 2
 #define CONFIG_QM_TLV_TAG_BYTE  2
 #else
 #define CONFIG_QM_TLV_TAG_BYTE  1
 #endif
 
-#if CONFIG_QM_TLV_LENGTH_SIZE == 2 || CONFIG_QM_TV_LENGTH_SIZE == 2
+#if CONFIG_QM_TLV_LENGTH_SIZE == 2 || CONFIG_QM_DTTV_LENGTH_SIZE == 2
 #define CONFIG_QM_TLV_LENGTH_BYTE  2
 #else
 #define CONFIG_QM_TLV_LENGTH_BYTE  1
 #endif
 
-#if CONFIG_QM_TLV_INT16_SUPPORT || CONFIG_QM_TV_INT16_SUPPORT
+#if CONFIG_QM_TLV_INT16_SUPPORT || CONFIG_QM_DTTV_INT16_SUPPORT
 #define CONFIG_QM_DATA_TYPE_INT16_SUPPORT  1
 #else
 #define CONFIG_QM_DATA_TYPE_INT16_SUPPORT  0
 #endif
 
-#if CONFIG_QM_TLV_INT32_SUPPORT || CONFIG_QM_TV_INT32_SUPPORT
+#if CONFIG_QM_TLV_INT32_SUPPORT || CONFIG_QM_DTTV_INT32_SUPPORT
 #define CONFIG_QM_DATA_TYPE_INT32_SUPPORT  1
 #else
 #define CONFIG_QM_DATA_TYPE_INT32_SUPPORT  0
 #endif
 
-#if CONFIG_QM_TLV_INT64_SUPPORT || CONFIG_QM_TV_INT64_SUPPORT
+#if CONFIG_QM_TLV_INT64_SUPPORT || CONFIG_QM_DTTV_INT64_SUPPORT
 #define CONFIG_QM_DATA_TYPE_INT64_SUPPORT  1
 #else
 #define CONFIG_QM_DATA_TYPE_INT32_SUPPORT  0
 #endif
 
-#if CONFIG_QM_TLV_BYTES_SUPPORT || CONFIG_QM_TV_BYTES_SUPPORT
+#if CONFIG_QM_TLV_BYTES_SUPPORT || CONFIG_QM_DTTV_BYTES_SUPPORT
 #define CONFIG_QM_DATA_TYPE_BYTES_SUPPORT  1
 #else
 #define CONFIG_QM_DATA_TYPE_BYTES_SUPPORT  0
@@ -121,7 +122,6 @@ extern "C" {
 #endif
 
 
-
 #ifndef tlv_malloc
 #define tlv_malloc   qm_malloc
 #endif
@@ -130,51 +130,56 @@ extern "C" {
 #define tlv_free     qm_free
 #endif
 
-#if CONFIG_QM_TV_SUPPORT
+#if CONFIG_QM_DTTV_SUPPORT
 typedef enum{
-    QM_TV_TYPE_MIN = 0,
-    QM_TV_TYPE_BOOL = QM_TV_TYPE_MIN,
-    QM_TV_TYPE_INT8 = 1,
-    QM_TV_TYPE_UINT8 = 2,
-#if CONFIG_QM_TV_INT16_SUPPORT
-    QM_TV_TYPE_INT16 = 3,
-    QM_TV_TYPE_UINT16 = 4,
+    QM_DTTV_TYPE_MIN = 0,
+    QM_DTTV_TYPE_BOOL = QM_DTTV_TYPE_MIN,
+    QM_DTTV_TYPE_INT8 = 1,
+    QM_DTTV_TYPE_UINT8 = 2,
+#if CONFIG_QM_DTTV_INT16_SUPPORT
+    QM_DTTV_TYPE_INT16 = 3,
+    QM_DTTV_TYPE_UINT16 = 4,
 #endif
-#if CONFIG_QM_TV_INT32_SUPPORT
-    QM_TV_TYPE_INT32 = 5,
-    QM_TV_TYPE_UINT32 = 6,
+#if CONFIG_QM_DTTV_INT32_SUPPORT
+    QM_DTTV_TYPE_INT32 = 5,
+    QM_DTTV_TYPE_UINT32 = 6,
 #endif
-#if CONFIG_QM_TV_INT64_SUPPORT
-    QM_TV_TYPE_INT64 = 7,
-    QM_TV_TYPE_UINT64 = 8,
+#if CONFIG_QM_DTTV_INT64_SUPPORT
+    QM_DTTV_TYPE_INT64 = 7,
+    QM_DTTV_TYPE_UINT64 = 8,
 #endif
-    QM_TV_TYPE_FLOAT32 = 9,
-#if CONFIG_QM_TV_INT64_SUPPORT
-    QM_TV_TYPE_FLOAT64 = 10,
+    QM_DTTV_TYPE_FLOAT32 = 9,
+#if CONFIG_QM_DTTV_INT64_SUPPORT
+    QM_DTTV_TYPE_FLOAT64 = 10,
 #endif
-    QM_TV_TYPE_STRING = 11,
-    QM_TV_TYPE_DATE = 12,
-    QM_TV_TYPE_STRUCT = 13,
-    QM_TV_TYPE_ARRAY = 14,
-#if CONFIG_QM_TV_INT16_SUPPORT
-    QM_TV_TYPE_FLOAT_ONE_UINT16 = 15,
-    QM_TV_TYPE_FLOAT_TWO_UINT16 = 16,
+#if CONFIG_QM_DATA_TYPE_BYTES_SUPPORT
+    QM_DTTV_TYPE_STRING = 11,
+    QM_DTTV_TYPE_DATE = 12,
+    QM_DTTV_TYPE_STRUCT = 13,
+    QM_DTTV_TYPE_ARRAY = 14,
 #endif
-#if CONFIG_QM_TV_INT32_SUPPORT
-    QM_TV_TYPE_FLOAT_ONE_UINT32 = 17,
-    QM_TV_TYPE_FLOAT_TWO_UINT32 = 18,
+#if CONFIG_QM_DTTV_INT16_SUPPORT
+    QM_DTTV_TYPE_FLOAT_ONE_UINT16 = 15,
+    QM_DTTV_TYPE_FLOAT_TWO_UINT16 = 16,
 #endif
-#if CONFIG_QM_TV_INT16_SUPPORT
-    QM_TV_TYPE_FLOAT_ONE_INT16 = 19,
-    QM_TV_TYPE_FLOAT_TWO_INT16 = 20,
+#if CONFIG_QM_DTTV_INT32_SUPPORT
+    QM_DTTV_TYPE_FLOAT_ONE_UINT32 = 17,
+    QM_DTTV_TYPE_FLOAT_TWO_UINT32 = 18,
 #endif
-#if CONFIG_QM_TV_INT32_SUPPORT
-    QM_TV_TYPE_FLOAT_ONE_INT32 = 21,
-    QM_TV_TYPE_FLOAT_TWO_INT32 = 22,
+#if CONFIG_QM_DTTV_INT16_SUPPORT
+    QM_DTTV_TYPE_FLOAT_ONE_INT16 = 19,
+    QM_DTTV_TYPE_FLOAT_TWO_INT16 = 20,
 #endif
-    QM_TV_TYPE_GROUP           = 23,
-    QM_TV_TYPE_STRING_ARRAY    = 24,
-    QM_TV_TYPE_MAX,
+#if CONFIG_QM_DTTV_INT32_SUPPORT
+    QM_DTTV_TYPE_FLOAT_ONE_INT32 = 21,
+    QM_DTTV_TYPE_FLOAT_TWO_INT32 = 22,
+#endif
+#if CONFIG_QM_DATA_TYPE_BYTES_SUPPORT
+    QM_DTTV_TYPE_GROUP           = 23,
+    QM_DTTV_TYPE_STRING_ARRAY    = 24,
+#endif
+    QM_DTTV_TYPE_MAX,
+    QM_DTTV_TYPE_NONE = 0xFF,
 }qm_tv_type_t;
 #endif
 
@@ -186,28 +191,35 @@ typedef enum{
 
 typedef enum{
    QM_BLOCK_TYPE_TLV = 1,
-   QM_BLOCK_TYPE_TV = 2,
+   QM_BLOCK_TYPE_DTTV = 2,
 }qm_tlv_block_type_t;
+
+typedef struct{
+    uint8_t update        : 1;
+    uint8_t serialization : 1;
+}qm_tlv_block_flags_t;
 
 typedef struct qm_tlv_block{
 
-    uint8_t update;
-    uint8_t serialization;
-    #if CONFIG_QM_TLV_TAG_BYTE == 1
+    qm_tlv_block_flags_t flag;
+#if CONFIG_QM_DTTV_SUPPORT
+    uint8_t type;
+#endif
+#if CONFIG_QM_TLV_TAG_BYTE == 1
         uint8_t tag;
-    #elif CONFIG_QM_TLV_TAG_BYTE == 2
+#elif CONFIG_QM_TLV_TAG_BYTE == 2
         uint16_t tag;
-    #else
+#else
     #error tlv tag type is not support.
-    #endif
+#endif
 
-    #if CONFIG_QM_TLV_LENGTH_BYTE == 1
+#if CONFIG_QM_TLV_LENGTH_BYTE == 1
         uint8_t len;
-    #elif CONFIG_QM_TLV_LENGTH_BYTE == 2
+#elif CONFIG_QM_TLV_LENGTH_BYTE == 2
         uint16_t len;
-    #else
+#else
     #error tlv length type is not support.
-    #endif
+#endif
 
     union{
         uint8_t bytes[CONFIG_QM_TLV_BUF_SIZE];
@@ -236,14 +248,16 @@ int qm_tlv_ctx_delete(qm_tlv_ctx_t *tlv_ctx);
 int qm_tlv_block_delete(qm_tlv_block_t *tlv_block);
 
 qm_tlv_block_t *qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, uint16_t tag);
-
+#if CONFIG_QM_DTTV_SUPPORT
+qm_tv_type_t qm_tlv_block_data_type_get(qm_tlv_block_t *tlv_block);
+#endif
 int qm_tlv_block_is_update(qm_tlv_block_t *tlv_block, int *is_update);
 
 int qm_tlv_block_update(qm_tlv_block_t *tlv_block, int update);
 
 int qm_tlv_block_add(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block);
 
-int qm_tlv_block_del(qm_tv_ctx_t *tv_ctx, uint16_t tag);
+int qm_tlv_block_remove(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block);
 
 int qm_tlv_block_copy(qm_tlv_block_t *dest_tlv_block, qm_tlv_block_t *src_tlv_block);
 

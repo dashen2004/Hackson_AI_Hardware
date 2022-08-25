@@ -325,6 +325,7 @@ typedef struct
     qm_list_t *down_queue;
 #endif
 
+    qm_tlv_ctx_t *snapshot_tlv_ctx;
     qm_tlv_ctx_t *tlv_ctx;
 
     void *handle;

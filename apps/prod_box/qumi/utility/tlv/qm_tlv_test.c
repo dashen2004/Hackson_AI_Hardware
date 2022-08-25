@@ -107,11 +107,11 @@ void qm_tlv_test(void)
     uint8_t msg[100] = {0};
     int len = 0;
 
-    qm_tlv_serialize(tlv_ctx, NULL, &len, 0);
+    qm_tlv_serialize(tlv_ctx, NULL, &len, QM_BLOCK_TYPE_TLV, QM_TLV_SERIALIZE_TYPE_ALL);
 
     QM_LOGD("tlv_test", "serialize len: %d", len);
 
-    qm_tlv_serialize(tlv_ctx, msg, &len, 0);
+    qm_tlv_serialize(tlv_ctx, msg, &len, QM_BLOCK_TYPE_TLV, QM_TLV_SERIALIZE_TYPE_ALL);
 
     QM_HEX_LOGD("tlv_test", "serialize msg: ", msg, len);
 
@@ -122,7 +122,7 @@ void qm_tlv_test(void)
     if(tlv_ctx == NULL){
         QM_LOGD("tlv_test", "tlv ctx creat fail");
     }
-    ret = qm_tlv_deserialize(tlv_ctx, msg, len);
+    ret = qm_tlv_deserialize(tlv_ctx, msg, len, QM_BLOCK_TYPE_TLV);
     if(ret != QM_EOK){
         QM_LOGD("tlv_test", "tlv ctx creat fail");
     }

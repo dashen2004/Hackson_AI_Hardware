@@ -1,4 +1,4 @@
-menu "tlv"
+menu "TLV/DTTV"
 
 config QM_TLV_SUPPORT
     bool "tlv config"
@@ -36,38 +36,38 @@ config QM_TLV_SUPPORT
             default "y"
     endif  
 
-config QM_TV_SUPPORT
-    bool "tv config"
+config QM_DTTV_SUPPORT
+    bool "dttv config"
     default y
-    if QM_TV_SUPPORT
-        config QM_TV_TAG_SIZE
+    if QM_DTTV_SUPPORT
+        config QM_DTTV_TAG_SIZE
             int "tv length of tag"
             default 1
             range 1 2
 
-        config QM_TV_LENGTH_SIZE
+        config QM_DTTV_LENGTH_SIZE
             int "tv length of len"
             default 1
             range 1 2
 
-        config QM_TV_BYTES_SIZE
+        config QM_DTTV_BYTES_SIZE
             int "tv length of buffer size"
             default 4
             range 4 512
         
-        config QM_TV_INT16_SUPPORT
+        config QM_DTTV_INT16_SUPPORT
             bool "data type support(uint16_t/int16)"
             default "y"
 
-        config QM_TV_INT32_SUPPORT
+        config QM_DTTV_INT32_SUPPORT
             bool "data type support(uint32_t/int32)"
             default "y"
 
-        config QM_TV_INT64_SUPPORT
+        config QM_DTTV_INT64_SUPPORT
             bool "data type support(uint64_t/int64)"
             default "n"
 
-        config QM_TV_BYTES_SUPPORT
+        config QM_DTTV_BYTES_SUPPORT
             bool "data type support bytes(string, bytes, arrary)"
             default "y"
 

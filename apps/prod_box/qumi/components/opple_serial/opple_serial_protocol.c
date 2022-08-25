@@ -88,7 +88,7 @@ int32_t opple_serial_updated_snapshot_get(qm_tlv_block_t *tlv_block)
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_lock(context->serial_mutex);
 #endif
-    m_tlv_block = qm_tlv_block_next(context->tlv_ctx, NULL);
+    m_tlv_block = qm_tlv_block_next(context->snapshot_tlv_ctx, NULL);
     while(m_tlv_block){
 
         qm_tlv_block_is_update(m_tlv_block, &is_update);
@@ -104,7 +104,43 @@ int32_t opple_serial_updated_snapshot_get(qm_tlv_block_t *tlv_block)
             goto __exit;
         }
 
-        m_tlv_block = qm_tlv_block_next(context->tlv_ctx, m_tlv_block);
+        m_tlv_block = qm_tlv_block_next(context->snapshot_tlv_ctx, m_tlv_block);
+    }
+
+__exit:
+
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+    opple_serial_mutex_unlock(context->serial_mutex);
+#endif
+
+    return err;
+}
+
+int32_t opple_serial_snapshot_block_get(uint8_t key, qm_tlv_block_t *tlv_block)
+{
+    int32_t ret = 0;
+    int32_t err = 0;
+    qm_tlv_block_t *m_tlv_block = NULL;
+    opple_serial_context_t *context = NULL;
+    context = opple_serial_context_get();
+    if(context == NULL){
+        return OPPLE_SERIAL_NO_INIT_ERR;
+    }
+
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+    opple_serial_mutex_lock(context->serial_mutex);
+#endif
+
+    m_tlv_block = qm_tlv_block_find(context->snapshot_tlv_ctx, (uint16_t)key);
+    if(m_tlv_block == NULL){
+        err = OPPLE_SERIAL_PARAM_ERR;
+        goto  __exit;
+    }
+    
+    ret = qm_tlv_block_copy(tlv_block, m_tlv_block);
+    if(ret != 0){
+        err = OPPLE_SERIAL_ALLOC_MEM_ERR;
+        goto __exit;
     }
 
 __exit:
@@ -156,7 +192,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         }
 #endif
 
-        if(!context->tlv_ctx){
+        if(!context->snapshot_tlv_ctx){
             OPPLE_SERIAL_LOG("no snapshot");
             return OPPLE_SERIAL_PROCESS_ERR;
         }
@@ -167,7 +203,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         if(tlv_ctx == NULL){
             return OPPLE_SERIAL_ALLOC_MEM_ERR;
         }
-        err = qm_tlv_deserialize(tlv_ctx, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN);
+        err = qm_tlv_deserialize(tlv_ctx, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN, QM_BLOCK_TYPE_TLV);
         if(err != 0){
             qm_tlv_ctx_delete(tlv_ctx);
             return OPPLE_SERIAL_PARAM_ERR;
@@ -181,7 +217,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         opple_serial_mutex_lock(context->serial_mutex);
 #endif
 
-        qm_tlv_merge(context->tlv_ctx, tlv_ctx);
+        qm_tlv_merge(context->snapshot_tlv_ctx, tlv_ctx);
 
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
         opple_serial_mutex_unlock(context->serial_mutex);
@@ -227,7 +263,7 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         if(tlv_ctx == NULL){
             return OPPLE_SERIAL_ALLOC_MEM_ERR;
         }
-        err = qm_tlv_deserialize(tlv_ctx, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN);
+        err = qm_tlv_deserialize(tlv_ctx, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN, QM_BLOCK_TYPE_TLV);
         if(err != 0){
             qm_tlv_ctx_delete(tlv_ctx);
             return OPPLE_SERIAL_PARAM_ERR;
@@ -251,21 +287,21 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
         	return OPPLE_SERIAL_PROCESS_ERR;
         }
 
-        if(context->tlv_ctx){
-            qm_tlv_ctx_delete(context->tlv_ctx);
-            context->tlv_ctx = NULL;
+        if(context->snapshot_tlv_ctx){
+            qm_tlv_ctx_delete(context->snapshot_tlv_ctx);
+            context->snapshot_tlv_ctx = NULL;
         }
 
         tlv_ctx = qm_tlv_ctx_creat();
         if(tlv_ctx == NULL){
             return OPPLE_SERIAL_ALLOC_MEM_ERR;
         }
-        err = qm_tlv_deserialize(tlv_ctx, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN);
+        err = qm_tlv_deserialize(tlv_ctx, data + OPPLE_FRAME_HEAD_LEN, len - OPPLE_FRAME_MIN_LEN, QM_BLOCK_TYPE_TLV);
         if(err != 0){
             qm_tlv_ctx_delete(tlv_ctx);
             return OPPLE_SERIAL_PARAM_ERR;
         }
-        context->tlv_ctx = tlv_ctx;
+        context->snapshot_tlv_ctx = tlv_ctx;
 
 		context->state = OPPLE_SERIAL_STATE_NORMAL;
 
@@ -415,7 +451,7 @@ static int32_t mcu_notify_status_handler(uint8_t *data, uint8_t len)
     if(tlv_ctx == NULL){
         return OPPLE_SERIAL_ALLOC_MEM_ERR;
     }
-    ret = qm_tlv_deserialize(tlv_ctx, data, len);
+    ret = qm_tlv_deserialize(tlv_ctx, data, len, QM_BLOCK_TYPE_TLV);
     if(ret != 0){
         ret = OPPLE_SERIAL_PARAM_ERR;
     }
@@ -537,7 +573,7 @@ static int32_t serial_kv_set(uint8_t *data, uint8_t len)
     if(tlv_ctx == NULL){
         return OPPLE_SERIAL_ALLOC_MEM_ERR;
     }
-    err = qm_tlv_deserialize(tlv_ctx, data, len);
+    err = qm_tlv_deserialize(tlv_ctx, data, len, QM_BLOCK_TYPE_TLV);
     if(err != 0){
         err = OPPLE_SERIAL_PARAM_ERR;
         goto __exit;
@@ -619,7 +655,7 @@ static int32_t serial_kv_get(uint8_t *data, uint8_t len, uint8_t *buf, uint8_t *
         index ++;
     }
 
-    qm_tlv_serialize(tlv_ctx, buf, buf_len, 0);
+    qm_tlv_serialize(tlv_ctx, buf, buf_len, QM_BLOCK_TYPE_TLV, QM_TLV_SERIALIZE_TYPE_ALL);
 
     qm_tlv_ctx_delete(tlv_ctx);
     return err;
@@ -1015,7 +1051,7 @@ static int32_t serial_send_by_key(opple_frame_cmd_t cmd, uint8_t *key, uint8_t n
         index ++;
     }
 
-    qm_tlv_serialize(context->tlv_ctx, NULL, &tlv_len, 1);
+    qm_tlv_serialize(context->tlv_ctx, NULL, &tlv_len, QM_BLOCK_TYPE_TLV, QM_TLV_SERIALIZE_TYPE_PARTIAL);
     if(tlv_len <= SERIAL_NOTIFY_BUF_LEN){
         alloc_buf = buf;
     }else{
@@ -1027,7 +1063,7 @@ static int32_t serial_send_by_key(opple_frame_cmd_t cmd, uint8_t *key, uint8_t n
         need_free = 1;
     }
 
-    qm_tlv_serialize(context->tlv_ctx, alloc_buf, &tlv_len, 1);
+    qm_tlv_serialize(context->tlv_ctx, alloc_buf, &tlv_len, QM_BLOCK_TYPE_TLV, QM_TLV_SERIALIZE_TYPE_PARTIAL);
 
 __exit:
 
@@ -1445,7 +1481,9 @@ static int32_t serial_mode_get_handle(uint8_t *key, uint8_t num, uint8_t packet_
     }
 
     context = opple_serial_context_get();
-
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+    opple_serial_mutex_lock(context->serial_mutex);
+#endif
     while(index < num){
 
         tlv_block = qm_tlv_block_find(context->tlv_ctx, (uint16_t)key[index]);
@@ -1465,7 +1503,9 @@ static int32_t serial_mode_get_handle(uint8_t *key, uint8_t num, uint8_t packet_
 
         index ++;
     }
-
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+    opple_serial_mutex_unlock(context->serial_mutex);
+#endif
     serial_send_by_key(OPPLE_CMD_GETMOD, key, num, 1, packet_id);   
 
     return OPPLE_SERIAL_NO_ERR;
@@ -1492,14 +1532,16 @@ static int32_t serial_mode_set_handle(uint8_t *data, uint8_t len)
         return OPPLE_SERIAL_ALLOC_MEM_ERR;
     }
 
-    ret = qm_tlv_deserialize(tlv_ctx, data, len);
+    ret = qm_tlv_deserialize(tlv_ctx, data, len, QM_BLOCK_TYPE_TLV);
     if(ret != 0){
         qm_tlv_ctx_delete(tlv_ctx);
         return OPPLE_SERIAL_PARAM_ERR;
     }
 
     tlv_block = qm_tlv_block_next(tlv_ctx, NULL);
-
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+    opple_serial_mutex_lock(context->serial_mutex);
+#endif
     while(tlv_block){
 
         m_tlv_block = qm_tlv_block_find(context->tlv_ctx, (uint16_t)tlv_block->tag);
@@ -1520,7 +1562,9 @@ static int32_t serial_mode_set_handle(uint8_t *data, uint8_t len)
         }
         tlv_block = qm_tlv_block_next(tlv_ctx, tlv_block);
     }
-
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+    opple_serial_mutex_unlock(context->serial_mutex);
+#endif
 
 __exit:
     qm_tlv_ctx_delete(tlv_ctx);
@@ -1638,6 +1682,8 @@ int32_t opple_serial_init(opple_serial_param_t *serial_param)
     serial_context->network_status = OPPLE_MODULE_STATUS_NONE;
 
     serial_context->tlv_ctx = qm_tlv_ctx_creat();
+
+    serial_context->snapshot_tlv_ctx = qm_tlv_ctx_creat();
 
     serial_context->handle = opple_serial_uart_init();
 
