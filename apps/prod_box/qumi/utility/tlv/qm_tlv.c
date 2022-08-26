@@ -508,7 +508,7 @@ int qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_tlv_block
 static int dttv_block_len(qm_tlv_block_t *tlv_block)
 {
     int type_len = 0;
-    uint16_t len = 0;
+    int len = 0;
 #if (CONFIG_QM_DTTV_TAG_SIZE == 1)
     len += 1;
 #elif(CONFIG_QM_DTTV_TAG_SIZE == 2)
@@ -543,7 +543,7 @@ static int _qm_dttv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_
     uint8_t *bytes = NULL;
     int size = 0;
     qm_tlv_block_t *tlv_block = NULL;
-    if(tlv_ctx == NULL || msg == NULL || len == NULL){
+    if(tlv_ctx == NULL || len == NULL){
         return -QM_EINVAL;
     }
 
@@ -632,7 +632,7 @@ static int _qm_dttv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_
 #if CONFIG_QM_TLV_SUPPORT
 static int tlv_block_len(qm_tlv_block_t *tlv_block)
 {
-    uint16_t len = 0;
+    int len = 0;
 #if (CONFIG_QM_TLV_TAG_SIZE == 1)
     len += 1;
 #elif(CONFIG_QM_TLV_TAG_SIZE == 2)
@@ -661,7 +661,7 @@ static int _qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_t
     uint8_t *bytes = NULL;
     int size = 0;
     qm_tlv_block_t *tlv_block = NULL;
-    if(tlv_ctx == NULL || msg == NULL || len == NULL){
+    if(tlv_ctx == NULL || len == NULL){
         return -QM_EINVAL;
     }
 
