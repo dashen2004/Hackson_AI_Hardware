@@ -667,13 +667,6 @@ static int _qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_t
 
     while(tlv_block){
 
-        if(msg){
-            block_len = tlv_block_len(tlv_block);
-            if(offset - index < block_len){
-                break;
-            }
-        }
-
         if(serialize_type == QM_TLV_SERIALIZE_TYPE_PARTIAL){
             if(!tlv_block->flag.serialization){
                 tlv_block = tlv_block->next;
@@ -691,6 +684,13 @@ static int _qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_t
                 if(msg){
                     tlv_block->flag.update = 0;
                 }
+            }
+        }
+
+        if(msg){
+            block_len = tlv_block_len(tlv_block);
+            if(offset - index < block_len){
+                break;
             }
         }
 
