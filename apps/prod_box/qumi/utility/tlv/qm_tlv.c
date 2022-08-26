@@ -146,6 +146,15 @@ int qm_tlv_block_remove(qm_tlv_ctx_t *tlv_ctx, qm_tlv_block_t *tlv_block)
     return QM_EOK;
 }
 
+int qm_tlv_block_tag_set(qm_tlv_block_t *tlv_block, uint16_t tag)
+{
+    if(tlv_block == NULL){
+        return -QM_EINVAL;
+    }
+    tlv_block->tag = tag;
+    return QM_EOK;
+}
+
 qm_tlv_block_t *qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, uint16_t tag)
 {
     qm_tlv_block_t *m_tlv_block = NULL;
@@ -170,7 +179,17 @@ qm_tlv_block_t *qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, uint16_t tag)
 }
 
 #if CONFIG_QM_DTTV_SUPPORT
-qm_tv_type_t qm_tlv_block_data_type_get(qm_tlv_block_t *tlv_block)
+
+int qm_tlv_block_data_type_set(qm_tlv_block_t *tlv_block, qm_tlv_data_type_t type)
+{
+    if(tlv_block == NULL){
+        return -QM_EINVAL;
+    }
+    tlv_block->type = type;
+    return QM_EOK;
+}
+
+qm_tlv_data_type_t qm_tlv_block_data_type_get(qm_tlv_block_t *tlv_block)
 {
     if(tlv_block == NULL){
         return QM_DTTV_TYPE_NONE;
@@ -178,7 +197,7 @@ qm_tv_type_t qm_tlv_block_data_type_get(qm_tlv_block_t *tlv_block)
     return tlv_block->type;
 }
 
-static int qm_tlv_block_data_type_len(qm_tv_type_t type)
+static int qm_tlv_block_data_type_len(qm_tlv_data_type_t type)
 {
     if(type >= QM_DTTV_TYPE_BOOL && type <= QM_DTTV_TYPE_UINT8){
         return sizeof(uint8_t);
@@ -331,7 +350,7 @@ static int _qm_dttv_deserialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int len)
         }
 
         type = *(msg + index);
-        type_len = qm_tlv_block_data_type_len((qm_tv_type_t)type);
+        type_len = qm_tlv_block_data_type_len((qm_tlv_data_type_t)type);
         if(type_len < 0){
             ret = -QM_EINVAL;
             goto __exit;
@@ -575,12 +594,12 @@ static int _qm_dttv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_
                     tlv_block->flag.update = 0;
                 }
             }
-        }
-
-        if(msg){
-            block_len = dttv_block_len(tlv_block);
-            if(offset - index < block_len){
-                break;
+        }else{
+            if(msg){
+                block_len = dttv_block_len(tlv_block);
+                if(offset - index < block_len){
+                    break;
+                }
             }
         }
 
@@ -701,12 +720,12 @@ static int _qm_tlv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_t
                     tlv_block->flag.update = 0;
                 }
             }
-        }
-
-        if(msg){
-            block_len = tlv_block_len(tlv_block);
-            if(offset - index < block_len){
-                break;
+        }else{
+            if(msg){
+                block_len = tlv_block_len(tlv_block);
+                if(offset - index < block_len){
+                    break;
+                }
             }
         }
 

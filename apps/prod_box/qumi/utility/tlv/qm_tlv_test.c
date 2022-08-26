@@ -102,16 +102,18 @@ void qm_tlv_test(void)
     tlv_block->tag = 0x0A;
     char *str_1 = "hello";
     qm_tlv_pack_string(tlv_block, str_1, strlen(str_1));
+    qm_tlv_block_serialize(tlv_block);
     qm_tlv_block_add(tlv_ctx, tlv_block);
+    
     
     uint8_t msg[100] = {0};
     int len = 0;
 
-    qm_tlv_serialize(tlv_ctx, NULL, &len, QM_BLOCK_TYPE_TLV, QM_TLV_SERIALIZE_TYPE_ALL);
+    qm_tlv_serialize(tlv_ctx, NULL, &len, QM_BLOCK_TYPE_TLV, QM_TLV_SERIALIZE_TYPE_PARTIAL);
 
     QM_LOGD("tlv_test", "serialize len: %d", len);
 
-    qm_tlv_serialize(tlv_ctx, msg, &len, QM_BLOCK_TYPE_TLV, QM_TLV_SERIALIZE_TYPE_ALL);
+    qm_tlv_serialize(tlv_ctx, msg, &len, QM_BLOCK_TYPE_TLV, QM_TLV_SERIALIZE_TYPE_PARTIAL);
 
     QM_HEX_LOGD("tlv_test", "serialize msg: ", msg, len);
 

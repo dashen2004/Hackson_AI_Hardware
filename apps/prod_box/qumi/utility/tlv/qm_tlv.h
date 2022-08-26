@@ -180,7 +180,7 @@ typedef enum{
 #endif
     QM_DTTV_TYPE_MAX,
     QM_DTTV_TYPE_NONE = 0xFF,
-}qm_tv_type_t;
+}qm_tlv_data_type_t;
 #endif
 
 typedef enum{
@@ -247,9 +247,12 @@ int qm_tlv_ctx_delete(qm_tlv_ctx_t *tlv_ctx);
 
 int qm_tlv_block_delete(qm_tlv_block_t *tlv_block);
 
+int qm_tlv_block_tag_set(qm_tlv_block_t *tlv_block, uint16_t tag);
+
 qm_tlv_block_t *qm_tlv_block_find(qm_tlv_ctx_t *tlv_ctx, uint16_t tag);
 #if CONFIG_QM_DTTV_SUPPORT
-qm_tv_type_t qm_tlv_block_data_type_get(qm_tlv_block_t *tlv_block);
+int qm_tlv_block_data_type_set(qm_tlv_block_t *tlv_block, qm_tlv_data_type_t type);
+qm_tlv_data_type_t qm_tlv_block_data_type_get(qm_tlv_block_t *tlv_block);
 #endif
 int qm_tlv_block_is_update(qm_tlv_block_t *tlv_block, int *is_update);
 
