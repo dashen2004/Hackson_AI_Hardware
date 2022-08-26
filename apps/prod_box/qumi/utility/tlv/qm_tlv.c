@@ -242,7 +242,6 @@ int qm_tlv_block_copy(qm_tlv_block_t *dest_tlv_block, qm_tlv_block_t *src_tlv_bl
        dest_tlv_block->type = src_tlv_block->type;
        dest_tlv_block->flag.update = 1;
     }
-
 #endif
 
     qm_tlv_unpack_bytes_direct(dest_tlv_block, &dest_bytes, &dest_size);
@@ -254,7 +253,7 @@ int qm_tlv_block_copy(qm_tlv_block_t *dest_tlv_block, qm_tlv_block_t *src_tlv_bl
             dest_tlv_block->flag.update = 1;
         }
     }else{
-        ret = qm_tlv_unpack_bytes_direct(dest_tlv_block, src_bytes, src_size);
+        ret = qm_tlv_pack_bytes(dest_tlv_block, src_bytes, src_size);
         dest_tlv_block->flag.update = 1;
     }
     return ret;
