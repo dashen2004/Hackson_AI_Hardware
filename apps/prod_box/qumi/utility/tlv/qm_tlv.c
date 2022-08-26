@@ -222,6 +222,11 @@ static int qm_tlv_block_data_type_len(qm_tv_type_t type)
 int qm_tlv_block_copy(qm_tlv_block_t *dest_tlv_block, qm_tlv_block_t *src_tlv_block)
 {
     int ret = 0;
+    uint8_t *dest_bytes = NULL;
+    int dest_size = 0;
+
+    uint8_t *src_bytes = NULL;
+    int src_size = 0;
 
     if(dest_tlv_block == NULL || src_tlv_block == NULL){
         return -QM_EINVAL;
@@ -240,22 +245,16 @@ int qm_tlv_block_copy(qm_tlv_block_t *dest_tlv_block, qm_tlv_block_t *src_tlv_bl
 
 #endif
 
-    if(dest_tlv_block->len == src_tlv_block->len){
+    qm_tlv_unpack_bytes_direct(dest_tlv_block, &dest_bytes, &dest_size);
+    qm_tlv_unpack_bytes_direct(src_tlv_block, &src_bytes, &src_size);
 
-        if(dest_tlv_block->len <= CONFIG_QM_TLV_BUF_SIZE){
-            if(0 != memcmp(dest_tlv_block->value.bytes, src_tlv_block->value.bytes, dest_tlv_block->len)){
-                ret = qm_tlv_pack_bytes(dest_tlv_block, src_tlv_block->value.bytes, dest_tlv_block->len);
-                dest_tlv_block->flag.update = 1;
-            }
-        }else{
-            if(0 != memcmp(dest_tlv_block->value.pdata, src_tlv_block->value.pdata, dest_tlv_block->len)){
-                ret = qm_tlv_pack_bytes(dest_tlv_block, src_tlv_block->value.bytes, dest_tlv_block->len);
-                dest_tlv_block->flag.update = 1;
-            }
+    if(dest_size == src_size){
+        if(0 != memcmp(dest_bytes, src_bytes, dest_size)){
+            ret = qm_tlv_pack_bytes(dest_tlv_block, src_bytes, src_size);
+            dest_tlv_block->flag.update = 1;
         }
-
     }else{
-        ret = qm_tlv_pack_bytes(dest_tlv_block, src_tlv_block->value.bytes, dest_tlv_block->len);
+        ret = qm_tlv_unpack_bytes_direct(dest_tlv_block, src_bytes, src_size);
         dest_tlv_block->flag.update = 1;
     }
     return ret;
