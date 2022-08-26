@@ -173,14 +173,6 @@ typedef struct
     uint16_t tail;
 }opple_frame_generic_t;
 
-typedef struct
-{
-    qm_list_node_t node;
-    uint8_t len;
-    uint8_t resend;
-    uint8_t data[1];
-}opple_frame_info_t;
-
 typedef struct 
 {
     int8_t timezone;
@@ -276,6 +268,14 @@ typedef struct
     opple_serial_getmode_fn  m_getmode;
 
 }opple_serial_mode_callbacks_t;
+
+typedef struct
+{
+    qm_list_node_t node;
+    uint8_t len;
+    uint8_t resend;
+    uint8_t data[1];
+}opple_frame_info_t;
 
 typedef struct{
     uint8_t *data;

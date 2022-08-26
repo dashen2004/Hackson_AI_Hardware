@@ -160,14 +160,6 @@ typedef struct
     uint8_t chksum;
 }frame_generic_t;
 
-typedef struct
-{
-    qm_list_node_t node;
-    uint16_t len;
-    uint8_t resend;
-    uint8_t data[1];
-}frame_info_t;
-
 typedef struct 
 {
     int8_t timezone;
@@ -310,6 +302,14 @@ typedef struct
     serial_setmode_fn  m_setmode;
     serial_getmode_fn  m_getmode;
 }serial_mode_callbacks_t;
+
+typedef struct
+{
+    qm_list_node_t node;
+    uint16_t len;
+    uint8_t resend;
+    uint8_t data[1];
+}frame_info_t;
 
 typedef struct{
     uint8_t *data;

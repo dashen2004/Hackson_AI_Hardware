@@ -14,7 +14,7 @@ static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t cod
 static int32_t serial_generate_send(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t *data, uint16_t len);
 static int32_t serial_generate_send_with_code(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t code, uint8_t *data, uint16_t len);
 static int32_t serial_id_info_push(opple_platform_id_t platform_id, uint8_t local_id, uint8_t *data);
-static int32_t serial_id_uptime(uint8_t local_id);
+static int32_t serial_id_uptime(uint8_t local_id, uint8_t *info);
 static int32_t serial_generate_down_send(opple_frame_cmd_t cmd, opple_platform_id_t id, uint8_t *data, uint16_t len, int32_t is_direct);
 static int id_match(void *a, void *b);
 static int32_t serial_local_id_find(uint8_t local_id, opple_platform_id_t *platform_id);
@@ -902,7 +902,7 @@ static uint8_t is_serial_id_update(void)
     return is_update;
 }
 
-static int32_t serial_id_uptime(uint8_t local_id)
+static int32_t serial_id_uptime(uint8_t local_id, uint8_t *info)
 {
     opple_serial_context_t *context = NULL;
     opple_serial_id_info_t id_info = {0};
@@ -920,6 +920,7 @@ static int32_t serial_id_uptime(uint8_t local_id)
     if(node){
         p_id_info = (opple_serial_id_info_t*)node->val;
         p_id_info->is_update = 1;
+        p_id_info->data = info;
         p_id_info->time = opple_serial_get_timems() + OPPLE_SERIAL_ACK_TIMEOUT_DEFAULT_MS;
     }
 
@@ -957,16 +958,11 @@ static int32_t serial_local_id_find(uint8_t local_id, opple_platform_id_t *platf
 #endif
     node = qm_list_find(context->id_queue, &id_info);
 
-#ifdef OPPLE_SERIAL_RTOS_SUPPORT
-    opple_serial_mutex_unlock(context->serial_mutex);
-#endif
     if(node){
         id = (opple_serial_id_info_t*)node->val;
         *platform_id = id->platform_id;
-#ifdef OPPLE_SERIAL_RTOS_SUPPORT
-        opple_serial_mutex_lock(context->serial_mutex);
-#endif
         qm_list_remove(context->id_queue, node);
+
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
         opple_serial_mutex_unlock(context->serial_mutex);
 #endif
@@ -975,10 +971,13 @@ static int32_t serial_local_id_find(uint8_t local_id, opple_platform_id_t *platf
         }
         opple_serial_free(node);
 
+        return OPPLE_SERIAL_NO_ERR;
     }else{
+#ifdef OPPLE_SERIAL_RTOS_SUPPORT
+        opple_serial_mutex_unlock(context->serial_mutex);
+#endif
         return OPPLE_SERIAL_MSG_NUM_ERR;
     }
-    return OPPLE_SERIAL_NO_ERR;
 }
 
 static int32_t serial_generate_down_send(opple_frame_cmd_t cmd, opple_platform_id_t id, uint8_t *data, uint16_t len, int32_t is_direct)
@@ -996,23 +995,24 @@ static int32_t serial_generate_down_send(opple_frame_cmd_t cmd, opple_platform_i
 
 #ifdef OPPLE_SERIAL_RESEND_SUPPORT
 
+    err = serial_id_info_push(id, local_id, NULL);
+    if(err != OPPLE_SERIAL_NO_ERR){
+        return err;
+    }
+
     err = serial_generate_resend(cmd, local_id, data, len, &buf, is_direct);
     if(err != OPPLE_SERIAL_NO_ERR){
         return err;
     }
 
-    err = serial_id_info_push(id, local_id, buf);
-    if(err != OPPLE_SERIAL_NO_ERR){
-        return err;
-    }
 #else
 
-    err = serial_generate_send(cmd, local_id, data, len);
+    err = serial_id_info_push(id, local_id, NULL);
     if(err != OPPLE_SERIAL_NO_ERR){
         return err;
     }
 
-    err = serial_id_info_push(id, local_id, NULL);
+    err = serial_generate_send(cmd, local_id, data, len);
     if(err != OPPLE_SERIAL_NO_ERR){
         return err;
     }
@@ -1883,7 +1883,7 @@ int32_t opple_serial_send_loop(void)
         OPPLE_SERIAL_HEX_LOG("serial send", (char*)info->data, (int)info->len);
         if(info->resend){
             frame_header = (opple_frame_header_t*)info->data;
-            serial_id_uptime(frame_header->seq);
+            serial_id_uptime(frame_header->seq, info);
         }else{
             opple_serial_free(info);
         }
