@@ -549,19 +549,16 @@ static int _qm_dttv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_
 
     while(tlv_block){
 
-        if(msg){
-            block_len = dttv_block_len(tlv_block);
-            if(offset - index < block_len){
-                break;
-            }
-        }
-
         if(serialize_type == QM_TLV_SERIALIZE_TYPE_PARTIAL){
             if(!tlv_block->flag.serialization){
                 tlv_block = tlv_block->next;
                 continue;
             }else{
                 if(msg){
+                    block_len = dttv_block_len(tlv_block);
+                    if(offset - index < block_len){
+                        break;
+                    }
                     tlv_block->flag.serialization = 0;
                 }
             }
@@ -571,8 +568,19 @@ static int _qm_dttv_serialize(qm_tlv_ctx_t *tlv_ctx, uint8_t *msg, int *len, qm_
                 continue;
             }else{
                 if(msg){
+                    block_len = dttv_block_len(tlv_block);
+                    if(offset - index < block_len){
+                        break;
+                    }
                     tlv_block->flag.update = 0;
                 }
+            }
+        }
+
+        if(msg){
+            block_len = dttv_block_len(tlv_block);
+            if(offset - index < block_len){
+                break;
             }
         }
 
