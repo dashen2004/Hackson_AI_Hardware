@@ -561,6 +561,8 @@ static int32_t frame_creat(opple_frame_cmd_t cmd, uint8_t packet_id, uint8_t cod
 static int32_t serial_kv_set(uint8_t *data, uint8_t len)
 {
     int err = 0;
+    uint8_t *bytes = NULL;
+    int size = 0;
     char key[12] = {0};
     qm_tlv_ctx_t *tlv_ctx = NULL;
     qm_tlv_block_t *tlv_block = NULL;
@@ -584,18 +586,13 @@ static int32_t serial_kv_set(uint8_t *data, uint8_t len)
 
         snprintf(key, 16, OPPLE_SERIAL_KEY_FORMAT, tlv_block->tag);
 
-        if(tlv_block->len <= CONFIG_QM_TLV_BYTES_SIZE){
-            err = opple_serial_kv_set(key, tlv_block->value.bytes, tlv_block->len);
-            if(err != 0){
-                goto __exit;
-            }
-        }else{
-            err = opple_serial_kv_set(key, tlv_block->value.pdata, tlv_block->len);
+        qm_tlv_unpack_bytes_direct(tlv_block, &bytes, &size);
+        if(bytes && size){
+            err = opple_serial_kv_set(key, bytes, size);
             if(err != 0){
                 goto __exit;
             }
         }
-
         tlv_block = qm_tlv_block_next(tlv_ctx, tlv_block);
     }
 
