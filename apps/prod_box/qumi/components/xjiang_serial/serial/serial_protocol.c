@@ -972,7 +972,7 @@ static int32_t queue_push(qm_list_t *queue, uint8_t *raw)
     node = (qm_list_node_t*)raw;
     qm_list_node_init(node, raw+sizeof(qm_list_node_t));
 
-   #ifdef SERIAL_RTOS_SUPPORT
+#ifdef SERIAL_RTOS_SUPPORT
     qm_serial_mutex_lock(context->serial_mutex);
 #endif
     qm_list_rpush(queue, node);

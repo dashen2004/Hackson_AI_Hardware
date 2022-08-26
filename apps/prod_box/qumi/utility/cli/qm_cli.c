@@ -2,7 +2,7 @@
 #include "qmos/qm.h"
 #include "qmos/qm_types.h"
 
-#ifdef CONFIG_QM_CLI
+#ifdef CONFIG_QM_CLI_SUPPORT
 
 #define RET_CHAR '\n'
 #define END_CHAR '\r'

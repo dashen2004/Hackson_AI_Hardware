@@ -16,4 +16,8 @@ menu "qumi kernel"
             endchoice
         endif
 
+    config QM_MTRACE_SUPPORT
+        bool "qm mtrace support"
+        default n
+
 endmenu

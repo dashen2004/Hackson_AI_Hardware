@@ -1,32 +1,53 @@
 #ifndef _QM_CLI_H_
 #define _QM_CLI_H_
 
-#include "config/qm_config.h"
+#include "qm_config.h"
 
-#if CONFIG_QM_CLI
+
+#ifndef CONFIG_QM_CLI_SUPPORT
+#define CONFIG_QM_CLI_SUPPORT         1
+#endif
 
 #ifndef CONFIG_QM_CLI_MINI_SIZE
 #define CONFIG_QM_CLI_MINI_SIZE       0
 #endif
 
-#if(CONFIG_QM_CLI_MINI_SIZE > 0)
+#if CONFIG_QM_CLI_MINI_SIZE
 
 /*can config to cut mem size*/
+#ifndef CONFIG_QM_CLI_INBUF_SIZE
 #define CONFIG_QM_CLI_INBUF_SIZE              256
+#endif
+#ifndef CONFIG_QM_CLI_OUTBUF_SIZE
 #define CONFIG_QM_CLI_OUTBUF_SIZE             200    /*not use now*/
+#endif
+#ifndef CONFIG_QM_CLI_MAX_COMMANDS
 #define CONFIG_QM_CLI_MAX_COMMANDS            32
-
+#endif
+#ifndef CONFIG_QM_CLI_MAX_ARG_NUM
 #define CONFIG_QM_CLI_MAX_ARG_NUM               8
+#endif
+#ifndef CONFIG_QM_CLI_MAX_ONCECMD_NUM
 #define CONFIG_QM_CLI_MAX_ONCECMD_NUM           1
+#endif
 
 #else
 /*can config to cut mem size*/
-#define CONFIG_QM_CLI_MAX_COMMANDS            64
-#define CONFIG_QM_CLI_INBUF_SIZE              256
-#define CONFIG_QM_CLI_OUTBUF_SIZE             2048
-
+#ifndef CONFIG_QM_CLI_INBUF_SIZE
+#define CONFIG_QM_CLI_INBUF_SIZE              512
+#endif
+#ifndef CONFIG_QM_CLI_OUTBUF_SIZE
+#define CONFIG_QM_CLI_OUTBUF_SIZE             2048    /*not use now*/
+#endif
+#ifndef CONFIG_QM_CLI_MAX_COMMANDS
+#define CONFIG_QM_CLI_MAX_COMMANDS             64
+#endif
+#ifndef CONFIG_QM_CLI_MAX_ARG_NUM
 #define CONFIG_QM_CLI_MAX_ARG_NUM              16
-#define CONFIG_QM_CLI_MAX_ONCECMD_NUM          6
+#endif
+#ifndef CONFIG_QM_CLI_MAX_ONCECMD_NUM
+#define CONFIG_QM_CLI_MAX_ONCECMD_NUM           6
+#endif
 
 #endif
 
@@ -121,7 +142,5 @@ int qm_cli_printf(const char *buff, ...);
 
 #endif
 
-
-#endif
 
 

@@ -314,7 +314,7 @@ int qm_timer_change(qm_timer_t *timer, int ms)
     return  0;
 }
 
-#if !CONFIG_QM_MTRACE
+#if !CONFIG_QM_MTRACE_SUPPORT
 
 void *qm_zalloc(unsigned int size)
 {

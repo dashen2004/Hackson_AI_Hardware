@@ -163,7 +163,7 @@ void *opple_serial_uart_init(void)
 {
     qm_uart_dev_t uart = {
         .config = {
-            .baud_rate = 9600,
+            .baud_rate = 115200,
             .data_bits = QM_UART_DATA_8_BITS,
             .parity    = QM_UART_PARITY_NONE,
             .pins.tx_pin = 16,

@@ -7,7 +7,11 @@ extern "C" {
 #endif
 
 #include "qm_types.h"
+#include "qm_config.h"
+
+#if CONFIG_QM_MTRACE_SUPPORT
 #include "mtrace.h"
+#endif
 
 #define QM_WAIT_FOREVER    0xffffffffu
 #define QM_NO_WAIT         0x0
@@ -348,7 +352,7 @@ int qm_timer_change(qm_timer_t *timer, int ms);
  *
  * @return  NULL: error.
  */
-#if CONFIG_QM_MTRACE
+#if CONFIG_QM_MTRACE_SUPPORT
 #define qm_realloc(mem, size) \
     ({void *ptr = realloc(mem, size); \
     if(mem != ptr){deallocate_memory(mem, __LINE__, __FILE__);\
@@ -366,10 +370,10 @@ void *qm_realloc(void *mem, unsigned int size);
  *
  * @return  NULL: error.
  */
-#if CONFIG_QM_MTRACE
+#if CONFIG_QM_MTRACE_SUPPORT
 #define qm_malloc(size) \
     ({void *ptr = malloc(size); \
-    allocate_memory(size, ptr, __LINE__, __FILE__);\
+    printf("malloc size: %d, ptr: %p, line: %d, file: %s\n",size, ptr, __LINE__, __FILE__);\
     ptr;})
 #else
 void *qm_malloc(unsigned int size);
@@ -382,7 +386,7 @@ void *qm_malloc(unsigned int size);
  *
  * @return  NULL: error.
  */
-#if CONFIG_QM_MTRACE
+#if CONFIG_QM_MTRACE_SUPPORT
 #define qm_zalloc(size) \
     ({void *ptr = calloc(size, 1); \
     allocate_memory(size, ptr, __LINE__, __FILE__);\
@@ -397,9 +401,9 @@ void *qm_zalloc(unsigned int size);
  *
  * @param[in]  ptr  address point of the mem.
  */
-#if CONFIG_QM_MTRACE
+#if CONFIG_QM_MTRACE_SUPPORT
 #define qm_free(mem) \
-    ({deallocate_memory(mem, __LINE__, __FILE__); \
+    ({printf("free ptr: %p, line: %d, file: %s\n",mem, __LINE__, __FILE__);\
     free(mem);})
 #else
 void qm_free(void *mem);

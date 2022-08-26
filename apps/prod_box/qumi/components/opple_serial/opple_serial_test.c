@@ -98,6 +98,17 @@ static void serial_recv_thread(void *arg)
     }
 }
 
+static void serial_set_thread(void *arg)
+{
+
+    uint8_t data[] = {0x01,0x01,0x02};
+
+    while(1){
+        qm_msleep(500);
+        opple_serial_cloud_set(0, data, sizeof(data));
+    }
+}
+
 void opple_serial_test(void)
 {
     qm_task_t send_task = {0};
@@ -120,6 +131,8 @@ void opple_serial_test(void)
     
     qm_task_new(&send_task, "serial send", serial_send_thread, NULL, 4*1024, 20);
     qm_task_new(&recv_task, "serial recv", serial_recv_thread, NULL, 4*1024, 20);
+
+    qm_task_new(&recv_task, "serial set", serial_set_thread, NULL, 4*1024, 20);
 
 }
 

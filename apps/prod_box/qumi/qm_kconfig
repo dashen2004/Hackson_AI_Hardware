@@ -19,6 +19,7 @@ endmenu
 
 menu "utility"
 
+    source "utility/cli/qm_kconfig"   
     source "utility/tlv/qm_kconfig"   
 
 endmenu

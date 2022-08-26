@@ -756,11 +756,11 @@ static int32_t serial_generate_resend(opple_frame_cmd_t cmd, uint8_t packet_id, 
     qm_list_t *queue = NULL;
     opple_serial_context_t *context = NULL;
     context = opple_serial_context_get();
-
+#if 0
     if(queue_len_get(queue) >= OPPLE_SERIAL_DOWN_QUEUE_NUM_MAX){
         return OPPLE_SERIAL_SEND_BUSY_ERR;
     }
-
+#endif
     ret = serial_frame_info_creat(cmd, packet_id, 0, data, len, 1, &raw);
     if(ret != OPPLE_SERIAL_NO_ERR){
         return ret;
@@ -968,6 +968,7 @@ static int32_t serial_local_id_find(uint8_t local_id, opple_platform_id_t *platf
             opple_serial_free(id->data);
         }
         opple_serial_free(node);
+
     }else{
         return OPPLE_SERIAL_MSG_NUM_ERR;
     }

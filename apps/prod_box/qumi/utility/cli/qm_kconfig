@@ -1,7 +1,29 @@
 menu "cli"
 
-    config QM_CLI
+    config QM_CLI_SUPPORT
         bool "qm cli support"
         default "y"
+        if QM_CLI
+
+            config QM_CLI_MINI_SIZE
+                bool "qm cli min size"
+                default "y"
+
+            config QM_CLI_MAX_COMMANDS
+                int " cli max commands "
+                default 32
+                range 32 64
+
+            config QM_CLI_MAX_COMMANDS
+                int " cli max commands "
+                default 32
+                range 32 64
+
+            config QM_CLI_MAX_ARG_NUM
+                int " cli max arg num "
+                default 8
+                range 4 8
+
+        endif
         
 endmenu

@@ -248,8 +248,8 @@ typedef enum{
 
 #define OPPLE_SERIAL_PROCESS_TIMEOUT_MS                  (1000)
 
-#define OPPLE_SERIAL_RECV_TIMEOUT_DEFAULT_MS              (100)
-#define OPPLE_SERIAL_ACK_TIMEOUT_DEFAULT_MS               (50)
+#define OPPLE_SERIAL_RECV_TIMEOUT_DEFAULT_MS              (50)
+#define OPPLE_SERIAL_ACK_TIMEOUT_DEFAULT_MS               (100)
 #define OPPLE_SERIAL_ID_CHECK_TIMEOUT_MS                  (50)
 
 #define OPPLE_SERIAL_SEND_QUEUE_NUM_MAX                    (16)
