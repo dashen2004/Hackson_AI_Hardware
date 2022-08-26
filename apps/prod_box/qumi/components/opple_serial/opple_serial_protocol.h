@@ -364,5 +364,7 @@ int32_t opple_serial_state_get(opple_serial_state_t *state);
 
 int32_t opple_serial_updated_snapshot_get(qm_tlv_block_t *tlv_block);
 
+int32_t opple_serial_snapshot_block_get(uint8_t key, qm_tlv_block_t *tlv_block);
+
 
 #endif
