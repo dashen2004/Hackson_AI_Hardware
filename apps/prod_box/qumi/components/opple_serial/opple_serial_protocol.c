@@ -1475,6 +1475,7 @@ int32_t opple_serial_cloud_get(opple_platform_id_t id, uint8_t *data, uint8_t le
 static int32_t serial_mode_get_handle(uint8_t *key, uint8_t num, uint8_t packet_id)
 {
     int32_t ret = 0;
+    int32_t err = 0;
     uint8_t index = 0;
     qm_tlv_block_t *tlv_block = NULL;
     opple_serial_context_t *context = NULL;
@@ -1492,7 +1493,8 @@ static int32_t serial_mode_get_handle(uint8_t *key, uint8_t num, uint8_t packet_
 
         tlv_block = qm_tlv_block_find(context->tlv_ctx, (uint16_t)key[index]);
         if(tlv_block == NULL){
-            return  OPPLE_SERIAL_PARAM_ERR;
+            err = OPPLE_SERIAL_PARAM_ERR;
+            goto __exit;
         }
 
         mode_callbacks = (opple_serial_mode_callbacks_t*)tlv_block->arg;
@@ -1500,20 +1502,26 @@ static int32_t serial_mode_get_handle(uint8_t *key, uint8_t num, uint8_t packet_
             if(mode_callbacks->m_getmode){
                 ret = mode_callbacks->m_getmode((void*)tlv_block);
                 if(ret != 0){
-                    return OPPLE_SERIAL_PARAM_ERR;
+                    err = OPPLE_SERIAL_PARAM_ERR;
+                    goto __exit;
                 }
             }
         }
 
         index ++;
     }
+    
+__exit:
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_unlock(context->serial_mutex);
 #endif
+    if(err != 0){
+        return err;
+    }
+
     serial_send_by_key(OPPLE_CMD_GETMOD, key, num, 1, packet_id);   
 
     return OPPLE_SERIAL_NO_ERR;
-
 }
 
 static int32_t serial_mode_set_handle(uint8_t *data, uint8_t len)
@@ -1566,11 +1574,12 @@ static int32_t serial_mode_set_handle(uint8_t *data, uint8_t len)
         }
         tlv_block = qm_tlv_block_next(tlv_ctx, tlv_block);
     }
+
+__exit:
 #ifdef OPPLE_SERIAL_RTOS_SUPPORT
     opple_serial_mutex_unlock(context->serial_mutex);
 #endif
 
-__exit:
     qm_tlv_ctx_delete(tlv_ctx);
     return ret;
 }

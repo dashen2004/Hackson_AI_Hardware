@@ -19,7 +19,7 @@ static int32_t serial_generate_send_with_code(frame_cmd_t cmd, uint8_t packet_id
 static uint16_t get_packet_len(uint8_t*packet_buffer);
 static int32_t serial_keepalive(serial_context_t *pcontext);
 static int32_t serial_id_info_push(serial_data_type_t type, platform_id_t platform_id, uint8_t local_id, uint8_t *data);
-static int32_t serial_id_uptime(uint8_t local_id);
+static int32_t serial_id_uptime(uint8_t local_id, uint8_t *info);
 static int32_t serial_cloud_generate_send(frame_cmd_t cmd, platform_id_t id, uint8_t *data, uint16_t len);
 static int id_match(void *a, void *b);
 static int32_t serial_local_id_find(uint8_t local_id, platform_id_t *platform_id);
@@ -1143,7 +1143,7 @@ static uint8_t is_serial_id_update(void)
     return is_update;
 }
 
-static int32_t serial_id_uptime(uint8_t local_id)
+static int32_t serial_id_uptime(uint8_t local_id, uint8_t *info)
 {
     serial_context_t *context = NULL;
     serial_id_info_t id_info = {0};
@@ -1161,6 +1161,7 @@ static int32_t serial_id_uptime(uint8_t local_id)
     if(node){
         p_id_info = (serial_id_info_t*)node->val;
         p_id_info->is_update = 1;
+        p_id_info->data = info;
         p_id_info->time = qm_serial_get_timems() + SERIAL_ACK_TIMEOUT_DEFAULT_MS;
     }
 
@@ -1235,23 +1236,24 @@ static int32_t serial_cloud_generate_send(frame_cmd_t cmd, platform_id_t id, uin
     local_id = packet_id_get();
 
 #ifdef SERIAL_RESEND_SUPPORT
+
+    err = serial_id_info_push(TYPE_MCU, id, local_id, NULL);
+    if(err != SERIAL_NO_ERR){
+        return err;
+    }
+
     err = serial_generate_resend(cmd, local_id, data, len, &buf);
     if(err != SERIAL_NO_ERR){
         return err;
     }
 
-    err = serial_id_info_push(TYPE_MCU, id, local_id, buf);
-    if(err != SERIAL_NO_ERR){
-        return err;
-    }
-    
 #else
-    err = serial_generate_send(cmd, local_id, data, len);
+    err = serial_id_info_push(TYPE_MCU, id, local_id, NULL);
     if(err != SERIAL_NO_ERR){
         return err;
     }
 
-    err = serial_id_info_push(TYPE_MCU, id, local_id, NULL);
+    err = serial_generate_send(cmd, local_id, data, len);
     if(err != SERIAL_NO_ERR){
         return err;
     }
@@ -1807,7 +1809,7 @@ int32_t qm_serial_send_loop(void)
         SERIAL_HEX_LOG("serial send", info->data, info->len);
         if(info->resend){
             local_id = local_id_get(info->data);
-            serial_id_uptime(local_id);
+            serial_id_uptime(local_id, info);
         }else{
             qm_serial_free(info);
         }
