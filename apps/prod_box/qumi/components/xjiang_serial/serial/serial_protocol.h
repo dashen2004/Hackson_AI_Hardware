@@ -35,6 +35,7 @@
 #define SERIAL_TYPE_ID_ERR         12
 #define SERIAL_PROCESS_ERR         13
 #define SERIAL_SEND_BUSY_ERR       14
+#define SERIAL_NO_UPDATE_ERR       15
 
 
 enum{
@@ -461,5 +462,8 @@ uint8_t is_event_info_update(void);
 int32_t qm_serial_process_reset(void);
 #endif
 
+
+int32_t serial_updated_snapshot_get(message_info_t *message_info);
+int32_t opple_serial_snapshot_messgae_get(uint8_t attr_id, message_info_t *message_info);
 
 #endif

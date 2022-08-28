@@ -3,7 +3,7 @@
 
 #include "qm_types.h"
 
-#define SERIAL_SOFTWARE_VER  "3.0.0"
+#define SERIAL_SOFTWARE_VER  "3.1.0"
 
 //#define SERIAL_ID_MAP_SUPPORT
 //#define SERIAL_ALI_ID_MAP_SUPPORT

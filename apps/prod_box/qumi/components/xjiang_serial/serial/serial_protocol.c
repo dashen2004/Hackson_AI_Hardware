@@ -376,6 +376,86 @@ exit:
     return err;
 }
 
+int32_t serial_updated_snapshot_get(message_info_t *message_info)
+{
+    int32_t ret = 0;
+    int32_t err = SERIAL_NO_UPDATE_ERR;
+    int32_t is_update = 0;
+    message_info_t *info = NULL;
+    serial_context_t *context = NULL;
+    context = qm_serial_context_get();
+    if(context == NULL){
+        return SERIAL_NO_INIT_ERR;
+    }
+
+#ifdef SERIAL_RTOS_SUPPORT
+    qm_serial_mutex_lock(context->serial_mutex);
+#endif
+    info = message_object_next(context->serial_snapshot_info.message_context, NULL);
+    while(info){
+
+        is_update = IS_DATA_CHANGED_WAIT_REPORT(info->is_changed);
+        if(is_update){
+            ret = message_object_copy(message_info, info);
+            if(ret != 0){
+                err =  SERIAL_ALLOC_MEM_ERR;
+                goto __exit;
+            }
+
+            DATA_CHANGED_WAIT_REPORT_CLEAR(info->is_changed);
+
+            err =  SERIAL_NO_ERR;
+            goto __exit;
+        }
+
+        info = message_object_next(context->serial_snapshot_info.message_context, info);
+    }
+
+__exit:
+
+#ifdef SERIAL_RTOS_SUPPORT
+    qm_serial_mutex_unlock(context->serial_mutex);
+#endif
+
+    return err;
+}
+
+int32_t opple_serial_snapshot_messgae_get(uint8_t attr_id, message_info_t *message_info)
+{
+    int32_t ret = 0;
+    int32_t err = 0;
+    message_info_t *info = NULL;
+    serial_context_t *context = NULL;
+    context = qm_serial_context_get();
+    if(context == NULL){
+        return SERIAL_NO_INIT_ERR;
+    }
+
+#ifdef SERIAL_RTOS_SUPPORT
+    qm_serial_mutex_lock(context->serial_mutex);
+#endif
+
+    info = message_object_get(context->serial_snapshot_info.message_context, attr_id);
+    if(info == NULL){
+        err = SERIAL_PARAM_ERR;
+        goto  __exit;
+    }
+    
+    ret = message_object_copy(message_info, info);
+    if(ret != 0){
+        err = SERIAL_ALLOC_MEM_ERR;
+        goto __exit;
+    }
+
+__exit:
+
+#ifdef SERIAL_RTOS_SUPPORT
+    qm_serial_mutex_unlock(context->serial_mutex);
+#endif
+
+    return err;
+}
+
 static int32_t frame_parse(uint8_t *data, uint16_t len)
 {
     int32_t err = SERIAL_NO_ERR;
@@ -424,12 +504,18 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
             return SERIAL_PROCESS_ERR;
         }
 
+#ifdef SERIAL_RTOS_SUPPORT
+        qm_serial_mutex_lock(context->serial_mutex);
+#endif
         err = message_object_add_update(context->serial_snapshot_info.message_context, data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN-1, &is_update);
+#ifdef SERIAL_RTOS_SUPPORT
+        qm_serial_mutex_unlock(context->serial_mutex);
+#endif
         if(err != SERIAL_NO_ERR){
             SERIAL_LOG("report data err");
             return SERIAL_DATA_TYPE_ERR;
         }
-
+    
         if(!is_update){
             SERIAL_LOG("need not report");
 #ifndef SERIAL_REPORT_SUPPORT
@@ -540,11 +626,19 @@ static int32_t frame_parse(uint8_t *data, uint16_t len)
             return SERIAL_PROCESS_ERR;
         }
 
+#ifdef SERIAL_RTOS_SUPPORT
+        qm_serial_mutex_lock(context->serial_mutex);
+#endif
+
         if(context->serial_snapshot_info.message_context){
             message_delete(context->serial_snapshot_info.message_context);
             context->serial_snapshot_info.message_context = NULL;
         }
         context->serial_snapshot_info.message_context = message_parse(data + FRAME_HEAD_LEN, len - FRAME_HEAD_LEN - 1, PARSE_TYPE_BASIC);
+
+#ifdef SERIAL_RTOS_SUPPORT
+        qm_serial_mutex_unlock(context->serial_mutex);
+#endif
         if(context->serial_snapshot_info.message_context == NULL){
             SERIAL_LOG("snapshot err");
             return SERIAL_PARAM_ERR;
