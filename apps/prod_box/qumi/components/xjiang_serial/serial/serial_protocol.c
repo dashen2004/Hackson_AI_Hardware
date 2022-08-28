@@ -376,7 +376,7 @@ exit:
     return err;
 }
 
-int32_t serial_updated_snapshot_get(message_info_t *message_info)
+int32_t qm_serial_updated_snapshot_get(message_info_t *message_info)
 {
     int32_t ret = 0;
     int32_t err = SERIAL_NO_UPDATE_ERR;
@@ -420,7 +420,7 @@ __exit:
     return err;
 }
 
-int32_t opple_serial_snapshot_messgae_get(uint8_t attr_id, message_info_t *message_info)
+int32_t qm_serial_snapshot_messgae_get(uint8_t attr_id, message_info_t *message_info)
 {
     int32_t ret = 0;
     int32_t err = 0;

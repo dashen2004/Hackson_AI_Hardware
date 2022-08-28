@@ -463,7 +463,7 @@ int32_t qm_serial_process_reset(void);
 #endif
 
 
-int32_t serial_updated_snapshot_get(message_info_t *message_info);
-int32_t opple_serial_snapshot_messgae_get(uint8_t attr_id, message_info_t *message_info);
+int32_t qm_serial_updated_snapshot_get(message_info_t *message_info);
+int32_t qm_serial_snapshot_messgae_get(uint8_t attr_id, message_info_t *message_info);
 
 #endif
