@@ -1,6 +1,11 @@
 #ifndef _QM_CLI_H_
 #define _QM_CLI_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "qm_config.h"
 
 
@@ -9,7 +14,7 @@
 #endif
 
 #ifndef CONFIG_QM_CLI_MINI_SIZE
-#define CONFIG_QM_CLI_MINI_SIZE       0
+#define CONFIG_QM_CLI_MINI_SIZE       1
 #endif
 
 #if CONFIG_QM_CLI_MINI_SIZE
@@ -31,7 +36,9 @@
 #define CONFIG_QM_CLI_MAX_ONCECMD_NUM           1
 #endif
 
-#else
+#endif
+
+#if CONFIG_QM_CLI_BIG_SIZE
 /*can config to cut mem size*/
 #ifndef CONFIG_QM_CLI_INBUF_SIZE
 #define CONFIG_QM_CLI_INBUF_SIZE              512
@@ -70,7 +77,7 @@ struct qm_cli_st {
 
     char inbuf[CONFIG_QM_CLI_INBUF_SIZE];
     char *outbuf;
-    #if(QM_CLI_MINI_SIZE <= 0)
+    #if(CONFIG_QM_CLI_BIG_SIZE)
     int his_idx;
     int his_cur;
     char history[CONFIG_QM_CLI_INBUF_SIZE];
@@ -139,6 +146,10 @@ int qm_cli_stop(void);
  * @return  0  on success, error code otherwise.
  */
 int qm_cli_printf(const char *buff, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

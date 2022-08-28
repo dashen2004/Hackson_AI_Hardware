@@ -298,7 +298,7 @@ static void tab_complete(char *inbuf, unsigned int *bp)
     qm_cli_printf("%s%s", PROMPT, inbuf);
 }
 
-#if (AOS_CLI_MINI_SIZE <= 0)
+#if (CONFIG_QM_CLI_BIG_SIZE)
 
 static void cli_history_input(void)
 {
@@ -488,10 +488,10 @@ static int get_input(char *inbuf, unsigned int *bp)
                 continue;
             }
 
-#if (CONFIG_QM_CLI_MINI_SIZE > 0)
+#if (CONFIG_QM_CLI_MINI_SIZE)
             if (key2 == 0x41 || key2 == 0x42)
             {
-                csp_printf("\r\n" PROMPT "Warning! mini cli mode do not support history cmds!");
+                qm_cli_printf("\r\n" PROMPT "Warning! mini cli mode do not support history cmds!");
             }
 
 #else
@@ -615,7 +615,7 @@ static void cli_main(void *data)
                 break;
             }
 #endif
-#if (CONFIG_QM_CLI_MINI_SIZE <= 0)
+#if (CONFIG_QM_CLI_BIG_SIZE)
             if (strlen(cli->inbuf) > 0)
             {
                 cli_history_input();
@@ -648,7 +648,7 @@ static void cli_main(void *data)
 
 static void help_cmd(char *buf, int len, int argc, char **argv);
 static void version_cmd(char *buf, int len, int argc, char **argv);
-#if (CONFIG_QM_CLI_MINI_SIZE <= 0)
+#if (CONFIG_QM_CLI_BIG_SIZE)
 static void echo_cmd(char *buf, int len, int argc, char **argv);
 static void exit_cmd(char *buf, int len, int argc, char **argv);
 static void devname_cmd(char *buf, int len, int argc, char **argv);
@@ -659,7 +659,7 @@ static void uptime_cmd(char *buf, int len, int argc, char **argv);
 static const struct qm_cli_command built_ins[] = {
     /*cli self*/
     {"help", NULL, help_cmd},
-#if (CONFIG_QM_CLI_MINI_SIZE <= 0)
+#if (CONFIG_QM_CLI_BIG_SIZE)
     {"echo", NULL, echo_cmd},
 
     {"exit", "CLI exit", exit_cmd},
@@ -706,7 +706,7 @@ static void version_cmd(char *buf, int len, int argc, char **argv)
     qm_cli_printf("qm version: %s\r\n", qm_version_get());
 }
 
-#if (CONFIG_QM_CLI_MINI_SIZE <= 0)
+#if (CONFIG_QM_CLI_BIG_SIZE)
 
 static void echo_cmd(char *buf, int len, int argc, char **argv)
 {
