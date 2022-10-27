@@ -1,7 +1,0 @@
-menu "qm ringbuf"
-
-    config QM_WORK
-        bool "qm work support"
-        default "n"
-        
-endmenu

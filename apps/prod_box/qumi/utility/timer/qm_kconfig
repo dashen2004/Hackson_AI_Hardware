@@ -1,7 +1,0 @@
-menu "timer"
-
-    config QM_TIMER
-        bool "qm timer support"
-        default "n"
-        
-endmenu

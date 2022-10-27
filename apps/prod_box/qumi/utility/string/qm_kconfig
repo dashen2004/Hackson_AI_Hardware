@@ -1,7 +1,0 @@
-menu "string"
-
-    config QM_STRING
-        bool "qm string support"
-        default "n"
-        
-endmenu

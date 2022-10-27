@@ -1,7 +1,0 @@
-menu "network"
-
-    config QM_NETWORK_TLS_SUPPORT
-        bool "network tls support"
-        default "n"
-        
-endmenu

@@ -1,8 +1,0 @@
-menu "xjiang serial"
-
-    config XJIANG_SERIAL
-        bool "xjiang serial support"
-        default "n"
-        
-        
-endmenu

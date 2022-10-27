@@ -1,7 +1,0 @@
-menu "sha256"
-
-    config QM_SHA256    
-        bool "qm sha256 support"
-        default "n"
-        
-endmenu
