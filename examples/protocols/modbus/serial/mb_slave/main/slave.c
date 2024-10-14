@@ -1,9 +1,11 @@
-/* FreeModbus Slave Example ESP32
+/*
+ * SPDX-FileCopyrightText: 2016-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+// FreeModbus Slave Example ESP32
+
 #include <stdio.h>
 #include <stdint.h>
 #include "esp_err.h"
@@ -40,7 +42,7 @@
                                                 | MB_EVENT_COILS_WR)
 #define MB_READ_WRITE_MASK                  (MB_READ_MASK | MB_WRITE_MASK)
 
-static const char *SLAVE_TAG = "SLAVE_TEST";
+static const char *TAG = "SLAVE_TEST";
 
 static portMUX_TYPE param_lock = portMUX_INITIALIZER_UNLOCKED;
 
@@ -92,7 +94,7 @@ void app_main(void)
     mb_register_area_descriptor_t reg_area; // Modbus register area descriptor structure
 
     // Set UART log level
-    esp_log_level_set(SLAVE_TAG, ESP_LOG_INFO);
+    esp_log_level_set(TAG, ESP_LOG_INFO);
     void* mbc_slave_handler = NULL;
 
     ESP_ERROR_CHECK(mbc_slave_init(MB_PORT_SERIAL_SLAVE, &mbc_slave_handler)); // Initialization of Modbus controller
@@ -166,27 +168,26 @@ void app_main(void)
     // Set UART driver mode to Half Duplex
     ESP_ERROR_CHECK(uart_set_mode(MB_PORT_NUM, UART_MODE_RS485_HALF_DUPLEX));
 
-    ESP_LOGI(SLAVE_TAG, "Modbus slave stack initialized.");
-    ESP_LOGI(SLAVE_TAG, "Start modbus test...");
+    ESP_LOGI(TAG, "Modbus slave stack initialized.");
+    ESP_LOGI(TAG, "Start modbus test...");
 
     // The cycle below will be terminated when parameter holdingRegParams.dataChan0
     // incremented each access cycle reaches the CHAN_DATA_MAX_VAL value.
     for(;holding_reg_params.holding_data0 < MB_CHAN_DATA_MAX_VAL;) {
         // Check for read/write events of Modbus master for certain events
-        mb_event_group_t event = mbc_slave_check_event(MB_READ_WRITE_MASK);
-        const char* rw_str = (event & MB_READ_MASK) ? "READ" : "WRITE";
-
+        (void)mbc_slave_check_event(MB_READ_WRITE_MASK);
+        ESP_ERROR_CHECK_WITHOUT_ABORT(mbc_slave_get_param_info(&reg_info, MB_PAR_INFO_GET_TOUT));
+        const char* rw_str = (reg_info.type & MB_READ_MASK) ? "READ" : "WRITE";
         // Filter events and process them accordingly
-        if(event & (MB_EVENT_HOLDING_REG_WR | MB_EVENT_HOLDING_REG_RD)) {
+        if(reg_info.type & (MB_EVENT_HOLDING_REG_WR | MB_EVENT_HOLDING_REG_RD)) {
             // Get parameter information from parameter queue
-            ESP_ERROR_CHECK(mbc_slave_get_param_info(&reg_info, MB_PAR_INFO_GET_TOUT));
-            ESP_LOGI(SLAVE_TAG, "HOLDING %s (%u us), ADDR:%u, TYPE:%u, INST_ADDR:0x%.4x, SIZE:%u",
-                    rw_str,
-                    (uint32_t)reg_info.time_stamp,
-                    (uint32_t)reg_info.mb_offset,
-                    (uint32_t)reg_info.type,
-                    (uint32_t)reg_info.address,
-                    (uint32_t)reg_info.size);
+            ESP_LOGI(TAG, "HOLDING %s (%" PRIu32 " us), ADDR:%u, TYPE:%u, INST_ADDR:0x%" PRIx32 ", SIZE:%u",
+                            rw_str,
+                            reg_info.time_stamp,
+                            (unsigned)reg_info.mb_offset,
+                            (unsigned)reg_info.type,
+                            (uint32_t)reg_info.address,
+                            (unsigned)reg_info.size);
             if (reg_info.address == (uint8_t*)&holding_reg_params.holding_data0)
             {
                 portENTER_CRITICAL(&param_lock);
@@ -196,36 +197,33 @@ void app_main(void)
                 }
                 portEXIT_CRITICAL(&param_lock);
             }
-        } else if (event & MB_EVENT_INPUT_REG_RD) {
-            ESP_ERROR_CHECK(mbc_slave_get_param_info(&reg_info, MB_PAR_INFO_GET_TOUT));
-            ESP_LOGI(SLAVE_TAG, "INPUT READ (%u us), ADDR:%u, TYPE:%u, INST_ADDR:0x%.4x, SIZE:%u",
-                    (uint32_t)reg_info.time_stamp,
-                    (uint32_t)reg_info.mb_offset,
-                    (uint32_t)reg_info.type,
-                    (uint32_t)reg_info.address,
-                    (uint32_t)reg_info.size);
-        } else if (event & MB_EVENT_DISCRETE_RD) {
-            ESP_ERROR_CHECK(mbc_slave_get_param_info(&reg_info, MB_PAR_INFO_GET_TOUT));
-            ESP_LOGI(SLAVE_TAG, "DISCRETE READ (%u us): ADDR:%u, TYPE:%u, INST_ADDR:0x%.4x, SIZE:%u",
-                                (uint32_t)reg_info.time_stamp,
-                                (uint32_t)reg_info.mb_offset,
-                                (uint32_t)reg_info.type,
-                                (uint32_t)reg_info.address,
-                                (uint32_t)reg_info.size);
-        } else if (event & (MB_EVENT_COILS_RD | MB_EVENT_COILS_WR)) {
-            ESP_ERROR_CHECK(mbc_slave_get_param_info(&reg_info, MB_PAR_INFO_GET_TOUT));
-            ESP_LOGI(SLAVE_TAG, "COILS %s (%u us), ADDR:%u, TYPE:%u, INST_ADDR:0x%.4x, SIZE:%u",
-                                rw_str,
-                                (uint32_t)reg_info.time_stamp,
-                                (uint32_t)reg_info.mb_offset,
-                                (uint32_t)reg_info.type,
-                                (uint32_t)reg_info.address,
-                                (uint32_t)reg_info.size);
+        } else if (reg_info.type & MB_EVENT_INPUT_REG_RD) {
+            ESP_LOGI(TAG, "INPUT READ (%" PRIu32 " us), ADDR:%u, TYPE:%u, INST_ADDR:0x%" PRIx32 ", SIZE:%u",
+                            reg_info.time_stamp,
+                            (unsigned)reg_info.mb_offset,
+                            (unsigned)reg_info.type,
+                            (uint32_t)reg_info.address,
+                            (unsigned)reg_info.size);
+        } else if (reg_info.type & MB_EVENT_DISCRETE_RD) {
+            ESP_LOGI(TAG, "DISCRETE READ (%" PRIu32 " us): ADDR:%u, TYPE:%u, INST_ADDR:0x%" PRIx32 ", SIZE:%u",
+                            reg_info.time_stamp,
+                            (unsigned)reg_info.mb_offset,
+                            (unsigned)reg_info.type,
+                            (uint32_t)reg_info.address,
+                            (unsigned)reg_info.size);
+        } else if (reg_info.type & (MB_EVENT_COILS_RD | MB_EVENT_COILS_WR)) {
+            ESP_LOGI(TAG, "COILS %s (%" PRIu32 " us), ADDR:%u, TYPE:%u, INST_ADDR:0x%" PRIx32 ", SIZE:%u",
+                            rw_str,
+                            reg_info.time_stamp,
+                            (unsigned)reg_info.mb_offset,
+                            (unsigned)reg_info.type,
+                            (uint32_t)reg_info.address,
+                            (unsigned)reg_info.size);
             if (coil_reg_params.coils_port1 == 0xFF) break;
         }
     }
     // Destroy of Modbus controller on alarm
-    ESP_LOGI(SLAVE_TAG,"Modbus controller destroyed.");
+    ESP_LOGI(TAG,"Modbus controller destroyed.");
     vTaskDelay(100);
     ESP_ERROR_CHECK(mbc_slave_destroy());
 }

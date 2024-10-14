@@ -1,16 +1,8 @@
-// Copyright 2017-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <string.h>
 #include <stdbool.h>
@@ -18,9 +10,8 @@
 #include "ble_hidd.h"
 #if CONFIG_GATTS_ENABLE
 
-#include "esp_hidd_private.h"
+#include "esp_private/esp_hidd_private.h"
 #include "esp_log.h"
-#include "esp_bt.h"
 #include "esp_bt_main.h"
 #include "esp_bt_defs.h"
 #include "esp_gatts_api.h"
@@ -57,6 +48,7 @@ static const uint8_t s_char_prop_write_nr = ESP_GATT_CHAR_PROP_BIT_WRITE_NR;
 static const uint8_t s_char_prop_read_notify = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 static const uint8_t s_char_prop_read_write = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ;
 static const uint8_t s_char_prop_read_write_nr = ESP_GATT_CHAR_PROP_BIT_WRITE_NR | ESP_GATT_CHAR_PROP_BIT_READ;
+static const uint8_t s_char_prop_read_write_write_nr = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_WRITE_NR | ESP_GATT_CHAR_PROP_BIT_READ;
 //static const uint8_t s_char_prop_read_write_notify = ESP_GATT_CHAR_PROP_BIT_READ|ESP_GATT_CHAR_PROP_BIT_WRITE|ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 
 // Service UUIDs
@@ -144,11 +136,10 @@ typedef struct {
 
 struct esp_ble_hidd_dev_s {
     esp_hidd_dev_t             *dev;
-    xSemaphoreHandle            sem;
+    SemaphoreHandle_t            sem;
     esp_event_loop_handle_t     event_loop_handle;
     esp_hid_device_config_t     config;
     uint16_t                    appearance;
-
 
     bool                        connected;
     uint16_t                    conn_id;
@@ -166,7 +157,6 @@ struct esp_ble_hidd_dev_s {
     uint16_t                    bat_level_handle;
     uint16_t                    bat_ccc_handle;
 
-
     uint8_t                     pnp[7];
 
     hidd_dev_map_t             *devices;
@@ -181,7 +171,6 @@ static const uint8_t hidInfo[4] = {
     ESP_HID_FLAGS_REMOTE_WAKE | ESP_HID_FLAGS_NORMALLY_CONNECTABLE   // Flags
 };
 
-
 #define WAIT_CB(d) xSemaphoreTake(d->sem, portMAX_DELAY)
 #define SEND_CB(d) xSemaphoreGive(d->sem)
 
@@ -189,7 +178,7 @@ static const char *gatts_evt_names[25] = { "REG", "READ", "WRITE", "EXEC_WRITE",
 
 static const char *gatts_evt_str(uint8_t event)
 {
-    if (event >= (sizeof(gatts_evt_names)/sizeof(*gatts_evt_names))) {
+    if (event >= (sizeof(gatts_evt_names) / sizeof(*gatts_evt_names))) {
         return "UNKNOWN";
     }
     return gatts_evt_names[event];
@@ -238,8 +227,8 @@ static esp_err_t create_info_db(esp_ble_hidd_dev_t *dev)
         uint8_t pnp_val[7] = {
             0x02, //0x1=BT, 0x2=USB
             dev->config.vendor_id & 0xFF, (dev->config.vendor_id >> 8) & 0xFF, //VID
-            dev->config.product_id & 0xFF, (dev->config.product_id >> 8) & 0xFF, //PID
-            dev->config.version & 0xFF, (dev->config.version >> 8) & 0xFF  //VERSION
+                       dev->config.product_id & 0xFF, (dev->config.product_id >> 8) & 0xFF, //PID
+                       dev->config.version & 0xFF, (dev->config.version >> 8) & 0xFF  //VERSION
         };
         memcpy(dev->pnp, pnp_val, 7);
         add_db_record(_last_db, index++, (uint8_t *)&s_character_declaration_uuid, ESP_GATT_PERM_READ, 1, 1, (uint8_t *)&s_char_prop_read);
@@ -289,7 +278,7 @@ static esp_err_t create_hid_db(esp_ble_hidd_dev_t *dev, int device_index)
     add_db_record(_last_db, HIDD_LE_IDX_HID_INFO_VAL, (uint8_t *)&s_hid_info_char_uuid, ESP_GATT_PERM_READ, 4, 4, (uint8_t *)hidInfo);
 
     add_db_record(_last_db, HIDD_LE_IDX_HID_CTNL_PT_CHAR, (uint8_t *)&s_character_declaration_uuid, ESP_GATT_PERM_READ, 1, 1, (uint8_t *)&s_char_prop_write_nr);
-    add_db_record(_last_db, HIDD_LE_IDX_HID_CTNL_PT_VAL, (uint8_t *)&s_hid_control_point_uuid, ESP_GATT_PERM_READ, 1, 0, NULL);
+    add_db_record(_last_db, HIDD_LE_IDX_HID_CTNL_PT_VAL, (uint8_t *)&s_hid_control_point_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, 1, 0, NULL);
 
     add_db_record(_last_db, HIDD_LE_IDX_PROTO_MODE_CHAR, (uint8_t *)&s_character_declaration_uuid, ESP_GATT_PERM_READ, 1, 1, (uint8_t *)&s_char_prop_read_write_nr);
     add_db_record(_last_db, HIDD_LE_IDX_PROTO_MODE_VAL, (uint8_t *)&s_hid_proto_mode_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, 1, 1, (uint8_t *)&dev->protocol);
@@ -308,9 +297,14 @@ static esp_err_t create_hid_db(esp_ble_hidd_dev_t *dev, int device_index)
                 add_db_record(_last_db, index++, (uint8_t *)&s_character_declaration_uuid, ESP_GATT_PERM_READ, 1, 1, (uint8_t *)&s_char_prop_read_notify);
                 report->index = index;
                 add_db_record(_last_db, index++, (uint8_t *)&s_hid_report_uuid, ESP_GATT_PERM_READ, report->value_len, 0, NULL);
-                add_db_record(_last_db, index++, (uint8_t *)&s_character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, 2, 0, NULL);
+                add_db_record(_last_db, index++, (uint8_t *)&s_character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE_ENCRYPTED, 2, 0, NULL);
+            } else if (report->report_type == ESP_HID_REPORT_TYPE_OUTPUT) {
+                //Output Report
+                add_db_record(_last_db, index++, (uint8_t *)&s_character_declaration_uuid, ESP_GATT_PERM_READ, 1, 1, (uint8_t *)&s_char_prop_read_write_write_nr);
+                report->index = index;
+                add_db_record(_last_db, index++, (uint8_t *)&s_hid_report_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, report->value_len, 0, NULL);
             } else {
-                //Output or Feature Report
+                //Feature Report
                 add_db_record(_last_db, index++, (uint8_t *)&s_character_declaration_uuid, ESP_GATT_PERM_READ, 1, 1, (uint8_t *)&s_char_prop_read_write);
                 report->index = index;
                 add_db_record(_last_db, index++, (uint8_t *)&s_hid_report_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, report->value_len, 0, NULL);
@@ -327,7 +321,7 @@ static esp_err_t create_hid_db(esp_ble_hidd_dev_t *dev, int device_index)
                 }
                 add_db_record(_last_db, index++, (uint8_t *)&s_character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, 2, 0, NULL);
             } else { //Boot Keyboard Output
-                add_db_record(_last_db, index++, (uint8_t *)&s_character_declaration_uuid, ESP_GATT_PERM_READ, 1, 1, (uint8_t *)&s_char_prop_read_write);
+                add_db_record(_last_db, index++, (uint8_t *)&s_character_declaration_uuid, ESP_GATT_PERM_READ, 1, 1, (uint8_t *)&s_char_prop_read_write_write_nr);
                 report->index = index;
                 add_db_record(_last_db, index++, (uint8_t *)&s_hid_boot_kb_output_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, HIDD_LE_BOOT_REPORT_MAX_LEN, 0, NULL);
             }
@@ -337,7 +331,6 @@ static esp_err_t create_hid_db(esp_ble_hidd_dev_t *dev, int device_index)
     esp_err_t err = esp_ble_gatts_create_attr_tab(_last_db, dev->devices[device_index].hid_svc.gatt_if, index, device_index);
     return err;
 }
-
 
 static void link_report_handles(hidd_dev_map_t *dev, uint16_t *handles)
 {
@@ -465,7 +458,7 @@ static void hid_event_handler(esp_ble_hidd_dev_t *dev, int device_index, esp_gat
         link_report_handles(&dev->devices[device_index], param->add_attr_tab.handles);
         esp_ble_gatts_start_service(dev->devices[device_index].hid_svc.handle);
         if ((device_index + 1) < dev->devices_len) {
-            create_hid_db(dev, device_index + 1);//add next device
+            create_hid_db(dev, device_index + 1);//add next device if support
         }
         break;
     }
@@ -604,7 +597,7 @@ static void hid_event_handler(esp_ble_hidd_dev_t *dev, int device_index, esp_gat
     }
 }
 
-static int get_device_map_index_by_gatts_if (esp_ble_hidd_dev_t *dev, esp_gatt_if_t gatts_if)
+static int get_device_map_index_by_gatts_if(esp_ble_hidd_dev_t *dev, esp_gatt_if_t gatts_if)
 {
     for (uint8_t d = 0; d < dev->devices_len; d++) {
         if (dev->devices[d].hid_svc.gatt_if && gatts_if == dev->devices[d].hid_svc.gatt_if) {
@@ -783,7 +776,7 @@ void esp_hidd_gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatt
     } else if (s_dev->info_svc.gatt_if && gatts_if == s_dev->info_svc.gatt_if) {
         info_event_handler(s_dev, event, gatts_if, param);
     } else {
-        int devi = get_device_map_index_by_gatts_if (s_dev, gatts_if);
+        int devi = get_device_map_index_by_gatts_if(s_dev, gatts_if);
         if (devi >= 0) {
             hid_event_handler(s_dev, devi, event, gatts_if, param);
         } else {
@@ -834,12 +827,14 @@ static esp_err_t esp_ble_hidd_dev_battery_set(void *devp, uint8_t level)
         return ESP_OK;
     }
 
-    ret = esp_ble_gatts_send_indicate(dev->bat_svc.gatt_if, dev->conn_id, dev->bat_level_handle, 1, &dev->bat_level, dev->bat_ccc.indicate_enable);
-    if (ret) {
-        ESP_LOGE(TAG, "esp_ble_gatts_send_indicate failed: %d", ret);
-        return ESP_FAIL;
+    if (dev->bat_ccc.notify_enable) {
+        ret = esp_ble_gatts_send_indicate(dev->bat_svc.gatt_if, dev->conn_id, dev->bat_level_handle, 1, &dev->bat_level, false);
+        if (ret) {
+            ESP_LOGE(TAG, "esp_ble_gatts_send_notify failed: %d", ret);
+            return ESP_FAIL;
+        }
     }
-    WAIT_CB(dev);
+
     return ESP_OK;
 }
 
@@ -972,12 +967,11 @@ esp_err_t esp_ble_hidd_dev_init(esp_hidd_dev_t *dev_p, const esp_hid_device_conf
         return ESP_FAIL;
     }
 
-
     esp_event_loop_args_t event_task_args = {
         .queue_size = 5,
         .task_name = "ble_hidd_events",
         .task_priority = uxTaskPriorityGet(NULL),
-        .task_stack_size = 2048,
+        .task_stack_size = 4096,
         .task_core_id = tskNO_AFFINITY
     };
     ret = esp_event_loop_create(&event_task_args, &s_dev->event_loop_handle);

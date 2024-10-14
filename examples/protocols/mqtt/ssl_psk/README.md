@@ -1,4 +1,7 @@
-# ESP-MQTT SSL example with PSK verification 
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- | -------- | -------- |
+
+# ESP-MQTT SSL example with PSK verification
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
 
@@ -8,11 +11,11 @@ This example connects to a local broker configured to PSK authentication
 
 ### Hardware Required
 
-This example can be executed on any ESP32 board, the only required interface is WiFi (or ethernet) to connect to a MQTT 
+This example can be executed on any ESP32 board, the only required interface is WiFi (or ethernet) to connect to a MQTT
 broker with preconfigured PSK verification method.
 
 #### Mosquitto settings
-In case of using mosquitto broker, here is how to enable PSK authentication in `mosquitto.config`, 
+In case of using mosquitto broker, here is how to enable PSK authentication in `mosquitto.config`,
 ```
 psk_hint hint
 psk_file path_to_your_psk_file
@@ -30,9 +33,8 @@ as required by MQTT API. (See the example source for details: `"BAD123" -> 0xBA,
 
 ### Configure the project
 
-* Run `make menuconfig` (or `idf.py menuconfig` if using CMake build system)
+* Run `idf.py menuconfig`
 * Configure Wi-Fi or Ethernet under "Example Connection Configuration" menu. See "Establishing Wi-Fi or Ethernet Connection" section in [examples/protocols/README.md](../../README.md) for more details.
-* When using Make build system, set `Default serial port` under `Serial flasher config`.
 
 ### Build and Flash
 

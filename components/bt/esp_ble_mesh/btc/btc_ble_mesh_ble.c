@@ -10,7 +10,7 @@
 #include "btc_ble_mesh_ble.h"
 #include "adv.h"
 #include "scan.h"
-#include "mesh_bearer_adapt.h"
+#include "mesh/adapter.h"
 #include "esp_ble_mesh_ble_api.h"
 
 #if CONFIG_BLE_MESH_BLE_COEX_SUPPORT
@@ -50,7 +50,7 @@ static void btc_ble_mesh_ble_free_req_data(btc_msg_t *msg)
 #if CONFIG_BLE_MESH_SUPPORT_BLE_SCAN
     esp_ble_mesh_ble_cb_param_t *arg = NULL;
 
-    if (!msg || !msg->arg) {
+    if (!msg) {
         BT_ERR("%s, Invalid parameter", __func__);
         return;
     }
@@ -82,8 +82,8 @@ static void btc_ble_mesh_ble_callback(esp_ble_mesh_ble_cb_param_t *cb_params, ui
     msg.pid = BTC_PID_BLE_MESH_BLE_COEX;
     msg.act = act;
 
-    btc_transfer_context(&msg, cb_params, sizeof(esp_ble_mesh_ble_cb_param_t),
-                         btc_ble_mesh_ble_copy_req_data);
+    btc_transfer_context(&msg, cb_params, cb_params == NULL ? 0 : sizeof(esp_ble_mesh_ble_cb_param_t),
+                         btc_ble_mesh_ble_copy_req_data, btc_ble_mesh_ble_free_req_data);
 }
 
 #if CONFIG_BLE_MESH_SUPPORT_BLE_SCAN
@@ -116,7 +116,7 @@ void btc_ble_mesh_ble_call_handler(btc_msg_t *msg)
     esp_ble_mesh_ble_cb_param_t param = {0};
     btc_ble_mesh_ble_args_t *arg = NULL;
 
-    if (!msg || !msg->arg) {
+    if (!msg) {
         BT_ERR("%s, Invalid parameter", __func__);
         return;
     }

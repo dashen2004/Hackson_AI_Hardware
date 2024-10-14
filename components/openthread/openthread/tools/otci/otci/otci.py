@@ -33,7 +33,7 @@ from collections import Counter
 from typing import Callable, List, Collection, Union, Tuple, Optional, Dict, Pattern, Any
 
 from . import connectors
-from .command_handlers import OTCommandHandler, OtCliCommandRunner, OtbrSshCommandRunner
+from .command_handlers import OTCommandHandler, OtCliCommandRunner, OtbrSshCommandRunner, OtbrAdbTcpCommandRunner, OtbrAdbUsbCommandRunner
 from .connectors import Simulator
 from .errors import UnexpectedCommandOutput, ExpectLineTimeoutError, CommandError, InvalidArgumentsError
 from .types import ChildId, Rloc16, Ip6Addr, ThreadState, PartitionId, DeviceMode, RouterId, SecurityPolicy, Ip6Prefix, \
@@ -46,6 +46,10 @@ class OTCI(object):
     This class represents an OpenThread Controller Interface instance that provides versatile interfaces to
     manipulate an OpenThread device.
     """
+
+    DEFAULT_EXEC_COMMAND_RETRY = 4  # A command is retried 4 times if failed.
+
+    __exec_command_retry = DEFAULT_EXEC_COMMAND_RETRY
 
     def __init__(self, otcmd: OTCommandHandler):
         """
@@ -60,14 +64,14 @@ class OTCI(object):
         """Gets the string representation of the OTCI instance."""
         return repr(self.__otcmd)
 
-    def wait(self, duration: float, expect_line: Union[str, Pattern, Collection[Any]] = None):
+    def wait(self, duration: float, expect_line: Optional[Union[str, Pattern, Collection[Any]]] = None):
         """Wait for a given duration.
 
         :param duration: The duration (in seconds) wait for.
         :param expect_line: The line expected to output if given.
                             Raise ExpectLineTimeoutError if expect_line is not found within the given duration.
         """
-        self.__logger and self.__logger.info("wait for %.3f seconds", duration)
+        self.log('info', "wait for %.3f seconds", duration)
         if expect_line is None:
             self.__otcmd.wait(duration)
         else:
@@ -88,7 +92,25 @@ class OTCI(object):
         """Close the OTCI instance."""
         self.__otcmd.close()
 
-    def execute_command(self, cmd: str, timeout: float = 10, silent: bool = False) -> List[str]:
+    def execute_command(self,
+                        cmd: str,
+                        timeout: float = 10,
+                        silent: bool = False,
+                        already_is_ok: bool = True) -> List[str]:
+        for i in range(self.__exec_command_retry + 1):
+            try:
+                return self.__execute_command(cmd, timeout, silent, already_is_ok=already_is_ok)
+            except Exception:
+                self.wait(2)
+                if i == self.__exec_command_retry:
+                    raise
+        assert False
+
+    def __execute_command(self,
+                          cmd: str,
+                          timeout: float = 10,
+                          silent: bool = False,
+                          already_is_ok: bool = True) -> List[str]:
         """Execute the OpenThread CLI command.
 
         :param cmd: The command to execute.
@@ -97,26 +119,41 @@ class OTCI(object):
         :returns: The command output as a list of lines.
         """
         if not silent:
-            self.__logger and self.__logger.info('> %s', cmd)
+            self.log('info', '> %s', cmd)
 
         output = self.__otcmd.execute_command(cmd, timeout)
 
         if not silent:
             for line in output:
-                self.__logger and self.__logger.info('%s', line)
+                self.log('info', '%s', line)
 
         if cmd in ('reset', 'factoryreset'):
             return output
 
-        if output[-1] == 'Done':
+        if output[-1] == 'Done' or (already_is_ok and output[-1] == 'Error 24: Already'):
             output = output[:-1]
             return output
         else:
             raise CommandError(cmd, output)
 
+    def set_execute_command_retry(self, n: int):
+        assert n >= 0
+        self.__exec_command_retry = n
+
+    def shell(self, cmd: str, timeout: float = 10):
+        self.log('info', '# %s', cmd)
+        output = self.__otcmd.shell(cmd, timeout=timeout)
+        for line in output:
+            self.log('info', '%s', line)
+        return output
+
     def set_logger(self, logger: logging.Logger):
         """Set the logger for the OTCI instance, or None to disable logging."""
         self.__logger = logger
+
+    def log(self, level, fmt, *args, **kwargs):
+        if self.__logger is not None:
+            getattr(self.__logger, level)('(%s) ' + fmt, repr(self), *args, **kwargs)
 
     def set_line_read_callback(self, callback: Optional[Callable[[str], Any]]):
         """Set the callback that will be called for each line output by the CLI."""
@@ -183,13 +220,13 @@ class OTCI(object):
     )
 
     def ping(self,
-             ip: str,
+             ip: Union[str, Ip6Addr],
              size: int = 8,
              count: int = 1,
              interval: float = 1,
              hoplimit: int = 64,
              timeout: float = 3) -> Dict:
-        """Send an ICMPv6 Echo Request. 
+        """Send an ICMPv6 Echo Request.
         The default arguments are consistent with https://github.com/openthread/openthread/blob/main/src/core/utils/ping_sender.hpp.
 
         :param ip: The target IPv6 address to ping.
@@ -225,9 +262,15 @@ class OTCI(object):
         """Stop sending ICMPv6 Echo Requests."""
         self.execute_command('ping stop')
 
-    def scan(self, channel: int = None) -> List[Dict[str, Any]]:
+    def discover(self, channel: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Perform an MLE Discovery operation."""
+        return self.__scan_networks('discover', channel)
+
+    def scan(self, channel: Optional[int] = None) -> List[Dict[str, Any]]:
         """Perform an IEEE 802.15.4 Active Scan."""
-        cmd = 'scan'
+        return self.__scan_networks('scan', channel)
+
+    def __scan_networks(self, cmd: str, channel: Optional[int] = None) -> List[Dict[str, Any]]:
         if channel is not None:
             cmd += f' {channel}'
 
@@ -239,7 +282,12 @@ class OTCI(object):
         for line in output[2:]:
             fields = line.strip().split('|')
 
-            _, J, netname, extpanid, panid, extaddr, ch, dbm, lqi, _ = fields
+            try:
+                _, J, netname, extpanid, panid, extaddr, ch, dbm, lqi, _ = fields
+            except Exception:
+                logging.warning('ignored output: %r', line)
+                continue
+
             networks.append({
                 'joinable': bool(int(J)),
                 'network_name': netname.strip(),
@@ -253,7 +301,7 @@ class OTCI(object):
 
         return networks
 
-    def scan_energy(self, duration: float = None, channel: int = None) -> Dict[int, int]:
+    def scan_energy(self, duration: Optional[float] = None, channel: Optional[int] = None) -> Dict[int, int]:
         """Perform an IEEE 802.15.4 Energy Scan."""
         cmd = 'scan energy'
         if duration is not None:
@@ -449,9 +497,9 @@ class OTCI(object):
         """Try to switch to state detached, child, router or leader."""
         self.execute_command(f'state {state}')
 
-    def get_rloc16(self) -> int:
+    def get_rloc16(self) -> Rloc16:
         """Get the Thread RLOC16 value."""
-        return self.__parse_int(self.execute_command('rloc16'), 16)
+        return Rloc16(self.__parse_int(self.execute_command('rloc16'), 16))
 
     def get_router_id(self) -> int:
         """Get the Thread Router ID value."""
@@ -698,7 +746,16 @@ class OTCI(object):
 
             id = int(col("ID"))
             r, d, n = int(col("R")), int(col("D")), int(col("N"))
-            mode = DeviceMode(f'{"r" if r else ""}{"d" if d else ""}{"n" if n else ""}')
+
+            #
+            # Device mode flags:
+            #
+            # r: rx-on-when-idle
+            # d: Full Thread Device
+            # n: Full Network Data
+            # -: no flags set (rx-off-when-idle, minimal Thread device, stable network data)
+            mode = DeviceMode(
+                f'{"r" if r else ""}{"d" if d else ""}{"n" if n else ""}{"-" if r == d == n == 0 else ""}')
 
             child = {
                 'id': ChildId(id),
@@ -720,6 +777,9 @@ class OTCI(object):
             if 'QMsgCnt' in headers:
                 child['qmsgcnt'] = int(col('QMsgCnt'))
 
+            if 'Suprvsn' in headers:
+                child['suprvsn'] = int(col('Suprvsn'))
+
             table[ChildId(id)] = child
 
         return table
@@ -737,7 +797,9 @@ class OTCI(object):
         for line in output:
             k, v = line.split(': ')
             if k == 'Server':
-                ip, port = re.match(OTCI._IPV6_SERVER_PORT_PATTERN, v).groups()
+                matched = re.match(OTCI._IPV6_SERVER_PORT_PATTERN, v)
+                assert matched is not None
+                ip, port = matched.groups()
                 config['server'] = (Ip6Addr(ip), int(port))
             elif k == 'ResponseTimeout':
                 config['response_timeout'] = int(v[:-3])
@@ -752,9 +814,9 @@ class OTCI(object):
 
     def dns_set_config(self,
                        server: Tuple[Union[str, ipaddress.IPv6Address], int],
-                       response_timeout: int = None,
-                       max_tx_attempts: int = None,
-                       recursion_desired: bool = None):
+                       response_timeout: Optional[int] = None,
+                       max_tx_attempts: Optional[int] = None,
+                       recursion_desired: Optional[bool] = None):
         """Set DNS client query config."""
         cmd = f'dns config {str(server[0])} {server[1]}'
         if response_timeout is not None:
@@ -823,6 +885,7 @@ class OTCI(object):
 
     def dns_resolve_service(self, instance: str, service: str) -> Dict:
         """Resolves aservice instance."""
+        instance = self.__escape_escapable(instance)
         cmd = f'dns service {instance} {service}'
         output = self.execute_command(cmd, 30.0)
 
@@ -888,6 +951,7 @@ class OTCI(object):
                 info = {'host': line}
                 result.append(info)
             else:
+                assert info is not None
                 k, v = line.strip().split(': ')
                 if k == 'deleted':
                     if v not in ('true', 'false'):
@@ -914,6 +978,7 @@ class OTCI(object):
                 info = {'instance': line}
                 result.append(info)
             else:
+                assert info is not None
                 k, v = line.strip().split(': ')
                 if k == 'deleted':
                     if v not in ('true', 'false'):
@@ -929,7 +994,7 @@ class OTCI(object):
                     info['addresses'] = list(map(Ip6Addr, v.split(', ')))
                 elif k == 'subtypes':
                     info[k] = list() if v == '(null)' else list(v.split(','))
-                elif k in ('port', 'weight', 'priority'):
+                elif k in ('port', 'weight', 'priority', 'ttl', 'lease', 'key-lease'):
                     info[k] = int(v)
                 elif k in ('host',):
                     info[k] = v
@@ -1082,7 +1147,8 @@ class OTCI(object):
                                port: int,
                                priority: int = 0,
                                weight: int = 0,
-                               txt: Dict[str, Union[str, bytes, bool]] = None):
+                               txt: Optional[Dict[str, Union[str, bytes, bool]]] = None):
+        instance = self.__escape_escapable(instance)
         cmd = f'srp client service add {instance} {service} {port} {priority} {weight}'
         if txt:
             cmd += f' {self.__txt_to_hex(txt)}'
@@ -1091,6 +1157,10 @@ class OTCI(object):
     def srp_client_remove_service(self, instance: str, service: str):
         """Remove a service from SRP client."""
         self.execute_command(f'srp client service remove {instance} {service}')
+
+    def srp_client_clear_service(self, instance: str, service: str):
+        """Remove a service from SRP client without notifying the SRP server."""
+        self.execute_command(f'srp client service clear {instance} {service}')
 
     def srp_client_get_key_lease_interval(self) -> int:
         """Get SRP client key lease interval (in seconds)."""
@@ -1111,7 +1181,9 @@ class OTCI(object):
     def srp_client_get_server(self) -> Tuple[Ip6Addr, int]:
         """Get the SRP server (IP, port)."""
         result = self.__parse_str(self.execute_command('srp client server'))
-        ip, port = re.match(OTCI._IPV6_SERVER_PORT_PATTERN, result).groups()
+        matched = re.match(OTCI._IPV6_SERVER_PORT_PATTERN, result)
+        assert matched
+        ip, port = matched.groups()
         return Ip6Addr(ip), int(port)
 
     def srp_client_get_service_key(self) -> bool:
@@ -1168,7 +1240,7 @@ class OTCI(object):
             elif k == 'RSSI':
                 info['rssi'] = int(v)
             else:
-                self.__logger and self.__logger.warning("Child info %s: %s ignored", k, v)
+                self.log('warning', "Child info %s: %s ignored", k, v)
 
         return info
 
@@ -1309,7 +1381,7 @@ class OTCI(object):
     # TODO: csl period <period>
     # TODO: csl timeout <timeout>
 
-    _CSL_PERIOD_PATTERN = re.compile(r'(\d+)\(in units of 10 symbols\), \d+ms')
+    _CSL_PERIOD_PATTERN = re.compile(r'(\d+)us')
     _CSL_TIMEOUT_PATTERN = re.compile(r'(\d+)s')
 
     def get_csl_config(self) -> Dict[str, int]:
@@ -1322,19 +1394,23 @@ class OTCI(object):
             if k == 'Channel':
                 cfg['channel'] = int(v)
             elif k == 'Timeout':
-                cfg['timeout'] = int(OTCI._CSL_TIMEOUT_PATTERN.match(v).group(1))
+                matched = OTCI._CSL_TIMEOUT_PATTERN.match(v)
+                assert matched is not None
+                cfg['timeout'] = int(matched.group(1))
             elif k == 'Period':
-                cfg['period'] = int(OTCI._CSL_PERIOD_PATTERN.match(v).group(1))
+                matched = OTCI._CSL_PERIOD_PATTERN.match(v)
+                assert matched is not None
+                cfg['period'] = int(matched.group(1))
             else:
                 logging.warning("Ignore unknown CSL parameter: %s: %s", k, v)
 
         return cfg
 
-    def config_csl(self, channel: int = None, period: int = None, timeout: int = None):
+    def config_csl(self, channel: Optional[int] = None, period: Optional[int] = None, timeout: Optional[int] = None):
         """Configure CSL parameters.
 
         :param channel: Set CSL channel.
-        :param period: Set CSL period in units of 10 symbols. Disable CSL by setting this parameter to 0.
+        :param period: Set CSL period in usec. Disable CSL by setting this parameter to 0.
         :param timeout: Set the CSL timeout in seconds.
         """
 
@@ -1434,7 +1510,7 @@ class OTCI(object):
     #
     # Joiner operations
     #
-    def joiner_start(self, psk: str, provisioning_url: str = None):
+    def joiner_start(self, psk: str, provisioning_url: Optional[str] = None):
         """Start the Joiner."""
         cmd = f'joiner start {psk}'
         if provisioning_url is not None:
@@ -1517,7 +1593,16 @@ class OTCI(object):
                 routes_output.append(line)
 
         netdata['routes'] = self.__parse_routes(routes_output)
-        netdata['services'] = self.__parse_services(output)
+
+        services_output = []
+        while True:
+            line = output.pop(0)
+            if line == 'Contexts:':
+                break
+            else:
+                services_output.append(line)
+
+        netdata['services'] = self.__parse_services(services_output)
 
         return netdata
 
@@ -1569,9 +1654,9 @@ class OTCI(object):
         routes = []
         for line in output:
             line = line.split()
-            if line[1] == 's':
-                prefix, _, prf, rloc16 = line
-                stable = True
+            if len(line) == 4:
+                prefix, flags, prf, rloc16 = line
+                stable = 's' in flags
             else:
                 prefix, prf, rloc16 = line
                 stable = False
@@ -1665,7 +1750,7 @@ class OTCI(object):
         # Network Name: OpenThread-7caa
         # PAN ID: 0x7caa
         # PSKc: 167d89fd169e439ca0b8266de248090f
-        # Security Policy: 0, onrcb
+        # Security Policy: 672 onrc 0
 
         dataset = {}
 
@@ -1692,7 +1777,7 @@ class OTCI(object):
             elif key == 'PSKc':
                 dataset['pskc'] = val
             elif key == 'Security Policy':
-                rotation_time, flags = val.split(', ') if ', ' in val else val.split(' ')
+                rotation_time, flags, version_threshold = val.split(' ')
                 rotation_time = int(rotation_time)
                 dataset['security_policy'] = SecurityPolicy(rotation_time, flags)
             else:
@@ -1709,18 +1794,31 @@ class OTCI(object):
         hexstr = self.__parse_str(self.execute_command(cmd))
         return self.__hex_to_bytes(hexstr)
 
+    def set_dataset_bytes(self, dataset: str, data: bytes) -> None:
+        if dataset in ('active', 'pending'):
+            cmd = f'dataset set {dataset} {self.__bytes_to_hex(data)}'
+        else:
+            raise InvalidArgumentsError(f'Unkonwn dataset: {dataset}')
+
+        self.execute_command(cmd)
+
+    def get_dataset_tlvs_bytes(self) -> bytes:
+        """Gets bytes of the Operational Dataset TLVs"""
+        hexstr = self.__parse_str(self.execute_command('dataset tlvs'))
+        return self.__hex_to_bytes(hexstr)
+
     def dataset_set_buffer(self,
-                           active_timestamp: int = None,
-                           channel: int = None,
-                           channel_mask: int = None,
-                           extpanid: str = None,
-                           mesh_local_prefix: str = None,
-                           network_key: str = None,
-                           network_name: str = None,
-                           panid: int = None,
-                           pskc: str = None,
-                           security_policy: tuple = None,
-                           pending_timestamp: int = None):
+                           active_timestamp: Optional[int] = None,
+                           channel: Optional[int] = None,
+                           channel_mask: Optional[int] = None,
+                           extpanid: Optional[str] = None,
+                           mesh_local_prefix: Optional[str] = None,
+                           network_key: Optional[str] = None,
+                           network_name: Optional[str] = None,
+                           panid: Optional[int] = None,
+                           pskc: Optional[str] = None,
+                           security_policy: Optional[tuple] = None,
+                           pending_timestamp: Optional[int] = None):
         if active_timestamp is not None:
             self.execute_command(f'dataset activetimestamp {active_timestamp}')
 
@@ -1770,7 +1868,7 @@ class OTCI(object):
     def disable_allowlist(self):
         self.execute_command('macfilter addr disable')
 
-    def add_allowlist(self, addr: str, rssi: int = None):
+    def add_allowlist(self, addr: str, rssi: Optional[int] = None):
         cmd = f'macfilter addr add {addr}'
 
         if rssi is not None:
@@ -1865,18 +1963,6 @@ class OTCI(object):
         """Check if a IPv6 multicast address was subscribed by the Thread interface."""
         return ip in self.get_ipmaddrs()
 
-    def get_ipmaddr_promiscuous(self) -> bool:
-        """Get multicast promiscuous mode."""
-        return self.__parse_Enabled_or_Disabled(self.execute_command("ipmaddr promiscuous"))
-
-    def enable_ipmaddr_promiscuous(self):
-        """Enable multicast promiscuous mode."""
-        self.execute_command('ipmaddr promiscuous enable')
-
-    def disable_ipmaddr_promiscuous(self):
-        """Disable multicast promiscuous mode."""
-        self.execute_command('ipmaddr promiscuous disable')
-
     def get_ipmaddr_llatn(self) -> Ip6Addr:
         """Get Link Local All Thread Nodes Multicast Address"""
         return self.__parse_ip6addr(self.execute_command('ipmaddr llatn'))
@@ -1894,20 +1980,20 @@ class OTCI(object):
     def enable_backbone_router(self):
         """Enable Backbone Router Service for Thread 1.2 FTD.
 
-        SRV_DATA.ntf would be triggerred for attached device if there is no Backbone Router Service in Thread Network Data.
+        SRV_DATA.ntf would be triggered for attached device if there is no Backbone Router Service in Thread Network Data.
         """
         self.execute_command('bbr enable')
 
     def disable_backbone_router(self):
         """Disable Backbone Router Service for Thread 1.2 FTD.
 
-        SRV_DATA.ntf would be triggerred if Backbone Router is Primary state.
+        SRV_DATA.ntf would be triggered if Backbone Router is Primary state.
         """
         self.execute_command('bbr disable')
 
     def get_backbone_router_state(self) -> str:
         """Get local Backbone state (Disabled or Primary or Secondary) for Thread 1.2 FTD."""
-        self.__parse_str(self.execute_command('bbr state'))
+        return self.__parse_str(self.execute_command('bbr state'))
 
     def get_primary_backbone_router_info(self) -> Optional[dict]:
         """Show current Primary Backbone Router information for Thread 1.2 device."""
@@ -1955,7 +2041,7 @@ class OTCI(object):
     def register_backbone_router_dataset(self):
         """Register Backbone Router Service for Thread 1.2 FTD.
 
-        SRV_DATA.ntf would be triggerred for attached device.
+        SRV_DATA.ntf would be triggered for attached device.
         """
         self.execute_command('bbr register')
 
@@ -1983,7 +2069,10 @@ class OTCI(object):
 
         return config
 
-    def set_backbone_router_config(self, seqno: int = None, delay: int = None, timeout: int = None):
+    def set_backbone_router_config(self,
+                                   seqno: Optional[int] = None,
+                                   delay: Optional[int] = None,
+                                   timeout: Optional[int] = None):
         """Configure local Backbone Router configuration for Thread 1.2 FTD.
 
         Call register_backbone_router_dataset() to explicitly register Backbone Router service to Leader for Secondary Backbone Router.
@@ -2147,7 +2236,12 @@ class OTCI(object):
         """
         self.execute_command(f'udp connect {ip} {port}')
 
-    def udp_send(self, ip: str = None, port: int = None, text: str = None, random_bytes: int = None, hex: str = None):
+    def udp_send(self,
+                 ip: Optional[Union[str, Ip6Addr]] = None,
+                 port: Optional[int] = None,
+                 text: Optional[str] = None,
+                 random_bytes: Optional[int] = None,
+                 hex: Optional[str] = None):
         """Send a few bytes over UDP.
 
         ip: the IPv6 destination address.
@@ -2188,6 +2282,29 @@ class OTCI(object):
         """Disable link security."""
         self.execute_command('udp linksecurity disable')
 
+    def netstat(self) -> List[Tuple[Tuple[Ip6Addr, int], Tuple[Ip6Addr, int]]]:
+        cmd = 'netstat'
+        output = self.execute_command(cmd)
+        if len(output) < 2:
+            raise UnexpectedCommandOutput(output)
+
+        socks = []
+        for line in output[2:]:
+            _, sock_addr, peer_addr = line.strip().split('|')[:3]
+            sock_addr = self.__parse_socket_addr(sock_addr.strip())
+            peer_addr = self.__parse_socket_addr(peer_addr.strip())
+            socks.append((sock_addr, peer_addr))
+
+        return socks
+
+    @staticmethod
+    def __parse_socket_addr(addr: str) -> Tuple[Ip6Addr, int]:
+        addr, port = addr.rsplit(':', 1)
+        if addr.startswith('[') and addr.endswith(']'):
+            addr = addr[1:-1]
+
+        return Ip6Addr(addr), int(port) if port != '*' else 0
+
     #
     # CoAP CLI (test) utilities
     #
@@ -2199,11 +2316,11 @@ class OTCI(object):
         """Stops the application coap service."""
         self.execute_command('coap stop')
 
-    def coap_get(self, addr: str, uri_path: str, type: str = "con"):
+    def coap_get(self, addr: Union[str, Ip6Addr], uri_path: str, type: str = "con"):
         cmd = f'coap get {addr} {uri_path} {type}'
         self.execute_command(cmd)
 
-    def coap_put(self, addr: str, uri_path: str, type: str = "con", payload: str = None):
+    def coap_put(self, addr: Union[str, Ip6Addr], uri_path: str, type: str = "con", payload: Optional[str] = None):
         cmd = f'coap put {addr} {uri_path} {type}'
 
         if payload is not None:
@@ -2211,7 +2328,7 @@ class OTCI(object):
 
         self.execute_command(cmd)
 
-    def coap_post(self, addr: str, uri_path: str, type: str = "con", payload: str = None):
+    def coap_post(self, addr: Union[str, Ip6Addr], uri_path: str, type: str = "con", payload: Optional[str] = None):
         cmd = f'coap post {addr} {uri_path} {type}'
 
         if payload is not None:
@@ -2219,7 +2336,7 @@ class OTCI(object):
 
         self.execute_command(cmd)
 
-    def coap_delete(self, addr: str, uri_path: str, type: str = "con", payload: str = None):
+    def coap_delete(self, addr: Union[str, Ip6Addr], uri_path: str, type: str = "con", payload: Optional[str] = None):
         cmd = f'coap delete {addr} {uri_path} {type}'
 
         if payload is not None:
@@ -2243,6 +2360,254 @@ class OTCI(object):
     # TODO: coap cancel
     # TODO: coap parameters <type> ["default"|<ack_timeout> <ack_random_factor_numerator> <ack_random_factor_denominator> <max_retransmit>]
     # TODO: CoAP Secure utilities
+
+    #
+    # Diag Utilities
+    #
+    def diag_start(self):
+        """Start diagnostics mode."""
+        self.execute_command('diag start')
+
+    def diag_stop(self):
+        """Stop diagnostics mode."""
+        self.execute_command('diag stop')
+
+    def diag_set_channel(self, channel: int):
+        """Set the IEEE 802.15.4 Channel value for diagnostics module."""
+        self.execute_command(f'diag channel {channel}')
+
+    def diag_get_channel(self) -> int:
+        """Get the IEEE 802.15.4 Channel value for diagnostics module."""
+        line = self.__parse_str(self.execute_command('diag channel'))
+        return int(line.split()[1])
+
+    def diag_set_power(self, power: int):
+        """Set the tx power value(dBm) for diagnostics module."""
+        self.execute_command(f'diag power {power}')
+
+    def diag_get_power(self) -> int:
+        """Get the tx power value(dBm) for diagnostics module."""
+        line = self.__parse_str(self.execute_command('diag power'))
+        if not line.endswith(' dBm'):
+            raise UnexpectedCommandOutput([line])
+
+        return int(line.split()[2])
+
+    def diag_cw_start(self):
+        """Start transmitting continuous carrier wave."""
+        self.execute_command('diag cw start')
+
+    def diag_cw_stop(self):
+        """Stop transmitting continuous carrier wave."""
+        self.execute_command('diag cw stop')
+
+    def diag_frame(self, frame: str):
+        """Set the frame (hex encoded) to be used by `diag send` and `diag repeat`."""
+        self.execute_command(f'diag frame {frame}')
+
+    def diag_stream_start(self):
+        """Start transmitting a stream of characters."""
+        self.execute_command('diag stream start')
+
+    def diag_stream_stop(self):
+        """Stop transmitting a stream of characters."""
+        self.execute_command('diag stream stop')
+
+    def diag_send(self, packets: int, length: Optional[int] = None):
+        """Transmit a fixed number of packets."""
+        if length is None:
+            command = f'diag send {packets}'
+        else:
+            command = f'diag send {packets} {length}'
+        self.execute_command(command)
+
+    def diag_repeat(self, delay: int, length: Optional[int] = None):
+        """Transmit packets repeatedly with a fixed interval."""
+        if length is None:
+            command = f'diag repeat {delay}'
+        else:
+            command = f'diag repeat {delay} {length}'
+        self.execute_command(command)
+
+    def diag_repeat_stop(self):
+        """Stop repeated packet transmission."""
+        self.execute_command('diag repeat stop')
+
+    def diag_radio_sleep(self):
+        """Enter radio sleep mode."""
+        self.execute_command('diag radio sleep')
+
+    def diag_radio_receive(self):
+        """Set radio to receive mode."""
+        self.execute_command('diag radio receive')
+
+    def diag_get_radio_state(self) -> str:
+        """Get the state of the radio."""
+        return self.__parse_str(self.execute_command('diag radio state'))
+
+    def diag_get_stats(self) -> Dict[str, int]:
+        """Get statistics during diagnostics mode."""
+        output = self.execute_command('diag stats')
+        if len(output) < 4:
+            raise UnexpectedCommandOutput(output)
+
+        result = {}
+
+        result['received_packets'] = int(output[0].split(":")[1])
+        result['sent_packets'] = int(output[1].split(":")[1])
+
+        values = re.findall("\-?\d+", output[2])
+        result['first_received_packet_rssi'] = int(values[0])
+        result['first_received_packet_lqi'] = int(values[1])
+
+        values = re.findall("\-?\d+", output[3])
+        result['last_received_packet_rssi'] = int(values[0])
+        result['last_received_packet_lqi'] = int(values[1])
+
+        return result
+
+    def diag_stats_clear(self):
+        """Clear statistics during diagnostics mode."""
+        self.execute_command('diag stats clear')
+
+    def diag_set_gpio_value(self, gpio: int, value: int):
+        """Set the gpio value."""
+        self.execute_command(f'diag gpio set {gpio} {value}')
+
+    def diag_get_gpio_value(self, gpio: int) -> int:
+        """Get the gpio value."""
+        return int(self.__parse_str(self.execute_command(f'diag gpio get {gpio}')))
+
+    def diag_set_gpio_mode(self, gpio: int, mode: str):
+        """Set the gpio mode."""
+        self.execute_command(f'diag gpio mode {gpio} {mode}')
+
+    def diag_get_gpio_mode(self, gpio: int) -> str:
+        """Get the gpio mode."""
+        return self.__parse_str(self.execute_command(f'diag gpio mode {gpio}'))
+
+    def diag_echo(self, message: str) -> str:
+        """RCP echoes the given message."""
+        return self.__parse_str(self.execute_command(f'diag echo {message}'))
+
+    def diag_echo_number(self, number: int) -> str:
+        """RCP echoes the given message."""
+        return self.__parse_str(self.execute_command(f'diag echo -n {number}'))
+
+    def diag_get_powersettings(self) -> List[Dict[str, Any]]:
+        """Get the currently used power settings table."""
+        result = []
+        output = self.execute_command(f'diag powersettings')
+
+        if len(output) < 3:
+            raise UnexpectedCommandOutput(output)
+
+        if not output[-1].startswith('Done'):
+            raise UnexpectedCommandOutput(output)
+
+        for line in output[2:-1]:
+            data = line.split('|')
+
+            result.append({
+                'channel_start': int(data[1]),
+                'channel_end': int(data[2]),
+                'target_power': int(data[3]),
+                'actual_power': int(data[4]),
+                'raw_power_setting': self.__hex_to_bytes(data[5].lstrip().rstrip()),
+            })
+
+        return result
+
+    def diag_get_channel_powersettings(self, channel: int) -> Dict[str, Any]:
+        """Gets the currently used power settings for the given channel."""
+        result = {}
+        output = self.execute_command(f'diag powersettings {channel}')
+
+        if len(output) != 4:
+            raise UnexpectedCommandOutput(output)
+
+        if not output[-1].startswith('Done'):
+            raise UnexpectedCommandOutput(output)
+
+        result['target_power'] = int(output[0].split(':')[1])
+        result['actual_power'] = int(output[1].split(':')[1])
+        result['raw_power_setting'] = self.__hex_to_bytes(output[2].split(':')[1].lstrip().rstrip())
+
+        return result
+
+    def diag_get_rawpowersetting(self) -> str:
+        """Get the raw power setting."""
+        return self.__parse_str(self.execute_command('diag rawpowersetting'))
+
+    def diag_set_rawpowersetting(self, rawpowersetting: str):
+        """Set the raw power setting."""
+        self.execute_command(f'diag rawpowersetting {rawpowersetting}')
+
+    def diag_enable_rawpowersetting(self):
+        """Enable the raw power setting."""
+        self.execute_command('diag rawpowersetting enable')
+
+    def diag_disable_rawpowersetting(self):
+        """Disable the raw power setting."""
+        self.execute_command('diag rawpowersetting disable')
+
+    def is_command_supported(self, command: str) -> bool:
+        """Check whether the the given command is supported by the device."""
+        output = self.__otcmd.execute_command(command, timeout=10)
+
+        if re.match("Error \d+: \w*", output[-1]):
+            return False
+
+        return True
+
+    #
+    # Network management utilities
+    #
+    def create_dataset(self,
+                       active_timestamp: Optional[int] = None,
+                       channel: Optional[int] = None,
+                       channel_mask: Optional[int] = None,
+                       extpanid: Optional[str] = None,
+                       mesh_local_prefix: Optional[str] = None,
+                       network_key: Optional[str] = None,
+                       network_name: Optional[str] = None,
+                       panid: Optional[int] = None,
+                       pskc: Optional[str] = None,
+                       security_policy: Optional[tuple] = None,
+                       pending_timestamp: Optional[int] = None) -> bytes:
+        """Creates a new Operational Dataset with given parameters."""
+        self.dataset_clear_buffer()
+        self.dataset_init_buffer()
+        self.dataset_set_buffer(active_timestamp, channel, channel_mask, extpanid, mesh_local_prefix, network_key,
+                                network_name, panid, pskc, security_policy, pending_timestamp)
+        return self.get_dataset_tlvs_bytes()
+
+    def join(self, dataset: bytes) -> None:
+        """Joins to a Thread network with given Active Operational Dataset."""
+        self.set_dataset_bytes('active', dataset)
+        self.ifconfig_up()
+        self.thread_start()
+
+    def leave(self) -> None:
+        """Leaves from the Thread network."""
+        self.thread_stop()
+        self.ifconfig_down()
+
+    def wait_for(self, command: str, expect_line: Optional[Union[str, Pattern, Collection[Any]]], timeout: float = 60):
+        """Wait for the expected output by periodically executing the given command."""
+        success = False
+
+        while timeout > 0:
+            output = self.execute_command(command)
+            if any(match_line(line, expect_line) for line in output):
+                success = True
+                break
+
+            self.__otcmd.wait(1)
+            timeout -= 1
+
+        if not success:
+            raise ExpectLineTimeoutError(expect_line)
 
     #
     # Other TODOs
@@ -2348,6 +2713,9 @@ class OTCI(object):
         self.__validate_hex(hexstr)
         return bytes(int(hexstr[i:i + 2], 16) for i in range(0, len(hexstr), 2))
 
+    def __bytes_to_hex(self, data: bytes) -> str:
+        return ''.join('%02x' % b for b in data)
+
     def __escape_escapable(self, s: str) -> str:
         """Escape CLI escapable characters in the given string.
         """
@@ -2397,6 +2765,16 @@ def connect_ncp_sim(executable: str, nodeid: int, simulator: Optional[Simulator]
 
 def connect_otbr_ssh(host: str, port: int = 22, username='pi', password='raspberry', sudo=True):
     cmd_handler = OtbrSshCommandRunner(host, port, username, password, sudo=sudo)
+    return OTCI(cmd_handler)
+
+
+def connect_otbr_adb_tcp(host: str, port: int = 5555):
+    cmd_handler = OtbrAdbTcpCommandRunner(host, port)
+    return OTCI(cmd_handler)
+
+
+def connect_otbr_adb_usb(serial: str):
+    cmd_handler = OtbrAdbUsbCommandRunner(serial)
     return OTCI(cmd_handler)
 
 

@@ -41,9 +41,14 @@ from otci import NetifIdentifier
 logging.basicConfig(level=logging.DEBUG)
 
 TEST_CHANNEL = 22
+TEST_CHANNEL_MASK = 0x07fff800
+TEST_EXTENDED_PANID = '000db80000000000'
+TEST_MESH_LOCAL_PREFIX = 'fd00:db8::'
+TEST_NETWORK_KEY = 'ffeeddccbbaa99887766554433221100'
 TEST_NETWORK_NAME = 'OT CI'
 TEST_PANID = 0xeeee
-TEST_NETWORKKEY = 'ffeeddccbbaa99887766554433221100'
+TEST_PSKC = 'c23a76e98f1a6483639b1ac1271e2e27'
+TEST_SECURITY_POLICY = (672, 'onrc')
 
 REAL_DEVICE = int(os.getenv('REAL_DEVICE', '0'))
 
@@ -142,8 +147,8 @@ class TestOTCI(unittest.TestCase):
 
         leader.set_network_name(TEST_NETWORK_NAME)
 
-        leader.set_network_key(TEST_NETWORKKEY)
-        self.assertEqual(TEST_NETWORKKEY, leader.get_network_key())
+        leader.set_network_key(TEST_NETWORK_KEY)
+        self.assertEqual(TEST_NETWORK_KEY, leader.get_network_key())
 
         leader.set_panid(TEST_PANID)
         self.assertEqual(TEST_PANID, leader.get_panid())
@@ -171,8 +176,9 @@ class TestOTCI(unittest.TestCase):
         leader.set_preferred_partition_id(0xabcddead)
         self.assertEqual(leader.get_preferred_partition_id(), 0xabcddead)
 
+        _setup_default_network(leader)
         leader.thread_start()
-        leader.wait(5)
+        leader.wait(10)
         self.assertEqual('leader', leader.get_state())
         self.assertEqual(0xabcddead, leader.get_leader_data()['partition_id'])
         logging.info('leader key sequence counter = %d', leader.get_key_sequence_counter())
@@ -243,19 +249,13 @@ class TestOTCI(unittest.TestCase):
         for counter_name in leader.counter_names:
             logging.info('counter %s: %r', counter_name, leader.get_counter(counter_name))
             leader.reset_counter(counter_name)
-            self.assertTrue(all(x == 0 for x in leader.get_counter(counter_name).values()))
+            self.assertTrue(all(x == 0 for name, x in leader.get_counter(counter_name).items() if "Time" not in name))
 
         logging.info("CSL config: %r", leader.get_csl_config())
-        leader.config_csl(channel=13, period=100, timeout=200)
+        leader.config_csl(channel=13, period=16000, timeout=200)
         logging.info("CSL config: %r", leader.get_csl_config())
 
         logging.info("EID-to-RLOC cache: %r", leader.get_eidcache())
-
-        logging.info("ipmaddr promiscuous: %r", leader.get_ipmaddr_promiscuous())
-        leader.enable_ipmaddr_promiscuous()
-        self.assertTrue(leader.get_ipmaddr_promiscuous())
-        leader.disable_ipmaddr_promiscuous()
-        self.assertFalse(leader.get_ipmaddr_promiscuous())
 
         logging.info("leader data: %r", leader.get_leader_data())
         logging.info("leader neighbor list: %r", leader.get_neighbor_list())
@@ -270,6 +270,7 @@ class TestOTCI(unittest.TestCase):
         logging.info("Leader router table: %r", leader.get_router_table())
         self.assertFalse(list(leader.get_router_table().values())[0].is_link_established)
 
+        logging.info('discover: %r', leader.discover())
         logging.info('scan: %r', leader.scan())
         logging.info('scan energy: %r', leader.scan_energy())
 
@@ -377,7 +378,7 @@ class TestOTCI(unittest.TestCase):
         self.assertEqual('default.service.arpa.', server.srp_server_get_domain())
 
         default_leases = server.srp_server_get_lease()
-        self.assertEqual(default_leases, (1800, 7200, 86400, 1209600))
+        self.assertEqual(default_leases, (30, 97200, 30, 680400))
         server.srp_server_set_lease(1801, 7201, 86401, 1209601)
         leases = server.srp_server_get_lease()
         self.assertEqual(leases, (1801, 7201, 86401, 1209601))
@@ -399,8 +400,6 @@ class TestOTCI(unittest.TestCase):
         self.assertEqual([], server.srp_server_get_hosts())
         self.assertEqual('running', server.srp_server_get_state())
 
-        self.assertFalse(client.srp_client_get_autostart())
-        client.srp_client_enable_autostart()
         self.assertTrue(client.srp_client_get_autostart())
         client.wait(3)
         self.assertTrue(client.srp_client_get_state())
@@ -518,7 +517,7 @@ class TestOTCI(unittest.TestCase):
 
         node1.ifconfig_up()
         node1.thread_start()
-        node1.wait(5)
+        node1.wait(10)
         assert node1.get_state() == "leader"
 
         node1.commissioner_start()
@@ -532,7 +531,7 @@ class TestOTCI(unittest.TestCase):
         node2.joiner_start("TEST123")
         node2.wait(10, expect_line="Join success")
         node2.thread_start()
-        node2.wait(5)
+        node2.wait(10)
         assert node2.get_state() == "router"
 
     def _test_otci_multi_nodes(self, leader, commissioner, child1, child2):
@@ -553,24 +552,17 @@ class TestOTCI(unittest.TestCase):
         leader.set_extaddr(new_extaddr)
         self.assertEqual(new_extaddr, leader.get_extaddr())
 
-        leader.set_network_name(TEST_NETWORK_NAME)
+        _setup_default_network(leader)
 
-        leader.set_network_key(TEST_NETWORKKEY)
-        self.assertEqual(TEST_NETWORKKEY, leader.get_network_key())
-
-        leader.set_panid(TEST_PANID)
-        self.assertEqual(TEST_PANID, leader.get_panid())
-
-        leader.set_channel(TEST_CHANNEL)
         self.assertEqual(TEST_CHANNEL, leader.get_channel())
-
-        leader.set_network_name(TEST_NETWORK_NAME)
+        self.assertEqual(TEST_NETWORK_KEY, leader.get_network_key())
         self.assertEqual(TEST_NETWORK_NAME, leader.get_network_name())
+        self.assertEqual(TEST_PANID, leader.get_panid())
 
         self.assertEqual('rdn', leader.get_mode())
 
         leader.thread_start()
-        leader.wait(5)
+        leader.wait(10)
         self.assertEqual('leader', leader.get_state())
         logging.info('leader key sequence counter = %d', leader.get_key_sequence_counter())
 
@@ -578,15 +570,18 @@ class TestOTCI(unittest.TestCase):
         leader_id = leader.get_router_id()
         self.assertEqual(rloc16, leader_id << 10)
 
-        commissioner.ifconfig_up()
-        commissioner.set_channel(TEST_CHANNEL)
-        commissioner.set_panid(TEST_PANID)
-        commissioner.set_network_name(TEST_NETWORK_NAME)
+        commissioner.dataset_clear_buffer()
+        commissioner.dataset_set_buffer(
+            channel=TEST_CHANNEL,
+            network_key=TEST_NETWORK_KEY,
+            panid=TEST_PANID,
+        )
+        commissioner.dataset_commit_buffer('active')
         commissioner.set_router_selection_jitter(1)
-        commissioner.set_network_key(TEST_NETWORKKEY)
+        commissioner.ifconfig_up()
         commissioner.thread_start()
 
-        commissioner.wait(5)
+        commissioner.wait(10)
 
         self.assertEqual('router', commissioner.get_state())
 
@@ -613,6 +608,7 @@ class TestOTCI(unittest.TestCase):
 
         child1.ifconfig_up()
 
+        logging.info("child1 discover: %r", child1.discover())
         logging.info("child1 scan: %r", child1.scan())
         logging.info("child1 scan energy: %r", child1.scan_energy())
 
@@ -720,6 +716,23 @@ class TestOTCI(unittest.TestCase):
         self.assertFalse(leader.get_ifconfig_state())
 
         leader.close()
+
+
+def _setup_default_network(node):
+    node.dataset_clear_buffer()
+    node.dataset_set_buffer(
+        active_timestamp=1,
+        channel=TEST_CHANNEL,
+        channel_mask=TEST_CHANNEL_MASK,
+        extpanid=TEST_EXTENDED_PANID,
+        mesh_local_prefix=TEST_MESH_LOCAL_PREFIX,
+        network_key=TEST_NETWORK_KEY,
+        network_name=TEST_NETWORK_NAME,
+        panid=TEST_PANID,
+        pskc=TEST_PSKC,
+        security_policy=TEST_SECURITY_POLICY,
+    )
+    node.dataset_commit_buffer('active')
 
 
 if __name__ == '__main__':

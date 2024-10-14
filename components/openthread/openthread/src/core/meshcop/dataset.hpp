@@ -39,6 +39,7 @@
 
 #include <openthread/dataset.h>
 
+#include "common/as_core_type.hpp"
 #include "common/clearable.hpp"
 #include "common/const_cast.hpp"
 #include "common/locator.hpp"
@@ -52,20 +53,18 @@ namespace ot {
 namespace MeshCoP {
 
 /**
- * This class represents MeshCop Dataset.
+ * Represents MeshCop Dataset.
  *
  */
 class Dataset
 {
-    friend class DatasetLocal;
+    friend class DatasetManager;
 
 public:
-    static constexpr uint8_t kMaxSize      = OT_OPERATIONAL_DATASET_MAX_LENGTH; ///< Max size of MeshCoP Dataset (bytes)
-    static constexpr uint8_t kMaxValueSize = 16;                                ///< Max size of a TLV value (bytes)
-    static constexpr uint8_t kMaxGetTypes  = 64;                                ///< Max number of types in MGMT_GET.req
+    static constexpr uint8_t kMaxLength = OT_OPERATIONAL_DATASET_MAX_LENGTH; ///< Max length of Dataset (bytes)
 
     /**
-     * This enumeration represents the Dataset type (active or pending).
+     * Represents the Dataset type (active or pending).
      *
      */
     enum Type : uint8_t
@@ -75,513 +74,131 @@ public:
     };
 
     /**
-     * This class represents presence of different components in Active or Pending Operational Dataset.
+     * Represents a Dataset as a sequence of TLVs.
+     *
+     */
+    typedef otOperationalDatasetTlvs Tlvs;
+
+    /**
+     * Represents a component in Dataset.
+     *
+     */
+    enum Component : uint8_t
+    {
+        kActiveTimestamp,  ///< Active Timestamp
+        kPendingTimestamp, ///< Pending Timestamp
+        kNetworkKey,       ///< Network Key
+        kNetworkName,      ///< Network Name
+        kExtendedPanId,    ///< Extended PAN Identifier
+        kMeshLocalPrefix,  ///< Mesh Local Prefix
+        kDelay,            ///< Delay
+        kPanId,            ///< PAN Identifier
+        kChannel,          ///< Channel
+        kPskc,             ///< PSKc
+        kSecurityPolicy,   ///< Security Policy
+        kChannelMask,      ///< Channel Mask
+    };
+
+    template <Component kComponent> struct TypeFor; ///< Specifies the associate type for a given `Component`.
+
+    class Info;
+
+    /**
+     * Represents presence of different components in Active or Pending Operational Dataset.
      *
      */
     class Components : public otOperationalDatasetComponents, public Clearable<Components>
     {
+        friend class Info;
+
     public:
         /**
-         * This method indicates whether or not the Active Timestamp is present in the Dataset.
+         * Indicates whether or not the specified `kComponent` is present in the Dataset.
          *
-         * @returns TRUE if Active Timestamp is present, FALSE otherwise.
+         * @tparam kComponent  The component to check.
+         *
+         * @retval TRUE   The component is present in the Dataset.
+         * @retval FALSE  The component is not present in the Dataset.
          *
          */
-        bool IsActiveTimestampPresent(void) const { return mIsActiveTimestampPresent; }
+        template <Component kComponent> bool IsPresent(void) const;
 
-        /**
-         * This method indicates whether or not the Pending Timestamp is present in the Dataset.
-         *
-         * @returns TRUE if Pending Timestamp is present, FALSE otherwise.
-         *
-         */
-        bool IsPendingTimestampPresent(void) const { return mIsPendingTimestampPresent; }
-
-        /**
-         * This method indicates whether or not the Network Key is present in the Dataset.
-         *
-         * @returns TRUE if Network Key is present, FALSE otherwise.
-         *
-         */
-        bool IsNetworkKeyPresent(void) const { return mIsNetworkKeyPresent; }
-
-        /**
-         * This method indicates whether or not the Network Name is present in the Dataset.
-         *
-         * @returns TRUE if Network Name is present, FALSE otherwise.
-         *
-         */
-        bool IsNetworkNamePresent(void) const { return mIsNetworkNamePresent; }
-
-        /**
-         * This method indicates whether or not the Extended PAN ID is present in the Dataset.
-         *
-         * @returns TRUE if Extended PAN ID is present, FALSE otherwise.
-         *
-         */
-        bool IsExtendedPanIdPresent(void) const { return mIsExtendedPanIdPresent; }
-
-        /**
-         * This method indicates whether or not the Mesh Local Prefix is present in the Dataset.
-         *
-         * @returns TRUE if Mesh Local Prefix is present, FALSE otherwise.
-         *
-         */
-        bool IsMeshLocalPrefixPresent(void) const { return mIsMeshLocalPrefixPresent; }
-
-        /**
-         * This method indicates whether or not the Delay Timer is present in the Dataset.
-         *
-         * @returns TRUE if Delay Timer is present, FALSE otherwise.
-         *
-         */
-        bool IsDelayPresent(void) const { return mIsDelayPresent; }
-
-        /**
-         * This method indicates whether or not the PAN ID is present in the Dataset.
-         *
-         * @returns TRUE if PAN ID is present, FALSE otherwise.
-         *
-         */
-        bool IsPanIdPresent(void) const { return mIsPanIdPresent; }
-
-        /**
-         * This method indicates whether or not the Channel is present in the Dataset.
-         *
-         * @returns TRUE if Channel is present, FALSE otherwise.
-         *
-         */
-        bool IsChannelPresent(void) const { return mIsChannelPresent; }
-
-        /**
-         * This method indicates whether or not the PSKc is present in the Dataset.
-         *
-         * @returns TRUE if PSKc is present, FALSE otherwise.
-         *
-         */
-        bool IsPskcPresent(void) const { return mIsPskcPresent; }
-
-        /**
-         * This method indicates whether or not the Security Policy is present in the Dataset.
-         *
-         * @returns TRUE if Security Policy is present, FALSE otherwise.
-         *
-         */
-        bool IsSecurityPolicyPresent(void) const { return mIsSecurityPolicyPresent; }
-
-        /**
-         * This method indicates whether or not the Channel Mask is present in the Dataset.
-         *
-         * @returns TRUE if Channel Mask is present, FALSE otherwise.
-         *
-         */
-        bool IsChannelMaskPresent(void) const { return mIsChannelMaskPresent; }
+    private:
+        template <Component kComponent> void MarkAsPresent(void);
     };
 
     /**
-     * This type represents the information about the fields contained an Active or Pending Operational Dataset.
+     * Represents the information about the fields contained an Active or Pending Operational Dataset.
      *
      */
     class Info : public otOperationalDataset, public Clearable<Info>
     {
     public:
         /**
-         * This method indicates whether or not the Active Timestamp is present in the Dataset.
+         * Indicates whether or not the specified component is present in the Dataset.
          *
-         * @returns TRUE if Active Timestamp is present, FALSE otherwise.
+         * @tparam kComponent  The component to check.
+         *
+         * @retval TRUE   The component is present in the Dataset.
+         * @retval FALSE  The component is not present in the Dataset.
          *
          */
-        bool IsActiveTimestampPresent(void) const { return mComponents.mIsActiveTimestampPresent; }
+        template <Component kComponent> bool IsPresent(void) const { return GetComponents().IsPresent<kComponent>(); }
 
         /**
-         * This method gets the Active Timestamp in the Dataset.
+         * Gets the specified component in the Dataset.
          *
-         * This method MUST be used when Active Timestamp component is present in the Dataset, otherwise its behavior is
-         * undefined.
+         * @tparam  kComponent  The component to check.
          *
-         * @returns The Active Timestamp in the Dataset.
+         * MUST be used when component is present in the Dataset, otherwise its behavior is undefined.
+         *
+         * @returns The component value.
          *
          */
-        uint64_t GetActiveTimestamp(void) const { return mActiveTimestamp; }
+        template <Component kComponent> const typename TypeFor<kComponent>::Type &Get(void) const;
 
         /**
-         * This method sets the Active Timestamp in the Dataset.
+         * Gets the specified component in the Dataset.
          *
-         * @param[in] aTimestamp   A Timestamp value.
+         * @tparam  kComponent  The component to check.
+         *
+         * MUST be used when component is present in the Dataset, otherwise its behavior is undefined.
+         *
+         * @pram[out] aComponent  A reference to output the component value.
          *
          */
-        void SetActiveTimestamp(uint64_t aTimestamp)
+        template <Component kComponent> void Get(typename TypeFor<kComponent>::Type &aComponent) const;
+
+        /**
+         * Sets the specified component in the Dataset.
+         *
+         * @tparam  kComponent  The component to set.
+         *
+         * @param[in] aComponent   The component value.
+         *
+         */
+        template <Component kComponent> void Set(const typename TypeFor<kComponent>::Type &aComponent)
         {
-            mActiveTimestamp                      = aTimestamp;
-            mComponents.mIsActiveTimestampPresent = true;
+            GetComponents().MarkAsPresent<kComponent>();
+            AsNonConst(Get<kComponent>()) = aComponent;
         }
 
         /**
-         * This method indicates whether or not the Pending Timestamp is present in the Dataset.
+         * Returns a reference to the specified component in the Dataset to be updated by caller.
          *
-         * @returns TRUE if Pending Timestamp is present, FALSE otherwise.
+         * @tparam  kComponent  The component to set.
          *
-         */
-        bool IsPendingTimestampPresent(void) const { return mComponents.mIsPendingTimestampPresent; }
-
-        /**
-         * This method gets the Pending Timestamp in the Dataset.
-         *
-         * This method MUST be used when Pending Timestamp component is present in the Dataset, otherwise its behavior
-         * is undefined.
-         *
-         * @returns The Pending Timestamp in the Dataset.
+         * @returns A reference to the component in the Dataset.
          *
          */
-        uint64_t GetPendingTimestamp(void) const { return mPendingTimestamp; }
-
-        /**
-         * This method sets the Pending Timestamp in the Dataset.
-         *
-         * @param[in] aTimestamp   A Timestamp value.
-         *
-         */
-        void SetPendingTimestamp(uint64_t aTimestamp)
+        template <Component kComponent> typename TypeFor<kComponent>::Type &Update(void)
         {
-            mPendingTimestamp                      = aTimestamp;
-            mComponents.mIsPendingTimestampPresent = true;
+            GetComponents().MarkAsPresent<kComponent>();
+            return AsNonConst(Get<kComponent>());
         }
 
         /**
-         * This method indicates whether or not the Network Key is present in the Dataset.
-         *
-         * @returns TRUE if Network Key is present, FALSE otherwise.
-         *
-         */
-        bool IsNetworkKeyPresent(void) const { return mComponents.mIsNetworkKeyPresent; }
-
-        /**
-         * This method gets the Network Key in the Dataset.
-         *
-         * This method MUST be used when Network Key component is present in the Dataset, otherwise its behavior
-         * is undefined.
-         *
-         * @returns The Network Key in the Dataset.
-         *
-         */
-        const NetworkKey &GetNetworkKey(void) const { return static_cast<const NetworkKey &>(mNetworkKey); }
-
-        /**
-         * This method sets the Network Key in the Dataset.
-         *
-         * @param[in] aNetworkKey  A Network Key.
-         *
-         */
-        void SetNetworkKey(const NetworkKey &aNetworkKey)
-        {
-            mNetworkKey                      = aNetworkKey;
-            mComponents.mIsNetworkKeyPresent = true;
-        }
-
-        /**
-         * This method returns a reference to the Network Key in the Dataset to be updated by caller.
-         *
-         * @returns A reference to the Network Key in the Dataset.
-         *
-         */
-        NetworkKey &UpdateNetworkKey(void)
-        {
-            mComponents.mIsNetworkKeyPresent = true;
-            return static_cast<NetworkKey &>(mNetworkKey);
-        }
-
-        /**
-         * This method indicates whether or not the Network Name is present in the Dataset.
-         *
-         * @returns TRUE if Network Name is present, FALSE otherwise.
-         *
-         */
-        bool IsNetworkNamePresent(void) const { return mComponents.mIsNetworkNamePresent; }
-
-        /**
-         * This method gets the Network Name in the Dataset.
-         *
-         * This method MUST be used when Network Name component is present in the Dataset, otherwise its behavior is
-         * undefined.
-         *
-         * @returns The Network Name in the Dataset.
-         *
-         */
-        const Mac::NetworkName &GetNetworkName(void) const
-        {
-            return static_cast<const Mac::NetworkName &>(mNetworkName);
-        }
-
-        /**
-         * This method sets the Network Name in the Dataset.
-         *
-         * @param[in] aNetworkNameData   A Network Name Data.
-         *
-         */
-        void SetNetworkName(const Mac::NameData &aNetworkNameData)
-        {
-            IgnoreError(static_cast<Mac::NetworkName &>(mNetworkName).Set(aNetworkNameData));
-            mComponents.mIsNetworkNamePresent = true;
-        }
-
-        /**
-         * This method indicates whether or not the Extended PAN ID is present in the Dataset.
-         *
-         * @returns TRUE if Extended PAN ID is present, FALSE otherwise.
-         *
-         */
-        bool IsExtendedPanIdPresent(void) const { return mComponents.mIsExtendedPanIdPresent; }
-
-        /**
-         * This method gets the Extended PAN ID in the Dataset.
-         *
-         * This method MUST be used when Extended PAN ID component is present in the Dataset, otherwise its behavior is
-         * undefined.
-         *
-         * @returns The Extended PAN ID in the Dataset.
-         *
-         */
-        const Mac::ExtendedPanId &GetExtendedPanId(void) const
-        {
-            return static_cast<const Mac::ExtendedPanId &>(mExtendedPanId);
-        }
-
-        /**
-         * This method sets the Extended PAN ID in the Dataset.
-         *
-         * @param[in] aExtendedPanId   An Extended PAN ID.
-         *
-         */
-        void SetExtendedPanId(const Mac::ExtendedPanId &aExtendedPanId)
-        {
-            mExtendedPanId                      = aExtendedPanId;
-            mComponents.mIsExtendedPanIdPresent = true;
-        }
-
-        /**
-         * This method indicates whether or not the Mesh Local Prefix is present in the Dataset.
-         *
-         * @returns TRUE if Mesh Local Prefix is present, FALSE otherwise.
-         *
-         */
-        bool IsMeshLocalPrefixPresent(void) const { return mComponents.mIsMeshLocalPrefixPresent; }
-
-        /**
-         * This method gets the Mesh Local Prefix in the Dataset.
-         *
-         * This method MUST be used when Mesh Local Prefix component is present in the Dataset, otherwise its behavior
-         * is undefined.
-         *
-         * @returns The Mesh Local Prefix in the Dataset.
-         *
-         */
-        const Mle::MeshLocalPrefix &GetMeshLocalPrefix(void) const
-        {
-            return static_cast<const Mle::MeshLocalPrefix &>(mMeshLocalPrefix);
-        }
-
-        /**
-         * This method sets the Mesh Local Prefix in the Dataset.
-         *
-         * @param[in] aMeshLocalPrefix   A Mesh Local Prefix.
-         *
-         */
-        void SetMeshLocalPrefix(const Mle::MeshLocalPrefix &aMeshLocalPrefix)
-        {
-            mMeshLocalPrefix                      = aMeshLocalPrefix;
-            mComponents.mIsMeshLocalPrefixPresent = true;
-        }
-
-        /**
-         * This method indicates whether or not the Delay Timer is present in the Dataset.
-         *
-         * @returns TRUE if Delay Timer is present, FALSE otherwise.
-         *
-         */
-        bool IsDelayPresent(void) const { return mComponents.mIsDelayPresent; }
-
-        /**
-         * This method gets the Delay Timer in the Dataset.
-         *
-         * This method MUST be used when Delay Timer component is present in the Dataset, otherwise its behavior is
-         * undefined.
-         *
-         * @returns The Delay Timer in the Dataset.
-         *
-         */
-        uint32_t GetDelay(void) const { return mDelay; }
-
-        /**
-         * This method sets the Delay Timer in the Dataset.
-         *
-         * @param[in] aDely   A Delay value.
-         *
-         */
-        void SetDelay(uint32_t aDelay)
-        {
-            mDelay                      = aDelay;
-            mComponents.mIsDelayPresent = true;
-        }
-
-        /**
-         * This method indicates whether or not the PAN ID is present in the Dataset.
-         *
-         * @returns TRUE if PAN ID is present, FALSE otherwise.
-         *
-         */
-        bool IsPanIdPresent(void) const { return mComponents.mIsPanIdPresent; }
-
-        /**
-         * This method gets the PAN ID in the Dataset.
-         *
-         * This method MUST be used when PAN ID component is present in the Dataset, otherwise its behavior is
-         * undefined.
-         *
-         * @returns The PAN ID in the Dataset.
-         *
-         */
-        Mac::PanId GetPanId(void) const { return mPanId; }
-
-        /**
-         * This method sets the PAN ID in the Dataset.
-         *
-         * @param[in] aPanId  A PAN ID.
-         *
-         */
-        void SetPanId(Mac::PanId aPanId)
-        {
-            mPanId                      = aPanId;
-            mComponents.mIsPanIdPresent = true;
-        }
-
-        /**
-         * This method indicates whether or not the Channel is present in the Dataset.
-         *
-         * @returns TRUE if Channel is present, FALSE otherwise.
-         *
-         */
-        bool IsChannelPresent(void) const { return mComponents.mIsChannelPresent; }
-
-        /**
-         * This method gets the Channel in the Dataset.
-         *
-         * This method MUST be used when Channel component is present in the Dataset, otherwise its behavior is
-         * undefined.
-         *
-         * @returns The Channel in the Dataset.
-         *
-         */
-        uint16_t GetChannel(void) const { return mChannel; }
-
-        /**
-         * This method sets the Channel in the Dataset.
-         *
-         * @param[in] aChannel  A Channel.
-         *
-         */
-        void SetChannel(uint16_t aChannel)
-        {
-            mChannel                      = aChannel;
-            mComponents.mIsChannelPresent = true;
-        }
-
-        /**
-         * This method indicates whether or not the PSKc is present in the Dataset.
-         *
-         * @returns TRUE if PSKc is present, FALSE otherwise.
-         *
-         */
-        bool IsPskcPresent(void) const { return mComponents.mIsPskcPresent; }
-
-        /**
-         * This method gets the PSKc in the Dataset.
-         *
-         * This method MUST be used when PSKc component is present in the Dataset, otherwise its behavior is undefined.
-         *
-         * @returns The PSKc in the Dataset.
-         *
-         */
-        const Pskc &GetPskc(void) const { return static_cast<const Pskc &>(mPskc); }
-
-        /**
-         * This method set the PSKc in the Dataset.
-         *
-         * @param[in] aPskc  A PSKc value.
-         *
-         */
-        void SetPskc(const Pskc &aPskc)
-        {
-            mPskc                      = aPskc;
-            mComponents.mIsPskcPresent = true;
-        }
-
-        /**
-         * This method indicates whether or not the Security Policy is present in the Dataset.
-         *
-         * @returns TRUE if Security Policy is present, FALSE otherwise.
-         *
-         */
-        bool IsSecurityPolicyPresent(void) const { return mComponents.mIsSecurityPolicyPresent; }
-
-        /**
-         * This method gets the Security Policy in the Dataset.
-         *
-         * This method MUST be used when Security Policy component is present in the Dataset, otherwise its behavior is
-         * undefined.
-         *
-         * @returns The Security Policy in the Dataset.
-         *
-         */
-        const SecurityPolicy &GetSecurityPolicy(void) const
-        {
-            return static_cast<const SecurityPolicy &>(mSecurityPolicy);
-        }
-
-        /**
-         * This method sets the Security Policy in the Dataset.
-         *
-         * @param[in] aSecurityPolicy  A Security Policy to set in Dataset.
-         *
-         */
-        void SetSecurityPolicy(const SecurityPolicy &aSecurityPolicy)
-        {
-            mSecurityPolicy                      = aSecurityPolicy;
-            mComponents.mIsSecurityPolicyPresent = true;
-        }
-
-        /**
-         * This method indicates whether or not the Channel Mask is present in the Dataset.
-         *
-         * @returns TRUE if Channel Mask is present, FALSE otherwise.
-         *
-         */
-        bool IsChannelMaskPresent(void) const { return mComponents.mIsChannelMaskPresent; }
-
-        /**
-         * This method gets the Channel Mask in the Dataset.
-         *
-         * This method MUST be used when Channel Mask component is present in the Dataset, otherwise its behavior is
-         * undefined.
-         *
-         * @returns The Channel Mask in the Dataset.
-         *
-         */
-        otChannelMask GetChannelMask(void) const { return mChannelMask; }
-
-        /**
-         * This method sets the Channel Mask in the Dataset.
-         *
-         * @param[in] aChannelMask   A Channel Mask value.
-         *
-         */
-        void SetChannelMask(otChannelMask aChannelMask)
-        {
-            mChannelMask                      = aChannelMask;
-            mComponents.mIsChannelMaskPresent = true;
-        }
-
-        /**
-         * This method populates the Dataset with random fields.
+         * Populates the Dataset with random fields.
          *
          * The Network Key, PSKc, Mesh Local Prefix, PAN ID, and Extended PAN ID are generated randomly (crypto-secure)
          * with Network Name set to "OpenThread-%04x" with PAN ID appended as hex. The Channel is chosen randomly from
@@ -595,85 +212,331 @@ public:
          */
         Error GenerateRandom(Instance &aInstance);
 
-        /**
-         * This method checks whether the Dataset is a subset of another one, i.e., all the components in the current
-         * Dataset are also present in the @p aOther and the component values fully match.
-         *
-         * The matching of components in the two Datasets excludes Active/Pending Timestamp and Delay components.
-         *
-         * @param[in] aOther   The other Dataset to check against.
-         *
-         * @retval TRUE   The current dataset is a subset of @p aOther.
-         * @retval FALSE  The current Dataset is not a subset of @p aOther.
-         *
-         */
-        bool IsSubsetOf(const Info &aOther) const;
+    private:
+        Components       &GetComponents(void) { return static_cast<Components &>(mComponents); }
+        const Components &GetComponents(void) const { return static_cast<const Components &>(mComponents); }
     };
 
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      */
     Dataset(void);
 
     /**
-     * This method clears the Dataset.
+     * Clears the Dataset.
      *
      */
-    void Clear(void);
+    void Clear(void) { mLength = 0; }
 
     /**
-     * This method indicates whether or not the dataset appears to be well-formed.
+     * Parses and validates all TLVs contained within the Dataset.
      *
-     * @returns TRUE if the dataset appears to be well-formed, FALSE otherwise.
+     * Performs the following checks all TLVs in the Dataset:
+     *  - Ensures correct TLV format and expected minimum length for known TLV types that may appear in a Dataset.
+     *  - Validates TLV value when applicable (e.g., Channel TLV using a supported channel).
+     *  - Ensures no duplicate occurrence of same TLV type.
+     *
+     * @retval kErrorNone   Successfully validated all the TLVs in the Dataset.
+     * @retval kErrorParse  Dataset TLVs is not well-formed.
      *
      */
-    bool IsValid(void) const;
+    Error ValidateTlvs(void) const;
 
     /**
-     * This method returns a pointer to the TLV with a given type.
+     * Validates the format and value of a given MeshCoP TLV used in Dataset.
      *
-     * @param[in] aType  A TLV type.
+     * TLV types that can appear in an Active or Pending Operational Dataset are validated. Other TLV types including
+     * unknown TLV types are considered as valid.
      *
-     * @returns A pointer to the TLV or nullptr if none is found.
+     * @param[in]  aTlv    The TLV to validate.
+     *
+     * @retval  TRUE       The TLV format and value is valid, or TLV type is unknown (not supported in Dataset).
+     * @retval  FALSE      The TLV format or value is invalid.
      *
      */
-    Tlv *GetTlv(Tlv::Type aType) { return AsNonConst(AsConst(this)->GetTlv(aType)); }
+    static bool IsTlvValid(const Tlv &aTlv);
 
     /**
-     * This method returns a pointer to the TLV with a given type.
+     * Indicates whether or not a given TLV type is present in the Dataset.
      *
-     * @param[in] aType  The TLV type.
+     * @param[in] aType  The TLV type to check.
      *
-     * @returns A pointer to the TLV or nullptr if none is found.
+     * @retval TRUE    TLV with @p aType is present in the Dataset.
+     * @retval FALSE   TLV with @p aType is not present in the Dataset.
      *
      */
-    const Tlv *GetTlv(Tlv::Type aType) const;
+    bool ContainsTlv(Tlv::Type aType) const { return (FindTlv(aType) != nullptr); }
 
     /**
-     * This template method returns a pointer to the TLV with a given template type `TlvType`
+     * Indicates whether or not a given TLV type is present in the Dataset.
      *
-     * @returns A pointer to the TLV or nullptr if none is found.
+     * @tparam  aTlvType  The TLV type to check.
+     *
+     * @retval TRUE    TLV of @p aTlvType is present in the Dataset.
+     * @retval FALSE   TLV of @p aTlvType is not present in the Dataset.
      *
      */
-    template <typename TlvType> TlvType *GetTlv(void)
+    template <typename TlvType> bool Contains(void) const
     {
-        return static_cast<TlvType *>(GetTlv(static_cast<Tlv::Type>(TlvType::kType)));
+        return ContainsTlv(static_cast<Tlv::Type>(TlvType::kType));
     }
 
     /**
-     * This template method returns a pointer to the TLV with a given template type `TlvType`
+     * Indicates whether or not the Dataset contains all the TLVs from a given array.
      *
-     * @returns A pointer to the TLV or nullptr if none is found.
+     * @param[in] aTlvTypes    An array of TLV types.
+     * @param[in] aLength      Length of @p aTlvTypes array.
+     *
+     * @retval TRUE    The Dataset contains all the TLVs in @p aTlvTypes array.
+     * @retval FALSE   The Dataset does not contain all the TLVs in @p aTlvTypes array.
      *
      */
-    template <typename TlvType> const TlvType *GetTlv(void) const
+    bool ContainsAllTlvs(const Tlv::Type aTlvTypes[], uint8_t aLength) const;
+
+    /**
+     * Indicates whether or not the Dataset contains all the required TLVs for an Active or Pending Dataset.
+     *
+     * @param[in] aType  The Dataset type, Active or Pending.
+     *
+     * @retval TRUE    The Dataset contains all the required TLVs for @p aType.
+     * @retval FALSE   The Dataset does not contain all the required TLVs for @p aType.
+     *
+     */
+    bool ContainsAllRequiredTlvsFor(Type aType) const;
+
+    /**
+     * Searches for a given TLV type in the Dataset.
+     *
+     * @param[in] aType  The TLV type to find.
+     *
+     * @returns A pointer to the TLV or `nullptr` if not found.
+     *
+     */
+    Tlv *FindTlv(Tlv::Type aType) { return AsNonConst(AsConst(this)->FindTlv(aType)); }
+
+    /**
+     * Searches for a given TLV type in the Dataset.
+     *
+     * @param[in] aType  The TLV type to find.
+     *
+     * @returns A pointer to the TLV or `nullptr` if not found.
+     *
+     */
+    const Tlv *FindTlv(Tlv::Type aType) const;
+
+    /**
+     * Finds and reads a simple TLV in the Dataset.
+     *
+     * If the specified TLV type is not found, `kErrorNotFound` is reported.
+     *
+     * @tparam  SimpleTlvType   The simple TLV type (must be a sub-class of `SimpleTlvInfo`).
+     *
+     * @param[out] aValue       A reference to return the read TLV value.
+     *
+     * @retval kErrorNone      Successfully found and read the TLV value. @p aValue is updated.
+     * @retval kErrorNotFound  Could not find the TLV in the Dataset.
+     *
+     */
+    template <typename SimpleTlvType> Error Read(typename SimpleTlvType::ValueType &aValue) const
     {
-        return static_cast<const TlvType *>(GetTlv(static_cast<Tlv::Type>(TlvType::kType)));
+        const Tlv *tlv = FindTlv(static_cast<Tlv::Type>(SimpleTlvType::kType));
+
+        return (tlv == nullptr) ? kErrorNotFound : (aValue = tlv->ReadValueAs<SimpleTlvType>(), kErrorNone);
     }
 
     /**
-     * This method returns a pointer to the byte representation of the Dataset.
+     * Finds and reads an `uint` TLV in the Dataset.
+     *
+     * If the specified TLV type is not found, `kErrorNotFound` is reported.
+     *
+     * @tparam  UintTlvType     The integer simple TLV type (must be a sub-class of `UintTlvInfo`).
+     *
+     * @param[out] aValue       A reference to return the read TLV value.
+     *
+     * @retval kErrorNone      Successfully found and read the TLV value. @p aValue is updated.
+     * @retval kErrorNotFound  Could not find the TLV in the Dataset.
+     *
+     */
+    template <typename UintTlvType> Error Read(typename UintTlvType::UintValueType &aValue) const
+    {
+        const Tlv *tlv = FindTlv(static_cast<Tlv::Type>(UintTlvType::kType));
+
+        return (tlv == nullptr) ? kErrorNotFound : (aValue = tlv->ReadValueAs<UintTlvType>(), kErrorNone);
+    }
+
+    /**
+     * Writes a TLV to the Dataset.
+     *
+     * If the specified TLV type already exists, it will be replaced. Otherwise, the TLV will be appended.
+     *
+     * @param[in] aTlv     A reference to the TLV.
+     *
+     * @retval kErrorNone    Successfully updated the TLV.
+     * @retval kErrorNoBufs  Could not add the TLV due to insufficient buffer space.
+     *
+     */
+    Error WriteTlv(const Tlv &aTlv);
+
+    /**
+     * Writes a TLV in the Dataset.
+     *
+     * If the specified TLV type already exists, it will be replaced. Otherwise, the TLV will be appended.
+     *
+     * @param[in]  aType     The TLV type.
+     * @param[in]  aValue    A pointer to a buffer containing the TLV value.
+     * @param[in]  aLength   The TLV length.
+     *
+     * @retval kErrorNone    Successfully updated the TLV.
+     * @retval kErrorNoBufs  Could not add the TLV due to insufficient buffer space.
+     *
+     */
+    Error WriteTlv(Tlv::Type aType, const void *aValue, uint8_t aLength);
+
+    /**
+     * Writes a simple TLV in the Dataset.
+     *
+     * If the specified TLV type already exists, it will be replaced. Otherwise, the TLV will be appended.
+     *
+     * @tparam  SimpleTlvType   The simple TLV type (must be a sub-class of `SimpleTlvInfo`).
+     *
+     * @param[in] aValue   The TLV value.
+     *
+     * @retval kErrorNone    Successfully updated the TLV.
+     * @retval kErrorNoBufs  Could not add the TLV due to insufficient buffer space.
+     *
+     */
+    template <typename SimpleTlvType> Error Write(const typename SimpleTlvType::ValueType &aValue)
+    {
+        return WriteTlv(static_cast<Tlv::Type>(SimpleTlvType::kType), &aValue, sizeof(aValue));
+    }
+
+    /**
+     * Writes a `uint` TLV in the Dataset.
+     *
+     * If the specified TLV type already exists, it will be replaced. Otherwise, the TLV will be appended.
+     *
+     * @tparam  UintTlvType     The integer simple TLV type (must be a sub-class of `UintTlvInfo`).
+     *
+     * @param[in]  aValue   The TLV value.
+     *
+     * @retval kErrorNone    Successfully updated the TLV.
+     * @retval kErrorNoBufs  Could not add the TLV due to insufficient buffer space.
+     *
+     */
+    template <typename UintTlvType> Error Write(typename UintTlvType::UintValueType aValue)
+    {
+        typename UintTlvType::UintValueType value = BigEndian::HostSwap(aValue);
+
+        return WriteTlv(static_cast<Tlv::Type>(UintTlvType::kType), &value, sizeof(value));
+    }
+
+    /**
+     * Writes TLVs parsed from a given Dataset into this Dataset.
+     *
+     * TLVs from @p aDataset are parsed and written in the current Dataset. If the same TLV already exists, it will be
+     * replaced. Otherwise, the TLV will be appended.
+     *
+     * @param[in] aDataset   A Dataset.
+     *
+     * @retval kErrorNone    Successfully merged TLVs from @p Dataset into this Dataset.
+     * @retval kErrorParse   The @p aDataset is not valid.
+     * @retval kErrorNoBufs  Could not add the TLVs due to insufficient buffer space.
+     *
+     */
+    Error WriteTlvsFrom(const Dataset &aDataset);
+
+    /**
+     * Writes TLVs parsed from a given buffer containing a sequence of TLVs into this Dataset.
+     *
+     * TLVs from @p aTlvs buffer are parsed and written in the current Dataset. If the same TLV already exists, it will
+     * be replaced. Otherwise, the TLV will be appended.
+     *
+     * @param[in] aTlvs     A pointer to a buffer containing TLVs.
+     * @param[in] aLength   Number of bytes in @p aTlvs buffer.
+     *
+     * @retval kErrorNone    Successfully merged TLVs from @p Dataset into this Dataset.
+     * @retval kErrorParse   The @p aTlvs is not valid.
+     * @retval kErrorNoBufs  Could not add the TLVs due to insufficient buffer space.
+     *
+     */
+    Error WriteTlvsFrom(const uint8_t *aTlvs, uint8_t aLength);
+
+    /**
+     * Writes TLVs corresponding to the components in a given `Dataset::Info` into this Dataset.
+     *
+     * If the same TLV already exists, it will be replaced. Otherwise the TLV will be appended.
+     *
+     * @param[in] aDataseInfo     A `Dataset::Info`.
+     *
+     * @retval kErrorNone    Successfully merged TLVs from @p aDataseInfo into this Dataset.
+     * @retval kErrorNoBufs  Could not add the TLVs due to insufficient buffer space.
+     *
+     */
+    Error WriteTlvsFrom(const Dataset::Info &aDatasetInfo);
+
+    /**
+     * Appends a given sequence of TLVs to the Dataset.
+     *
+     * @note Unlike `WriteTlvsFrom()`, this method does not validate the @p aTlvs to be well-formed or check that there
+     * are no duplicates. It is up to caller to validate the resulting `Dataset` (e.g., using `ValidateTlvs()`) if
+     * desired.
+     *
+     * @param[in] aTlvs     A pointer to a buffer containing TLVs.
+     * @param[in] aLength   Number of bytes in @p aTlvs buffer.
+     *
+     * @retval kErrorNone    Successfully merged TLVs from @p Dataset into this Dataset.
+     * @retval kErrorNoBufs  Could not append the TLVs due to insufficient buffer space.
+     *
+     */
+    Error AppendTlvsFrom(const uint8_t *aTlvs, uint8_t aLength);
+
+    /**
+     * Removes a TLV from the Dataset.
+     *
+     * If the Dataset does not contain the given TLV type, no action is performed.
+     *
+     * @param[in] aType  The TLV type to remove.
+     *
+     */
+    void RemoveTlv(Tlv::Type aType);
+
+    /**
+     * Reads the Timestamp TLV (Active or Pending).
+     *
+     * @param[in]  aType       The timestamp type, active or pending.
+     * @param[out] aTimestamp  A reference to a `Timestamp` to output the value.
+     *
+     * @retval kErrorNone      Timestamp was read successfully. @p aTimestamp is updated.
+     * @retval kErrorNotFound  Could not find the requested Timestamp TLV.
+     *
+     */
+    Error ReadTimestamp(Type aType, Timestamp &aTimestamp) const;
+
+    /**
+     * Writes the Timestamp TLV (Active or Pending).
+     *
+     * If the TLV already exists, it will be replaced. Otherwise, the TLV will be appended.
+     *
+     * @param[in] aType       The timestamp type, active or pending.
+     * @param[in] aTimestamp  The timestamp value.
+     *
+     * @retval kErrorNone    Successfully updated the Timestamp TLV.
+     * @retval kErrorNoBufs  Could not append the Timestamp TLV due to insufficient buffer space.
+     *
+     */
+    Error WriteTimestamp(Type aType, const Timestamp &aTimestamp);
+
+    /**
+     * Removes the Timestamp TLV (Active or Pending) from the Dataset.
+     *
+     * @param[in] aType       The timestamp type, active or pending.
+     *
+     */
+    void RemoveTimestamp(Type aType);
+
+    /**
+     * Returns a pointer to the byte representation of the Dataset.
      *
      * @returns A pointer to the byte representation of the Dataset.
      *
@@ -681,7 +544,7 @@ public:
     uint8_t *GetBytes(void) { return mTlvs; }
 
     /**
-     * This method returns a pointer to the byte representation of the Dataset.
+     * Returns a pointer to the byte representation of the Dataset.
      *
      * @returns A pointer to the byte representation of the Dataset.
      *
@@ -689,7 +552,7 @@ public:
     const uint8_t *GetBytes(void) const { return mTlvs; }
 
     /**
-     * This method converts the TLV representation to structure representation.
+     * Converts the TLV representation to structure representation.
      *
      * @param[out] aDatasetInfo  A reference to `Info` object to output the Dataset.
      *
@@ -697,31 +560,31 @@ public:
     void ConvertTo(Info &aDatasetInfo) const;
 
     /**
-     * This method converts the TLV representation to structure representation.
+     * Converts the TLV representation to structure representation.
      *
-     * @param[out] aDataset  A reference to `otOperationalDatasetTlvs` to output the Dataset.
-     *
-     */
-    void ConvertTo(otOperationalDatasetTlvs &aDataset) const;
-
-    /**
-     * This method returns the Dataset size in bytes.
-     *
-     * @returns The Dataset size in bytes.
+     * @param[out] aTlvs  A reference to output the Dataset as a sequence of TLVs.
      *
      */
-    uint16_t GetSize(void) const { return mLength; }
+    void ConvertTo(Tlvs &aTlvs) const;
 
     /**
-     * This method sets the Dataset size in bytes.
+     * Returns the Dataset length in bytes.
+     *
+     * @returns The Dataset length in bytes.
+     *
+     */
+    uint8_t GetLength(void) const { return mLength; }
+
+    /**
+     * Sets the Dataset size in bytes.
      *
      * @param[in] aSize  The Dataset size in bytes.
      *
      */
-    void SetSize(uint16_t aSize) { mLength = aSize; }
+    void SetLength(uint8_t aLength) { mLength = aLength; }
 
     /**
-     * This method returns the local time the dataset was last updated.
+     * Returns the local time the dataset was last updated.
      *
      * @returns The local time the dataset was last updated.
      *
@@ -729,155 +592,59 @@ public:
     TimeMilli GetUpdateTime(void) const { return mUpdateTime; }
 
     /**
-     * This method gets the Timestamp (Active or Pending).
+     * Sets this Dataset using an existing Dataset.
      *
-     * @param[in]  aType       The type: active or pending.
-     * @param[out] aTimestamp  A reference to a `Timestamp` to output the value.
-     *
-     * @retval kErrorNone      Timestamp was read successfully. @p aTimestamp is updated.
-     * @retval kErrorNotFound  Could not find the requested Timestamp TLV.
-     *
-     */
-    Error GetTimestamp(Type aType, Timestamp &aTimestamp) const;
-
-    /**
-     * This method sets the Timestamp value.
-     *
-     * @param[in] aType        The type: active or pending.
-     * @param[in] aTimestamp   A Timestamp.
-     *
-     */
-    void SetTimestamp(Type aType, const Timestamp &aTimestamp);
-
-    /**
-     * This method sets a TLV in the Dataset.
-     *
-     * @param[in]  aTlv  A reference to the TLV.
-     *
-     * @retval kErrorNone    Successfully set the TLV.
-     * @retval kErrorNoBufs  Could not set the TLV due to insufficient buffer space.
-     *
-     */
-    Error SetTlv(const Tlv &aTlv);
-
-    /**
-     * This method sets a TLV with a given TLV Type and Value.
-     *
-     * @param[in] aType     The TLV Type.
-     * @param[in] aValue    A pointer to TLV Value.
-     * @param[in] aLength   The TLV Length in bytes (length of @p aValue).
-     *
-     * @retval kErrorNone    Successfully set the TLV.
-     * @retval kErrorNoBufs  Could not set the TLV due to insufficient buffer space.
-     *
-     */
-    Error SetTlv(Tlv::Type aType, const void *aValue, uint8_t aLength);
-
-    /**
-     * This template method sets a TLV with a given TLV Type and Value.
-     *
-     * @tparam ValueType    The type of TLV's Value.
-     *
-     * @param[in] aType     The TLV Type.
-     * @param[in] aValue    The TLV Value (of type `ValueType`).
-     *
-     * @retval kErrorNone    Successfully set the TLV.
-     * @retval kErrorNoBufs  Could not set the TLV due to insufficient buffer space.
-     *
-     */
-    template <typename ValueType> Error SetTlv(Tlv::Type aType, const ValueType &aValue)
-    {
-        static_assert(!TypeTraits::IsPointer<ValueType>::kValue, "ValueType must not be a pointer");
-
-        return SetTlv(aType, &aValue, sizeof(ValueType));
-    }
-
-    /**
-     * This method sets the Dataset using TLVs stored in a message buffer.
-     *
-     * @param[in]  aMessage  The message buffer.
-     * @param[in]  aOffset   The message buffer offset where the dataset starts.
-     * @param[in]  aLength   The TLVs length in the message buffer in bytes.
-     *
-     * @retval kErrorNone         Successfully set the Dataset.
-     * @retval kErrorInvalidArgs  The values of @p aOffset and @p aLength are not valid for @p aMessage.
-     *
-     */
-    Error Set(const Message &aMessage, uint16_t aOffset, uint8_t aLength);
-
-    /**
-     * This method sets the Dataset using an existing Dataset.
-     *
-     * If this Dataset is an Active Dataset, any Pending Timestamp and Delay Timer TLVs will be omitted in the copy
-     * from @p aDataset.
-     *
-     * @param[in]  aType     The type of the dataset, active or pending.
      * @param[in]  aDataset  The input Dataset.
      *
      */
-    void Set(Type aType, const Dataset &aDataset);
+    void SetFrom(const Dataset &aDataset);
 
     /**
-     * This method sets the Dataset from a given structure representation.
+     * Sets the Dataset from a given structure representation.
      *
      * @param[in]  aDatasetInfo  The input Dataset as `Dataset::Info`.
      *
+     */
+    void SetFrom(const Info &aDatasetInfo);
+
+    /**
+     * Sets the Dataset from a given sequence of TLVs.
+     *
+     * @param[in]  aTlvs          The input Dataset as `Tlvs`.
+     *
      * @retval kErrorNone         Successfully set the Dataset.
-     * @retval kErrorInvalidArgs  Dataset is missing Active and/or Pending Timestamp.
+     * @retval kErrorInvalidArgs  The @p aTlvs is invalid and its length is longer than `kMaxLength`.
      *
      */
-    Error SetFrom(const Info &aDatasetInfo);
+    Error SetFrom(const Tlvs &aTlvs);
 
     /**
-     * This method sets the Dataset using @p aDataset.
+     * Sets the Dataset from a buffer containing a sequence of TLVs.
      *
-     * @param[in]  aDataset  The input Dataset as otOperationalDatasetTlvs.
+     * @param[in] aTlvs     A pointer to a buffer containing TLVs.
+     * @param[in] aLength   Number of bytes in @p aTlvs buffer.
+     *
+     * @retval kErrorNone         Successfully set the Dataset.
+     * @retval kErrorInvalidArgs  @p aLength is longer than `kMaxLength`.
      *
      */
-    void SetFrom(const otOperationalDatasetTlvs &aDataset);
+    Error SetFrom(const uint8_t *aTlvs, uint8_t aLength);
 
     /**
-     * This method removes a TLV from the Dataset.
+     * Sets the Dataset by reading the TLVs bytes from given message.
      *
-     * @param[in] aType The type of a specific TLV.
+     * @param[in] aMessage       The message to read from.
+     * @param[in] aOffsetRange   The offset range in @p aMessage to read the Dataset TLVs.
+     *
+     * @retval kErrorNone    Successfully set the Dataset.
+     * @retval kInvalidArgs  The given offset range length is longer than `kMaxLength`.
+     * @retval kErrorParse   Could not read or parse the dataset from @p aMessage.
      *
      */
-    void RemoveTlv(Tlv::Type aType);
+    Error SetFrom(const Message &aMessage, const OffsetRange &aOffsetRange);
 
     /**
-     * This method appends the MLE Dataset TLV but excluding MeshCoP Sub Timestamp TLV.
-     *
-     * @param[in] aType          The type of the dataset, active or pending.
-     * @param[in] aMessage       A message to append to.
-     *
-     * @retval kErrorNone    Successfully append MLE Dataset TLV without MeshCoP Sub Timestamp TLV.
-     * @retval kErrorNoBufs  Insufficient available buffers to append the message with MLE Dataset TLV.
-     *
-     */
-    Error AppendMleDatasetTlv(Type aType, Message &aMessage) const;
-
-    /**
-     * This method applies the Active or Pending Dataset to the Thread interface.
-     *
-     * @param[in]  aInstance            A reference to the OpenThread instance.
-     * @param[out] aIsNetworkKeyUpdated A pointer to where to place whether network key was updated.
-     *
-     * @retval kErrorNone   Successfully applied configuration.
-     * @retval kErrorParse  The dataset has at least one TLV with invalid format.
-     *
-     */
-    Error ApplyConfiguration(Instance &aInstance, bool *aIsNetworkKeyUpdated = nullptr) const;
-
-    /**
-     * This method converts a Pending Dataset to an Active Dataset.
-     *
-     * This method removes the Delay Timer and Pending Timestamp TLVs
-     *
-     */
-    void ConvertToActive(void);
-
-    /**
-     * This method returns a pointer to the start of Dataset TLVs sequence.
+     * Returns a pointer to the start of Dataset TLVs sequence.
      *
      * @return  A pointer to the start of Dataset TLVs sequence.
      *
@@ -885,7 +652,7 @@ public:
     Tlv *GetTlvsStart(void) { return reinterpret_cast<Tlv *>(mTlvs); }
 
     /**
-     * This method returns a pointer to the start of Dataset TLVs sequence.
+     * Returns a pointer to the start of Dataset TLVs sequence.
      *
      * @return  A pointer to start of Dataset TLVs sequence.
      *
@@ -893,7 +660,7 @@ public:
     const Tlv *GetTlvsStart(void) const { return reinterpret_cast<const Tlv *>(mTlvs); }
 
     /**
-     * This method returns a pointer to the past-the-end of Dataset TLVs sequence.
+     * Returns a pointer to the past-the-end of Dataset TLVs sequence.
      *
      * Note that past-the-end points to the byte after the end of the last TLV in Dataset TLVs sequence.
      *
@@ -903,7 +670,7 @@ public:
     Tlv *GetTlvsEnd(void) { return reinterpret_cast<Tlv *>(mTlvs + mLength); }
 
     /**
-     * This method returns a pointer to the past-the-end of Dataset TLVs sequence.
+     * Returns a pointer to the past-the-end of Dataset TLVs sequence.
      *
      * Note that past-the-end points to the byte after the end of the last TLV in Dataset TLVs sequence.
      *
@@ -913,7 +680,21 @@ public:
     const Tlv *GetTlvsEnd(void) const { return reinterpret_cast<const Tlv *>(mTlvs + mLength); }
 
     /**
-     * This static method converts a Dataset Type to a string.
+     * Determines whether this Dataset is a subset of another Dataset.
+     *
+     * The Dataset is considered a subset if all of its TLVs, excluding Active/Pending Timestamp and Delay Timer TLVs,
+     * are present in the @p aOther Dataset and the TLV values match exactly.
+     *
+     * @param[in] aOther   The other Dataset to check against.
+     *
+     * @retval TRUE   The current Dataset is a subset of @p aOther.
+     * @retval FALSE  The current Dataset is not a subset of @p aOther.
+     *
+     */
+    bool IsSubsetOf(const Dataset &aOther) const;
+
+    /**
+     * Converts a Dataset Type to a string.
      *
      * @param[in]  aType   A Dataset type.
      *
@@ -923,46 +704,136 @@ public:
 private:
     void RemoveTlv(Tlv *aTlv);
 
-    uint8_t   mTlvs[kMaxSize]; ///< The Dataset buffer
-    TimeMilli mUpdateTime;     ///< Local time last updated
-    uint16_t  mLength;         ///< The number of valid bytes in @var mTlvs
+    static Tlv::Type TimestampTlvFor(Type aType)
+    {
+        return (aType == kActive) ? Tlv::kActiveTimestamp : Tlv::kPendingTimestamp;
+    }
+
+    uint8_t   mTlvs[kMaxLength];
+    uint8_t   mLength;
+    TimeMilli mUpdateTime; // Local time last updated
 };
 
-/**
- * This is a template specialization of `SetTlv<ValueType>` with a `uint16_t` value type.
- *
- * @param[in] aType     The TLV Type.
- * @param[in] aValue    The TLV value (as `uint16_t`).
- *
- * @retval kErrorNone    Successfully set the TLV.
- * @retval kErrorNoBufs  Could not set the TLV due to insufficient buffer space.
- *
- */
-template <> inline Error Dataset::SetTlv(Tlv::Type aType, const uint16_t &aValue)
-{
-    uint16_t value = Encoding::BigEndian::HostSwap16(aValue);
+//---------------------------------------------------------------------------------------------------------------------
+// Template specializations
 
-    return SetTlv(aType, &value, sizeof(uint16_t));
+//- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// `Dataset::Components::IsPresent()` and `Dataset::Components::MarkAsPresent()`
+
+#define DefineIsPresentAndMarkAsPresent(Component)                                            \
+    template <> inline bool Dataset::Components::IsPresent<Dataset::k##Component>(void) const \
+    {                                                                                         \
+        return mIs##Component##Present;                                                       \
+    }                                                                                         \
+                                                                                              \
+    template <> inline void Dataset::Components::MarkAsPresent<Dataset::k##Component>(void)   \
+    {                                                                                         \
+        mIs##Component##Present = true;                                                       \
+    }
+
+// clang-format off
+
+DefineIsPresentAndMarkAsPresent(ActiveTimestamp)
+DefineIsPresentAndMarkAsPresent(PendingTimestamp)
+DefineIsPresentAndMarkAsPresent(NetworkKey)
+DefineIsPresentAndMarkAsPresent(NetworkName)
+DefineIsPresentAndMarkAsPresent(ExtendedPanId)
+DefineIsPresentAndMarkAsPresent(MeshLocalPrefix)
+DefineIsPresentAndMarkAsPresent(Delay)
+DefineIsPresentAndMarkAsPresent(PanId)
+DefineIsPresentAndMarkAsPresent(Channel)
+DefineIsPresentAndMarkAsPresent(Pskc)
+DefineIsPresentAndMarkAsPresent(SecurityPolicy)
+DefineIsPresentAndMarkAsPresent(ChannelMask)
+
+#undef DefineIsPresentAndMarkAsPresent
+
+//- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// `Dataset::TypeFor<>`
+
+template <> struct Dataset::TypeFor<Dataset::kActiveTimestamp>  { using Type = Timestamp; };
+template <> struct Dataset::TypeFor<Dataset::kPendingTimestamp> { using Type = Timestamp; };
+template <> struct Dataset::TypeFor<Dataset::kNetworkKey>       { using Type = NetworkKey; };
+template <> struct Dataset::TypeFor<Dataset::kNetworkName>      { using Type = NetworkName; };
+template <> struct Dataset::TypeFor<Dataset::kExtendedPanId>    { using Type = ExtendedPanId; };
+template <> struct Dataset::TypeFor<Dataset::kMeshLocalPrefix>  { using Type = Ip6::NetworkPrefix; };
+template <> struct Dataset::TypeFor<Dataset::kDelay>            { using Type = uint32_t; };
+template <> struct Dataset::TypeFor<Dataset::kPanId>            { using Type = Mac::PanId; };
+template <> struct Dataset::TypeFor<Dataset::kChannel>          { using Type = uint16_t; };
+template <> struct Dataset::TypeFor<Dataset::kPskc>             { using Type = Pskc; };
+template <> struct Dataset::TypeFor<Dataset::kSecurityPolicy>   { using Type = SecurityPolicy; };
+template <> struct Dataset::TypeFor<Dataset::kChannelMask>      { using Type = uint32_t; };
+
+// clang-format on
+
+//- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Dataset::Info::Get<>()
+
+template <> inline const NetworkKey &Dataset::Info::Get<Dataset::kNetworkKey>(void) const
+{
+    return AsCoreType(&mNetworkKey);
 }
 
-/**
- * This is a template specialization of `SetTlv<ValueType>` with a `uint32_t` value type
- *
- * @param[in] aType     The TLV Type.
- * @param[in] aValue    The TLV value (as `uint32_t`).
- *
- * @retval kErrorNone    Successfully set the TLV.
- * @retval kErrorNoBufs  Could not set the TLV due to insufficient buffer space.
- *
- */
-template <> inline Error Dataset::SetTlv(Tlv::Type aType, const uint32_t &aValue)
+template <> inline const NetworkName &Dataset::Info::Get<Dataset::kNetworkName>(void) const
 {
-    uint32_t value = Encoding::BigEndian::HostSwap32(aValue);
+    return AsCoreType(&mNetworkName);
+}
 
-    return SetTlv(aType, &value, sizeof(uint32_t));
+template <> inline const ExtendedPanId &Dataset::Info::Get<Dataset::kExtendedPanId>(void) const
+{
+    return AsCoreType(&mExtendedPanId);
+}
+
+template <> inline const Ip6::NetworkPrefix &Dataset::Info::Get<Dataset::kMeshLocalPrefix>(void) const
+{
+    return static_cast<const Ip6::NetworkPrefix &>(mMeshLocalPrefix);
+}
+
+template <> inline const uint32_t &Dataset::Info::Get<Dataset::kDelay>(void) const { return mDelay; }
+
+template <> inline const Mac::PanId &Dataset::Info::Get<Dataset::kPanId>(void) const { return mPanId; }
+
+template <> inline const uint16_t &Dataset::Info::Get<Dataset::kChannel>(void) const { return mChannel; }
+
+template <> inline const Pskc &Dataset::Info::Get<Dataset::kPskc>(void) const { return AsCoreType(&mPskc); }
+
+template <> inline const SecurityPolicy &Dataset::Info::Get<Dataset::kSecurityPolicy>(void) const
+{
+    return AsCoreType(&mSecurityPolicy);
+}
+
+template <> inline const uint32_t &Dataset::Info::Get<Dataset::kChannelMask>(void) const { return mChannelMask; }
+
+//- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Active and Pending Timestamp
+
+template <> inline void Dataset::Info::Get<Dataset::kActiveTimestamp>(Timestamp &aTimestamp) const
+{
+    aTimestamp.SetFrom(mActiveTimestamp);
+}
+
+template <> inline void Dataset::Info::Get<Dataset::kPendingTimestamp>(Timestamp &aTimestamp) const
+{
+    aTimestamp.SetFrom(mPendingTimestamp);
+}
+
+template <> inline void Dataset::Info::Set<Dataset::kActiveTimestamp>(const Timestamp &aTimestamp)
+{
+    GetComponents().MarkAsPresent<kActiveTimestamp>();
+    aTimestamp.ConvertTo(mActiveTimestamp);
+}
+
+template <> inline void Dataset::Info::Set<Dataset::kPendingTimestamp>(const Timestamp &aTimestamp)
+{
+    GetComponents().MarkAsPresent<kPendingTimestamp>();
+    aTimestamp.ConvertTo(mPendingTimestamp);
 }
 
 } // namespace MeshCoP
+
+DefineCoreType(otOperationalDatasetComponents, MeshCoP::Dataset::Components);
+DefineCoreType(otOperationalDataset, MeshCoP::Dataset::Info);
+
 } // namespace ot
 
 #endif // MESHCOP_DATASET_HPP_

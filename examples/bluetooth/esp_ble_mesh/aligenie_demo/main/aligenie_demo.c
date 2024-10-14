@@ -1,18 +1,19 @@
-/* AliGenie - Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/*
+ * AliGenie - Example
+ *
+ * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
 
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <math.h>
+#include <inttypes.h>
 
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "nvs_flash.h"
 
 #include "mbedtls/sha256.h"
@@ -36,6 +37,7 @@ static const char *TAG  = "genie_demo";
 
 #define MESH_ELEM_COUNT         1
 #define MESH_ELEM_STATE_COUNT   MESH_ELEM_COUNT
+#define LIGHT_STATUS_STORE_KEY   "light_status"
 
 nvs_handle_t NVS_HANDLE;
 
@@ -71,23 +73,23 @@ static uint8_t dev_uuid[16] = {
 };
 
 static esp_ble_mesh_cfg_srv_t config_server = {
+    /* 3 transmissions with 20ms interval */
+    .net_transmit = ESP_BLE_MESH_TRANSMIT(2, 20),
     .relay = ESP_BLE_MESH_RELAY_ENABLED,
+    /* 3 transmissions with 20ms interval */
+    .relay_retransmit = ESP_BLE_MESH_TRANSMIT(2, 20),
     .beacon = ESP_BLE_MESH_BEACON_ENABLED,
-#if defined(CONFIG_BLE_MESH_FRIEND)
-    .friend_state = ESP_BLE_MESH_FRIEND_ENABLED,
-#else
-    .friend_state = ESP_BLE_MESH_FRIEND_NOT_SUPPORTED,
-#endif
 #if defined(CONFIG_BLE_MESH_GATT_PROXY_SERVER)
     .gatt_proxy = ESP_BLE_MESH_GATT_PROXY_ENABLED,
 #else
     .gatt_proxy = ESP_BLE_MESH_GATT_PROXY_NOT_SUPPORTED,
 #endif
+#if defined(CONFIG_BLE_MESH_FRIEND)
+    .friend_state = ESP_BLE_MESH_FRIEND_ENABLED,
+#else
+    .friend_state = ESP_BLE_MESH_FRIEND_NOT_SUPPORTED,
+#endif
     .default_ttl = 7,
-    /* 3 transmissions with 20ms interval */
-    .net_transmit = ESP_BLE_MESH_TRANSMIT(2, 20),
-    /* 3 transmissions with 20ms interval */
-    .relay_retransmit = ESP_BLE_MESH_TRANSMIT(2, 20),
 };
 
 uint8_t test_ids[1] = {0x00};
@@ -95,15 +97,19 @@ uint8_t test_ids[1] = {0x00};
 /** ESP BLE Mesh Health Server Model Context */
 ESP_BLE_MESH_MODEL_PUB_DEFINE(health_pub, 2 + 11, ROLE_NODE);
 static esp_ble_mesh_health_srv_t health_server = {
-    .health_test.id_count = 1,
-    .health_test.test_ids = test_ids,
+    .health_test = {
+        .id_count = 1,
+        .test_ids = test_ids,
+    },
 };
 
 #ifdef CONFIG_MESH_MODEL_GEN_ONOFF_SRV
 ESP_BLE_MESH_MODEL_PUB_DEFINE(onoff_pub_0, 2 + 3, ROLE_NODE);
 static esp_ble_mesh_gen_onoff_srv_t onoff_server_0 = {
-    .rsp_ctrl.get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
-    .rsp_ctrl.set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    .rsp_ctrl = {
+        .get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+        .set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    },
 };
 #endif
 
@@ -114,16 +120,20 @@ static esp_ble_mesh_light_lightness_state_t lightness_state;
 /* Light Lightness Server related context */
 ESP_BLE_MESH_MODEL_PUB_DEFINE(lightness_pub, 2 + 5, ROLE_NODE);
 static esp_ble_mesh_light_lightness_srv_t lightness_server = {
-    .rsp_ctrl.get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
-    .rsp_ctrl.set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    .rsp_ctrl = {
+        .get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+        .set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    },
     .state = &lightness_state,
 };
 
 /* Light Lightness Setup Server related context */
 ESP_BLE_MESH_MODEL_PUB_DEFINE(lightness_setup_pub, 2 + 5, ROLE_NODE);
 static esp_ble_mesh_light_lightness_setup_srv_t lightness_setup_server = {
-    .rsp_ctrl.get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
-    .rsp_ctrl.set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    .rsp_ctrl = {
+        .get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+        .set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    },
     .state = &lightness_state,
 };
 #endif
@@ -135,16 +145,20 @@ static esp_ble_mesh_light_ctl_state_t ctl_state;
 /* Light CTL Server related context */
 ESP_BLE_MESH_MODEL_PUB_DEFINE(ctl_pub, 2 + 9, ROLE_NODE);
 static esp_ble_mesh_light_ctl_srv_t ctl_server = {
-    .rsp_ctrl.get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
-    .rsp_ctrl.set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    .rsp_ctrl = {
+        .get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+        .set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    },
     .state = &ctl_state,
 };
 
 /* Light CTL Setup Server related context */
 ESP_BLE_MESH_MODEL_PUB_DEFINE(ctl_setup_pub, 2 + 6, ROLE_NODE);
 static esp_ble_mesh_light_ctl_setup_srv_t ctl_setup_server = {
-    .rsp_ctrl.get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
-    .rsp_ctrl.set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    .rsp_ctrl = {
+        .get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+        .set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    },
     .state = &ctl_state,
 };
 #endif
@@ -156,16 +170,20 @@ static esp_ble_mesh_light_hsl_state_t hsl_state;
 /* Light HSL Server related context */
 ESP_BLE_MESH_MODEL_PUB_DEFINE(hsl_pub, 2 + 9, ROLE_NODE);
 static esp_ble_mesh_light_hsl_srv_t hsl_server = {
-    .rsp_ctrl.get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
-    .rsp_ctrl.set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    .rsp_ctrl = {
+        .get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+        .set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    },
     .state = &hsl_state,
 };
 
 /* Light HSL Setup Server related context */
 ESP_BLE_MESH_MODEL_PUB_DEFINE(hsl_setup_pub, 2 + 9, ROLE_NODE);
 static esp_ble_mesh_light_hsl_setup_srv_t hsl_setup_server = {
-    .rsp_ctrl.get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
-    .rsp_ctrl.set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    .rsp_ctrl = {
+        .get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+        .set_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+    },
     .state = &hsl_state,
 };
 #endif
@@ -212,14 +230,18 @@ static esp_ble_mesh_model_t ali_vnd_models[] = {
 
 ESP_BLE_MESH_MODEL_PUB_DEFINE(onoff_pub_1, 2 + 3, ROLE_NODE);
 static esp_ble_mesh_gen_onoff_srv_t onoff_server_1 = {
-    .rsp_ctrl.get_auto_rsp = ESP_BLE_MESH_SERVER_RSP_BY_APP,
-    .rsp_ctrl.set_auto_rsp = ESP_BLE_MESH_SERVER_RSP_BY_APP,
+    .rsp_ctrl = {
+        .get_auto_rsp = ESP_BLE_MESH_SERVER_RSP_BY_APP,
+        .set_auto_rsp = ESP_BLE_MESH_SERVER_RSP_BY_APP,
+    },
 };
 
 ESP_BLE_MESH_MODEL_PUB_DEFINE(onoff_pub_2, 2 + 3, ROLE_NODE);
 static esp_ble_mesh_gen_onoff_srv_t onoff_server_2 = {
-    .rsp_ctrl.get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
-    .rsp_ctrl.set_auto_rsp = ESP_BLE_MESH_SERVER_RSP_BY_APP,
+    .rsp_ctrl = {
+        .get_auto_rsp = ESP_BLE_MESH_SERVER_AUTO_RSP,
+        .set_auto_rsp = ESP_BLE_MESH_SERVER_RSP_BY_APP,
+    },
 };
 
 static esp_ble_mesh_model_t extend_model_0[] = {
@@ -238,8 +260,8 @@ esp_ble_mesh_elem_t elements[] = {
 
 static esp_ble_mesh_comp_t composition = {
     .cid           = CID_ALIBABA,
-    .elements      = elements,
     .element_count = ARRAY_SIZE(elements),
+    .elements      = elements,
 };
 
 /* Disable OOB security for SILabs Android app */
@@ -395,12 +417,34 @@ void user_genie_event_handle(genie_event_t event, void *p_arg)
     switch (event) {
     case GENIE_EVT_RESET_BY_REPEAT_NOTIFY:
         ESP_LOGI(TAG, "GENIE_EVT_RESET_BY_REPEAT_NOTIFY");
-        light_driver_breath_start(0, 255, 0);   /**< green blink */
+        lightbulb_set_switch(false);
+        lightbulb_effect_config_t effect1 = {
+            .red = 0,
+            .green = 255,
+            .blue = 0,
+            .max_brightness = 100,
+            .min_brightness = 0,
+            .effect_cycle_ms = CONFIG_LIGHT_BLINK_PERIOD_MS,
+            .effect_type = EFFECT_BLINK,
+            .mode = WORK_COLOR,
+        };
+        lightbulb_basic_effect_start(&effect1);   /**< green blink */
         break;
     case GENIE_EVT_SW_RESET:
     case GENIE_EVT_HW_RESET_START:
         ESP_LOGI(TAG, "GENIE_EVT_HW_RESET_START");
-        light_driver_breath_start(0, 255, 0);   /**< green blink */
+        lightbulb_set_switch(false);
+        lightbulb_effect_config_t effect2 = {
+            .red = 0,
+            .green = 255,
+            .blue = 0,
+            .max_brightness = 100,
+            .min_brightness = 0,
+            .effect_cycle_ms = CONFIG_LIGHT_BLINK_PERIOD_MS,
+            .effect_type = EFFECT_BLINK,
+            .mode = WORK_COLOR,
+        };
+        lightbulb_basic_effect_start(&effect2);   /**< green blink */
         ble_mesh_nvs_erase(NVS_HANDLE, LIGHT_STATUS_STORE_KEY); // erase led status
         reset_light_para();
         break;
@@ -421,7 +465,7 @@ void user_genie_event_handle(genie_event_t event, void *p_arg)
         g_indication_flag |= INDICATION_FLAG_CTL;
 #endif
         ESP_LOGI(TAG, "light_driver_breath_stop %s", __FUNCTION__);
-        light_driver_breath_stop();
+        lightbulb_basic_effect_stop();
         // update led status
         genie_event(GENIE_EVT_SDK_ANALYZE_MSG, &g_elem_state[0]);
         break;
@@ -473,7 +517,7 @@ void user_genie_event_handle(genie_event_t event, void *p_arg)
     case GENIE_EVT_SDK_COLOR_ACTION: {
         ESP_LOGI(TAG, "GENIE_EVT_SDK_COLOR_ACTION");
 #ifdef CONFIG_MESH_MODEL_HSL_SRV
-        uint8_t *p_data = p_arg;
+        uint8_t *p_data = (uint8_t *)p_arg;
 
         uint16_t lightness = *p_data++;
         lightness += (*p_data++ << 8);
@@ -857,7 +901,7 @@ static void prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, uint32
 {
     ENTER_FUNC();
     ESP_LOGI(TAG, "net_idx: 0x%04x, addr: 0x%04x", net_idx, addr);
-    ESP_LOGI(TAG, "flags: 0x%02x, iv_index: 0x%08x", flags, iv_index);
+    ESP_LOGI(TAG, "flags: 0x%02x, iv_index: 0x%08" PRIx32, flags, iv_index);
 }
 
 static void example_ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
@@ -1021,7 +1065,7 @@ static void example_ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t
 static void example_ble_mesh_generic_server_cb(esp_ble_mesh_generic_server_cb_event_t event,
         esp_ble_mesh_generic_server_cb_param_t *param)
 {
-    ESP_LOGD(TAG, "event 0x%02x, opcode 0x%04x, src 0x%04x, dst 0x%04x",
+    ESP_LOGD(TAG, "event 0x%02x, opcode 0x%04" PRIx32 ", src 0x%04x, dst 0x%04x",
              event, param->ctx.recv_op, param->ctx.addr, param->ctx.recv_dst);
 
     switch (event) {
@@ -1040,7 +1084,7 @@ static void example_ble_mesh_generic_server_cb(esp_ble_mesh_generic_server_cb_ev
     case ESP_BLE_MESH_GENERIC_SERVER_RECV_GET_MSG_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_GENERIC_SERVER_RECV_GET_MSG_EVT");
         if (param->ctx.recv_op == ESP_BLE_MESH_MODEL_OP_GEN_ONOFF_GET) {
-            esp_ble_mesh_gen_onoff_srv_t *srv = param->model->user_data;
+            esp_ble_mesh_gen_onoff_srv_t *srv = (esp_ble_mesh_gen_onoff_srv_t *)param->model->user_data;
             ESP_LOGI(TAG, "onoff: 0x%02x", srv->state.onoff);
             esp_ble_mesh_server_model_send_msg(param->model, &param->ctx,
                                                ESP_BLE_MESH_MODEL_OP_GEN_ONOFF_STATUS, sizeof(srv->state.onoff), &srv->state.onoff);
@@ -1056,7 +1100,7 @@ static void example_ble_mesh_generic_server_cb(esp_ble_mesh_generic_server_cb_ev
                          param->value.set.onoff.trans_time, param->value.set.onoff.delay);
             }
 
-            esp_ble_mesh_gen_onoff_srv_t *srv = param->model->user_data;
+            esp_ble_mesh_gen_onoff_srv_t *srv = (esp_ble_mesh_gen_onoff_srv_t *)param->model->user_data;
             if (param->value.set.onoff.op_en == false) {
                 srv->state.onoff = param->value.set.onoff.onoff;
             } else {
@@ -1090,7 +1134,7 @@ static void example_ble_mesh_lighting_server_cb(esp_ble_mesh_lighting_server_cb_
 #endif
     esp_ble_mesh_server_state_value_t state = {0};
 
-    ESP_LOGD(TAG, "event 0x%02x, opcode 0x%04x, src 0x%04x, dst 0x%04x",
+    ESP_LOGD(TAG, "event 0x%02x, opcode 0x%04" PRIx32 ", src 0x%04x, dst 0x%04x",
              event, param->ctx.recv_op, param->ctx.addr, param->ctx.recv_dst);
 
     switch (event) {
@@ -1208,15 +1252,15 @@ static void example_ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event
     switch (event) {
     case ESP_BLE_MESH_MODEL_OPERATION_EVT:
         ESP_LOGD(TAG, "ESP_BLE_MESH_MODEL_OPERATION_EVT");
-        ESP_LOGD(TAG, "opcode: 0x%06x", param->model_operation.opcode);
+        ESP_LOGD(TAG, "opcode: 0x%06" PRIx32, param->model_operation.opcode);
         genie_model_dispatch(param->model_operation.opcode, param->model_operation.model,
                              param->model_operation.ctx, param->model_operation.msg, param->model_operation.length);
         break;
     case ESP_BLE_MESH_MODEL_SEND_COMP_EVT:
         ESP_LOGD(TAG, "ESP_BLE_MESH_MODEL_SEND_COMP_EVT");
-        ESP_LOGD(TAG, "opcode: 0x%06x", param->model_send_comp.opcode);
+        ESP_LOGD(TAG, "opcode: 0x%06" PRIx32, param->model_send_comp.opcode);
         if (param->model_send_comp.err_code) {
-            ESP_LOGE(TAG, "Failed to send message: 0x%06x, err: %d", param->model_send_comp.opcode, param->model_send_comp.err_code);
+            ESP_LOGE(TAG, "Failed to send message: 0x%06" PRIx32 ", err: %d", param->model_send_comp.opcode, param->model_send_comp.err_code);
             break;
         }
         break;
@@ -1263,13 +1307,24 @@ static esp_err_t ble_mesh_init(void)
         return err;
     }
 
-    ESP_ERROR_CHECK(esp_ble_mesh_node_prov_enable(ESP_BLE_MESH_PROV_ADV | ESP_BLE_MESH_PROV_GATT));
+    ESP_ERROR_CHECK(esp_ble_mesh_node_prov_enable((esp_ble_mesh_prov_bearer_t)(ESP_BLE_MESH_PROV_ADV | ESP_BLE_MESH_PROV_GATT)));
 
     if (esp_ble_mesh_node_is_provisioned()) {
         ESP_LOGW(TAG, "node already provisioned");
     } else {
         ESP_LOGW(TAG, "node not provisioned");
-        light_driver_breath_start(0, 255, 0); /**< green blink */
+        lightbulb_set_switch(false);
+        lightbulb_effect_config_t effect3 = {
+            .red = 0,
+            .green = 255,
+            .blue = 0,
+            .max_brightness = 100,
+            .min_brightness = 0,
+            .effect_cycle_ms = CONFIG_LIGHT_BLINK_PERIOD_MS,
+            .effect_type = EFFECT_BLINK,
+            .mode = WORK_COLOR,
+        };
+        lightbulb_basic_effect_start(&effect3); /**< green blink */
     }
 
     return err;
@@ -1283,7 +1338,7 @@ void config_triples(void)
     ESP_LOGI(TAG, "authvalue_string: %s", authvalue_string);
 
     uint8_t sha256_out[32] = {0};
-    mbedtls_sha256_ret((const unsigned char *)authvalue_string, strlen(authvalue_string), sha256_out, 0);
+    mbedtls_sha256((const unsigned char *)authvalue_string, strlen(authvalue_string), sha256_out, 0);
     memcpy(static_val, sha256_out, 16);
     provision.static_val = static_val;
 

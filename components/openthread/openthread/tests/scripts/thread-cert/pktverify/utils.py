@@ -72,6 +72,7 @@ def make_filter_func(func: Union[str, Callable], **vars) -> Callable:
                     'thread_nwd': p.thread_nwd,
                     'thread_address': p.thread_address,
                     'thread_bcn': p.thread_bcn,
+                    'dns': p.dns,
                     'null': nullField,
                 })
     else:
@@ -139,11 +140,11 @@ def which_mergecap() -> str:
 
 
 def colon_hex(hexstr, interval) -> str:
-    """ Convert hexstr to colon seperated string every interval
+    """ Convert hexstr to colon separated string every interval
 
     :param hexstr: The hex string to convert.
     :param interval: The interval number.
-    :return: The colon seperated string.
+    :return: The colon separated string.
     """
     assert len(hexstr) % interval == 0
     return ':'.join(hexstr[i:i + interval] for i in range(0, len(hexstr), interval))

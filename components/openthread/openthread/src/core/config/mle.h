@@ -36,6 +36,16 @@
 #define CONFIG_MLE_H_
 
 /**
+ * @addtogroup config-mle
+ *
+ * @brief
+ *   This module includes configuration variables for the MLE service.
+ *
+ * @{
+ *
+ */
+
+/**
  * @def OPENTHREAD_CONFIG_MLE_MAX_ROUTERS
  *
  * The maximum number of routers in a Thread network.
@@ -86,6 +96,32 @@
  */
 #ifndef OPENTHREAD_CONFIG_MLE_IP_ADDRS_TO_REGISTER
 #define OPENTHREAD_CONFIG_MLE_IP_ADDRS_TO_REGISTER (OPENTHREAD_CONFIG_MLE_IP_ADDRS_PER_CHILD)
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MLE_DEVICE_PROPERTY_LEADER_WEIGHT_ENABLE
+ *
+ * Define as 1 to enable feature to set device properties which are used for calculating the local leader weight on a
+ * device.
+ *
+ * It is enabled by default on Thread Version 1.4 or later.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MLE_DEVICE_PROPERTY_LEADER_WEIGHT_ENABLE
+#define OPENTHREAD_CONFIG_MLE_DEVICE_PROPERTY_LEADER_WEIGHT_ENABLE \
+    (OPENTHREAD_CONFIG_THREAD_VERSION >= OT_THREAD_VERSION_1_4)
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MLE_DEFAULT_LEADER_WEIGHT_ADJUSTMENT
+ *
+ * Specifies the default value for `mLeaderWeightAdjustment` in `otDeviceProperties`. MUST be from -16 up to +16.
+ *
+ * This value is used to adjust the calculated Leader Weight from `otDeviceProperties`.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MLE_DEFAULT_LEADER_WEIGHT_ADJUSTMENT
+#define OPENTHREAD_CONFIG_MLE_DEFAULT_LEADER_WEIGHT_ADJUSTMENT 0
 #endif
 
 /**
@@ -257,7 +293,19 @@
  *
  */
 #ifndef OPENTHREAD_CONFIG_MLE_INFORM_PREVIOUS_PARENT_ON_REATTACH
-#define OPENTHREAD_CONFIG_MLE_INFORM_PREVIOUS_PARENT_ON_REATTACH 0
+#define OPENTHREAD_CONFIG_MLE_INFORM_PREVIOUS_PARENT_ON_REATTACH 1
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MLE_PARENT_RESPONSE_CALLBACK_API_ENABLE
+ *
+ * Define as 1 to support `otThreadRegisterParentResponseCallback()` API which registers a callback to notify user
+ * of received Parent Response message(s) during attach. This API is mainly intended for debugging and therefore is
+ * disabled by default.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MLE_PARENT_RESPONSE_CALLBACK_API_ENABLE
+#define OPENTHREAD_CONFIG_MLE_PARENT_RESPONSE_CALLBACK_API_ENABLE 0
 #endif
 
 /**
@@ -287,7 +335,22 @@
  *
  */
 #ifndef OPENTHREAD_CONFIG_MLE_LINK_METRICS_MAX_SERIES_SUPPORTED
-#define OPENTHREAD_CONFIG_MLE_LINK_METRICS_MAX_SERIES_SUPPORTED 10
+#define OPENTHREAD_CONFIG_MLE_LINK_METRICS_MAX_SERIES_SUPPORTED OPENTHREAD_CONFIG_MLE_MAX_CHILDREN
 #endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MLE_LINK_METRICS_SERIES_MTD
+ *
+ * The max number of series that a Link Metrics Subject (MTD device) can track simultaneously.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MLE_LINK_METRICS_SERIES_MTD
+#define OPENTHREAD_CONFIG_MLE_LINK_METRICS_SERIES_MTD 2
+#endif
+
+/**
+ * @}
+ *
+ */
 
 #endif // CONFIG_MLE_H_

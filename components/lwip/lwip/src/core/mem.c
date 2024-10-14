@@ -182,40 +182,12 @@ mem_trim(void *mem, mem_size_t size)
 #ifndef mem_clib_free
 #define mem_clib_free free
 #endif
-
-#if ESP_LWIP
-/**
- * If CONFIG_ALLOC_MEMORY_IN_SPIRAM_FIRST is enabled, Try to
- * allocate memory for lwip in SPIRAM firstly. If failed, try to allocate
- * internal memory then.
- */
-#if CONFIG_WIFI_LWIP_ALLOCATION_FROM_SPIRAM_FIRST
-#ifndef mem_clib_malloc
-#define mem_clib_malloc(size)    heap_caps_malloc_prefer(size, 2, MALLOC_CAP_DEFAULT|MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT|MALLOC_CAP_INTERNAL)
-#endif
-#ifndef mem_clib_calloc
-#define mem_clib_calloc(n, size) heap_caps_calloc_prefer(n, size, 2, MALLOC_CAP_DEFAULT|MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT|MALLOC_CAP_INTERNAL)
-#endif
-#else /* CONFIG_WIFI_LWIP_ALLOCATION_FROM_SPIRAM_FIRST */
 #ifndef mem_clib_malloc
 #define mem_clib_malloc malloc
 #endif
 #ifndef mem_clib_calloc
 #define mem_clib_calloc calloc
 #endif
-#endif /* CONFIG_WIFI_LWIP_ALLOCATION_FROM_SPIRAM_FIRST */
-
-#else /* ESP_LWIP */
-
-#ifndef mem_clib_malloc
-#define mem_clib_malloc malloc
-#endif
-#ifndef mem_clib_calloc
-#define mem_clib_calloc calloc
-#endif
-
-#endif /* ESP_LWIP */
-
 
 #if LWIP_STATS && MEM_STATS
 #define MEM_LIBC_STATSHELPER_SIZE LWIP_MEM_ALIGN_SIZE(sizeof(mem_size_t))
@@ -716,7 +688,7 @@ mem_free(void *rmem)
 /**
  * Shrink memory returned by mem_malloc().
  *
- * @param rmem pointer to memory allocated by mem_malloc the is to be shrinked
+ * @param rmem pointer to memory allocated by mem_malloc the is to be shrunk
  * @param new_size required size after shrinking (needs to be smaller than or
  *                equal to the previous size)
  * @return for compatibility reasons: is always == rmem, at the moment
@@ -785,7 +757,7 @@ mem_trim(void *rmem, mem_size_t new_size)
     LWIP_ASSERT("invalid next ptr", mem->next != MEM_SIZE_ALIGNED);
     /* remember the old next pointer */
     next = mem2->next;
-    /* create new struct mem which is moved directly after the shrinked mem */
+    /* create new struct mem which is moved directly after the shrunk mem */
     ptr2 = (mem_size_t)(ptr + SIZEOF_STRUCT_MEM + newsize);
     if (lfree == mem2) {
       lfree = ptr_to_mem(ptr2);

@@ -57,7 +57,7 @@ extern "C" {
  */
 
 /**
- * @defgroup radio-types Types
+ * @defgroup radio-types Radio Types
  *
  * @brief
  *   This module includes the platform abstraction for a radio frame.
@@ -68,20 +68,27 @@ extern "C" {
 
 enum
 {
-    OT_RADIO_FRAME_MAX_SIZE    = 127,    ///< aMaxPHYPacketSize (IEEE 802.15.4-2006)
-    OT_RADIO_FRAME_MIN_SIZE    = 3,      ///< Minimal size of frame FCS + CONTROL
+    OT_RADIO_FRAME_MAX_SIZE = 127, ///< aMaxPHYPacketSize (IEEE 802.15.4-2006)
+    OT_RADIO_FRAME_MIN_SIZE = 3,   ///< Minimal size of frame FCS + CONTROL
+
     OT_RADIO_SYMBOLS_PER_OCTET = 2,      ///< 2.4 GHz IEEE 802.15.4-2006
     OT_RADIO_BIT_RATE          = 250000, ///< 2.4 GHz IEEE 802.15.4 (bits per second)
     OT_RADIO_BITS_PER_OCTET    = 8,      ///< Number of bits per octet
 
-    OT_RADIO_SYMBOL_TIME   = ((OT_RADIO_BITS_PER_OCTET / OT_RADIO_SYMBOLS_PER_OCTET) * 1000000) / OT_RADIO_BIT_RATE,
+    // Per IEEE 802.15.4-2015, 12.3.3 Symbol rate:
+    // The O-QPSK PHY symbol rate shall be 25 ksymbol/s when operating in the 868 MHz band and 62.5 ksymbol/s when
+    // operating in the 780 MHz, 915 MHz, 2380 MHz, or 2450 MHz band
+    OT_RADIO_SYMBOL_RATE = 62500, ///< The O-QPSK PHY symbol rate when operating in the 780MHz, 915MHz, 2380MHz, 2450MHz
+    OT_RADIO_SYMBOL_TIME = 1000000 * 1 / OT_RADIO_SYMBOL_RATE, ///< Symbol duration time in unit of microseconds
+    OT_RADIO_TEN_SYMBOLS_TIME = 10 * OT_RADIO_SYMBOL_TIME,     ///< Time for 10 symbols in unit of microseconds
+
     OT_RADIO_LQI_NONE      = 0,   ///< LQI measurement not supported
     OT_RADIO_RSSI_INVALID  = 127, ///< Invalid or unknown RSSI value
     OT_RADIO_POWER_INVALID = 127, ///< Invalid or unknown power value
 };
 
 /**
- * This enumeration defines the channel page.
+ * Defines the channel page.
  *
  */
 enum
@@ -93,7 +100,7 @@ enum
 };
 
 /**
- * This enumeration defines the frequency band channel range.
+ * Defines the frequency band channel range.
  *
  */
 enum
@@ -107,40 +114,42 @@ enum
 };
 
 /**
- * This type represents radio capabilities.
+ * Represents radio capabilities.
  *
  * The value is a bit-field indicating the capabilities supported by the radio. See `OT_RADIO_CAPS_*` definitions.
  *
  */
-typedef uint8_t otRadioCaps;
+typedef uint16_t otRadioCaps;
 
 /**
- * This enumeration defines constants that are used to indicate different radio capabilities. See `otRadioCaps`.
+ * Defines constants that are used to indicate different radio capabilities. See `otRadioCaps`.
  *
  */
 enum
 {
-    OT_RADIO_CAPS_NONE             = 0,      ///< Radio supports no capability.
-    OT_RADIO_CAPS_ACK_TIMEOUT      = 1 << 0, ///< Radio supports AckTime event.
-    OT_RADIO_CAPS_ENERGY_SCAN      = 1 << 1, ///< Radio supports Energy Scans.
-    OT_RADIO_CAPS_TRANSMIT_RETRIES = 1 << 2, ///< Radio supports tx retry logic with collision avoidance (CSMA).
-    OT_RADIO_CAPS_CSMA_BACKOFF     = 1 << 3, ///< Radio supports CSMA backoff for frame transmission (but no retry).
-    OT_RADIO_CAPS_SLEEP_TO_TX      = 1 << 4, ///< Radio supports direct transition from sleep to TX with CSMA.
-    OT_RADIO_CAPS_TRANSMIT_SEC     = 1 << 5, ///< Radio supports tx security.
-    OT_RADIO_CAPS_TRANSMIT_TIMING  = 1 << 6, ///< Radio supports tx at specific time.
-    OT_RADIO_CAPS_RECEIVE_TIMING   = 1 << 7, ///< Radio supports rx at specific time.
+    OT_RADIO_CAPS_NONE                 = 0,      ///< Radio supports no capability.
+    OT_RADIO_CAPS_ACK_TIMEOUT          = 1 << 0, ///< Radio supports AckTime event.
+    OT_RADIO_CAPS_ENERGY_SCAN          = 1 << 1, ///< Radio supports Energy Scans.
+    OT_RADIO_CAPS_TRANSMIT_RETRIES     = 1 << 2, ///< Radio supports tx retry logic with collision avoidance (CSMA).
+    OT_RADIO_CAPS_CSMA_BACKOFF         = 1 << 3, ///< Radio supports CSMA backoff for frame transmission (but no retry).
+    OT_RADIO_CAPS_SLEEP_TO_TX          = 1 << 4, ///< Radio supports direct transition from sleep to TX with CSMA.
+    OT_RADIO_CAPS_TRANSMIT_SEC         = 1 << 5, ///< Radio supports tx security.
+    OT_RADIO_CAPS_TRANSMIT_TIMING      = 1 << 6, ///< Radio supports tx at specific time.
+    OT_RADIO_CAPS_RECEIVE_TIMING       = 1 << 7, ///< Radio supports rx at specific time.
+    OT_RADIO_CAPS_RX_ON_WHEN_IDLE      = 1 << 8, ///< Radio supports RxOnWhenIdle handling.
+    OT_RADIO_CAPS_TRANSMIT_FRAME_POWER = 1 << 9, ///< Radio supports setting per-frame transmit power.
 };
 
 #define OT_PANID_BROADCAST 0xffff ///< IEEE 802.15.4 Broadcast PAN ID
 
 /**
- * This type represents the IEEE 802.15.4 PAN ID.
+ * Represents the IEEE 802.15.4 PAN ID.
  *
  */
 typedef uint16_t otPanId;
 
 /**
- * This type represents the IEEE 802.15.4 Short Address.
+ * Represents the IEEE 802.15.4 Short Address.
  *
  */
 typedef uint16_t otShortAddress;
@@ -148,7 +157,7 @@ typedef uint16_t otShortAddress;
 #define OT_EXT_ADDRESS_SIZE 8 ///< Size of an IEEE 802.15.4 Extended Address (bytes)
 
 /**
- * This enumeration defines constants about size of header IE in ACK.
+ * Defines constants about size of header IE in ACK.
  *
  */
 enum
@@ -165,7 +174,7 @@ enum
 /**
  * @struct otExtAddress
  *
- * This structure represents the IEEE 802.15.4 Extended Address.
+ * Represents the IEEE 802.15.4 Extended Address.
  *
  */
 OT_TOOL_PACKED_BEGIN
@@ -175,7 +184,7 @@ struct otExtAddress
 } OT_TOOL_PACKED_END;
 
 /**
- * This structure represents the IEEE 802.15.4 Extended Address.
+ * Represents the IEEE 802.15.4 Extended Address.
  *
  */
 typedef struct otExtAddress otExtAddress;
@@ -185,7 +194,7 @@ typedef struct otExtAddress otExtAddress;
 /**
  * @struct otMacKey
  *
- * This structure represents a MAC Key.
+ * Represents a MAC Key.
  *
  */
 OT_TOOL_PACKED_BEGIN
@@ -195,13 +204,13 @@ struct otMacKey
 } OT_TOOL_PACKED_END;
 
 /**
- * This structure represents a MAC Key.
+ * Represents a MAC Key.
  *
  */
 typedef struct otMacKey otMacKey;
 
 /**
- * This type represents a MAC Key Ref used by PSA.
+ * Represents a MAC Key Ref used by PSA.
  *
  */
 typedef otCryptoKeyRef otMacKeyRef;
@@ -209,7 +218,7 @@ typedef otCryptoKeyRef otMacKeyRef;
 /**
  * @struct otMacKeyMaterial
  *
- * This structure represents a MAC Key.
+ * Represents a MAC Key.
  *
  */
 typedef struct otMacKeyMaterial
@@ -222,7 +231,7 @@ typedef struct otMacKeyMaterial
 } otMacKeyMaterial;
 
 /**
- * This enumeration defines constants about key types.
+ * Defines constants about key types.
  *
  */
 typedef enum
@@ -232,7 +241,7 @@ typedef enum
 } otRadioKeyType;
 
 /**
- * This structure represents the IEEE 802.15.4 Header IE (Information Element) related information of a radio frame.
+ * Represents the IEEE 802.15.4 Header IE (Information Element) related information of a radio frame.
  */
 typedef struct otRadioIeInfo
 {
@@ -242,7 +251,7 @@ typedef struct otRadioIeInfo
 } otRadioIeInfo;
 
 /**
- * This structure represents an IEEE 802.15.4 radio frame.
+ * Represents an IEEE 802.15.4 radio frame.
  */
 typedef struct otRadioFrame
 {
@@ -263,12 +272,68 @@ typedef struct otRadioFrame
          */
         struct
         {
-            const otMacKeyMaterial *mAesKey;  ///< The key material used for AES-CCM frame security.
-            otRadioIeInfo *         mIeInfo;  ///< The pointer to the Header IE(s) related information.
-            uint32_t                mTxDelay; ///< The delay time for this transmission (based on `mTxDelayBaseTime`).
-            uint32_t                mTxDelayBaseTime; ///< The base time for the transmission delay.
+            const otMacKeyMaterial *mAesKey; ///< The key material used for AES-CCM frame security.
+            otRadioIeInfo          *mIeInfo; ///< The pointer to the Header IE(s) related information.
+
+            /**
+             * The base time in microseconds for scheduled transmissions
+             * relative to the local radio clock, see `otPlatRadioGetNow` and
+             * `mTxDelay`.
+             */
+            uint32_t mTxDelayBaseTime;
+
+            /**
+             * The delay time in microseconds for this transmission referenced
+             * to `mTxDelayBaseTime`.
+             *
+             * Note: `mTxDelayBaseTime` + `mTxDelay` SHALL point to the point in
+             * time when the end of the SFD will be present at the local
+             * antenna, relative to the local radio clock.
+             */
+            uint32_t mTxDelay;
+
             uint8_t mMaxCsmaBackoffs; ///< Maximum number of backoffs attempts before declaring CCA failure.
             uint8_t mMaxFrameRetries; ///< Maximum number of retries allowed after a transmission failure.
+
+            /**
+             * The RX channel after frame TX is done (after all frame retries - ack received, or timeout, or abort).
+             *
+             * Radio platforms can choose to fully ignore this. OT stack will make sure to call `otPlatRadioReceive()`
+             * with the desired RX channel after a frame TX is done and signaled in `otPlatRadioTxDone()` callback.
+             * Radio platforms that don't provide `OT_RADIO_CAPS_TRANSMIT_RETRIES` must always ignore this.
+             *
+             * This is intended for situations where there may be delay in interactions between OT stack and radio, as
+             * an example this is used in RCP/host architecture to make sure RCP switches to PAN channel more quickly.
+             * In particular, this can help with CSL tx to a sleepy child, where the child may use a different channel
+             * for CSL than the PAN channel. After frame tx, we want the radio/RCP to go back to the PAN channel
+             * quickly to ensure that parent does not miss tx from child afterwards, e.g., child responding to the
+             * earlier CSL transmitted frame from parent using PAN channel while radio still staying on CSL channel.
+             *
+             * The switch to the RX channel MUST happen after the frame TX is fully done, i.e., after all retries and
+             * when ack is received (when "Ack Request" flag is set on the TX frame) or ack timeout. Note that ack is
+             * expected on the same channel that frame is sent on.
+             *
+             */
+            uint8_t mRxChannelAfterTxDone;
+
+            /**
+             * The transmit power in dBm.
+             *
+             * If the platform layer does not provide `OT_RADIO_CAPS_TRANSMIT_FRAME_POWER` capability, it can ignore
+             * this value.
+             *
+             * If the value is OT_RADIO_POWER_INVALID, then the platform should ignore this value and transmit the frame
+             * with its default transmit power.
+             *
+             * Otherwise, the platform should transmit this frame with the maximum power no larger than minimal of the
+             * following values:
+             *     1. mTxPower,
+             *     2. The power limit set by otPlatRadioSetChannelTargetPower(),
+             *     3. The power limit set by otPlatRadioSetChannelMaxTransmitPower(),
+             *     4. The power limit set by otPlatRadioSetRegion().
+             *
+             */
+            int8_t mTxPower;
 
             /**
              * Indicates whether frame counter and CSL IEs are properly updated in the header.
@@ -304,11 +369,8 @@ typedef struct otRadioFrame
         struct
         {
             /**
-             * The timestamp when the frame was received in microseconds.
-             *
-             * The value SHALL be the time when the SFD was received when TIME_SYNC or CSL is enabled.
-             * Otherwise, the time when the MAC frame was fully received is also acceptable.
-             *
+             * The time of the local radio clock in microseconds when the end of
+             * the SFD was present at the local antenna.
              */
             uint64_t mTimestamp;
 
@@ -325,7 +387,7 @@ typedef struct otRadioFrame
 } otRadioFrame;
 
 /**
- * This structure represents the state of a radio.
+ * Represents the state of a radio.
  * Initially, a radio is in the Disabled state.
  */
 typedef enum otRadioState
@@ -355,7 +417,7 @@ typedef enum otRadioState
  */
 
 /**
- * This structure represents radio coexistence metrics.
+ * Represents radio coexistence metrics.
  */
 typedef struct otRadioCoexMetrics
 {
@@ -381,7 +443,7 @@ typedef struct otRadioCoexMetrics
 } otRadioCoexMetrics;
 
 /**
- * This structure represents what metrics are specified to query.
+ * Represents what metrics are specified to query.
  *
  */
 typedef struct otLinkMetrics
@@ -399,7 +461,7 @@ typedef struct otLinkMetrics
  */
 
 /**
- * @defgroup radio-config Configuration
+ * @defgroup radio-config Radio Configuration
  *
  * @brief
  *   This module includes the platform abstraction for radio configuration.
@@ -442,7 +504,7 @@ const char *otPlatRadioGetVersionString(otInstance *aInstance);
 int8_t otPlatRadioGetReceiveSensitivity(otInstance *aInstance);
 
 /**
- * Get the factory-assigned IEEE EUI-64 for this interface.
+ * Gets the factory-assigned IEEE EUI-64 for this interface.
  *
  * @param[in]  aInstance   The OpenThread instance structure.
  * @param[out] aIeeeEui64  A pointer to the factory-assigned IEEE EUI-64.
@@ -536,7 +598,7 @@ otError otPlatRadioGetCcaEnergyDetectThreshold(otInstance *aInstance, int8_t *aT
 otError otPlatRadioSetCcaEnergyDetectThreshold(otInstance *aInstance, int8_t aThreshold);
 
 /**
- * Get the external FEM's Rx LNA gain in dBm.
+ * Gets the external FEM's Rx LNA gain in dBm.
  *
  * @param[in]  aInstance  The OpenThread instance structure.
  * @param[out] aGain     The external FEM's Rx LNA gain in dBm.
@@ -549,7 +611,7 @@ otError otPlatRadioSetCcaEnergyDetectThreshold(otInstance *aInstance, int8_t aTh
 otError otPlatRadioGetFemLnaGain(otInstance *aInstance, int8_t *aGain);
 
 /**
- * Set the external FEM's Rx LNA gain in dBm.
+ * Sets the external FEM's Rx LNA gain in dBm.
  *
  * @param[in] aInstance  The OpenThread instance structure.
  * @param[in] aGain      The external FEM's Rx LNA gain in dBm.
@@ -581,9 +643,45 @@ bool otPlatRadioGetPromiscuous(otInstance *aInstance);
 void otPlatRadioSetPromiscuous(otInstance *aInstance, bool aEnable);
 
 /**
+ * Sets the rx-on-when-idle state to the radio platform.
+ *
+ * There are a few situations that the radio can enter sleep state if the device is in rx-off-when-idle state but
+ * it's hard and costly for the SubMac to identify these situations and instruct the radio to enter sleep:
+ *
+ * - Finalization of a regular frame reception task, provided that:
+ *   - The frame is received without errors and passes the filtering and it's not an spurious ACK.
+ *   - ACK is not requested or transmission of ACK is not possible due to internal conditions.
+ * - Finalization of a frame transmission or transmission of an ACK frame, when ACK is not requested in the transmitted
+ *   frame.
+ * - Finalization of the reception operation of a requested ACK due to:
+ *   - ACK timeout expiration.
+ *   - Reception of an invalid ACK or not an ACK frame.
+ *   - Reception of the proper ACK, unless the transmitted frame was a Data Request Command and the frame pending bit
+ *     on the received ACK is set to true. In this case the radio platform implementation SHOULD keep the receiver on
+ *     until a determined timeout which triggers an idle period start.`OPENTHREAD_CONFIG_MAC_DATA_POLL_TIMEOUT` can be
+ *     taken as a reference for this.
+ * - Finalization of a stand alone CCA task.
+ * - Finalization of a CCA operation with busy result during CSMA/CA procedure.
+ * - Finalization of an Energy Detection task.
+ * - Finalization of a radio reception window scheduled with `otPlatRadioReceiveAt`.
+ *
+ * If a platform supports `OT_RADIO_CAPS_RX_ON_WHEN_IDLE` it must also support `OT_RADIO_CAPS_CSMA_BACKOFF` and handle
+ * idle periods after CCA as described above.
+ *
+ * Upon the transition of the "RxOnWhenIdle" flag from TRUE to FALSE, the radio platform should enter sleep mode.
+ * If the radio is currently in receive mode, it should enter sleep mode immediately. Otherwise, it should enter sleep
+ * mode after the current operation is completed.
+ *
+ * @param[in]  aInstance    The OpenThread instance structure.
+ * @param[in]  aEnable      TRUE to keep radio in Receive state, FALSE to put to Sleep state during idle periods.
+ *
+ */
+void otPlatRadioSetRxOnWhenIdle(otInstance *aInstance, bool aEnable);
+
+/**
  * Update MAC keys and key index
  *
- * This function is used when radio provides OT_RADIO_CAPS_TRANSMIT_SEC capability.
+ * Is used when radio provides OT_RADIO_CAPS_TRANSMIT_SEC capability.
  *
  * @param[in]   aInstance    A pointer to an OpenThread instance.
  * @param[in]   aKeyIdMode   The key ID mode.
@@ -594,7 +692,7 @@ void otPlatRadioSetPromiscuous(otInstance *aInstance, bool aEnable);
  * @param[in]   aKeyType     Key Type used.
  *
  */
-void otPlatRadioSetMacKey(otInstance *            aInstance,
+void otPlatRadioSetMacKey(otInstance             *aInstance,
                           uint8_t                 aKeyIdMode,
                           uint8_t                 aKeyId,
                           const otMacKeyMaterial *aPrevKey,
@@ -603,9 +701,9 @@ void otPlatRadioSetMacKey(otInstance *            aInstance,
                           otRadioKeyType          aKeyType);
 
 /**
- * This method sets the current MAC frame counter value.
+ * Sets the current MAC frame counter value.
  *
- * This function is used when radio provides `OT_RADIO_CAPS_TRANSMIT_SEC` capability.
+ * Is used when radio provides `OT_RADIO_CAPS_TRANSMIT_SEC` capability.
  *
  * @param[in]   aInstance         A pointer to an OpenThread instance.
  * @param[in]   aMacFrameCounter  The MAC frame counter value.
@@ -614,11 +712,36 @@ void otPlatRadioSetMacKey(otInstance *            aInstance,
 void otPlatRadioSetMacFrameCounter(otInstance *aInstance, uint32_t aMacFrameCounter);
 
 /**
- * Get the current estimated time (64bits width) of the radio chip.
+ * Sets the current MAC frame counter value only if the new given value is larger than the current value.
+ *
+ * Is used when radio provides `OT_RADIO_CAPS_TRANSMIT_SEC` capability.
+ *
+ * @param[in]   aInstance         A pointer to an OpenThread instance.
+ * @param[in]   aMacFrameCounter  The MAC frame counter value.
+ *
+ */
+void otPlatRadioSetMacFrameCounterIfLarger(otInstance *aInstance, uint32_t aMacFrameCounter);
+
+/**
+ * Get the current time in microseconds referenced to a continuous monotonic
+ * local radio clock (64 bits width).
+ *
+ * The radio clock SHALL NOT wrap during the device's uptime. Implementations
+ * SHALL therefore identify and compensate for internal counter overflows. The
+ * clock does not have a defined epoch and it SHALL NOT introduce any continuous
+ * or discontinuous adjustments (e.g. leap seconds). Implementations SHALL
+ * compensate for any sleep times of the device.
+ *
+ * Implementations MAY choose to discipline the radio clock and compensate for
+ * sleep times by any means (e.g. by combining a high precision/low power RTC
+ * with a high resolution counter) as long as the exposed combined clock
+ * provides continuous monotonic microsecond resolution ticks within the
+ * accuracy limits announced by @ref otPlatRadioGetCslAccuracy.
  *
  * @param[in]   aInstance    A pointer to an OpenThread instance.
  *
- * @returns The current time in microseconds. UINT64_MAX when platform does not support or radio time is not ready.
+ * @returns The current time in microseconds. UINT64_MAX when platform does not
+ * support or radio time is not ready.
  *
  */
 uint64_t otPlatRadioGetNow(otInstance *aInstance);
@@ -640,7 +763,7 @@ uint32_t otPlatRadioGetBusSpeed(otInstance *aInstance);
  */
 
 /**
- * @defgroup radio-operation Operation
+ * @defgroup radio-operation Radio Operation
  *
  * @brief
  *   This module includes the platform abstraction for radio operations.
@@ -652,7 +775,7 @@ uint32_t otPlatRadioGetBusSpeed(otInstance *aInstance);
 /**
  * Get current state of the radio.
  *
- * This function is not required by OpenThread. It may be used for debugging and/or application-specific purposes.
+ * Is not required by OpenThread. It may be used for debugging and/or application-specific purposes.
  *
  * @note This function may be not implemented. It does not affect OpenThread.
  *
@@ -723,8 +846,17 @@ otError otPlatRadioReceive(otInstance *aInstance, uint8_t aChannel);
  * Schedule a radio reception window at a specific time and duration.
  *
  * @param[in]  aChannel   The radio channel on which to receive.
- * @param[in]  aStart     The receive window start time, in microseconds.
- * @param[in]  aDuration  The receive window duration, in microseconds
+ * @param[in]  aStart     The receive window start time relative to the local
+ *                        radio clock, see `otPlatRadioGetNow`. The radio
+ *                        receiver SHALL be on and ready to receive the first
+ *                        symbol of a frame's SHR at the window start time.
+ * @param[in]  aDuration  The receive window duration, in microseconds, as
+ *                        measured by the local radio clock. The radio SHOULD be
+ *                        turned off (or switched to TX mode if an ACK frame
+ *                        needs to be sent) after that duration unless it is
+ *                        still actively receiving a frame. In the latter case
+ *                        the radio SHALL be kept in reception mode until frame
+ *                        reception has either succeeded or failed.
  *
  * @retval OT_ERROR_NONE    Successfully scheduled receive window.
  * @retval OT_ERROR_FAILED  The receive window could not be scheduled.
@@ -746,7 +878,7 @@ extern void otPlatRadioReceiveDone(otInstance *aInstance, otRadioFrame *aFrame, 
 /**
  * The radio driver calls this method to notify OpenThread diagnostics module of a received frame.
  *
- * This function is used when diagnostics is enabled.
+ * Is used when diagnostics is enabled.
  *
  * @param[in]  aInstance The OpenThread instance structure.
  * @param[in]  aFrame    A pointer to the received frame or NULL if the receive operation failed.
@@ -823,7 +955,7 @@ extern void otPlatRadioTxDone(otInstance *aInstance, otRadioFrame *aFrame, otRad
 /**
  * The radio driver calls this method to notify OpenThread diagnostics module that the transmission has completed.
  *
- * This function is used when diagnostics is enabled.
+ * Is used when diagnostics is enabled.
  *
  * @param[in]  aInstance      The OpenThread instance structure.
  * @param[in]  aFrame         A pointer to the frame that was transmitted.
@@ -847,13 +979,14 @@ int8_t otPlatRadioGetRssi(otInstance *aInstance);
 /**
  * Begin the energy scan sequence on the radio.
  *
- * This function is used when radio provides OT_RADIO_CAPS_ENERGY_SCAN capability.
+ * Is used when radio provides OT_RADIO_CAPS_ENERGY_SCAN capability.
  *
  * @param[in] aInstance      The OpenThread instance structure.
  * @param[in] aScanChannel   The channel to perform the energy scan on.
  * @param[in] aScanDuration  The duration, in milliseconds, for the channel to be scanned.
  *
  * @retval OT_ERROR_NONE             Successfully started scanning the channel.
+ * @retval OT_ERROR_BUSY             The radio is performing energy scanning.
  * @retval OT_ERROR_NOT_IMPLEMENTED  The radio doesn't support energy scanning.
  *
  */
@@ -862,7 +995,7 @@ otError otPlatRadioEnergyScan(otInstance *aInstance, uint8_t aScanChannel, uint1
 /**
  * The radio driver calls this method to notify OpenThread that the energy scan is complete.
  *
- * This function is used when radio provides OT_RADIO_CAPS_ENERGY_SCAN capability.
+ * Is used when radio provides OT_RADIO_CAPS_ENERGY_SCAN capability.
  *
  * @param[in]  aInstance           The OpenThread instance structure.
  * @param[in]  aEnergyScanMaxRssi  The maximum RSSI encountered on the scanned channel.
@@ -965,7 +1098,7 @@ void otPlatRadioClearSrcMatchExtEntries(otInstance *aInstance);
 uint32_t otPlatRadioGetSupportedChannelMask(otInstance *aInstance);
 
 /**
- * Get the radio preferred channel mask that the device prefers to form on.
+ * Gets the radio preferred channel mask that the device prefers to form on.
  *
  * @param[in]  aInstance   The OpenThread instance structure.
  *
@@ -977,7 +1110,7 @@ uint32_t otPlatRadioGetPreferredChannelMask(otInstance *aInstance);
 /**
  * Enable the radio coex.
  *
- * This function is used when feature OPENTHREAD_CONFIG_PLATFORM_RADIO_COEX_ENABLE is enabled.
+ * Is used when feature OPENTHREAD_CONFIG_PLATFORM_RADIO_COEX_ENABLE is enabled.
  *
  * @param[in] aInstance  The OpenThread instance structure.
  * @param[in] aEnabled   TRUE to enable the radio coex, FALSE otherwise.
@@ -991,7 +1124,7 @@ otError otPlatRadioSetCoexEnabled(otInstance *aInstance, bool aEnabled);
 /**
  * Check whether radio coex is enabled or not.
  *
- * This function is used when feature OPENTHREAD_CONFIG_PLATFORM_RADIO_COEX_ENABLE is enabled.
+ * Is used when feature OPENTHREAD_CONFIG_PLATFORM_RADIO_COEX_ENABLE is enabled.
  *
  * @param[in] aInstance  The OpenThread instance structure.
  *
@@ -1003,7 +1136,7 @@ bool otPlatRadioIsCoexEnabled(otInstance *aInstance);
 /**
  * Get the radio coexistence metrics.
  *
- * This function is used when feature OPENTHREAD_CONFIG_PLATFORM_RADIO_COEX_ENABLE is enabled.
+ * Is used when feature OPENTHREAD_CONFIG_PLATFORM_RADIO_COEX_ENABLE is enabled.
  *
  * @param[in]  aInstance     The OpenThread instance structure.
  * @param[out] aCoexMetrics  A pointer to the coexistence metrics structure.
@@ -1017,54 +1150,90 @@ otError otPlatRadioGetCoexMetrics(otInstance *aInstance, otRadioCoexMetrics *aCo
  * Enable or disable CSL receiver.
  *
  * @param[in]  aInstance     The OpenThread instance structure.
- * @param[in]  aCslPeriod    CSL period, 0 for disabling CSL.
+ * @param[in]  aCslPeriod    CSL period, 0 for disabling CSL. CSL period is in unit of 10 symbols.
  * @param[in]  aShortAddr    The short source address of CSL receiver's peer.
  * @param[in]  aExtAddr      The extended source address of CSL receiver's peer.
  *
  * @note Platforms should use CSL peer addresses to include CSL IE when generating enhanced acks.
  *
- * @retval  kErrorNotImplemented Radio driver doesn't support CSL.
- * @retval  kErrorFailed         Other platform specific errors.
- * @retval  kErrorNone           Successfully enabled or disabled CSL.
+ * @retval  OT_ERROR_NOT_IMPLEMENTED Radio driver doesn't support CSL.
+ * @retval  OT_ERROR_FAILED          Other platform specific errors.
+ * @retval  OT_ERROR_NONE            Successfully enabled or disabled CSL.
  *
  */
-otError otPlatRadioEnableCsl(otInstance *        aInstance,
+otError otPlatRadioEnableCsl(otInstance         *aInstance,
                              uint32_t            aCslPeriod,
                              otShortAddress      aShortAddr,
                              const otExtAddress *aExtAddr);
 
 /**
+ * Reset CSL receiver in the platform.
+ *
+ * @note Defaults to `otPlatRadioEnableCsl(aInstance,0, Mac::kShortAddrInvalid, nullptr);`
+ *
+ * @param[in]  aInstance     The OpenThread instance structure.
+ *
+ * @retval  OT_ERROR_NOT_IMPLEMENTED Radio driver doesn't support CSL.
+ * @retval  OT_ERROR_FAILED          Other platform specific errors.
+ * @retval  OT_ERROR_NONE            Successfully disabled CSL.
+ *
+ */
+otError otPlatRadioResetCsl(otInstance *aInstance);
+
+/**
  * Update CSL sample time in radio driver.
  *
- * Sample time is stored in radio driver as a copy to calculate phase when sending ACK with CSL IE.
+ * Sample time is stored in radio driver as a copy to calculate phase when
+ * sending ACK with CSL IE. The CSL sample (window) of the CSL receiver extends
+ * before and after the sample time. The CSL sample time marks a timestamp in
+ * the CSL sample window when a frame should be received in "ideal conditions"
+ * if there would be no inaccuracy/clock-drift.
  *
  * @param[in]  aInstance         The OpenThread instance structure.
- * @param[in]  aCslSampleTime    The latest sample time.
- *
+ * @param[in]  aCslSampleTime    The next sample time, in microseconds. It is
+ *                               the time when the first symbol of the MHR of
+ *                               the frame is expected.
  */
 void otPlatRadioUpdateCslSampleTime(otInstance *aInstance, uint32_t aCslSampleTime);
 
 /**
- * Get the current accuracy, in units of ± ppm, of the clock used for scheduling CSL operations.
+ * Get the current estimated worst case accuracy (maximum ± deviation from the
+ * nominal frequency) of the local radio clock in units of PPM. This is the
+ * clock used to schedule CSL operations.
  *
- * @note Platforms may optimize this value based on operational conditions (i.e.: temperature).
+ * @note Implementations MAY estimate this value based on current operating
+ * conditions (e.g. temperature).
+ *
+ * In case the implementation does not estimate the current value but returns a
+ * fixed value, this value MUST be the worst-case accuracy over all possible
+ * foreseen operating conditions (temperature, pressure, etc) of the
+ * implementation.
  *
  * @param[in]   aInstance    A pointer to an OpenThread instance.
  *
- * @returns The current CSL rx/tx scheduling drift, in units of ± ppm.
+ * @returns The current CSL rx/tx scheduling drift, in PPM.
  *
  */
 uint8_t otPlatRadioGetCslAccuracy(otInstance *aInstance);
 
 /**
- * Get the current uncertainty, in units of 10 us, of the clock used for scheduling CSL operations.
+ * The fixed uncertainty (i.e. random jitter) of the arrival time of CSL
+ * transmissions received by this device in units of 10 microseconds.
+ *
+ * This designates the worst case constant positive or negative deviation of
+ * the actual arrival time of a transmission from the transmission time
+ * calculated relative to the local radio clock independent of elapsed time. In
+ * addition to uncertainty accumulated over elapsed time, the CSL channel sample
+ * ("RX window") must be extended by twice this deviation such that an actual
+ * transmission is guaranteed to be detected by the local receiver in the
+ * presence of random arrival time jitter.
  *
  * @param[in]   aInstance    A pointer to an OpenThread instance.
  *
- * @returns The current CSL Clock Uncertainty in units of 10 us.
+ * @returns The CSL Uncertainty in units of 10 us.
  *
  */
-uint8_t otPlatRadioGetCslClockUncertainty(otInstance *aInstance);
+uint8_t otPlatRadioGetCslUncertainty(otInstance *aInstance);
 
 /**
  * Set the max transmit power for a specific channel.
@@ -1088,10 +1257,12 @@ otError otPlatRadioSetChannelMaxTransmitPower(otInstance *aInstance, uint8_t aCh
  * ISO 3166 alpha-2 code.
  *
  * @param[in]  aInstance    The OpenThread instance structure.
- * @param[in]  aRegionCode  The radio region.
+ * @param[in]  aRegionCode  The radio region code. The `aRegionCode >> 8` is first ascii char
+ *                          and the `aRegionCode & 0xff` is the second ascii char.
  *
  * @retval  OT_ERROR_FAILED           Other platform specific errors.
  * @retval  OT_ERROR_NONE             Successfully set region code.
+ * @retval  OT_ERROR_NOT_IMPLEMENTED  The feature is not implemented.
  *
  */
 otError otPlatRadioSetRegion(otInstance *aInstance, uint16_t aRegionCode);
@@ -1108,6 +1279,7 @@ otError otPlatRadioSetRegion(otInstance *aInstance, uint16_t aRegionCode);
  * @retval  OT_ERROR_INVALID_ARGS     @p aRegionCode is nullptr.
  * @retval  OT_ERROR_FAILED           Other platform specific errors.
  * @retval  OT_ERROR_NONE             Successfully got region code.
+ * @retval  OT_ERROR_NOT_IMPLEMENTED  The feature is not implemented.
  *
  */
 otError otPlatRadioGetRegion(otInstance *aInstance, uint16_t *aRegionCode);
@@ -1123,19 +1295,114 @@ otError otPlatRadioGetRegion(otInstance *aInstance, uint16_t *aRegionCode);
  * @param[in]  aInstance     The OpenThread instance structure.
  * @param[in]  aLinkMetrics  This parameter specifies what metrics to query. Per spec 4.11.3.4.4.6, at most 2 metrics
  *                           can be specified. The probing would be disabled if @p `aLinkMetrics` is bitwise 0.
- * @param[in]  aShortAddr    The short address of the Probing Initiator.
- * @param[in]  aExtAddr      The extended source address of the Probing Initiator. @p aExtAddr MUST NOT be `NULL`.
+ * @param[in]  aShortAddress The short address of the Probing Initiator.
+ * @param[in]  aExtAddress   The extended source address of the Probing Initiator. @p aExtAddr MUST NOT be `NULL`.
  *
  * @retval  OT_ERROR_NONE            Successfully configured the Enhanced-ACK Based Probing.
  * @retval  OT_ERROR_INVALID_ARGS    @p aExtAddress is `NULL`.
  * @retval  OT_ERROR_NOT_FOUND       The Initiator indicated by @p aShortAddress is not found when trying to clear.
  * @retval  OT_ERROR_NO_BUFS         No more Initiator can be supported.
+ * @retval  OT_ERROR_NOT_IMPLEMENTED The feature is not implemented.
  *
  */
-otError otPlatRadioConfigureEnhAckProbing(otInstance *        aInstance,
+otError otPlatRadioConfigureEnhAckProbing(otInstance         *aInstance,
                                           otLinkMetrics       aLinkMetrics,
                                           otShortAddress      aShortAddress,
                                           const otExtAddress *aExtAddress);
+
+/**
+ * Add a calibrated power of the specified channel to the power calibration table.
+ *
+ * @note This API is an optional radio platform API. It's up to the platform layer to implement it.
+ *
+ * The @p aActualPower is the actual measured output power when the parameters of the radio hardware modules
+ * are set to the @p aRawPowerSetting.
+ *
+ * The raw power setting is an opaque byte array. OpenThread doesn't define the format of the raw power setting.
+ * Its format is radio hardware related and it should be defined by the developers in the platform radio driver.
+ * For example, if the radio hardware contains both the radio chip and the FEM chip, the raw power setting can be
+ * a combination of the radio power register and the FEM gain value.
+ *
+ * @param[in] aInstance               The OpenThread instance structure.
+ * @param[in] aChannel                The radio channel.
+ * @param[in] aActualPower            The actual power in 0.01dBm.
+ * @param[in] aRawPowerSetting        A pointer to the raw power setting byte array.
+ * @param[in] aRawPowerSettingLength  The length of the @p aRawPowerSetting.
+ *
+ * @retval OT_ERROR_NONE             Successfully added the calibrated power to the power calibration table.
+ * @retval OT_ERROR_NO_BUFS          No available entry in the power calibration table.
+ * @retval OT_ERROR_INVALID_ARGS     The @p aChannel, @p aActualPower or @p aRawPowerSetting is invalid or the
+ *                                   @p aActualPower already exists in the power calibration table.
+ * @retval OT_ERROR_NOT_IMPLEMENTED  This feature is not implemented.
+ *
+ */
+otError otPlatRadioAddCalibratedPower(otInstance    *aInstance,
+                                      uint8_t        aChannel,
+                                      int16_t        aActualPower,
+                                      const uint8_t *aRawPowerSetting,
+                                      uint16_t       aRawPowerSettingLength);
+
+/**
+ * Clear all calibrated powers from the power calibration table.
+ *
+ * @note This API is an optional radio platform API. It's up to the platform layer to implement it.
+ *
+ * @param[in]  aInstance   The OpenThread instance structure.
+ *
+ * @retval OT_ERROR_NONE             Successfully cleared all calibrated powers from the power calibration table.
+ * @retval OT_ERROR_NOT_IMPLEMENTED  This feature is not implemented.
+ *
+ */
+otError otPlatRadioClearCalibratedPowers(otInstance *aInstance);
+
+/**
+ * Set the target power for the given channel.
+ *
+ * @note This API is an optional radio platform API. It's up to the platform layer to implement it.
+ *       If this API is implemented, the function `otPlatRadioSetTransmitPower()` should be disabled.
+ *
+ * The radio driver should set the actual output power to be less than or equal to the target power and as close
+ * as possible to the target power.
+ *
+ * @param[in]  aInstance     The OpenThread instance structure.
+ * @param[in]  aChannel      The radio channel.
+ * @param[in]  aTargetPower  The target power in 0.01dBm. Passing `INT16_MAX` will disable this channel to use the
+ *                           target power.
+ *
+ * @retval  OT_ERROR_NONE             Successfully set the target power.
+ * @retval  OT_ERROR_INVALID_ARGS     The @p aChannel or @p aTargetPower is invalid.
+ * @retval  OT_ERROR_NOT_IMPLEMENTED  The feature is not implemented.
+ *
+ */
+otError otPlatRadioSetChannelTargetPower(otInstance *aInstance, uint8_t aChannel, int16_t aTargetPower);
+
+/**
+ * Get the raw power setting for the given channel.
+ *
+ * @note OpenThread `src/core/utils` implements a default implementation of the API `otPlatRadioAddCalibratedPower()`,
+ *       `otPlatRadioClearCalibratedPowers()` and `otPlatRadioSetChannelTargetPower()`. This API is provided by
+ *       the default implementation to get the raw power setting for the given channel. If the platform doesn't
+ *       use the default implementation, it can ignore this API.
+ *
+ * Platform radio layer should parse the raw power setting based on the radio layer defined format and set the
+ * parameters of each radio hardware module.
+ *
+ * @param[in]      aInstance               The OpenThread instance structure.
+ * @param[in]      aChannel                The radio channel.
+ * @param[out]     aRawPowerSetting        A pointer to the raw power setting byte array.
+ * @param[in,out]  aRawPowerSettingLength  On input, a pointer to the size of @p aRawPowerSetting.
+ *                                         On output, a pointer to the length of the raw power setting data.
+ *
+ * @retval  OT_ERROR_NONE          Successfully got the target power.
+ * @retval  OT_ERROR_INVALID_ARGS  The @p aChannel is invalid, @p aRawPowerSetting or @p aRawPowerSettingLength is NULL
+ *                                 or @aRawPowerSettingLength is too short.
+ * @retval  OT_ERROR_NOT_FOUND     The raw power setting for the @p aChannel was not found.
+ *
+ */
+extern otError otPlatRadioGetRawPowerSetting(otInstance *aInstance,
+                                             uint8_t     aChannel,
+                                             uint8_t    *aRawPowerSetting,
+                                             uint16_t   *aRawPowerSettingLength);
 
 /**
  * @}

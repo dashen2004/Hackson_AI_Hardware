@@ -1,16 +1,8 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /*******************************************************************************
  * NOTICE
@@ -40,6 +32,8 @@ extern "C" {
 #define TOUCH_LL_BIT_SWAP(data, n, m)   (((data >> n) &  0x1)  == ((data >> m) & 0x1) ? (data) : ((data) ^ ((0x1 <<n) | (0x1 << m))))
 #define TOUCH_LL_BITS_SWAP(v)  TOUCH_LL_BIT_SWAP(v, TOUCH_PAD_NUM8, TOUCH_PAD_NUM9)
 
+#define TOUCH_LL_PAD_MEASURE_WAIT_MAX      (0xFF)  /*!<The timer frequency is 8Mhz, the max value is 0xff */
+
 /**
  * Swap the number of touch8 and touch9.
  *
@@ -66,7 +60,7 @@ static inline void touch_ll_set_meas_time(uint16_t meas_time)
     //touch sensor measure time= meas_cycle / 8Mhz
     HAL_FORCE_MODIFY_U32_REG_FIELD(SENS.sar_touch_ctrl1, touch_meas_delay, meas_time);
     //the waiting cycles (in 8MHz) between TOUCH_START and TOUCH_XPD
-    HAL_FORCE_MODIFY_U32_REG_FIELD(SENS.sar_touch_ctrl1, touch_xpd_wait, SOC_TOUCH_PAD_MEASURE_WAIT_MAX);
+    HAL_FORCE_MODIFY_U32_REG_FIELD(SENS.sar_touch_ctrl1, touch_xpd_wait, TOUCH_LL_PAD_MEASURE_WAIT_MAX);
 }
 
 /**
@@ -235,6 +229,7 @@ static inline void touch_ll_get_tie_option(touch_pad_t touch_num, touch_tie_opt_
  *
  * @param mode FSM mode.
  */
+__attribute__((always_inline))
 static inline void touch_ll_set_fsm_mode(touch_fsm_mode_t mode)
 {
     SENS.sar_touch_ctrl2.touch_start_fsm_en = 1;
@@ -270,6 +265,7 @@ static inline void touch_ll_start_fsm(void)
  *
  * @param mode FSM mode.
  */
+__attribute__((always_inline))
 static inline void touch_ll_stop_fsm(void)
 {
     RTCCNTL.state0.touch_slp_timer_en = 0;
@@ -503,7 +499,8 @@ static inline uint32_t touch_ll_read_raw_data(touch_pad_t touch_num)
  * @return
  *      - If touch sensors measure done.
  */
-static inline bool touch_ll_meas_is_done(void)
+__attribute__((always_inline))
+static inline bool touch_ll_is_measure_done(void)
 {
     return (bool)SENS.sar_touch_ctrl2.touch_meas_done;
 }

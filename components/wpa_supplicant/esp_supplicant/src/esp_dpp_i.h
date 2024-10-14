@@ -1,16 +1,8 @@
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2020-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #ifndef ESP_DPP_I_H
 #define ESP_DPP_I_H
@@ -18,12 +10,12 @@
 #include "esp_err.h"
 #include "utils/includes.h"
 #include "utils/common.h"
-
 #include "common/dpp.h"
 #include "esp_dpp.h"
 #include "esp_wifi_driver.h"
 
 #define DPP_TASK_STACK_SIZE  (6144 + TASK_STACK_SIZE_ADD)
+#define ESP_DPP_PMK_CACHE_DEFAULT_TIMEOUT  86400 * 7   /*!< 7 days */
 
 enum SIG_DPP {
     SIG_DPP_RESET = 0,
@@ -31,6 +23,8 @@ enum SIG_DPP {
     SIG_DPP_RX_ACTION,
     SIG_DPP_LISTEN_NEXT_CHANNEL,
     SIG_DPP_DEL_TASK,
+    SIG_DPP_START_NET_INTRO,
+    SIG_DPP_DEINIT_AUTH,
     SIG_DPP_MAX,
 };
 
@@ -47,8 +41,6 @@ struct dpp_bootstrap_params_t {
     uint8_t chan_list[14];
     uint8_t num_chan;
     uint8_t mac[6];
-    uint32_t key_len;
-    char *key;
     uint32_t info_len;
     char *info;
 };
@@ -64,5 +56,19 @@ struct esp_dpp_context_t {
 };
 
 int esp_supp_rx_action(uint8_t *hdr, uint8_t *payload, size_t len, uint8_t channel);
+esp_err_t esp_dpp_post_evt(uint32_t evt_id, uint32_t data);
 
+#ifdef CONFIG_TESTING_OPTIONS
+int dpp_test_gen_invalid_key(struct wpabuf *msg, const struct dpp_curve_params *curve);
+char * dpp_corrupt_connector_signature(const char *connector);
+#endif /* CONFIG_TESTING_OPTIONS */
+
+#ifdef CONFIG_ESP_WIFI_DPP_SUPPORT
+bool is_dpp_enabled(void);
+#else
+static inline bool is_dpp_enabled(void)
+{
+    return false;
+}
+#endif
 #endif /* ESP_DPP_I_H */

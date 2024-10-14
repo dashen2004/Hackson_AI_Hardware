@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- | -------- |
+
 # ESP Local Control using HTTPS server
 
 This example creates a `esp_local_ctrl` service over HTTPS transport, for securely controlling the device over local network. In this case the device name is resolved through `mDNS`, which in this example is `my_esp_ctrl_device.local`.
@@ -5,6 +8,8 @@ This example creates a `esp_local_ctrl` service over HTTPS transport, for secure
 See the `esp_local_ctrl` component documentation for details.
 
 Before using the example, run `idf.py menuconfig` (or `idf.py menuconfig` if using CMake build system) to configure Wi-Fi or Ethernet. See "Establishing Wi-Fi or Ethernet Connection" section in [examples/protocols/README.md](../README.md) for more details.
+
+Note, that this example in not supported for IPv6-only configuration.
 
 ## Client Side Implementation
 
@@ -28,16 +33,17 @@ Sample output:
 After you've tested the name resolution, run:
 
 ```
-python scripts/esp_local_ctrl.py --sec_ver 0
+python scripts/esp_local_ctrl.py --sec_ver 2 --sec2_username wifiprov --sec2_pwd abcd1234
 ```
 Sample output:
 
 ```
-python scripts/esp_local_ctrl.py --sec_ver 0
+python scripts/esp_local_ctrl.py --sec_ver 2 --sec2_username wifiprov --sec2_pwd abcd1234
 
-==== Acquiring properties information ====
+++++ Connecting to my_esp_ctrl_device.local++++
 
-==== Acquired properties information ====
+==== Starting Session ====
+==== Session Established ====
 
 ==== Available Properties ====
 S.N. Name             Type       Flags            Value
@@ -70,11 +76,13 @@ Select properties to set (0 to re-read, 'q' to quit) : q
 Quitting...
 ```
 
-The script also allows to connect over BLE, and provide a custom service name. To display the list of supported parameters, run:
+The script also allows to connect over plain HTTP or BLE, and provide a custom service name. To display the list of supported parameters, run:
 
 ```
 python scripts/esp_local_ctrl.py --help
 ```
+
+**Note:** To use plain HTTP transport, disable the config option `CONFIG_ESP_HTTPS_SERVER_ENABLE`.
 
 ## Certificates
 

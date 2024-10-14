@@ -1,23 +1,17 @@
-// Copyright 2021 Espressif Systems (Shanghai) CO LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License
+/*
+ * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #pragma once
 
 #include "esp_err.h"
 #include "esp_openthread_types.h"
+#include "openthread/dataset.h"
 #include "openthread/error.h"
 #include "openthread/instance.h"
+#include "lwip/ip_addr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,9 +34,22 @@ extern "C" {
 esp_err_t esp_openthread_init(const esp_openthread_platform_config_t *init_config);
 
 /**
+ * @brief   Starts the Thread protocol operation and attaches to a Thread network.
+ *
+ * @param[in]  datasetTlvs    The operational dataset (TLV encoded), if it's NULL, the function will generate the dataset
+ *                            based on the configurations from kconfig.
+ *
+ * @return
+ *      - ESP_OK on success
+ *      - ESP_FAIL on failures
+ *
+ */
+esp_err_t esp_openthread_auto_start(otOperationalDatasetTlvs *datasetTlvs);
+
+/**
  * @brief   Launches the OpenThread main loop.
  *
- * @note Thie function will not return unless error happens when running the OpenThread stack.
+ * @note This function will not return unless error happens when running the OpenThread stack.
  *
  * @return
  *      - ESP_OK on success
@@ -71,6 +78,7 @@ esp_err_t esp_openthread_deinit(void);
  *
  */
 otInstance *esp_openthread_get_instance(void);
+
 
 #ifdef __cplusplus
 } // end of extern "C"

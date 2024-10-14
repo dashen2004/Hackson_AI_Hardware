@@ -1,16 +1,8 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #ifndef nvs_page_hpp
 #define nvs_page_hpp
 
@@ -20,17 +12,17 @@
 #include <type_traits>
 #include <cstring>
 #include <algorithm>
-#include "esp_spi_flash.h"
 #include "compressed_enum_table.hpp"
 #include "intrusive_list.h"
 #include "nvs_item_hash_list.hpp"
+#include "nvs_memory_management.hpp"
 #include "partition.hpp"
 
 namespace nvs
 {
 
 
-class Page : public intrusive_list_node<Page>
+class Page : public intrusive_list_node<Page>, public ExceptionlessAllocatable
 {
 public:
     static const uint32_t PSB_INIT = 0x1;
@@ -41,7 +33,7 @@ public:
     static const uint32_t ESB_WRITTEN = 0x1;
     static const uint32_t ESB_ERASED = 0x2;
 
-    static const uint32_t SEC_SIZE = SPI_FLASH_SEC_SIZE;
+    static const uint32_t SEC_SIZE;
 
     static const size_t ENTRY_SIZE  = 32;
     static const size_t ENTRY_COUNT = 126;
@@ -104,6 +96,8 @@ public:
     esp_err_t findItem(uint8_t nsIndex, ItemType datatype, const char* key, uint8_t chunkIdx = CHUNK_ANY, VerOffset chunkStart = VerOffset::VER_ANY);
 
     esp_err_t findItem(uint8_t nsIndex, ItemType datatype, const char* key, size_t &itemIndex, Item& item, uint8_t chunkIdx = CHUNK_ANY, VerOffset chunkStart = VerOffset::VER_ANY);
+
+    esp_err_t eraseEntryAndSpan(size_t index);
 
     template<typename T>
     esp_err_t writeItem(uint8_t nsIndex, const char* key, const T& value)
@@ -195,19 +189,18 @@ protected:
 
     esp_err_t writeEntryData(const uint8_t* data, size_t size);
 
-    esp_err_t eraseEntryAndSpan(size_t index);
-
-    void updateFirstUsedEntry(size_t index, size_t span);
+    esp_err_t updateFirstUsedEntry(size_t index, size_t span);
 
     static constexpr size_t getAlignmentForType(ItemType type)
     {
         return static_cast<uint8_t>(type) & 0x0f;
     }
 
-    uint32_t getEntryAddress(size_t entry) const
+    esp_err_t getEntryAddress(size_t entry, uint32_t *address) const
     {
-        assert(entry < ENTRY_COUNT);
-        return mBaseAddress + ENTRY_DATA_OFFSET + static_cast<uint32_t>(entry) * ENTRY_SIZE;
+        NVS_ASSERT_OR_RETURN(entry < ENTRY_COUNT, ESP_FAIL);
+        *address =  mBaseAddress + ENTRY_DATA_OFFSET + static_cast<uint32_t>(entry) * ENTRY_SIZE;
+        return ESP_OK;
     }
 
     static const char* pageStateToName(PageState ps);

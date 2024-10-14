@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,6 +9,7 @@
 #include "osi/allocator.h"
 #include "stack/bt_types.h"
 #include "common/bt_defs.h"
+#include "common/bt_target.h"
 #include "bta/bta_api.h"
 #include "bta/bta_dm_co.h"
 #include "btc/btc_task.h"
@@ -21,7 +22,11 @@
 #include "btc/btc_dm.h"
 #include "btc/btc_util.h"
 #include "osi/mutex.h"
+#include "osi/thread.h"
+#include "osi/pkt_queue.h"
+#if (BT_CONTROLLER_INCLUDED == TRUE)
 #include "esp_bt.h"
+#endif
 
 #if (BLE_INCLUDED == TRUE)
 #if (BLE_42_FEATURE_SUPPORT == TRUE)
@@ -48,6 +53,19 @@ static uint16_t btc_adv_list_count = 0;
 #define  BTC_ADV_LIST_MAX_COUNT     200
 #endif
 
+#define BTC_GAP_BLE_ADV_RPT_QUEUE_IDX            (1)
+#define BTC_GAP_BLE_ADV_RPT_BATCH_SIZE           (10)
+#define BTC_GAP_BLE_ADV_RPT_QUEUE_LEN_MAX        (200)
+
+#if (BLE_42_FEATURE_SUPPORT == TRUE)
+typedef struct {
+    struct pkt_queue *adv_rpt_queue;
+    struct osi_event *adv_rpt_ready;
+} btc_gap_ble_env_t;
+
+static btc_gap_ble_env_t btc_gap_ble_env;
+#endif
+
 static inline void btc_gap_ble_cb_to_app(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
     esp_gap_ble_cb_t btc_gap_ble_cb = (esp_gap_ble_cb_t)btc_profile_cb_get(BTC_PID_GAP_BLE);
@@ -55,6 +73,34 @@ static inline void btc_gap_ble_cb_to_app(esp_gap_ble_cb_event_t event, esp_ble_g
         btc_gap_ble_cb(event, param);
     }
 }
+
+static void btc_gap_ble_get_dev_name_callback(UINT8 status, char *name)
+{
+    esp_ble_gap_cb_param_t param;
+    bt_status_t ret;
+    btc_msg_t msg = {0};
+
+    memset(&param, 0, sizeof(esp_ble_gap_cb_param_t));
+
+    msg.sig = BTC_SIG_API_CB;
+    msg.pid = BTC_PID_GAP_BLE;
+    msg.act = ESP_GAP_BLE_GET_DEV_NAME_COMPLETE_EVT;
+
+    param.get_dev_name_cmpl.status = btc_btm_status_to_esp_status(status);
+    param.get_dev_name_cmpl.name = (char *)osi_malloc(BTC_MAX_LOC_BD_NAME_LEN + 1);
+    if (param.get_dev_name_cmpl.name) {
+        BCM_STRNCPY_S(param.get_dev_name_cmpl.name, name, BTC_MAX_LOC_BD_NAME_LEN);
+        param.get_dev_name_cmpl.name[BTC_MAX_LOC_BD_NAME_LEN] = '\0';
+    } else {
+        param.get_dev_name_cmpl.status = ESP_BT_STATUS_NOMEM;
+    }
+
+    ret = btc_transfer_context(&msg, &param, sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
+    if (ret != BT_STATUS_SUCCESS) {
+        BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
+    }
+}
+
 #if (BLE_42_FEATURE_SUPPORT == TRUE)
 static void btc_gap_adv_point_cleanup(void **buf)
 {
@@ -144,7 +190,11 @@ static void btc_to_bta_adv_data(esp_ble_adv_data_t *p_adv_data, tBTA_BLE_ADV_DAT
 
     if (p_adv_data->include_txpower) {
         mask |= BTM_BLE_AD_BIT_TX_PWR;
+#if (BT_CONTROLLER_INCLUDED == TRUE)
         bta_adv_data->tx_power = esp_ble_tx_power_get(ESP_BLE_PWR_TYPE_ADV);
+#else
+        bta_adv_data->tx_power = 0;
+#endif
     }
 
     if (p_adv_data->min_interval > 0 && p_adv_data->max_interval > 0 &&
@@ -299,7 +349,7 @@ static void btc_adv_data_callback(tBTA_STATUS status)
     param.adv_data_cmpl.status = status;
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -318,7 +368,7 @@ static void btc_scan_rsp_data_callback(tBTA_STATUS status)
     param.scan_rsp_data_cmpl.status = status;
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -337,7 +387,7 @@ static void btc_adv_data_raw_callback(tBTA_STATUS status)
     param.adv_data_raw_cmpl.status = status;
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -356,7 +406,7 @@ static void btc_scan_rsp_data_raw_callback(tBTA_STATUS status)
     param.scan_rsp_data_raw_cmpl.status = status;
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -401,7 +451,7 @@ static void btc_start_adv_callback(uint8_t status)
     param.adv_start_cmpl.status = btc_hci_to_esp_status(status);
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -420,7 +470,26 @@ static void btc_stop_adv_callback(uint8_t status)
     param.adv_stop_cmpl.status = btc_hci_to_esp_status(status);
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
+
+    if (ret != BT_STATUS_SUCCESS) {
+        BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
+    }
+}
+
+static void btc_clear_adv_callback(uint8_t status)
+{
+    esp_ble_gap_cb_param_t param;
+    bt_status_t ret;
+    btc_msg_t msg = {0};
+
+    msg.sig = BTC_SIG_API_CB;
+    msg.pid = BTC_PID_GAP_BLE;
+    msg.act = ESP_GAP_BLE_ADV_CLEAR_COMPLETE_EVT;
+    param.adv_clear_cmpl.status = btc_hci_to_esp_status(status);
+
+    ret = btc_transfer_context(&msg, &param,
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -443,7 +512,7 @@ void btc_update_duplicate_exceptional_list_callback(tBTA_STATUS status, uint8_t 
     }
     param.update_duplicate_exceptional_list_cmpl.length = length;
     memcpy(param.update_duplicate_exceptional_list_cmpl.device_info, device_info, length);
-    ret = btc_transfer_context(&msg, &param, sizeof(esp_ble_gap_cb_param_t), NULL);
+    ret = btc_transfer_context(&msg, &param, sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -520,7 +589,7 @@ static void btc_scan_params_callback(tGATT_IF gatt_if, tBTM_STATUS status)
     param.scan_param_cmpl.status = status;
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -548,8 +617,82 @@ static void btc_ble_set_scan_params(esp_ble_scan_params_t *scan_params, tBLE_SCA
     }
 }
 
+static void btc_gap_ble_adv_pkt_handler(void *arg)
+{
+    btc_gap_ble_env_t *p_env = &btc_gap_ble_env;
+    size_t pkts_to_process = pkt_queue_length(p_env->adv_rpt_queue);
+    if (pkts_to_process > BTC_GAP_BLE_ADV_RPT_BATCH_SIZE) {
+        pkts_to_process = BTC_GAP_BLE_ADV_RPT_BATCH_SIZE;
+    }
+
+    for (size_t i = 0; i < pkts_to_process; i++) {
+        pkt_linked_item_t *linked_pkt = pkt_queue_dequeue(p_env->adv_rpt_queue);
+        if (linked_pkt != NULL) {
+            esp_ble_gap_cb_param_t *param = (esp_ble_gap_cb_param_t *)(linked_pkt->data);
+            btc_gap_ble_cb_to_app(ESP_GAP_BLE_SCAN_RESULT_EVT, param);
+            osi_free(linked_pkt);
+        }
+    }
+
+    if (pkt_queue_length(p_env->adv_rpt_queue) != 0) {
+        osi_thread_post_event(p_env->adv_rpt_ready, OSI_THREAD_MAX_TIMEOUT);
+    }
+}
+
+static void btc_process_adv_rpt_pkt(tBTA_DM_SEARCH_EVT event, tBTA_DM_SEARCH *p_data)
+{
+#if SCAN_QUEUE_CONGEST_CHECK
+    if(btc_check_queue_is_congest()) {
+        BTC_TRACE_DEBUG("BtcQueue is congested");
+        if(btc_get_adv_list_length() > BTC_ADV_LIST_MAX_LENGTH || btc_adv_list_count > BTC_ADV_LIST_MAX_COUNT) {
+            btc_adv_list_refresh();
+            btc_adv_list_count = 0;
+        }
+        if(btc_check_adv_list(p_data->inq_res.bd_addr, p_data->inq_res.ble_addr_type)) {
+            return;
+        }
+    }
+    btc_adv_list_count ++;
+#endif
+
+    // drop ADV packets if data queue length goes above threshold
+    btc_gap_ble_env_t *p_env = &btc_gap_ble_env;
+    if (pkt_queue_length(p_env->adv_rpt_queue) >= BTC_GAP_BLE_ADV_RPT_QUEUE_LEN_MAX) {
+        return;
+    }
+
+    pkt_linked_item_t *linked_pkt = osi_calloc(BT_PKT_LINKED_HDR_SIZE + sizeof(esp_ble_gap_cb_param_t));
+    if (linked_pkt == NULL) {
+        return;
+    }
+
+    struct ble_scan_result_evt_param *scan_rst = (struct ble_scan_result_evt_param *)linked_pkt->data;
+
+    do {
+        scan_rst->search_evt = event;
+        bdcpy(scan_rst->bda, p_data->inq_res.bd_addr);
+        scan_rst->dev_type = p_data->inq_res.device_type;
+        scan_rst->rssi = p_data->inq_res.rssi;
+        scan_rst->ble_addr_type = p_data->inq_res.ble_addr_type;
+        scan_rst->ble_evt_type = p_data->inq_res.ble_evt_type;
+        scan_rst->flag = p_data->inq_res.flag;
+        scan_rst->num_resps = 1;
+        scan_rst->adv_data_len = p_data->inq_res.adv_data_len;
+        scan_rst->scan_rsp_len = p_data->inq_res.scan_rsp_len;
+        memcpy(scan_rst->ble_adv, p_data->inq_res.p_eir, sizeof(scan_rst->ble_adv));
+    } while (0);
+
+    pkt_queue_enqueue(p_env->adv_rpt_queue, linked_pkt);
+    osi_thread_post_event(p_env->adv_rpt_ready, OSI_THREAD_MAX_TIMEOUT);
+}
+
 static void btc_search_callback(tBTA_DM_SEARCH_EVT event, tBTA_DM_SEARCH *p_data)
 {
+    if (event == BTA_DM_INQ_RES_EVT) {
+        btc_process_adv_rpt_pkt(event, p_data);
+        return;
+    }
+
     esp_ble_gap_cb_param_t param;
     btc_msg_t msg = {0};
 
@@ -559,32 +702,8 @@ static void btc_search_callback(tBTA_DM_SEARCH_EVT event, tBTA_DM_SEARCH *p_data
 
     param.scan_rst.search_evt = event;
     switch (event) {
-    case BTA_DM_INQ_RES_EVT: {
-#if SCAN_QUEUE_CONGEST_CHECK
-        if(btc_check_queue_is_congest()) {
-            BTC_TRACE_DEBUG("BtcQueue is congested");
-            if(btc_get_adv_list_length() > BTC_ADV_LIST_MAX_LENGTH || btc_adv_list_count > BTC_ADV_LIST_MAX_COUNT) {
-                btc_adv_list_refresh();
-                btc_adv_list_count = 0;
-            }
-            if(btc_check_adv_list(p_data->inq_res.bd_addr, p_data->inq_res.ble_addr_type)) {
-                return;
-            }
-        }
-        btc_adv_list_count ++;
-#endif
-        bdcpy(param.scan_rst.bda, p_data->inq_res.bd_addr);
-        param.scan_rst.dev_type = p_data->inq_res.device_type;
-        param.scan_rst.rssi = p_data->inq_res.rssi;
-        param.scan_rst.ble_addr_type = p_data->inq_res.ble_addr_type;
-        param.scan_rst.ble_evt_type = p_data->inq_res.ble_evt_type;
-        param.scan_rst.flag = p_data->inq_res.flag;
-        param.scan_rst.num_resps = 1;
-        param.scan_rst.adv_data_len = p_data->inq_res.adv_data_len;
-        param.scan_rst.scan_rsp_len = p_data->inq_res.scan_rsp_len;
-        memcpy(param.scan_rst.ble_adv, p_data->inq_res.p_eir, sizeof(param.scan_rst.ble_adv));
+    case BTA_DM_INQ_RES_EVT:
         break;
-    }
     case BTA_DM_INQ_CMPL_EVT: {
         param.scan_rst.num_resps = p_data->inq_cmpl.num_resps;
         BTC_TRACE_DEBUG("%s  BLE observe complete. Num Resp %d\n", __FUNCTION__, p_data->inq_cmpl.num_resps);
@@ -612,7 +731,7 @@ static void btc_search_callback(tBTA_DM_SEARCH_EVT event, tBTA_DM_SEARCH *p_data
         BTC_TRACE_ERROR("%s : Unknown event 0x%x\n", __FUNCTION__, event);
         return;
     }
-    btc_transfer_context(&msg, &param, sizeof(esp_ble_gap_cb_param_t), NULL);
+    btc_transfer_context(&msg, &param, sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 }
 
 static void btc_start_scan_callback(uint8_t status)
@@ -627,7 +746,7 @@ static void btc_start_scan_callback(uint8_t status)
     param.scan_start_cmpl.status = status;
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -646,7 +765,7 @@ static void btc_stop_scan_callback(tBTA_STATUS status)
     param.scan_stop_cmpl.status = status;
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -672,7 +791,7 @@ void btc_update_conn_param_callback (UINT8 status, BD_ADDR bd_addr, tBTM_LE_UPDA
     param.update_conn_params.timeout = update_conn_params->supervision_tout;
     memcpy(param.update_conn_params.bda, bd_addr, sizeof(esp_bd_addr_t));
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -687,11 +806,11 @@ static void btc_set_pkt_length_callback(UINT8 status, tBTM_LE_SET_PKT_DATA_LENGT
     msg.sig = BTC_SIG_API_CB;
     msg.pid = BTC_PID_GAP_BLE;
     msg.act = ESP_GAP_BLE_SET_PKT_LENGTH_COMPLETE_EVT;
-    param.pkt_data_lenth_cmpl.status = btc_btm_status_to_esp_status(status);
-    param.pkt_data_lenth_cmpl.params.rx_len = data_len_params->rx_len;
-    param.pkt_data_lenth_cmpl.params.tx_len = data_len_params->tx_len;
+    param.pkt_data_length_cmpl.status = btc_btm_status_to_esp_status(status);
+    param.pkt_data_length_cmpl.params.rx_len = data_len_params->rx_len;
+    param.pkt_data_length_cmpl.params.tx_len = data_len_params->tx_len;
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -711,7 +830,7 @@ static void btc_gap_ble_set_channels_cmpl_callback(void *p_data)
     param.ble_set_channels.stat = btc_btm_status_to_esp_status(result->status);
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -719,7 +838,7 @@ static void btc_gap_ble_set_channels_cmpl_callback(void *p_data)
 }
 
 
-static void btc_add_whitelist_complete_callback(UINT8 status, tBTM_WL_OPERATION wl_opration)
+static void btc_update_whitelist_complete_callback(UINT8 status, tBTM_WL_OPERATION wl_opration)
 {
     esp_ble_gap_cb_param_t param;
     bt_status_t ret;
@@ -728,9 +847,9 @@ static void btc_add_whitelist_complete_callback(UINT8 status, tBTM_WL_OPERATION 
     msg.pid = BTC_PID_GAP_BLE;
     msg.act = ESP_GAP_BLE_UPDATE_WHITELIST_COMPLETE_EVT;
     param.update_whitelist_cmpl.status = btc_hci_to_esp_status(status);
-    param.update_whitelist_cmpl.wl_opration = wl_opration;
+    param.update_whitelist_cmpl.wl_operation = wl_opration;
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -747,7 +866,7 @@ static void btc_set_rand_addr_callback(UINT8 status)
     msg.pid = BTC_PID_GAP_BLE;
     msg.act = ESP_GAP_BLE_SET_STATIC_RAND_ADDR_EVT;
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -765,13 +884,47 @@ static void btc_set_local_privacy_callback(UINT8 status)
     msg.act = ESP_GAP_BLE_SET_LOCAL_PRIVACY_COMPLETE_EVT;
     param.local_privacy_cmpl.status = btc_btm_status_to_esp_status(status);
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
     }
 }
 
+static void btc_set_rpa_timeout_callback(UINT8 status)
+{
+    esp_ble_gap_cb_param_t param;
+    bt_status_t ret;
+    btc_msg_t msg = {0};
+    msg.sig = BTC_SIG_API_CB;
+    msg.pid = BTC_PID_GAP_BLE;
+    msg.act = ESP_GAP_BLE_SET_RPA_TIMEOUT_COMPLETE_EVT;
+    param.set_rpa_timeout_cmpl.status = btc_btm_status_to_esp_status(status);
+    ret = btc_transfer_context(&msg, &param,
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
+    if (ret != BT_STATUS_SUCCESS) {
+        BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
+    }
+}
+
+static void btc_add_dev_to_resolving_list_callback(UINT8 status)
+{
+    esp_ble_gap_cb_param_t param;
+    bt_status_t ret;
+    btc_msg_t msg = {0};
+
+    msg.sig = BTC_SIG_API_CB;
+    msg.pid = BTC_PID_GAP_BLE;
+    msg.act = ESP_GAP_BLE_ADD_DEV_TO_RESOLVING_LIST_COMPLETE_EVT;
+
+    param.add_dev_to_resolving_list_cmpl.status = btc_btm_status_to_esp_status(status);
+
+    ret = btc_transfer_context(&msg, &param, sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
+
+    if (ret != BT_STATUS_SUCCESS) {
+        BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
+    }
+}
 
 #if (SMP_INCLUDED == TRUE)
 static void btc_set_encryption_callback(BD_ADDR bd_addr, tBTA_TRANSPORT transport, tBTA_STATUS enc_status)
@@ -797,7 +950,7 @@ static void btc_read_ble_rssi_cmpl_callback(void *p_data)
     memcpy(param.read_rssi_cmpl.remote_addr, result->rem_bda, sizeof(BD_ADDR));
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
@@ -824,46 +977,60 @@ static void btc_ble_5_gap_callback(tBTA_DM_BLE_5_GAP_EVENT event,
             break;
         }
         case BTA_DM_BLE_5_GAP_SET_PREFERED_DEFAULT_PHY_COMPLETE_EVT: {
-            msg.act = ESP_GAP_BLE_SET_PREFERED_DEFAULT_PHY_COMPLETE_EVT;
+            msg.act = ESP_GAP_BLE_SET_PREFERRED_DEFAULT_PHY_COMPLETE_EVT;
             param.set_perf_def_phy.status = btc_btm_status_to_esp_status(params->set_perf_def_phy.status);
             break;
         }
         case BTA_DM_BLE_5_GAP_SET_PREFERED_PHY_COMPLETE_EVT: {
-            msg.act = ESP_GAP_BLE_SET_PREFERED_PHY_COMPLETE_EVT;
+            msg.act = ESP_GAP_BLE_SET_PREFERRED_PHY_COMPLETE_EVT;
             param.set_perf_phy.status = btc_btm_status_to_esp_status(params->set_perf_phy.status);
             break;
         }
         case BTA_DM_BLE_5_GAP_EXT_ADV_SET_RAND_ADDR_COMPLETE_EVT:
             msg.act = ESP_GAP_BLE_EXT_ADV_SET_RAND_ADDR_COMPLETE_EVT;
             param.ext_adv_set_rand_addr.status = btc_btm_status_to_esp_status(params->set_ext_rand_addr.status);
+            param.ext_adv_set_rand_addr.instance = params->set_ext_rand_addr.instance;
             break;
         case BTA_DM_BLE_5_GAP_EXT_ADV_SET_PARAMS_COMPLETE_EVT: {
             msg.act = ESP_GAP_BLE_EXT_ADV_SET_PARAMS_COMPLETE_EVT;
-            param.ext_adv_set_rand_addr.status = btc_btm_status_to_esp_status(params->set_params.status);
+            param.ext_adv_set_params.status = btc_btm_status_to_esp_status(params->set_params.status);
+            param.ext_adv_set_params.instance = params->set_params.instance;
             break;
         }
         case BTA_DM_BLE_5_GAP_EXT_ADV_DATA_SET_COMPLETE_EVT: {
             msg.act = ESP_GAP_BLE_EXT_ADV_DATA_SET_COMPLETE_EVT;
             param.ext_adv_data_set.status = btc_btm_status_to_esp_status(params->adv_data_set.status);
+            param.ext_adv_data_set.instance = params->adv_data_set.instance;
             break;
         }
         case BTA_DM_BLE_5_GAP_EXT_SCAN_RSP_DATA_SET_COMPLETE_EVT: {
             msg.act = ESP_GAP_BLE_EXT_SCAN_RSP_DATA_SET_COMPLETE_EVT;
             param.scan_rsp_set.status = btc_btm_status_to_esp_status(params->scan_rsp_data_set.status);
+            param.scan_rsp_set.instance = params->scan_rsp_data_set.instance;
             break;
         }
         case BTA_DM_BLE_5_GAP_EXT_ADV_START_COMPLETE_EVT: {
             msg.act = ESP_GAP_BLE_EXT_ADV_START_COMPLETE_EVT;
             param.ext_adv_start.status = btc_btm_status_to_esp_status(params->adv_start.status);
+            for (UINT8 i = 0; i < params->adv_start.instance_num; i++) {
+                param.ext_adv_start.instance[i] = params->adv_start.instance[i];
+            }
+
+            param.ext_adv_start.instance_num = params->adv_start.instance_num;
             break;
         }
         case BTA_DM_BLE_5_GAP_EXT_ADV_STOP_COMPLETE_EVT:
             msg.act = ESP_GAP_BLE_EXT_ADV_STOP_COMPLETE_EVT;
             param.ext_adv_stop.status = btc_btm_status_to_esp_status(params->adv_start.status);
+            for (UINT8 i = 0; i < params->adv_start.instance_num; i++) {
+                param.ext_adv_stop.instance[i] = params->adv_start.instance[i];
+            }
+            param.ext_adv_stop.instance_num = params->adv_start.instance_num;
             break;
         case BTA_DM_BLE_5_GAP_EXT_ADV_SET_REMOVE_COMPLETE_EVT:
             msg.act = ESP_GAP_BLE_EXT_ADV_SET_REMOVE_COMPLETE_EVT;
             param.ext_adv_remove.status = btc_btm_status_to_esp_status(params->adv_start.status);
+            param.ext_adv_remove.instance = params->adv_start.instance[0];
             break;
         case BTA_DM_BLE_5_GAP_EXT_ADV_SET_CLEAR_COMPLETE_EVT:
             msg.act = ESP_GAP_BLE_EXT_ADV_SET_CLEAR_COMPLETE_EVT;
@@ -872,21 +1039,25 @@ static void btc_ble_5_gap_callback(tBTA_DM_BLE_5_GAP_EVENT event,
         case BTA_DM_BLE_5_GAP_PERIODIC_ADV_SET_PARAMS_COMPLETE_EVT: {
             msg.act = ESP_GAP_BLE_PERIODIC_ADV_SET_PARAMS_COMPLETE_EVT;
             param.peroid_adv_set_params.status = btc_btm_status_to_esp_status(params->per_adv_set_params.status);
+            param.peroid_adv_set_params.instance = params->per_adv_set_params.instance;
             break;
         }
         case BTA_DM_BLE_5_GAP_PERIODIC_ADV_DATA_SET_COMPLETE_EVT: {
             msg.act = ESP_GAP_BLE_PERIODIC_ADV_DATA_SET_COMPLETE_EVT;
             param.period_adv_data_set.status = btc_btm_status_to_esp_status(params->per_adv_data_set.status);
+            param.period_adv_data_set.instance = params->per_adv_data_set.instance;
             break;
         }
         case BTA_DM_BLE_5_GAP_PERIODIC_ADV_START_COMPLETE_EVT: {
             msg.act = ESP_GAP_BLE_PERIODIC_ADV_START_COMPLETE_EVT;
             param.period_adv_start.status = btc_btm_status_to_esp_status(params->per_adv_start.status);
+            param.period_adv_start.instance = params->per_adv_start.instance;
             break;
         }
         case BTA_DM_BLE_5_GAP_PERIODIC_ADV_STOP_COMPLETE_EVT: {
             msg.act = ESP_GAP_BLE_PERIODIC_ADV_STOP_COMPLETE_EVT;
             param.period_adv_stop.status = btc_btm_status_to_esp_status(params->per_adv_stop.status);
+            param.period_adv_stop.instance = params->per_adv_stop.instance;
             break;
         }
         case BTA_DM_BLE_5_GAP_PERIODIC_ADV_CREATE_SYNC_COMPLETE_EVT: {
@@ -948,9 +1119,11 @@ static void btc_ble_5_gap_callback(tBTA_DM_BLE_5_GAP_EVENT event,
             break;
         case BTA_DM_BLE_5_GAP_EXT_ADV_REPORT_EVT:
             msg.act = ESP_GAP_BLE_EXT_ADV_REPORT_EVT;
-            memcpy(&param.ext_adv_report.params, &params->ext_adv_report, sizeof(esp_ble_gap_ext_adv_reprot_t));
-            memcpy(param.ext_adv_report.params.adv_data,
-                   params->ext_adv_report.adv_data, params->ext_adv_report.adv_data_len);
+            memcpy(&param.ext_adv_report.params, &params->ext_adv_report, sizeof(esp_ble_gap_ext_adv_report_t));
+            if (params->ext_adv_report.adv_data) {
+                memcpy(param.ext_adv_report.params.adv_data,
+                    params->ext_adv_report.adv_data, params->ext_adv_report.adv_data_len);
+            }
             break;
         case BTA_DM_BLE_5_GAP_SCAN_TIMEOUT_EVT:
             msg.act = ESP_GAP_BLE_SCAN_TIMEOUT_EVT;
@@ -971,7 +1144,7 @@ static void btc_ble_5_gap_callback(tBTA_DM_BLE_5_GAP_EVENT event,
             break;
         }
         case BTA_DM_BLE_5_GAP_CHANNEL_SELETE_ALGORITHM_EVT: {
-            msg.act = ESP_GAP_BLE_CHANNEL_SELETE_ALGORITHM_EVT;
+            msg.act = ESP_GAP_BLE_CHANNEL_SELECT_ALGORITHM_EVT;
             param.channel_sel_alg.conn_handle = params->channel_sel.conn_handle;
             param.channel_sel_alg.channel_sel_alg = params->channel_sel.channel_sel_alg;
             break;
@@ -980,8 +1153,10 @@ static void btc_ble_5_gap_callback(tBTA_DM_BLE_5_GAP_EVENT event,
             msg.act = ESP_GAP_BLE_PERIODIC_ADV_REPORT_EVT;
             memcpy(&param.period_adv_report, &params->period_adv_report,
                    sizeof(esp_ble_gap_periodic_adv_report_t));
-            memcpy(param.period_adv_report.params.data, params->period_adv_report.data,
-                   params->period_adv_report.data_length);
+            if (params->period_adv_report.data) {
+                memcpy(param.period_adv_report.params.data, params->period_adv_report.data,
+                    params->period_adv_report.data_length);
+            }
             break;
         }
         case BTA_DM_BLE_5_GAP_PERIODIC_ADV_SYNC_LOST_EVT: {
@@ -1002,18 +1177,192 @@ static void btc_ble_5_gap_callback(tBTA_DM_BLE_5_GAP_EVENT event,
             param.periodic_adv_sync_estab.adv_clk_accuracy = params->sync_estab.adv_clk_accuracy;
             break;
         }
+#if (BLE_FEAT_PERIODIC_ADV_SYNC_TRANSFER == TRUE)
+        case BTA_BLE_GAP_PERIODIC_ADV_RECV_ENABLE_COMPLETE_EVT:
+            msg.act = ESP_GAP_BLE_PERIODIC_ADV_RECV_ENABLE_COMPLETE_EVT;
+            param.period_adv_recv_enable.status = btc_btm_status_to_esp_status(params->per_adv_recv_enable.status);
+            break;
+        case BTA_BLE_GAP_PERIODIC_ADV_SYNC_TRANS_COMPLETE_EVT:
+            msg.act = ESP_GAP_BLE_PERIODIC_ADV_SYNC_TRANS_COMPLETE_EVT;
+            param.period_adv_sync_trans.status = btc_btm_status_to_esp_status(params->per_adv_sync_trans.status);
+            memcpy(param.period_adv_sync_trans.bda, params->per_adv_sync_trans.addr, sizeof(BD_ADDR));
+            break;
+        case BTA_BLE_GAP_PERIODIC_ADV_SET_INFO_TRANS_COMPLETE_EVT:
+            msg.act = ESP_GAP_BLE_PERIODIC_ADV_SET_INFO_TRANS_COMPLETE_EVT;
+            param.period_adv_set_info_trans.status = btc_btm_status_to_esp_status(params->per_adv_set_info_trans.status);
+            memcpy(param.period_adv_set_info_trans.bda, params->per_adv_set_info_trans.addr, sizeof(BD_ADDR));
+            break;
+        case BTA_BLE_GAP_SET_PAST_PARAMS_COMPLETE_EVT:
+            msg.act = ESP_GAP_BLE_SET_PAST_PARAMS_COMPLETE_EVT;
+            param.set_past_params.status = btc_btm_status_to_esp_status(params->set_past_params.status);
+            memcpy(param.set_past_params.bda, params->set_past_params.addr, sizeof(BD_ADDR));
+            break;
+        case BTA_BLE_GAP_PERIODIC_ADV_SYNC_TRANS_RECV_EVT:
+            msg.act = ESP_GAP_BLE_PERIODIC_ADV_SYNC_TRANS_RECV_EVT;
+            param.past_received.status = btc_btm_status_to_esp_status(params->past_recv.status);
+            memcpy(param.past_received.bda, params->past_recv.addr, sizeof(BD_ADDR));
+            param.past_received.service_data = params->past_recv.service_data;
+            param.past_received.sync_handle = params->past_recv.sync_handle;
+            param.past_received.adv_sid = params->past_recv.adv_sid;
+            param.past_received.adv_addr_type = params->past_recv.adv_addr_type;
+            memcpy(param.past_received.adv_addr, params->past_recv.adv_addr, sizeof(BD_ADDR));
+            param.past_received.adv_phy = params->past_recv.adv_phy;
+            param.past_received.adv_interval = params->past_recv.adv_interval;
+            param.past_received.adv_clk_accuracy = params->past_recv.adv_clk_accuracy;
+            break;
+#endif
         default:
             break;
     }
 
     ret = btc_transfer_context(&msg, &param,
-                               sizeof(esp_ble_gap_cb_param_t), NULL);
+                               sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
 
     if (ret != BT_STATUS_SUCCESS) {
         BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
     }
 }
 #endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
+
+void btc_dtm_tx_start_callback(void *p1)
+{
+    UINT8 status;
+    UINT8 *p;
+    p = (UINT8*) p1;
+    if (p1) {
+        STREAM_TO_UINT8(status, p);
+        BTC_TRACE_DEBUG("DTM TX start, status 0x%x\n", status);
+        esp_ble_gap_cb_param_t param;
+        bt_status_t ret;
+        btc_msg_t msg = {0};
+        msg.sig = BTC_SIG_API_CB;
+        msg.pid = BTC_PID_GAP_BLE;
+        msg.act = ESP_GAP_BLE_DTM_TEST_UPDATE_EVT;
+        param.dtm_state_update.status = status;
+        param.dtm_state_update.update_evt = DTM_TX_START_EVT;
+        param.dtm_state_update.num_of_pkt = 0;
+
+        ret = btc_transfer_context(&msg, &param,
+                                sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
+
+        if (ret != BT_STATUS_SUCCESS) {
+            BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
+        }
+    }
+}
+
+void btc_dtm_rx_start_callback(void *p1)
+{
+
+    UINT8 status;
+    UINT8 *p;
+    p = (UINT8*) p1;
+    if (p1) {
+        STREAM_TO_UINT8(status, p);
+        BTC_TRACE_DEBUG("DTM RX start, status 0x%x\n", status);
+        esp_ble_gap_cb_param_t param;
+        bt_status_t ret;
+        btc_msg_t msg = {0};
+        msg.sig = BTC_SIG_API_CB;
+        msg.pid = BTC_PID_GAP_BLE;
+        msg.act = ESP_GAP_BLE_DTM_TEST_UPDATE_EVT;
+        param.dtm_state_update.status = status;
+        param.dtm_state_update.update_evt = DTM_RX_START_EVT;
+        param.dtm_state_update.num_of_pkt = 0;
+
+        ret = btc_transfer_context(&msg, &param,
+                                sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
+
+        if (ret != BT_STATUS_SUCCESS) {
+            BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
+        }
+    }
+}
+
+void btc_dtm_stop_callback(void *p1)
+{
+    UINT8 status;
+    UINT16 num_pkt;
+    UINT8 *p;
+    p = (UINT8*) p1;
+    if (p1) {
+        STREAM_TO_UINT8(status, p);
+        STREAM_TO_UINT16(num_pkt, p);
+        BTC_TRACE_DEBUG("DTM stop, status 0x%x num_pkt %d\n", status, num_pkt);
+        esp_ble_gap_cb_param_t param;
+        bt_status_t ret;
+        btc_msg_t msg = {0};
+        msg.sig = BTC_SIG_API_CB;
+        msg.pid = BTC_PID_GAP_BLE;
+        msg.act = ESP_GAP_BLE_DTM_TEST_UPDATE_EVT;
+        param.dtm_state_update.status = status;
+        param.dtm_state_update.update_evt = DTM_TEST_STOP_EVT;
+        param.dtm_state_update.num_of_pkt = num_pkt;
+
+        ret = btc_transfer_context(&msg, &param,
+                                sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
+
+        if (ret != BT_STATUS_SUCCESS) {
+            BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
+        }
+    }
+}
+
+static void btc_ble_vendor_hci_cmd_complete_callback(tBTA_VSC_CMPL *p_param)
+{
+    bool param_invalid = false;
+    if ((!p_param) || (!p_param->param_len) || (!p_param->p_param_buf)) {
+        BTC_TRACE_ERROR("%s param error\n", __func__);
+        param_invalid = true;
+    }
+
+    esp_ble_gap_cb_param_t param = {0};
+    bt_status_t ret;
+    btc_msg_t msg = {0};
+
+    msg.sig = BTC_SIG_API_CB;
+    msg.pid = BTC_PID_GAP_BLE;
+    msg.act = ESP_GAP_BLE_VENDOR_CMD_COMPLETE_EVT;
+    if (!param_invalid) {
+        param.vendor_cmd_cmpl.opcode = p_param->opcode;
+        param.vendor_cmd_cmpl.param_len = p_param->param_len;
+        param.vendor_cmd_cmpl.p_param_buf = p_param->p_param_buf;
+    } else {
+        if (p_param) {
+            param.vendor_cmd_cmpl.opcode = p_param->opcode;
+        } else {
+            param.vendor_cmd_cmpl.opcode = 0;
+        }
+        param.vendor_cmd_cmpl.param_len = 0;
+        param.vendor_cmd_cmpl.p_param_buf = NULL;
+    }
+
+    ret = btc_transfer_context(&msg, &param, sizeof(esp_ble_gap_cb_param_t), btc_gap_ble_cb_deep_copy, btc_gap_ble_cb_deep_free);
+
+    if (ret != BT_STATUS_SUCCESS) {
+        BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
+    }
+}
+
+static void btc_ble_set_privacy_mode_callback(UINT8 status)
+{
+    esp_ble_gap_cb_param_t param;
+    bt_status_t ret;
+    btc_msg_t msg = {0};
+
+    msg.sig = BTC_SIG_API_CB;
+    msg.pid = BTC_PID_GAP_BLE;
+    msg.act = ESP_GAP_BLE_SET_PRIVACY_MODE_COMPLETE_EVT;
+
+    param.set_privacy_mode_cmpl.status = btc_btm_status_to_esp_status(status);
+
+    ret = btc_transfer_context(&msg, &param, sizeof(esp_ble_gap_cb_param_t), NULL, NULL);
+
+    if (ret != BT_STATUS_SUCCESS) {
+        BTC_TRACE_ERROR("%s btc_transfer_context failed\n", __func__);
+    }
+}
+
 void btc_get_whitelist_size(uint16_t *length)
 {
     BTM_BleGetWhiteListSize(length);
@@ -1041,12 +1390,16 @@ static void btc_ble_stop_scanning(tBTA_START_STOP_SCAN_CMPL_CBACK *stop_scan_cb)
     BTA_DmBleScan(false, duration, NULL, stop_scan_cb);
 }
 
-
 static void btc_ble_stop_advertising(tBTA_START_STOP_ADV_CMPL_CBACK *stop_adv_cb)
 {
     bool stop_adv = false;
 
     BTA_DmBleBroadcast(stop_adv, stop_adv_cb);
+}
+
+static void btc_ble_clear_advertising(tBTA_CLEAR_ADV_CMPL_CBACK *clear_adv_cb)
+{
+    BTA_DmBleClearAdv(clear_adv_cb);
 }
 #endif // #if (BLE_42_FEATURE_SUPPORT == TRUE)
 static void btc_ble_update_conn_params(BD_ADDR bd_addr, uint16_t min_int,
@@ -1123,6 +1476,19 @@ static void btc_ble_set_rand_addr (BD_ADDR rand_addr, tBTA_SET_RAND_ADDR_CBACK *
     }
 }
 
+static void btc_ble_set_rpa_timeout(uint16_t rpa_timeout,tBTA_SET_RPA_TIMEOUT_CMPL_CBACK *set_rpa_timeout_cback)
+{
+    BTA_DmBleSetRpaTimeout(rpa_timeout,set_rpa_timeout_cback);
+}
+
+static void btc_ble_add_device_to_resolving_list(BD_ADDR addr,
+                                                 uint8_t addr_type,
+                                                 uint8_t irk[],
+                                                 tBTA_ADD_DEV_TO_RESOLVING_LIST_CMPL_CBACK *add_dev_to_resolving_list_callback)
+{
+    BTA_DmBleAddDevToResolvingList(addr, addr_type, irk, add_dev_to_resolving_list_callback);
+}
+
 static void btc_ble_clear_rand_addr (void)
 {
     BTA_DmClearRandAddress();
@@ -1143,6 +1509,45 @@ static void btc_gap_ble_set_channels(esp_gap_ble_channels channels)
     BTA_DmBleSetChannels(channels, btc_gap_ble_set_channels_cmpl_callback);
 }
 
+#if (BLE_42_FEATURE_SUPPORT == TRUE)
+static void btc_ble_dtm_tx_start(uint8_t tx_channel, uint8_t len_of_data, uint8_t pkt_payload, tBTA_DTM_CMD_CMPL_CBACK *p_dtm_cmpl_cback)
+{
+    BTA_DmBleDtmTxStart(tx_channel, len_of_data, pkt_payload, p_dtm_cmpl_cback);
+}
+
+static void btc_ble_dtm_rx_start(uint8_t rx_channel, tBTA_DTM_CMD_CMPL_CBACK *p_dtm_cmpl_cback)
+{
+
+    BTA_DmBleDtmRxStart(rx_channel, p_dtm_cmpl_cback);
+}
+#endif // #if (BLE_42_FEATURE_SUPPORT == TRUE)
+
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+static void btc_ble_dtm_enhance_tx_start(uint8_t tx_channel, uint8_t len_of_data, uint8_t pkt_payload, uint8_t phy, tBTA_DTM_CMD_CMPL_CBACK *p_dtm_cmpl_cback)
+{
+    BTA_DmBleDtmEnhTxStart(tx_channel, len_of_data, pkt_payload, phy, p_dtm_cmpl_cback);
+}
+
+static void btc_ble_dtm_enhance_rx_start(uint8_t rx_channel, uint8_t phy, uint8_t modulation_index, tBTA_DTM_CMD_CMPL_CBACK *p_dtm_cmpl_cback)
+{
+
+    BTA_DmBleDtmEnhRxStart(rx_channel, phy, modulation_index, p_dtm_cmpl_cback);
+}
+#endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
+
+static void btc_ble_dtm_stop(tBTA_DTM_CMD_CMPL_CBACK *p_dtm_cmpl_cback)
+{
+
+    BTA_DmBleDtmStop(p_dtm_cmpl_cback);
+}
+
+static void btc_ble_set_privacy_mode(uint8_t addr_type,
+                                     BD_ADDR addr,
+                                     uint8_t privacy_mode,
+                                     tBTA_SET_PRIVACY_MODE_CMPL_CBACK *p_cback)
+{
+    BTA_DmBleSetPrivacyMode(addr_type, addr, privacy_mode, p_cback);
+}
 
 void btc_gap_ble_cb_handler(btc_msg_t *msg)
 {
@@ -1151,7 +1556,7 @@ void btc_gap_ble_cb_handler(btc_msg_t *msg)
     if (msg->act < ESP_GAP_BLE_EVT_MAX) {
         btc_gap_ble_cb_to_app(msg->act, param);
     } else {
-        BTC_TRACE_ERROR("%s, unknow msg->act = %d", __func__, msg->act);
+        BTC_TRACE_ERROR("%s, unknown msg->act = %d", __func__, msg->act);
     }
 
     btc_gap_ble_cb_deep_free(msg);
@@ -1238,6 +1643,27 @@ void btc_gap_ble_arg_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
         }
         break;
     }
+    case BTC_GAP_BLE_SC_OOB_REQ_REPLY_EVT: {
+        btc_ble_gap_args_t *src = (btc_ble_gap_args_t *)p_src;
+        btc_ble_gap_args_t *dst = (btc_ble_gap_args_t *)p_dest;
+        if (src->sc_oob_req_reply.p_c) {
+            dst->sc_oob_req_reply.p_c = osi_malloc(BT_OCTET16_LEN);
+            if (dst->sc_oob_req_reply.p_c) {
+                memcpy(dst->sc_oob_req_reply.p_c, src->sc_oob_req_reply.p_c, BT_OCTET16_LEN);
+            } else {
+                BTC_TRACE_ERROR("%s %d no mem\n",__func__, msg->act);
+            }
+        }
+        if (src->sc_oob_req_reply.p_r) {
+            dst->sc_oob_req_reply.p_r = osi_malloc(BT_OCTET16_LEN);
+            if (dst->sc_oob_req_reply.p_r) {
+                memcpy(dst->sc_oob_req_reply.p_r, src->sc_oob_req_reply.p_r, BT_OCTET16_LEN);
+            } else {
+                BTC_TRACE_ERROR("%s %d no mem\n",__func__, msg->act);
+            }
+        }
+        break;
+    }
 #if (BLE_50_FEATURE_SUPPORT == TRUE)
     case BTC_GAP_BLE_CFG_EXT_ADV_DATA_RAW:
     case BTC_GAP_BLE_CFG_EXT_SCAN_RSP_DATA_RAW: {
@@ -1299,6 +1725,31 @@ void btc_gap_ble_arg_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
 	break;
     }
 #endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
+    case BTC_GAP_BLE_ACT_VENDOR_HCI_CMD_EVT: {
+        btc_ble_gap_args_t *src = (btc_ble_gap_args_t *)p_src;
+        btc_ble_gap_args_t *dst = (btc_ble_gap_args_t *)p_dest;
+        if (src->vendor_cmd_send.param_len) {
+            dst->vendor_cmd_send.p_param_buf = osi_malloc(src->vendor_cmd_send.param_len);
+            if (dst->vendor_cmd_send.p_param_buf) {
+                memcpy(dst->vendor_cmd_send.p_param_buf, src->vendor_cmd_send.p_param_buf, src->vendor_cmd_send.param_len);
+            } else {
+                BTC_TRACE_ERROR("%s %d no mem\n",__func__, msg->act);
+            }
+        }
+        break;
+    }
+    case BTC_GAP_BLE_ACT_SET_DEV_NAME:{
+        btc_ble_gap_args_t *src = (btc_ble_gap_args_t *)p_src;
+        btc_ble_gap_args_t *dst = (btc_ble_gap_args_t *)p_dest;
+        dst->set_dev_name.device_name = (char *)osi_malloc((BTC_MAX_LOC_BD_NAME_LEN + 1) * sizeof(char));
+        if (dst->set_dev_name.device_name) {
+            BCM_STRNCPY_S(dst->set_dev_name.device_name, src->set_dev_name.device_name, BTC_MAX_LOC_BD_NAME_LEN);
+            dst->set_dev_name.device_name[BTC_MAX_LOC_BD_NAME_LEN] = '\0';
+        } else {
+            BTC_TRACE_ERROR("%s %d no mem\n",__func__, msg->act);
+        }
+        break;
+    }
     default:
         BTC_TRACE_ERROR("Unhandled deep copy %d\n", msg->act);
         break;
@@ -1307,7 +1758,22 @@ void btc_gap_ble_arg_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
 
 void btc_gap_ble_cb_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
 {
+    esp_ble_gap_cb_param_t *src = (esp_ble_gap_cb_param_t *)p_src;
+    esp_ble_gap_cb_param_t  *dst = (esp_ble_gap_cb_param_t *) p_dest;
+
     switch (msg->act) {
+    case ESP_GAP_BLE_VENDOR_CMD_COMPLETE_EVT: {
+        if (src->vendor_cmd_cmpl.param_len) {
+            dst->vendor_cmd_cmpl.p_param_buf = osi_malloc(src->vendor_cmd_cmpl.param_len);
+            if (dst->vendor_cmd_cmpl.p_param_buf) {
+                memcpy(dst->vendor_cmd_cmpl.p_param_buf, src->vendor_cmd_cmpl.p_param_buf,
+                   src->vendor_cmd_cmpl.param_len);
+            } else {
+                BTC_TRACE_ERROR("%s, malloc failed\n", __func__);
+            }
+        }
+        break;
+    }
     default:
        BTC_TRACE_ERROR("%s, Unhandled deep copy %d\n", __func__, msg->act);
        break;
@@ -1363,6 +1829,17 @@ void btc_gap_ble_arg_deep_free(btc_msg_t *msg)
         }
         break;
     }
+    case BTC_GAP_BLE_SC_OOB_REQ_REPLY_EVT: {
+        uint8_t *value = ((btc_ble_gap_args_t *)msg->arg)->sc_oob_req_reply.p_c;
+        if (value) {
+            osi_free(value);
+        }
+        value = ((btc_ble_gap_args_t *)msg->arg)->sc_oob_req_reply.p_r;
+        if (value) {
+            osi_free(value);
+        }
+        break;
+    }
 #if (BLE_50_FEATURE_SUPPORT == TRUE)
     case BTC_GAP_BLE_CFG_EXT_ADV_DATA_RAW:
     case BTC_GAP_BLE_CFG_EXT_SCAN_RSP_DATA_RAW: {
@@ -1394,6 +1871,21 @@ void btc_gap_ble_arg_deep_free(btc_msg_t *msg)
 	break;
     }
 #endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
+    case BTC_GAP_BLE_ACT_VENDOR_HCI_CMD_EVT: {
+        uint8_t *p_param_buf = ((btc_ble_gap_args_t *)msg->arg)->vendor_cmd_send.p_param_buf;
+        if (p_param_buf) {
+            osi_free(p_param_buf);
+        }
+        break;
+    }
+    case BTC_GAP_BLE_ACT_SET_DEV_NAME:{
+        char *p_name = ((btc_ble_gap_args_t *)msg->arg)->set_dev_name.device_name;
+        if (p_name) {
+            osi_free((uint8_t *)p_name);
+        }
+        break;
+    }
+        break;
     default:
         BTC_TRACE_DEBUG("Unhandled deep free %d\n", msg->act);
         break;
@@ -1404,6 +1896,20 @@ void btc_gap_ble_cb_deep_free(btc_msg_t *msg)
 {
     BTC_TRACE_DEBUG("%s", __func__);
     switch (msg->act) {
+        case ESP_GAP_BLE_GET_DEV_NAME_COMPLETE_EVT: {
+            char *value = ((esp_ble_gap_cb_param_t *)msg->arg)->get_dev_name_cmpl.name;
+            if (value) {
+                osi_free(value);
+            }
+            break;
+        }
+        case ESP_GAP_BLE_VENDOR_CMD_COMPLETE_EVT: {
+            uint8_t *value = ((esp_ble_gap_cb_param_t *)msg->arg)->vendor_cmd_cmpl.p_param_buf;
+            if (value) {
+                osi_free(value);
+            }
+            break;
+        }
         default:
             BTC_TRACE_DEBUG("Unhandled deep free %d", msg->act);
             break;
@@ -1444,6 +1950,9 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
     case BTC_GAP_BLE_ACT_STOP_ADV:
         btc_ble_stop_advertising(btc_stop_adv_callback);
         break;
+    case BTC_GAP_BLE_ACT_CLEAR_ADV:
+        btc_ble_clear_advertising(btc_clear_adv_callback);
+        break;
 #endif // #if (BLE_42_FEATURE_SUPPORT == TRUE)
     case BTC_GAP_BLE_ACT_UPDATE_CONN_PARAM:
         btc_ble_update_conn_params(arg->conn_update_params.conn_params.bda,
@@ -1461,6 +1970,17 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
         btc_ble_set_rand_addr(bd_addr, btc_set_rand_addr_callback);
         break;
     }
+    case BTC_GAP_BLE_ACT_SET_RESOLVABLE_PRIVATE_ADDRESS_TIMEOUT: {
+        btc_ble_set_rpa_timeout(arg->set_rpa_timeout.rpa_timeout,btc_set_rpa_timeout_callback);
+        break;
+    }
+    case BTC_GAP_BLE_ACT_ADD_DEVICE_TO_RESOLVING_LIST: {
+        btc_ble_add_device_to_resolving_list(arg->add_dev_to_resolving_list.addr,
+                                            arg->add_dev_to_resolving_list.addr_type,
+                                            arg->add_dev_to_resolving_list.irk,
+                                            btc_add_dev_to_resolving_list_callback);
+        break;
+    }
     case BTC_GAP_BLE_ACT_CLEAR_RAND_ADDRESS: {
         btc_ble_clear_rand_addr();
         break;
@@ -1472,10 +1992,10 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
         btc_ble_config_local_icon(arg->cfg_local_icon.icon);
         break;
     case BTC_GAP_BLE_ACT_UPDATE_WHITE_LIST:
-        BTA_DmUpdateWhiteList(arg->update_white_list.add_remove, arg->update_white_list.remote_bda, arg->update_white_list.wl_addr_type, btc_add_whitelist_complete_callback);
+        BTA_DmUpdateWhiteList(arg->update_white_list.add_remove, arg->update_white_list.remote_bda, arg->update_white_list.wl_addr_type, btc_update_whitelist_complete_callback);
         break;
     case BTC_GAP_BLE_ACT_CLEAR_WHITE_LIST:
-        BTA_DmClearWhiteList();
+        BTA_DmClearWhiteList(btc_update_whitelist_complete_callback);
         break;
     case BTC_GAP_BLE_ACT_READ_RSSI:
         BTA_DmReadRSSI(arg->read_rssi.remote_addr, BTA_TRANSPORT_LE, btc_read_ble_rssi_cmpl_callback);
@@ -1488,7 +2008,10 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
         break;
 #endif // #if (BLE_42_FEATURE_SUPPORT == TRUE)
     case BTC_GAP_BLE_ACT_SET_DEV_NAME:
-        BTA_DmSetDeviceName(arg->set_dev_name.device_name);
+        BTA_DmSetDeviceName(arg->set_dev_name.device_name, BT_DEVICE_TYPE_BLE);
+        break;
+    case BTC_GAP_BLE_ACT_GET_DEV_NAME:
+        BTA_DmGetDeviceName(btc_gap_ble_get_dev_name_callback, BT_DEVICE_TYPE_BLE);
         break;
 #if (BLE_42_FEATURE_SUPPORT == TRUE)
     case BTC_GAP_BLE_ACT_CFG_ADV_DATA_RAW:
@@ -1582,12 +2105,6 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
                 bta_dm_co_ble_oob_support(enable);
                 break;
             }
-            case ESP_BLE_APP_ENC_KEY_SIZE: {
-                uint8_t key_size = 0;
-                STREAM_TO_UINT8(key_size, value);
-                bta_dm_co_ble_set_appl_enc_key_size(key_size);
-                break;
-            }
             default:
                 break;
         }
@@ -1620,6 +2137,12 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
     }
     case BTC_GAP_BLE_OOB_REQ_REPLY_EVT:
         BTA_DmOobReply(arg->oob_req_reply.bd_addr, arg->oob_req_reply.len, arg->oob_req_reply.p_value);
+        break;
+    case BTC_GAP_BLE_SC_OOB_REQ_REPLY_EVT:
+        BTA_DmSecureConnectionOobReply(arg->sc_oob_req_reply.bd_addr, arg->sc_oob_req_reply.p_c, arg->sc_oob_req_reply.p_r);
+        break;
+    case BTC_GAP_BLE_SC_CR_OOB_DATA_EVT:
+        BTA_DmSecureConnectionCreateOobData();
         break;
 #endif  ///SMP_INCLUDED == TRUE
     case BTC_GAP_BLE_DISCONNECT_EVT:
@@ -1735,11 +2258,12 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
         BTC_TRACE_DEBUG("BTC_GAP_BLE_CFG_PERIODIC_ADV_DATA_RAW");
         BTA_DmBleGapPeriodicAdvCfgDataRaw(arg_5->periodic_adv_cfg_data.instance,
                                           arg_5->periodic_adv_cfg_data.len,
-                                          (const UINT8 *)arg_5->periodic_adv_cfg_data.data);
+                                          (const UINT8 *)arg_5->periodic_adv_cfg_data.data,
+                                          arg_5->periodic_adv_cfg_data.only_update_did);
         break;
     case BTC_GAP_BLE_PERIODIC_ADV_START:
         BTC_TRACE_DEBUG("BTC_GAP_BLE_PERIODIC_ADV_START");
-        BTA_DmBleGapPeriodicAdvEnable(TRUE, arg_5->periodic_adv_start.instance);
+        BTA_DmBleGapPeriodicAdvEnable(((arg_5->periodic_adv_start.include_adi)<<1)|0x01, arg_5->periodic_adv_start.instance);
         break;
     case BTC_GAP_BLE_PERIODIC_ADV_STOP:
         BTC_TRACE_DEBUG("BTC_GAP_BLE_PERIODIC_ADV_STOP");
@@ -1752,6 +2276,10 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
         params.addr_type = arg_5->periodic_adv_create_sync.params.addr_type;
         params.skip = arg_5->periodic_adv_create_sync.params.skip;
         params.sync_timeout = arg_5->periodic_adv_create_sync.params.sync_timeout;
+        #if (CONFIG_BT_BLE_FEAT_CREATE_SYNC_ENH)
+        params.reports_disabled = arg_5->periodic_adv_create_sync.params.reports_disabled;
+        params.filter_duplicates = arg_5->periodic_adv_create_sync.params.filter_duplicates;
+        #endif
 
         memcpy(params.addr, arg_5->periodic_adv_create_sync.params.addr, sizeof(BD_ADDR));
         BTC_TRACE_DEBUG("BTC_GAP_BLE_PERIODIC_ADV_CREATE_SYNC");
@@ -1821,6 +2349,59 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
                                               (const tBTA_DM_BLE_CONN_PARAMS *)&arg_5->set_ext_conn_params.phy_coded_conn_params);
         break;
 #endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
+#if (BLE_FEAT_PERIODIC_ADV_SYNC_TRANSFER == TRUE)
+    case BTC_GAP_BLE_PERIODIC_ADV_RECV_ENABLE:
+        BTC_TRACE_DEBUG("BTC_GAP_BLE_PERIODIC_ADV_RECV_ENABLE");
+        BTA_DmBleGapPeriodicAdvRecvEnable(arg_5->periodic_adv_recv_en.sync_handle,
+                                          arg_5->periodic_adv_recv_en.enable);
+        break;
+    case BTC_GAP_BLE_PERIODIC_ADV_SYNC_TRANS:
+        BTC_TRACE_DEBUG("BTC_GAP_BLE_PERIODIC_ADV_SYNC_TRANS");
+        BTA_DmBleGapPeriodicAdvSyncTrans(arg_5->periodic_adv_sync_trans.addr,
+                                         arg_5->periodic_adv_sync_trans.service_data,
+                                         arg_5->periodic_adv_sync_trans.sync_handle);
+        break;
+    case BTC_GAP_BLE_PERIODIC_ADV_SET_INFO_TRANS:
+        BTC_TRACE_DEBUG("BTC_GAP_BLE_PERIODIC_ADV_SET_INFO_TRANS");
+        BTA_DmBleGapPeriodicAdvSetInfoTrans(arg_5->periodic_adv_set_info_trans.addr,
+                                            arg_5->periodic_adv_set_info_trans.service_data,
+                                            arg_5->periodic_adv_set_info_trans.adv_handle);
+        break;
+    case BTC_GAP_BLE_SET_PERIODIC_ADV_SYNC_TRANS_PARAMS:
+        BTC_TRACE_DEBUG("BTC_GAP_BLE_SET_PERIODIC_ADV_SYNC_TRANS_PARAMS");
+        BTA_DmBleGapSetPeriodicAdvSyncTransParams(arg_5->set_periodic_adv_sync_trans_params.addr,
+                                                  (tBTA_DM_BLE_PAST_PARAMS *)&arg_5->set_periodic_adv_sync_trans_params.params);
+        break;
+#endif
+#if (BLE_42_FEATURE_SUPPORT == TRUE)
+    case BTC_GAP_BLE_DTM_TX_START:
+        btc_ble_dtm_tx_start(arg->dtm_tx_start.tx_channel, arg->dtm_tx_start.len_of_data, arg->dtm_tx_start.pkt_payload, btc_dtm_tx_start_callback);
+        break;
+    case BTC_GAP_BLE_DTM_RX_START:
+        btc_ble_dtm_rx_start(arg->dtm_rx_start.rx_channel, btc_dtm_rx_start_callback);
+        break;
+#endif // if (BLE_42_FEATURE_SUPPORT == TRUE)
+    case BTC_GAP_BLE_DTM_STOP:
+        btc_ble_dtm_stop(btc_dtm_stop_callback);
+        break;
+#if (BLE_50_FEATURE_SUPPORT == TRUE)
+    case BTC_GAP_BLE_DTM_ENH_TX_START:
+        btc_ble_dtm_enhance_tx_start(arg_5->dtm_enh_tx_start.tx_channel, arg_5->dtm_enh_tx_start.len_of_data, arg_5->dtm_enh_tx_start.pkt_payload, arg_5->dtm_enh_tx_start.phy, btc_dtm_tx_start_callback);
+        break;
+    case BTC_GAP_BLE_DTM_ENH_RX_START:
+        btc_ble_dtm_enhance_rx_start(arg_5->dtm_enh_rx_start.rx_channel, arg_5->dtm_enh_rx_start.phy, arg_5->dtm_enh_rx_start.modulation_index, btc_dtm_rx_start_callback);
+        break;
+#endif // if (BLE_50_FEATURE_SUPPORT == TRUE)
+    case BTC_GAP_BLE_ACT_VENDOR_HCI_CMD_EVT:
+        BTA_DmsendVendorHciCmd(arg->vendor_cmd_send.opcode,
+                                arg->vendor_cmd_send.param_len,
+                                arg->vendor_cmd_send.p_param_buf,
+                                btc_ble_vendor_hci_cmd_complete_callback);
+        break;
+    case BTC_GAP_BLE_SET_PRIVACY_MODE:
+        btc_ble_set_privacy_mode(arg->set_privacy_mode.addr_type, arg->set_privacy_mode.addr,
+            arg->set_privacy_mode.privacy_mode, btc_ble_set_privacy_mode_callback);
+        break;
     default:
         break;
     }
@@ -1831,15 +2412,38 @@ void btc_gap_ble_call_handler(btc_msg_t *msg)
 //register connection parameter update callback
 void btc_gap_callback_init(void)
 {
+    BTM_BleRegiseterPktLengthChangeCallback(btc_set_pkt_length_callback);
     BTM_BleRegiseterConnParamCallback(btc_update_conn_param_callback);
 #if (BLE_50_FEATURE_SUPPORT == TRUE)
     BTM_BleGapRegisterCallback(btc_ble_5_gap_callback);
 #endif // #if (BLE_50_FEATURE_SUPPORT == TRUE)
 }
 
+bool btc_gap_ble_init(void)
+{
+#if (BLE_42_FEATURE_SUPPORT == TRUE)
+    btc_gap_ble_env_t *p_env = &btc_gap_ble_env;
+    p_env->adv_rpt_queue = pkt_queue_create();
+    assert(p_env->adv_rpt_queue != NULL);
+
+    p_env->adv_rpt_ready = osi_event_create(btc_gap_ble_adv_pkt_handler, NULL);
+    assert(p_env->adv_rpt_ready != NULL);
+    osi_event_bind(p_env->adv_rpt_ready, btc_get_current_thread(), BTC_GAP_BLE_ADV_RPT_QUEUE_IDX);
+#endif
+    return true;
+}
+
 void btc_gap_ble_deinit(void)
 {
- #if (BLE_42_FEATURE_SUPPORT == TRUE)
+#if (BLE_42_FEATURE_SUPPORT == TRUE)
+    btc_gap_ble_env_t *p_env = &btc_gap_ble_env;
+
+    osi_event_delete(p_env->adv_rpt_ready);
+    p_env->adv_rpt_ready = NULL;
+
+    pkt_queue_destroy(p_env->adv_rpt_queue, NULL);
+    p_env->adv_rpt_queue = NULL;
+
     btc_cleanup_adv_data(&gl_bta_adv_data);
     btc_cleanup_adv_data(&gl_bta_scan_rsp_data);
 #endif //  #if (BLE_42_FEATURE_SUPPORT == TRUE)

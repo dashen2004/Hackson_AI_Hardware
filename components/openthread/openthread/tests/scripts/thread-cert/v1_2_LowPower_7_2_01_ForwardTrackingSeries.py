@@ -35,6 +35,7 @@ from pktverify import consts
 from pktverify.null_field import nullField
 from pktverify.packet_verifier import PacketVerifier
 
+import config
 import thread_cert
 
 LEADER = 1
@@ -47,6 +48,7 @@ POLL_PERIOD = 2000  # 2s
 
 
 class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
+    USE_MESSAGE_FACTORY = False
     TOPOLOGY = {
         LEADER: {
             'version': '1.2',
@@ -71,7 +73,7 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
 
     def test(self):
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), 'leader')
 
         self.nodes[SED_1].set_pollperiod(POLL_PERIOD)
@@ -109,9 +111,10 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
         self.simulator.go(30)
 
         # Step 7 - SED_1 sends an MLE Data Request to retrieve aggregated Forward Series Results
-        self.nodes[SED_1].link_metrics_query_forward_tracking_series(leader_addr, SERIES_ID)
+        result = self.nodes[SED_1].link_metrics_query_forward_tracking_series(leader_addr, SERIES_ID, 'block')
+        self.assertIn("PDU Counter", result)
 
-        self.simulator.go(5)
+        #self.simulator.go(5)
 
         # Step 9 - SED_1 clears the Forward Tracking Series
         # Forward Series Flags = 0x00:
@@ -142,9 +145,8 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
             self.simulator.go(1)
 
         # Step 19 - SSED_1 sends an MLE Data Request to retrieve aggregated Forward Series Results
-        self.nodes[SSED_1].link_metrics_query_forward_tracking_series(leader_addr, SERIES_ID_2)
-
-        self.simulator.go(5)
+        result = self.nodes[SSED_1].link_metrics_query_forward_tracking_series(leader_addr, SERIES_ID_2, 'block')
+        self.assertIn("Margin", result)
 
         # Step 21 - SSED_1 clears the Forward Series Link Metrics
         # Forward Series Flags = 0x00:
@@ -155,9 +157,9 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
         self.simulator.go(5)
 
         # Step 23 - SSED_1 sends an MLE Data Request to retrieve aggregated Forward Series Results
-        self.nodes[SSED_1].link_metrics_query_forward_tracking_series(leader_addr, SERIES_ID_2)
-
-        self.simulator.go(5)
+        result = self.nodes[SSED_1].link_metrics_query_forward_tracking_series(leader_addr, SERIES_ID_2, 'block')
+        self.assertIn('Status', result)
+        self.assertEqual(result['Status'], 'Series ID not recognized')
 
     def verify(self, pv):
         pkts = pv.pkts
@@ -189,7 +191,7 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
         pkts.filter_wpan_src64(SED_1) \
             .filter_wpan_dst64(LEADER) \
             .filter_mle_cmd(consts.MLE_LINK_METRICS_MANAGEMENT_REQUEST) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == LinkMetricsSubTlvType.FORWARD_PROBING_REGISTRATION) \
+            .filter(lambda p: LinkMetricsSubTlvType.FORWARD_PROBING_REGISTRATION in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: 4 in p.mle.tlv.link_forward_series)  \
             .filter(lambda p: consts.LINK_METRICS_TYPE_AVERAGE_ENUM_COUNT in p.mle.tlv.metric_type_id_flags.type) \
             .filter(lambda p: consts.LINK_METRICS_METRIC_TYPE_ENUM_PDU_COUNT in p.mle.tlv.metric_type_id_flags.metric) \
@@ -219,7 +221,7 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
         pkts.filter_wpan_src64(SED_1) \
             .filter_wpan_dst64(LEADER) \
             .filter_mle_cmd(consts.MLE_LINK_METRICS_MANAGEMENT_REQUEST) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == LinkMetricsSubTlvType.FORWARD_PROBING_REGISTRATION) \
+            .filter(lambda p: LinkMetricsSubTlvType.FORWARD_PROBING_REGISTRATION in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: 0 in p.mle.tlv.link_forward_series) \
             .filter(lambda p: p.mle.tlv.metric_type_id_flags.type is nullField) \
             .filter(lambda p: p.mle.tlv.metric_type_id_flags.metric is nullField) \
@@ -245,7 +247,7 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
         pkts.filter_wpan_src64(SSED_1) \
             .filter_wpan_dst64(LEADER) \
             .filter_mle_cmd(consts.MLE_LINK_METRICS_MANAGEMENT_REQUEST) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == LinkMetricsSubTlvType.FORWARD_PROBING_REGISTRATION) \
+            .filter(lambda p: LinkMetricsSubTlvType.FORWARD_PROBING_REGISTRATION in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: 2 in p.mle.tlv.link_forward_series) \
             .filter(lambda p: consts.LINK_METRICS_TYPE_AVERAGE_ENUM_EXPONENTIAL in p.mle.tlv.metric_type_id_flags.type) \
             .filter(lambda p: consts.LINK_METRICS_METRIC_TYPE_ENUM_LINK_MARGIN in p.mle.tlv.metric_type_id_flags.metric) \
@@ -282,7 +284,7 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
             .filter_wpan_dst64(SSED_1) \
             .filter_mle_cmd(consts.MLE_DATA_RESPONSE) \
             .filter_mle_has_tlv(TlvType.LINK_METRICS_REPORT) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == LinkMetricsSubTlvType.LINK_METRICS_REPORT) \
+            .filter(lambda p: LinkMetricsSubTlvType.LINK_METRICS_REPORT in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: consts.LINK_METRICS_TYPE_AVERAGE_ENUM_EXPONENTIAL in p.mle.tlv.metric_type_id_flags.type) \
             .filter(lambda p: consts.LINK_METRICS_METRIC_TYPE_ENUM_LINK_MARGIN in p.mle.tlv.metric_type_id_flags.metric) \
             .must_next()
@@ -294,7 +296,7 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
         pkts.filter_wpan_src64(SSED_1) \
             .filter_wpan_dst64(LEADER) \
             .filter_mle_cmd(consts.MLE_LINK_METRICS_MANAGEMENT_REQUEST) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == LinkMetricsSubTlvType.FORWARD_PROBING_REGISTRATION) \
+            .filter(lambda p: LinkMetricsSubTlvType.FORWARD_PROBING_REGISTRATION in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: 0 in p.mle.tlv.link_forward_series) \
             .filter(lambda p: p.mle.tlv.metric_type_id_flags.type is nullField) \
             .filter(lambda p: p.mle.tlv.metric_type_id_flags.metric is nullField) \
@@ -328,7 +330,7 @@ class LowPower_7_2_01_ForwardTrackingSeries(thread_cert.TestCase):
             .filter_wpan_dst64(SSED_1) \
             .filter_mle_cmd(consts.MLE_DATA_RESPONSE) \
             .filter_mle_has_tlv(TlvType.LINK_METRICS_REPORT) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == LinkMetricsSubTlvType.LINK_METRICS_STATUS) \
+            .filter(lambda p: LinkMetricsSubTlvType.LINK_METRICS_STATUS in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: p.mle.tlv.link_status_sub_tlv == consts.LINK_METRICS_STATUS_SERIES_ID_NOT_RECOGNIZED) \
             .must_next()
 

@@ -21,8 +21,14 @@ api-reference/wifi/index                        api-reference/network/index
 api-reference/wifi/esp_now                      api-reference/network/esp_now
 api-reference/wifi/esp_smartconfig              api-reference/network/esp_smartconfig
 api-reference/wifi/esp_wifi                     api-reference/network/esp_wifi
-api-reference/system/tcpip_adapter              api-reference/network/esp_netif
+api-reference/system/tcpip_adapter              migration-guides/tcpip-adapter
 api-reference/system/esp_pthread                api-reference/system/pthread
+api-reference/storage/spi_flash                 api-reference/peripherals/spi_flash/index
+api-reference/storage/spi_flash_concurrency     api-reference/peripherals/spi_flash/spi_flash_concurrency
+api-reference/storage/spi_flash_override_driver api-reference/peripherals/spi_flash/spi_flash_override_driver
+api-reference/storage/spi_flash_optional_feature    api-reference/peripherals/spi_flash/spi_flash_optional_feature
+
+
 get-started/idf-monitor                         api-guides/tools/idf-monitor
 get-started-cmake/idf-monitor                   api-guides/tools/idf-monitor
 get-started/get-started-devkitc                 hw-reference/esp32/get-started-devkitc
@@ -55,13 +61,26 @@ get-started-cmake/get-started-pico-kit          hw-reference/esp32/get-started-p
 get-started-cmake/get-started-pico-kit-v3       hw-reference/esp32/get-started-pico-kit-v3
 
 api-guides/build-system-cmake                   api-guides/build-system
+api-guides/freertos-smp                         api-reference/system/freertos_idf
 api-guides/ulp-cmake                            api-guides/ulp
 api-guides/unit-tests-cmake                     api-guides/unit-tests
+api-guides/ulp_instruction_set                  api-reference/system/ulp_instruction_set
+api-guides/ulps2_instruction_set                api-reference/system/ulp_instruction_set
+api-guides/ulp_macros                           api-reference/system/ulp_macros
+api-guides/ulp-risc-v                           api-reference/system/ulp-risc-v
+api-guides/console                              api-reference/system/console
+api-guides/event-handling                       api-reference/system/esp_event
 
-api-reference/network/tcpip_adapter            api-reference/network/esp_netif
+api-reference/network/tcpip_adapter             migration-guides/tcpip-adapter
+api-reference/system/system                     api-reference/system/misc_system_api
+
+# Driver-NG refactor
+api-reference/peripherals/timer                 api-reference/peripherals/gptimer
+api-reference/peripherals/sigmadelta            api-reference/peripherals/sdm
 
 # The 'secure boot' guides are now 'secure boot v1' guides
 security/secure-boot                           security/secure-boot-v1
+security/host-based-security-workflows         security/security-features-enablement-workflows
 
 # Since ESP32-S2, hw-reference URLs are now namespaced by chip
 hw-reference/get-started-devkitc                hw-reference/esp32/get-started-devkitc
@@ -73,12 +92,16 @@ hw-reference/get-started-pico-kit               hw-reference/esp32/get-started-p
 hw-reference/get-started-pico-kit-v3            hw-reference/esp32/get-started-pico-kit-v3
 hw-reference/get-started-ethernet-kit-v1.0      hw-reference/esp32/get-started-ethernet-kit-v1.0
 hw-reference/get-started-ethernet-kit           hw-reference/esp32/get-started-ethernet-kit
-hw-reference/esp32s2/user-guide-kaluga-1-v1.2   hw-reference/esp32s2/user-guide-esp32-s2-kaluga-1-kit
+hw-reference/esp32s2/usermacos-setup_mesh       api-reference/network/esp-wifi-mesh
+# The 'chip series comparison' is merged into 'esp product selector'
+hw-reference/chip-series-comparison             "https://products.espressif.com/#/product-comparison"
 
-api-guides/jtag-debugging/configure-wrover  api-guides/jtag-debugging/configure-ft2232h-jtag
-hw-reference/modules-and-boards             "https://www.espressif.com/en/products/modules"
-hw-reference/modules-and-boards-previous    "https://www.espressif.com/en/products/modules"
-
-# rename ESP-MESH to ESP-WIFI-MESH
-api-guides/mesh                                 api-guides/esp-wifi-mesh
-api-reference/network/esp_mesh                  api-reference/network/esp-wifi-mesh
+# Getting Started
+get-started/macos-setup                         get-started/linux-macos-setup
+get-started/linux-setup                         get-started/linux-macos-setup
+get-started/windows-setup-scratch               get-started/windows-setup
+get-started/linux-setup-scratch                 get-started/linux-macos-setup
+get-started/macos-setup-scratch                 get-started/linux-macos-setup
+get-started/toolchain-setup-scratch             get-started/index
+get-started/eclipse-setup                       get-started/index
+get-started/vscode-setup                        get-started/index

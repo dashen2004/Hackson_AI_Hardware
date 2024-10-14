@@ -22,6 +22,14 @@
 #include "host/ble_hs_hci.h"
 #include "ble_hs_priv.h"
 
+#ifndef min
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef max
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
 uint16_t
 ble_hs_hci_util_handle_pb_bc_join(uint16_t handle, uint8_t pb, uint8_t bc)
 {
@@ -73,7 +81,7 @@ ble_hs_hci_util_rand(void *dst, int len)
             return rc;
         }
 
-        chunk_sz = min(len, sizeof(rsp));
+        chunk_sz = min(len, (int)sizeof(rsp));
         memcpy(u8ptr, &rsp.random_number, chunk_sz);
 
         len -= chunk_sz;
@@ -158,6 +166,62 @@ ble_hs_hci_util_set_data_len(uint16_t conn_handle, uint16_t tx_octets,
 }
 
 int
+ble_hs_hci_util_read_sugg_def_data_len(uint16_t *out_sugg_max_tx_octets,
+                                       uint16_t *out_sugg_max_tx_time)
+{
+    struct ble_hci_le_rd_sugg_def_data_len_rp rsp;
+    int rc;
+
+    rc = ble_hs_hci_cmd_tx(BLE_HCI_OP(BLE_HCI_OGF_LE,
+                                      BLE_HCI_OCF_LE_RD_SUGG_DEF_DATA_LEN),
+                           NULL, 0, &rsp, sizeof(rsp));
+    if (rc != 0) {
+        return rc;
+    }
+
+    *out_sugg_max_tx_octets = le16toh(rsp.max_tx_octets);
+    *out_sugg_max_tx_time = le16toh(rsp.max_tx_time);
+
+    if (*out_sugg_max_tx_octets < BLE_HCI_SUGG_DEF_DATALEN_TX_OCTETS_MIN ||
+        *out_sugg_max_tx_octets > BLE_HCI_SUGG_DEF_DATALEN_TX_OCTETS_MAX) {
+        BLE_HS_LOG(WARN,
+                   "received suggested maximum tx octets is out of range\n");
+    }
+
+    if (*out_sugg_max_tx_time < BLE_HCI_SUGG_DEF_DATALEN_TX_TIME_MIN ||
+        *out_sugg_max_tx_time > BLE_HCI_SUGG_DEF_DATALEN_TX_TIME_MAX) {
+        BLE_HS_LOG(WARN,
+                   "received suggested maximum tx time is out of range\n");
+    }
+
+    return 0;
+}
+
+int
+ble_hs_hci_util_write_sugg_def_data_len(uint16_t sugg_max_tx_octets,
+                                        uint16_t sugg_max_tx_time)
+{
+    struct ble_hci_le_wr_sugg_def_data_len_cp cmd;
+
+    if (sugg_max_tx_octets < BLE_HCI_SUGG_DEF_DATALEN_TX_OCTETS_MIN ||
+        sugg_max_tx_octets > BLE_HCI_SUGG_DEF_DATALEN_TX_OCTETS_MAX) {
+        return BLE_HS_EINVAL;
+    }
+
+    if (sugg_max_tx_time < BLE_HCI_SUGG_DEF_DATALEN_TX_TIME_MIN ||
+        sugg_max_tx_time > BLE_HCI_SUGG_DEF_DATALEN_TX_TIME_MAX) {
+        return BLE_HS_EINVAL;
+    }
+
+    cmd.max_tx_octets = htole16(sugg_max_tx_octets);
+    cmd.max_tx_time = htole16(sugg_max_tx_time);
+
+    return ble_hs_hci_cmd_tx(BLE_HCI_OP(BLE_HCI_OGF_LE,
+                                        BLE_HCI_OCF_LE_WR_SUGG_DEF_DATA_LEN),
+                             &cmd, sizeof(cmd), NULL, 0);
+}
+
+int
 ble_hs_hci_util_data_hdr_strip(struct os_mbuf *om,
                                struct hci_data_hdr *out_hdr)
 {
@@ -212,4 +276,87 @@ ble_hs_hci_set_chan_class(const uint8_t *chan_map)
     return ble_hs_hci_cmd_tx(BLE_HCI_OP(BLE_HCI_OGF_LE,
                                         BLE_HCI_OCF_LE_SET_HOST_CHAN_CLASS),
                              &cmd, sizeof(cmd), NULL, 0);
+}
+
+int
+ble_hs_hci_util_set_data_addr_change(uint8_t adv_handle, uint8_t change_reason)
+{
+    struct ble_hci_le_set_data_addr_change_cp cmd;
+    uint16_t opcode;
+
+    opcode = BLE_HCI_OP(BLE_HCI_OGF_LE, BLE_HCI_OCF_LE_SET_DATA_ADDR_CHANGE);
+
+    cmd.adv_handle = adv_handle;
+    cmd.change_reason = change_reason;
+
+    return ble_hs_hci_cmd_tx(opcode, &cmd, sizeof(cmd), NULL, 0);
+}
+
+int
+ble_hs_hci_dtm_tx_start(const uint8_t tx_chan, const uint8_t test_data_len,
+		        const uint8_t payload)
+{
+    struct ble_hci_le_tx_test_cp cmd;
+    uint16_t opcode;
+
+    opcode = BLE_HCI_OP(BLE_HCI_OGF_LE, BLE_HCI_OCF_LE_TX_TEST);
+
+    cmd.tx_chan = tx_chan;
+    cmd.test_data_len = test_data_len;
+    cmd.payload = payload;
+
+    return ble_hs_hci_cmd_tx_no_rsp(opcode, &cmd, sizeof(cmd));
+}
+
+int
+ble_hs_hci_dtm_rx_start(const uint8_t rx_chan)
+{
+    struct ble_hci_le_rx_test_cp cmd;
+    uint16_t opcode;
+
+    opcode = BLE_HCI_OP(BLE_HCI_OGF_LE, BLE_HCI_OCF_LE_RX_TEST);
+
+    cmd.rx_chan = rx_chan;
+
+    return ble_hs_hci_cmd_tx_no_rsp(opcode, &cmd, sizeof(cmd));
+}
+
+int
+ble_hs_hci_dtm_stop(void)
+{
+    return ble_hs_hci_cmd_tx_no_rsp(BLE_HCI_OP(BLE_HCI_OGF_LE, BLE_HCI_OCF_LE_TEST_END),
+		           NULL, 0);
+}
+
+int
+ble_hs_hci_dtm_enh_tx_start(const uint8_t tx_chan, const uint8_t test_data_len,
+		            const uint8_t payload, const uint8_t phy)
+{
+    struct ble_hci_le_tx_test_v2_cp cmd;
+    uint16_t opcode;
+
+    opcode = BLE_HCI_OP(BLE_HCI_OGF_LE, BLE_HCI_OCF_LE_TX_TEST_V2);
+
+    cmd.tx_chan = tx_chan;
+    cmd.test_data_len = test_data_len;
+    cmd.payload = payload;
+    cmd.phy = phy;
+
+    return ble_hs_hci_cmd_tx_no_rsp(opcode, &cmd, sizeof(cmd));
+}
+
+int
+ble_hs_hci_dtm_enh_rx_start(const uint8_t rx_chan, const uint8_t index,
+			    const uint8_t phy)
+{
+    struct ble_hci_le_rx_test_v2_cp cmd;
+    uint16_t opcode;
+
+    opcode = BLE_HCI_OP(BLE_HCI_OGF_LE, BLE_HCI_OCF_LE_RX_TEST_V2);
+
+    cmd.rx_chan = rx_chan;
+    cmd.index = index;
+    cmd.phy = phy;
+
+    return ble_hs_hci_cmd_tx_no_rsp(opcode, &cmd, sizeof(cmd));
 }

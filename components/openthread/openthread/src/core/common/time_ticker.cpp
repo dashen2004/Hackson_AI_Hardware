@@ -35,9 +35,9 @@
 
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
 #include "common/random.hpp"
+#include "instance/instance.hpp"
 #include "thread/mle_router.hpp"
 
 namespace ot {
@@ -45,7 +45,7 @@ namespace ot {
 TimeTicker::TimeTicker(Instance &aInstance)
     : InstanceLocator(aInstance)
     , mReceivers(0)
-    , mTimer(aInstance, HandleTimer)
+    , mTimer(aInstance)
 {
 }
 
@@ -69,11 +69,6 @@ void TimeTicker::UnregisterReceiver(Receiver aReceiver)
     }
 }
 
-void TimeTicker::HandleTimer(Timer &aTimer)
-{
-    aTimer.Get<TimeTicker>().HandleTimer();
-}
-
 void TimeTicker::HandleTimer(void)
 {
     mTimer.FireAt(mTimer.GetFireTime() + Random::NonCrypto::AddJitter(kTickInterval, kRestartJitter));
@@ -94,12 +89,17 @@ void TimeTicker::HandleTimer(void)
         Get<AddressResolver>().HandleTimeTick();
     }
 
-#if OPENTHREAD_CONFIG_CHILD_SUPERVISION_ENABLE
-    if (mReceivers & Mask(kChildSupervisor))
+#if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE && OPENTHREAD_CONFIG_BORDER_ROUTER_REQUEST_ROUTER_ROLE
+    if (mReceivers & Mask(kNetworkDataNotifier))
     {
-        Get<Utils::ChildSupervisor>().HandleTimeTick();
+        Get<NetworkData::Notifier>().HandleTimeTick();
     }
 #endif
+
+    if (mReceivers & Mask(kChildSupervisor))
+    {
+        Get<ChildSupervisor>().HandleTimeTick();
+    }
 #endif // OPENTHREAD_FTD
 
 #if OPENTHREAD_CONFIG_IP6_FRAGMENTATION_ENABLE
@@ -120,6 +120,18 @@ void TimeTicker::HandleTimer(void)
     if (mReceivers & Mask(kMlrManager))
     {
         Get<MlrManager>().HandleTimeTick();
+    }
+#endif
+
+    if (mReceivers & Mask(kIp6Mpl))
+    {
+        Get<Ip6::Mpl>().HandleTimeTick();
+    }
+
+#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
+    if (mReceivers & Mask(kBbrLocal))
+    {
+        Get<BackboneRouter::Local>().HandleTimeTick();
     }
 #endif
 }

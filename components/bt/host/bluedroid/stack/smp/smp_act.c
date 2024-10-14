@@ -622,7 +622,7 @@ void smp_proc_pair_cmd(tSMP_CB *p_cb, tSMP_INT_DATA *p_data)
                 }
             }
 
-            if (p_cb->selected_association_model == SMP_MODEL_SEC_CONN_OOB) {
+            if (p_cb->selected_association_model == SMP_MODEL_SEC_CONN_OOB && p_cb->loc_oob_flag == SMP_OOB_PRESENT) {
                 if (smp_request_oob_data(p_cb)) {
                     return;
                 }
@@ -661,7 +661,8 @@ void smp_proc_pair_cmd(tSMP_CB *p_cb, tSMP_INT_DATA *p_data)
             }
         }
 
-        if (p_cb->selected_association_model == SMP_MODEL_SEC_CONN_OOB) {
+        /* Only if peer oob data present, then should request peer oob data */
+        if (p_cb->selected_association_model == SMP_MODEL_SEC_CONN_OOB && p_cb->loc_oob_flag == SMP_OOB_PRESENT) {
             if (smp_request_oob_data(p_cb)) {
                 return;
             }
@@ -1459,7 +1460,7 @@ void smp_process_io_response(tSMP_CB *p_cb, tSMP_INT_DATA *p_data)
             }
         }
 
-        if (p_cb->selected_association_model == SMP_MODEL_SEC_CONN_OOB) {
+        if (p_cb->selected_association_model == SMP_MODEL_SEC_CONN_OOB && p_cb->loc_oob_flag == SMP_OOB_PRESENT) {
             if (smp_request_oob_data(p_cb)) {
                 return;
             }
@@ -1539,13 +1540,12 @@ void smp_idle_terminate(tSMP_CB *p_cb, tSMP_INT_DATA *p_data)
 *******************************************************************************/
 void smp_fast_conn_param(tSMP_CB *p_cb, tSMP_INT_DATA *p_data)
 {
-#if (BT_MULTI_CONNECTION_ENBALE == FALSE)
     if(p_cb->role == BTM_ROLE_MASTER) {
+#if (BT_MULTI_CONNECTION_ENBALE == FALSE)
         L2CA_EnableUpdateBleConnParams(p_cb->pairing_bda, FALSE);
-    }
 #endif
+    } else {
 #if (SMP_SLAVE_CON_PARAMS_UPD_ENABLE == TRUE)
-    else {
         tBTM_SEC_DEV_REC    *p_rec = btm_find_dev (p_cb->pairing_bda);
         if(p_rec && p_rec->ble.skip_update_conn_param) {
             //do nothing
@@ -1558,8 +1558,8 @@ void smp_fast_conn_param(tSMP_CB *p_cb, tSMP_INT_DATA *p_data)
         #if (BT_MULTI_CONNECTION_ENBALE == FALSE)
         L2CA_EnableUpdateBleConnParams(p_cb->pairing_bda, FALSE);
         #endif
-    }
 #endif
+    }
 }
 
 /*******************************************************************************
@@ -1948,6 +1948,7 @@ void smp_set_local_oob_random_commitment(tSMP_CB *p_cb, tSMP_INT_DATA *p_data)
                      p_cb->sc_oob_data.loc_oob_data.randomizer, 0,
                      p_cb->sc_oob_data.loc_oob_data.commitment);
 
+    p_cb->sc_oob_data.loc_oob_data.present = true;
 #if SMP_DEBUG == TRUE
     UINT8   *p_print = NULL;
     SMP_TRACE_DEBUG("local SC OOB data set:\n");
@@ -1975,6 +1976,9 @@ void smp_set_local_oob_random_commitment(tSMP_CB *p_cb, tSMP_INT_DATA *p_data)
     /* pass created OOB data up */
     p_cb->cb_evt = SMP_SC_LOC_OOB_DATA_UP_EVT;
     smp_send_app_cback(p_cb, NULL);
+
+    // Store the data for later use when we are paired with
+    smp_save_local_oob_data(p_cb);
 
     smp_cb_cleanup(p_cb);
 }

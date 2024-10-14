@@ -1,35 +1,19 @@
 /*
- *  SHA-512 implementation with hardware ESP support added.
+ * SHA-512 implementation with hardware ESP support added.
  *
- *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Additions Copyright (C) 2016-2020, Espressif Systems (Shanghai) PTE LTD
- *  SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: The Mbed TLS Contributors
  *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may
- *  not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * SPDX-License-Identifier: Apache-2.0
  *
- *  http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
+ * SPDX-FileContributor: 2016-2023 Espressif Systems (Shanghai) CO LTD
  */
-
 /*
  *  The SHA-512 Secure Hash Standard was published by NIST in 2002.
  *
  *  http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
  */
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif
+#include <mbedtls/build_info.h>
 
 #if defined(MBEDTLS_SHA512_C) && defined(MBEDTLS_SHA512_ALT)
 
@@ -125,7 +109,7 @@ void mbedtls_sha512_clone( mbedtls_sha512_context *dst,
 /*
  * SHA-512 context setup
  */
-int mbedtls_sha512_starts_ret( mbedtls_sha512_context *ctx, int is384 )
+int mbedtls_sha512_starts( mbedtls_sha512_context *ctx, int is384 )
 {
     mbedtls_zeroize( ctx, sizeof( mbedtls_sha512_context ) );
 
@@ -138,13 +122,25 @@ int mbedtls_sha512_starts_ret( mbedtls_sha512_context *ctx, int is384 )
     return 0;
 }
 
-#if !defined(MBEDTLS_DEPRECATED_REMOVED)
-void mbedtls_sha512_starts( mbedtls_sha512_context *ctx,
-                            int is384 )
+static int esp_internal_sha_update_state(mbedtls_sha512_context *ctx)
 {
-    mbedtls_sha512_starts_ret( ctx, is384 );
+    if (ctx->sha_state == ESP_SHA512_STATE_INIT) {
+        if (ctx->mode == SHA2_512T) {
+            int ret = -1;
+            if ((ret = esp_sha_512_t_init_hash(ctx->t_val)) != 0) {
+                return ret;
+            }
+            ctx->first_block = false;
+        } else {
+            ctx->first_block = true;
+        }
+        ctx->sha_state = ESP_SHA512_STATE_IN_PROCESS;
+    } else if (ctx->sha_state == ESP_SHA512_STATE_IN_PROCESS) {
+        ctx->first_block = false;
+        esp_sha_write_digest_state(ctx->mode, ctx->state);
+    }
+    return 0;
 }
-#endif
 
 static int esp_internal_sha512_dma_process(mbedtls_sha512_context *ctx,
         const uint8_t *data, size_t len,
@@ -159,30 +155,34 @@ static int esp_internal_sha512_dma_process(mbedtls_sha512_context *ctx,
 
 int mbedtls_internal_sha512_process( mbedtls_sha512_context *ctx, const unsigned char data[128] )
 {
-    int ret;
+    int ret = -1;
     esp_sha_acquire_hardware();
+
+    ret = esp_internal_sha_update_state(ctx);
+    if (ret != 0) {
+        esp_sha_release_hardware();
+        return ret;
+    }
+
     ret = esp_internal_sha512_dma_process(ctx, data, 128, 0, 0);
+    if (ret != 0) {
+        esp_sha_release_hardware();
+        return ret;
+    }
+
+    esp_sha_read_digest_state(ctx->mode, ctx->state);
     esp_sha_release_hardware();
 
     return ret;
 
 }
 
-#if !defined(MBEDTLS_DEPRECATED_REMOVED)
-void mbedtls_sha512_process( mbedtls_sha512_context *ctx,
-                             const unsigned char data[128] )
-{
-    mbedtls_internal_sha512_process( ctx, data );
-}
-#endif
-
 /*
  * SHA-512 process buffer
  */
-int mbedtls_sha512_update_ret( mbedtls_sha512_context *ctx, const unsigned char *input,
+int mbedtls_sha512_update( mbedtls_sha512_context *ctx, const unsigned char *input,
                                size_t ilen )
 {
-    int ret;
     size_t fill;
     unsigned int left, len, local_len = 0;
 
@@ -214,30 +214,23 @@ int mbedtls_sha512_update_ret( mbedtls_sha512_context *ctx, const unsigned char 
 
         esp_sha_acquire_hardware();
 
-        if (ctx->sha_state == ESP_SHA512_STATE_INIT) {
+        int ret = esp_internal_sha_update_state(ctx);
 
-            if (ctx->mode == SHA2_512T) {
-                esp_sha_512_t_init_hash(ctx->t_val);
-                ctx->first_block = false;
-            } else {
-                ctx->first_block = true;
-            }
-            ctx->sha_state = ESP_SHA512_STATE_IN_PROCESS;
-
-        } else if (ctx->sha_state == ESP_SHA512_STATE_IN_PROCESS) {
-            ctx->first_block = false;
-            esp_sha_write_digest_state(ctx->mode, ctx->state);
+        if (ret != 0) {
+            esp_sha_release_hardware();
+            return ret;
         }
 
         ret = esp_internal_sha512_dma_process(ctx, input, len, ctx->buffer, local_len);
 
+        if (ret != 0) {
+            esp_sha_release_hardware();
+            return ret;
+        }
+
         esp_sha_read_digest_state(ctx->mode, ctx->state);
 
         esp_sha_release_hardware();
-
-        if (ret != 0) {
-            return ret;
-        }
 
     }
 
@@ -248,16 +241,6 @@ int mbedtls_sha512_update_ret( mbedtls_sha512_context *ctx, const unsigned char 
 
     return 0;
 }
-
-#if !defined(MBEDTLS_DEPRECATED_REMOVED)
-void mbedtls_sha512_update( mbedtls_sha512_context *ctx,
-                            const unsigned char *input,
-                            size_t ilen )
-{
-    mbedtls_sha512_update_ret( ctx, input, ilen );
-}
-#endif
-
 
 static const unsigned char sha512_padding[128] = {
     0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -273,9 +256,9 @@ static const unsigned char sha512_padding[128] = {
 /*
  * SHA-512 final digest
  */
-int mbedtls_sha512_finish_ret( mbedtls_sha512_context *ctx, unsigned char output[64] )
+int mbedtls_sha512_finish( mbedtls_sha512_context *ctx, unsigned char *output )
 {
-    int ret;
+    int ret = -1;
     size_t last, padn;
     uint64_t high, low;
     unsigned char msglen[16];
@@ -290,11 +273,11 @@ int mbedtls_sha512_finish_ret( mbedtls_sha512_context *ctx, unsigned char output
     last = (size_t)( ctx->total[0] & 0x7F );
     padn = ( last < 112 ) ? ( 112 - last ) : ( 240 - last );
 
-    if ( ( ret = mbedtls_sha512_update_ret( ctx, sha512_padding, padn ) ) != 0 ) {
+    if ( ( ret = mbedtls_sha512_update( ctx, sha512_padding, padn ) ) != 0 ) {
         return ret;
     }
 
-    if ( ( ret = mbedtls_sha512_update_ret( ctx, msglen, 16 ) ) != 0 ) {
+    if ( ( ret = mbedtls_sha512_update( ctx, msglen, 16 ) ) != 0 ) {
         return ret;
     }
 
@@ -306,13 +289,5 @@ int mbedtls_sha512_finish_ret( mbedtls_sha512_context *ctx, unsigned char output
 
     return ret;
 }
-
-#if !defined(MBEDTLS_DEPRECATED_REMOVED)
-void mbedtls_sha512_finish( mbedtls_sha512_context *ctx,
-                            unsigned char output[64] )
-{
-    mbedtls_sha512_finish_ret( ctx, output );
-}
-#endif
 
 #endif /* MBEDTLS_SHA512_C && MBEDTLS_SHA512_ALT */

@@ -132,7 +132,7 @@ static int create_multicast_ipv4_socket(void)
 
     // Assign multicast TTL (set separately from normal interface TTL)
     uint8_t ttl = MULTICAST_TTL;
-    setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(uint8_t));
+    err = setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(uint8_t));
     if (err < 0) {
         ESP_LOGE(V4TAG, "Failed to set IP_MULTICAST_TTL. Error %d", errno);
         goto err;
@@ -193,7 +193,7 @@ static int create_multicast_ipv6_socket(void)
         goto err;
     }
 
-    // Selct the interface to use as multicast source for this socket.
+    // Select the interface to use as multicast source for this socket.
 #if LISTEN_ALL_IF
     bzero(&if_inaddr.un, sizeof(if_inaddr.un));
 #else
@@ -417,8 +417,12 @@ static void mcast_example_task(void *pvParameters)
 #ifdef CONFIG_EXAMPLE_IPV4_ONLY
                 hints.ai_family = AF_INET; // For an IPv4 socket
 #else
+
+#ifdef CONFIG_ESP_NETIF_TCPIP_LWIP  // Resolving IPv4 mapped IPv6 addresses is supported only in the official TCPIP_LWIP stack (esp-lwip)
                 hints.ai_family = AF_INET6; // For an IPv4 socket with V4 mapped addresses
                 hints.ai_flags |= AI_V4MAPPED;
+#endif // CONFIG_ESP_NETIF_TCPIP_LWIP
+
 #endif
                 int err = getaddrinfo(CONFIG_EXAMPLE_MULTICAST_IPV4_ADDR,
                                       NULL,

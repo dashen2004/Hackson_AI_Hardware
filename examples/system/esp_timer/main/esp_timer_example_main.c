@@ -58,17 +58,22 @@ void app_main(void)
         usleep(2000000);
     }
 
+#if SOC_LIGHT_SLEEP_SUPPORTED
     /* Timekeeping continues in light sleep, and timers are scheduled
      * correctly after light sleep.
      */
-    ESP_LOGI(TAG, "Entering light sleep for 0.5s, time since boot: %lld us",
-            esp_timer_get_time());
+    int64_t t1 = esp_timer_get_time();
+    ESP_LOGI(TAG, "Entering light sleep for 0.5s, time since boot: %lld us", t1);
 
     ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(500000));
     esp_light_sleep_start();
 
-    ESP_LOGI(TAG, "Woke up from light sleep, time since boot: %lld us",
-                esp_timer_get_time());
+    int64_t t2 = esp_timer_get_time();
+    ESP_LOGI(TAG, "Woke up from light sleep, time since boot: %lld us", t2);
+
+    // TODO: PM-232
+    assert(((t2 - t1 - 500000) < 1000) && ((t2 - t1 - 500000) > -2000));
+#endif
 
     /* Let the timer run for a little bit more */
     usleep(2000000);

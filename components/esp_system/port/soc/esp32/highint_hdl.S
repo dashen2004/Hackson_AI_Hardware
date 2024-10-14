@@ -1,26 +1,19 @@
-// Copyright 2015-2017 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 
 #include <xtensa/coreasm.h>
 #include <xtensa/corebits.h>
 #include <xtensa/config/system.h>
-#include "freertos/xtensa_context.h"
+#include "xtensa_context.h"
 #include "freertos/xtensa_rtos.h"
 #include "esp_private/panic_reason.h"
 #include "sdkconfig.h"
 #include "soc/soc.h"
+#include "soc/soc_caps.h"
 #include "soc/dport_reg.h"
 #include "soc/timer_group_reg.h"
 
@@ -77,6 +70,8 @@ Interrupt , a high-priority interrupt, is used for several things:
 #define TIMG1_WDT_STG1_HOLD_OFFSET          TIMG1_REG_OFFSET(TIMG_WDTCONFIG3_REG(1))
 #define TIMG1_WDT_FEED_OFFSET               TIMG1_REG_OFFSET(TIMG_WDTFEED_REG(1))
 #define UART0_DATA_REG                      (0x3FF40078)
+#define TIMG_WDT_WKEY_VALUE                 0x50D83AA1
+#define ETS_TG1_WDT_LEVEL_INTR_SOURCE       20
 
     .macro wdt_clr_intr_status  dev
     movi    a2, \dev
@@ -144,7 +139,7 @@ Interrupt , a high-priority interrupt, is used for several things:
 
     .data
 _lx_intr_stack:
-    .space      LX_INTR_STACK_SIZE*portNUM_PROCESSORS /* This allocates stacks for each individual CPU. */
+    .space      LX_INTR_STACK_SIZE*CONFIG_FREERTOS_NUMBER_OF_CORES /* This allocates stacks for each individual CPU. */
 
 #if CONFIG_ESP32_ECO3_CACHE_LOCK_FIX && CONFIG_ESP_INT_WDT
     .global _lx_intr_livelock_counter
@@ -168,7 +163,7 @@ _lx_intr_livelock_pro:
     .align      4
 xt_highintx:
 
-#ifndef CONFIG_FREERTOS_UNICORE
+#ifndef CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
     /* See if we're here for the IPC_ISR interrupt */
     rsr     a0, INTERRUPT
     extui   a0, a0, ETS_IPC_ISR_INUM, 1
@@ -181,7 +176,7 @@ xt_highintx:
     movi    a0, esp_ipc_isr_handler
     jx      a0
 1:
-#endif /* not CONFIG_FREERTOS_UNICORE */
+#endif /* not CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE */
 
 #if CONFIG_ESP32_ECO3_CACHE_LOCK_FIX && CONFIG_ESP_INT_WDT
 
@@ -228,6 +223,8 @@ xt_highintx:
     s32i    a0, sp, XT_STK_PS
     rsr     a0, EPC_X                       /* save interruptee's PC */
     s32i    a0, sp, XT_STK_PC
+    rsr     a0, EXCSAVE_X                   /* save interruptee's a0 */
+    s32i    a0, sp, XT_STK_A0
     #if XCHAL_HAVE_WINDOWED
     s32e    a0, sp, -16                     /* for debug backtrace */
     #endif
@@ -265,7 +262,7 @@ xt_highintx:
 #endif /* CONFIG_ESP_SYSTEM_CHECK_INT_LEVEL_5 */
 #if CONFIG_ESP_INT_WDT_CHECK_CPU1
     /* Check if the cause is the app cpu failing to tick.*/
-    movi    a0, int_wdt_app_cpu_ticked
+    movi    a0, int_wdt_cpu1_ticked
     l32i    a0, a0, 0
     bnez    a0, 2f
     /* It is. Modify cause. */
@@ -278,11 +275,6 @@ xt_highintx:
 9:
     /* Found the reason, now save it. */
     s32i    a0, sp, XT_STK_EXCCAUSE
-
-    /* _xt_context_save seems to save the current a0, but we need the interuptees a0. Fix this. */
-    rsr     a0, EXCSAVE_X                   /* save interruptee's a0 */
-
-    s32i    a0, sp, XT_STK_A0
 
     /* Set up PS for C, disable all interrupts except NMI and debug, and clear EXCM. */
     movi    a0, PS_INTLEVEL(5) | PS_UM | PS_WOE
@@ -318,7 +310,7 @@ xt_highintx:
     wsr     a2, depc                        /* temp storage */
 
     rsr.ccount  a2
-    addmi   a2, a2, (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ*50)
+    addmi   a2, a2, (CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ*50)
     wsr     a2, CCOMPARE2
 
     /* Enable Integration Mode */
@@ -391,7 +383,7 @@ xt_highintx:
     /* Here, we can use a0, a2, a3, a4, a5 registers */
     getcoreid   a5
 
-    rsil    a0, CONFIG_ESP32_DPORT_DIS_INTERRUPT_LVL /* disable nested interrupt */
+    rsil    a0, SOC_DPORT_WORKAROUND_DIS_INTERRUPT_LVL /* disable nested interrupt */
 
     beqz    a5, 1f
     movi    a2, _lx_intr_livelock_app

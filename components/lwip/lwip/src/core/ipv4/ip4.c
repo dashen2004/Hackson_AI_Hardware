@@ -122,52 +122,6 @@ ip4_set_default_multicast_netif(struct netif *default_multicast_netif)
 #endif /* LWIP_MULTICAST_TX_OPTIONS */
 
 #ifdef LWIP_HOOK_IP4_ROUTE_SRC
-#if ESP_IP4_ROUTE
-bool ip4_netif_exist(const ip4_addr_t *src, const ip4_addr_t *dest)
-{
-  struct netif *netif = NULL;
-  
-  for (netif = netif_list; netif != NULL; netif = netif->next) {
-    /* is the netif up, does it have a link and a valid address? */
-    if (netif_is_up(netif) && netif_is_link_up(netif) && !ip4_addr_isany_val(*netif_ip4_addr(netif))) {
-      /* source netif and dest netif match? */
-      if (ip4_addr_netcmp(src, netif_ip4_addr(netif), netif_ip4_netmask(netif)) || ip4_addr_netcmp(dest, netif_ip4_addr(netif), netif_ip4_netmask(netif))) {
-        /* return false when both netif don't match */
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-/**
- * Source based IPv4 routing hook function. 
- */
-struct netif * 
-ip4_route_src_hook(const ip4_addr_t *src,const ip4_addr_t *dest)
-{
-  struct netif *netif = NULL;
-
-  /* destination IP is broadcast IP? */
-  if ((src != NULL) && !ip4_addr_isany(src)) {
-    /* iterate through netifs */
-    for (netif = netif_list; netif != NULL; netif = netif->next) {
-      /* is the netif up, does it have a link and a valid address? */
-      if (netif_is_up(netif) && netif_is_link_up(netif) && !ip4_addr_isany_val(*netif_ip4_addr(netif))) {
-        /* source IP matches? */
-        if (ip4_addr_cmp(src, netif_ip4_addr(netif))) {
-          /* return netif on which to forward IP packet */
-
-          return netif;
-        }
-      }
-    }
-  }
-  return netif;
-}
-#endif
-
 /**
  * Source based IPv4 routing must be fully implemented in
  * LWIP_HOOK_IP4_ROUTE_SRC(). This function only provides the parameters.
@@ -176,11 +130,6 @@ struct netif *
 ip4_route_src(const ip4_addr_t *src, const ip4_addr_t *dest)
 {
   if (src != NULL) {
-#if ESP_IP4_ROUTE
-    if (!ip4_addr_isany(src) && (ip4_netif_exist(src,dest) == false)) {
-      return NULL;
-    }
-#endif
     /* when src==NULL, the hook is called from ip4_route(dest) */
     struct netif *netif = LWIP_HOOK_IP4_ROUTE_SRC(src, dest);
     if (netif != NULL) {
@@ -223,12 +172,12 @@ ip4_route(const ip4_addr_t *dest)
     /* is the netif up, does it have a link and a valid address? */
     if (netif_is_up(netif) && netif_is_link_up(netif) && !ip4_addr_isany_val(*netif_ip4_addr(netif))) {
       /* network mask matches? */
-      if (ip4_addr_netcmp(dest, netif_ip4_addr(netif), netif_ip4_netmask(netif))) {
+      if (ip4_addr_net_eq(dest, netif_ip4_addr(netif), netif_ip4_netmask(netif))) {
         /* return netif on which to forward IP packet */
         return netif;
       }
       /* gateway matches on a non broadcast interface? (i.e. peer in a point to point interface) */
-      if (((netif->flags & NETIF_FLAG_BROADCAST) == 0) && ip4_addr_cmp(dest, netif_ip4_gw(netif))) {
+      if (((netif->flags & NETIF_FLAG_BROADCAST) == 0) && ip4_addr_eq(dest, netif_ip4_gw(netif))) {
         /* return netif on which to forward IP packet */
         return netif;
       }
@@ -236,10 +185,10 @@ ip4_route(const ip4_addr_t *dest)
   }
 
 #if LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF
-  /* loopif is disabled, looopback traffic is passed through any netif */
+  /* loopif is disabled, loopback traffic is passed through any netif */
   if (ip4_addr_isloopback(dest)) {
     /* don't check for link on loopback traffic */
-    if (netif_default != NULL && netif_is_up(netif_default)) {
+    if ((netif_default != NULL) && netif_is_up(netif_default)) {
       return netif_default;
     }
     /* default netif is not up, just use any netif for loopback traffic */
@@ -383,8 +332,11 @@ ip4_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp)
 
 #if ESP_LWIP
 #if IP_NAPT
-  if (ip_napt_forward(p, iphdr, inp, netif) != ERR_OK)
-    return;
+  /* If the output netif uses NAPT, we will not perform NAPT forwarding (because NAPT netif will not search the NAPT table on ip4_input) */
+  if (!netif->napt) {
+    if (ip_napt_forward(p, iphdr, inp, netif) != ERR_OK)
+      return;
+  }
 #endif
 #endif /* ESP_LWIP */
 
@@ -393,6 +345,40 @@ ip4_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp)
     IPH_CHKSUM_SET(iphdr, (u16_t)(IPH_CHKSUM(iphdr) + PP_HTONS(0x100) + 1));
   } else {
     IPH_CHKSUM_SET(iphdr, (u16_t)(IPH_CHKSUM(iphdr) + PP_HTONS(0x100)));
+  }
+
+  /* Take care of setting checksums to 0 for checksum offload netifs */
+  if (!CHECKSUM_GEN_IP || NETIF_CHECKSUM_ENABLED(inp, NETIF_CHECKSUM_GEN_IP)) {
+    IPH_CHKSUM_SET(iphdr, 0);
+  }
+  switch (IPH_PROTO(iphdr)) {
+#if LWIP_UDP
+#if LWIP_UDPLITE
+  case IP_PROTO_UDPLITE:
+#endif
+  case IP_PROTO_UDP:
+    if (!CHECKSUM_GEN_UDP || NETIF_CHECKSUM_ENABLED(inp, NETIF_CHECKSUM_GEN_UDP)) {
+      ((struct udp_hdr *)((u8_t *)iphdr + IPH_HL_BYTES(iphdr)))->chksum = 0;
+    }
+    break;
+#endif
+#if LWIP_TCP
+  case IP_PROTO_TCP:
+    if (!CHECKSUM_GEN_TCP || NETIF_CHECKSUM_ENABLED(inp, NETIF_CHECKSUM_GEN_TCP)) {
+      ((struct tcp_hdr *)((u8_t *)iphdr + IPH_HL_BYTES(iphdr)))->chksum = 0;
+    }
+    break;
+#endif
+#if LWIP_ICMP
+  case IP_PROTO_ICMP:
+    if (!CHECKSUM_GEN_ICMP || NETIF_CHECKSUM_ENABLED(inp, NETIF_CHECKSUM_GEN_ICMP)) {
+      ((struct icmp_hdr *)((u8_t *)iphdr + IPH_HL_BYTES(iphdr)))->chksum = 0;
+    }
+    break;
+#endif
+  default:
+    /* there's really nothing to do here other than satisfying 'switch-default' */
+    break;
   }
 
   LWIP_DEBUGF(IP_DEBUG, ("ip4_forward: forwarding packet to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
@@ -421,7 +407,23 @@ ip4_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp)
     return;
   }
   /* transmit pbuf on chosen interface */
+#if ESP_LWIP && IP_NAPT
+  if (p->type_internal == PBUF_REF)
+  {
+      struct pbuf *q = pbuf_clone(PBUF_LINK, PBUF_RAM, p);
+      if (q != NULL) {
+          netif->output(netif, q, ip4_current_dest_addr());
+          pbuf_free(q);
+      } else {
+          MIB2_STATS_INC(mib2.ipinaddrerrors);
+          MIB2_STATS_INC(mib2.ipindiscards);
+      }
+  } else {
+    netif->output(netif, p, ip4_current_dest_addr());
+  }
+#else
   netif->output(netif, p, ip4_current_dest_addr());
+#endif /* ESP_LWIP && IP_NAPT */
   return;
 return_noroute:
   MIB2_STATS_INC(mib2.ipoutnoroutes);
@@ -441,7 +443,7 @@ ip4_input_accept(struct netif *netif)
   /* interface is up and configured? */
   if ((netif_is_up(netif)) && (!ip4_addr_isany_val(*netif_ip4_addr(netif)))) {
     /* unicast to this interface address? */
-    if (ip4_addr_cmp(ip4_current_dest_addr(), netif_ip4_addr(netif)) ||
+    if (ip4_addr_eq(ip4_current_dest_addr(), netif_ip4_addr(netif)) ||
         /* or broadcast on this interface network address? */
         ip4_addr_isbroadcast(ip4_current_dest_addr(), netif)
 #if LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF
@@ -593,7 +595,7 @@ ip4_input(struct pbuf *p, struct netif *inp)
       /* IGMP snooping switches need 0.0.0.0 to be allowed as source address (RFC 4541) */
       ip4_addr_t allsystems;
       IP4_ADDR(&allsystems, 224, 0, 0, 1);
-      if (ip4_addr_cmp(ip4_current_dest_addr(), &allsystems) &&
+      if (ip4_addr_eq(ip4_current_dest_addr(), &allsystems) &&
           ip4_addr_isany(ip4_current_src_addr())) {
         check_ip_src = 0;
       }
@@ -1066,7 +1068,7 @@ ip4_output_if_opt_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *d
 #endif /* !LWIP_HAVE_LOOPIF */
      ) {
     /* Packet to self, enqueue it for loopback */
-    LWIP_DEBUGF(IP_DEBUG, ("netif_loop_output()"));
+    LWIP_DEBUGF(IP_DEBUG, ("netif_loop_output()\n"));
     return netif_loop_output(netif, p);
   }
 #if LWIP_MULTICAST_TX_OPTIONS
@@ -1082,7 +1084,7 @@ ip4_output_if_opt_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *d
     return ip4_frag(p, netif, dest);
   }
 #else
-  LWIP_ERROR("ip4_output_if: Packets larger than MTU, discarded!!!",!(netif->mtu && p->tot_len > netif->mtu),return ERR_IF;);
+  LWIP_ERROR("ip4_output_if: Packet larger than MTU discarded", !(netif->mtu && p->tot_len > netif->mtu), return ERR_IF;);
 #endif /* IP_FRAG */
 
   LWIP_DEBUGF(IP_DEBUG, ("ip4_output_if: call netif->output()\n"));

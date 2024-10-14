@@ -1,5 +1,5 @@
-| Supported Targets | ESP32 |
-| ----------------- | ----- |
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- |
 
 # Throughput bleprph Example
 
@@ -64,3 +64,4 @@ I (83943) bleprph_throughput:  Notification test completed for stipulated time o
 ## Example scope
 
 This demo example along with `blecent_throughput` tries to demonstrate stable implementation of GATT operations like read/write and notify. For `bleprph_throughput` app, notifications are sent almost continuously for stipulated period of time. The almost part is because we use counting semaphore (~100) to mimic continuous notifications.  Here one needs to understand that notifications are sent in `os_mbufs` packets and there can always be chance of them getting full because of continuous operation, so one may need to allocate higher number of mbufs through menuconfig, whenever there is `os_mbuf` memory exhaustion, app provides delay so NimBLE host stack can breathe and free `mbuf chains`.
+

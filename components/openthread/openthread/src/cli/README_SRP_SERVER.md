@@ -8,6 +8,7 @@ See [README_SRP.md](README_SRP.md).
 
 - [help](#help)
 - [addrmode](#addrmode)
+- [auto](#auto)
 - [disable](#disable)
 - [domain](#domain)
 - [enable](#enable)
@@ -28,6 +29,7 @@ Print SRP server help menu.
 ```bash
 > srp server help
 addrmode
+auto
 disable
 domain
 enable
@@ -64,6 +66,25 @@ Done
 
 > srp server addrmode
 anycast
+Done
+```
+
+### auto
+
+Usage: `srp server auto [enable|disable]`
+
+Enables or disables the auto-enable mode on the SRP server.
+
+When this mode is enabled, the Border Routing Manager controls if and when to enable or disable the SRP server.
+
+This command requires that `OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE` be enabled.
+
+```bash
+> srp server auto enable
+Done
+
+> srp server auto
+Enabled
 Done
 ```
 
@@ -170,6 +191,8 @@ Usage: `srp server service`
 
 Print information of all registered services.
 
+The TXT record is displayed as an array of entries. If an entry has a key, the key will be printed in ASCII format. The value portion will always be printed as hex bytes.
+
 ```bash
 > srp server service
 srp-api-test-1._ipps._tcp.default.service.arpa.
@@ -178,7 +201,10 @@ srp-api-test-1._ipps._tcp.default.service.arpa.
     port: 49152
     priority: 0
     weight: 0
-    TXT: 0130
+    ttl: 7200
+    lease: 7200
+    key-lease: 1209600
+    TXT: [616263, xyz=585960]
     host: srp-api-test-1.default.service.arpa.
     addresses: [fdde:ad00:beef:0:0:ff:fe00:fc10]
 srp-api-test-0._ipps._tcp.default.service.arpa.
@@ -187,7 +213,10 @@ srp-api-test-0._ipps._tcp.default.service.arpa.
     port: 49152
     priority: 0
     weight: 0
-    TXT: 0130
+    ttl: 3600
+    lease: 3600
+    key-lease: 1209600
+    TXT: [616263, xyz=585960]
     host: srp-api-test-0.default.service.arpa.
     addresses: [fdde:ad00:beef:0:0:ff:fe00:fc10]
 Done

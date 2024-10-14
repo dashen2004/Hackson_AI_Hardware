@@ -17,7 +17,7 @@
 
 # Toolchain commands
 CROSS_COMPILE ?=
-CC      := ccache $(CROSS_COMPLIE)gcc
+CC      := ccache $(CROSS_COMPILE)gcc
 CXX     := ccache $(CROSS_COMPILE)g++
 LD      := $(CROSS_COMPILE)gcc
 AR      := $(CROSS_COMPILE)ar
@@ -81,7 +81,7 @@ CFLAGS =                    \
     -D_GNU_SOURCE           \
     $(NULL)
 
-LIBS := -lrt -lpthread -lstdc++
+LIBS := $(NIMBLE_LDFLAGS) -lrt -lpthread -lstdc++
 
 .PHONY: all clean
 .DEFAULT: all

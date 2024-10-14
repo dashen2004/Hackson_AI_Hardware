@@ -37,16 +37,17 @@
 
 #include "openthread-core-config.h"
 
-#include <limits.h>
-
 #include <openthread/commissioner.h>
 #include <openthread/instance.h>
 #include <openthread/joiner.h>
 
 #include "coap/coap.hpp"
+#include "common/as_core_type.hpp"
 #include "common/clearable.hpp"
 #include "common/equatable.hpp"
+#include "common/log.hpp"
 #include "common/message.hpp"
+#include "common/numeric_limits.hpp"
 #include "common/string.hpp"
 #include "mac/mac_types.hpp"
 #include "meshcop/meshcop_tlvs.hpp"
@@ -58,7 +59,7 @@ class ThreadNetif;
 namespace MeshCoP {
 
 /**
- * This type represents a Joiner PSKd.
+ * Represents a Joiner PSKd.
  *
  */
 class JoinerPskd : public otJoinerPskd, public Clearable<JoinerPskd>, public Unequatable<JoinerPskd>
@@ -68,7 +69,7 @@ public:
     static constexpr uint8_t kMaxLength = OT_JOINER_MAX_PSKD_LENGTH; ///< Max PSKd string length (excludes null char)
 
     /**
-     * This method indicates whether the PSKd if well-formed and valid.
+     * Indicates whether the PSKd if well-formed and valid.
      *
      * Per Thread specification, a Joining Device Credential is encoded as uppercase alphanumeric characters
      * (base32-thread: 0-9, A-Z excluding I, O, Q, and Z for readability) with a minimum length of 6 such characters
@@ -80,7 +81,7 @@ public:
     bool IsValid(void) const { return IsPskdValid(m8); }
 
     /**
-     * This method sets the joiner PSKd from a given C string.
+     * Sets the joiner PSKd from a given C string.
      *
      * @param[in] aPskdString   A pointer to the PSKd C string array.
      *
@@ -91,9 +92,9 @@ public:
     Error SetFrom(const char *aPskdString);
 
     /**
-     * This method gets the PSKd as a null terminated C string.
+     * Gets the PSKd as a null terminated C string.
      *
-     * This method must be used after the PSKd is validated, otherwise its behavior is undefined.
+     * Must be used after the PSKd is validated, otherwise its behavior is undefined.
      *
      * @returns The PSKd as a C string.
      *
@@ -101,9 +102,9 @@ public:
     const char *GetAsCString(void) const { return m8; }
 
     /**
-     * This method gets the PSKd string length.
+     * Gets the PSKd string length.
      *
-     * This method must be used after the PSKd is validated, otherwise its behavior is undefined.
+     * Must be used after the PSKd is validated, otherwise its behavior is undefined.
      *
      * @returns The PSKd string length.
      *
@@ -111,7 +112,7 @@ public:
     uint8_t GetLength(void) const { return static_cast<uint8_t>(StringLength(m8, kMaxLength + 1)); }
 
     /**
-     * This method overloads operator `==` to evaluate whether or not two PSKds are equal.
+     * Overloads operator `==` to evaluate whether or not two PSKds are equal.
      *
      * @param[in]  aOther  The other PSKd to compare with.
      *
@@ -122,7 +123,7 @@ public:
     bool operator==(const JoinerPskd &aOther) const;
 
     /**
-     * This static method indicates whether a given PSKd string if well-formed and valid.
+     * Indicates whether a given PSKd string if well-formed and valid.
      *
      * @param[in] aPskdString  A pointer to a PSKd string array.
      *
@@ -135,7 +136,7 @@ public:
 };
 
 /**
- * This type represents a Joiner Discerner.
+ * Represents a Joiner Discerner.
  *
  */
 class JoinerDiscerner : public otJoinerDiscerner, public Unequatable<JoinerDiscerner>
@@ -148,19 +149,19 @@ public:
     static constexpr uint16_t kInfoStringSize = 45; ///< Size of `InfoString` to use with `ToString()
 
     /**
-     * This type defines the fixed-length `String` object returned from `ToString()`.
+     * Defines the fixed-length `String` object returned from `ToString()`.
      *
      */
     typedef String<kInfoStringSize> InfoString;
 
     /**
-     * This method clears the Joiner Discerner.
+     * Clears the Joiner Discerner.
      *
      */
     void Clear(void) { mLength = 0; }
 
     /**
-     * This method indicates whether the Joiner Discerner is empty (no value set).
+     * Indicates whether the Joiner Discerner is empty (no value set).
      *
      * @returns TRUE if empty, FALSE otherwise.
      *
@@ -168,7 +169,7 @@ public:
     bool IsEmpty(void) const { return mLength == 0; }
 
     /**
-     * This method gets the Joiner Discerner's value.
+     * Gets the Joiner Discerner's value.
      *
      * @returns The Joiner Discerner value.
      *
@@ -176,7 +177,7 @@ public:
     uint64_t GetValue(void) const { return mValue; }
 
     /**
-     * This method gets the Joiner Discerner's length (in bits).
+     * Gets the Joiner Discerner's length (in bits).
      *
      * @return The Joiner Discerner length.
      *
@@ -184,7 +185,7 @@ public:
     uint8_t GetLength(void) const { return mLength; }
 
     /**
-     * This method indicates whether the Joiner Discerner is valid (i.e. it not empty and its length is within
+     * Indicates whether the Joiner Discerner is valid (i.e. it not empty and its length is within
      * valid range).
      *
      * @returns TRUE if Joiner Discerner is valid, FALSE otherwise.
@@ -193,7 +194,7 @@ public:
     bool IsValid(void) const { return (0 < mLength) && (mLength <= kMaxLength); }
 
     /**
-     * This method generates a Joiner ID from the Discerner.
+     * Generates a Joiner ID from the Discerner.
      *
      * @param[out] aJoinerId   A reference to `Mac::ExtAddress` to output the generated Joiner ID.
      *
@@ -201,9 +202,9 @@ public:
     void GenerateJoinerId(Mac::ExtAddress &aJoinerId) const;
 
     /**
-     * This method indicates whether a given Joiner ID matches the Discerner.
+     * Indicates whether a given Joiner ID matches the Discerner.
      *
-     * @param[in] aJoiner  A Joiner ID to match with the Discerner.
+     * @param[in] aJoinerId  A Joiner ID to match with the Discerner.
      *
      * @returns TRUE if the Joiner ID matches the Discerner, FALSE otherwise.
      *
@@ -211,7 +212,7 @@ public:
     bool Matches(const Mac::ExtAddress &aJoinerId) const;
 
     /**
-     * This method overloads operator `==` to evaluate whether or not two Joiner Discerner instances are equal.
+     * Overloads operator `==` to evaluate whether or not two Joiner Discerner instances are equal.
      *
      * @param[in]  aOther  The other Joiner Discerner to compare with.
      *
@@ -222,7 +223,7 @@ public:
     bool operator==(const JoinerDiscerner &aOther) const;
 
     /**
-     * This method converts the Joiner Discerner to a string.
+     * Converts the Joiner Discerner to a string.
      *
      * @returns An `InfoString` representation of Joiner Discerner.
      *
@@ -235,7 +236,7 @@ private:
 };
 
 /**
- * This type represents Steering Data (bloom filter).
+ * Represents Steering Data (bloom filter).
  *
  */
 class SteeringData : public otSteeringData
@@ -244,7 +245,7 @@ public:
     static constexpr uint8_t kMaxLength = OT_STEERING_DATA_MAX_LENGTH; ///< Maximum Steering Data length (in bytes).
 
     /**
-     * This structure represents the hash bit index values for the bloom filter calculated from a Joiner ID.
+     * Represents the hash bit index values for the bloom filter calculated from a Joiner ID.
      *
      * The first hash bit index is derived using CRC16-CCITT and second one using CRC16-ANSI.
      *
@@ -257,7 +258,7 @@ public:
     };
 
     /**
-     * This method initializes the Steering Data and clears the bloom filter.
+     * Initializes the Steering Data and clears the bloom filter.
      *
      * @param[in]  aLength   The Steering Data length (in bytes) - MUST be smaller than or equal to `kMaxLength`.
      *
@@ -265,7 +266,7 @@ public:
     void Init(uint8_t aLength = kMaxLength);
 
     /**
-     * This method clears the bloom filter (all bits are cleared and no Joiner Id is accepted)..
+     * Clears the bloom filter (all bits are cleared and no Joiner Id is accepted)..
      *
      * The Steering Data length (bloom filter length) is set to one byte with all bits cleared.
      *
@@ -273,7 +274,7 @@ public:
     void Clear(void) { Init(1); }
 
     /**
-     * This method sets the bloom filter to permit all Joiner IDs.
+     * Sets the bloom filter to permit all Joiner IDs.
      *
      * To permit all Joiner IDs, The Steering Data length (bloom filter length) is set to one byte with all bits set.
      *
@@ -281,7 +282,7 @@ public:
     void SetToPermitAllJoiners(void);
 
     /**
-     * This method returns the Steering Data length (in bytes).
+     * Returns the Steering Data length (in bytes).
      *
      * @returns The Steering Data length (in bytes).
      *
@@ -289,7 +290,7 @@ public:
     uint8_t GetLength(void) const { return mLength; }
 
     /**
-     * This method gets the Steering Data buffer (bloom filter).
+     * Gets the Steering Data buffer (bloom filter).
      *
      * @returns A pointer to the Steering Data buffer.
      *
@@ -297,7 +298,7 @@ public:
     const uint8_t *GetData(void) const { return m8; }
 
     /**
-     * This method gets the Steering Data buffer (bloom filter).
+     * Gets the Steering Data buffer (bloom filter).
      *
      * @returns A pointer to the Steering Data buffer.
      *
@@ -305,7 +306,7 @@ public:
     uint8_t *GetData(void) { return m8; }
 
     /**
-     * This method updates the bloom filter adding the given Joiner ID.
+     * Updates the bloom filter adding the given Joiner ID.
      *
      * @param[in]  aJoinerId  The Joiner ID to add to bloom filter.
      *
@@ -313,7 +314,7 @@ public:
     void UpdateBloomFilter(const Mac::ExtAddress &aJoinerId);
 
     /**
-     * This method updates the bloom filter adding a given Joiner Discerner.
+     * Updates the bloom filter adding a given Joiner Discerner.
      *
      * @param[in]  aDiscerner  The Joiner Discerner to add to bloom filter.
      *
@@ -321,7 +322,7 @@ public:
     void UpdateBloomFilter(const JoinerDiscerner &aDiscerner);
 
     /**
-     * This method indicates whether the bloom filter is empty (all the bits are cleared).
+     * Indicates whether the bloom filter is empty (all the bits are cleared).
      *
      * @returns TRUE if the bloom filter is empty, FALSE otherwise.
      *
@@ -329,7 +330,7 @@ public:
     bool IsEmpty(void) const { return DoesAllMatch(0); }
 
     /**
-     * This method indicates whether the bloom filter permits all Joiner IDs (all the bits are set).
+     * Indicates whether the bloom filter permits all Joiner IDs (all the bits are set).
      *
      * @returns TRUE if the bloom filter permits all Joiners IDs, FALSE otherwise.
      *
@@ -337,7 +338,7 @@ public:
     bool PermitsAllJoiners(void) const { return (mLength > 0) && DoesAllMatch(kPermitAll); }
 
     /**
-     * This method indicates whether the bloom filter contains a given Joiner ID.
+     * Indicates whether the bloom filter contains a given Joiner ID.
      *
      * @param[in] aJoinerId  A Joiner ID.
      *
@@ -347,7 +348,7 @@ public:
     bool Contains(const Mac::ExtAddress &aJoinerId) const;
 
     /**
-     * This method indicates whether the bloom filter contains a given Joiner Discerner.
+     * Indicates whether the bloom filter contains a given Joiner Discerner.
      *
      * @param[in] aDiscerner   A Joiner Discerner.
      *
@@ -357,7 +358,7 @@ public:
     bool Contains(const JoinerDiscerner &aDiscerner) const;
 
     /**
-     * This method indicates whether the bloom filter contains the hash bit indexes (derived from a Joiner ID).
+     * Indicates whether the bloom filter contains the hash bit indexes (derived from a Joiner ID).
      *
      * @param[in]  aIndexes   A hash bit index structure (derived from a Joiner ID).
      *
@@ -367,7 +368,7 @@ public:
     bool Contains(const HashBitIndexes &aIndexes) const;
 
     /**
-     * This static method calculates the bloom filter hash bit indexes from a given Joiner ID.
+     * Calculates the bloom filter hash bit indexes from a given Joiner ID.
      *
      * The first hash bit index is derived using CRC16-CCITT and second one using CRC16-ANSI.
      *
@@ -378,7 +379,7 @@ public:
     static void CalculateHashBitIndexes(const Mac::ExtAddress &aJoinerId, HashBitIndexes &aIndexes);
 
     /**
-     * This static method calculates the bloom filter hash bit indexes from a given Joiner Discerner.
+     * Calculates the bloom filter hash bit indexes from a given Joiner Discerner.
      *
      * The first hash bit index is derived using CRC16-CCITT and second one using CRC16-ANSI.
      *
@@ -391,10 +392,10 @@ public:
 private:
     static constexpr uint8_t kPermitAll = 0xff;
 
-    uint8_t GetNumBits(void) const { return (mLength * CHAR_BIT); }
+    uint8_t GetNumBits(void) const { return (mLength * kBitsPerByte); }
 
-    uint8_t BitIndex(uint8_t aBit) const { return (mLength - 1 - (aBit / CHAR_BIT)); }
-    uint8_t BitFlag(uint8_t aBit) const { return static_cast<uint8_t>(1U << (aBit % CHAR_BIT)); }
+    uint8_t BitIndex(uint8_t aBit) const { return (mLength - 1 - (aBit / kBitsPerByte)); }
+    uint8_t BitFlag(uint8_t aBit) const { return static_cast<uint8_t>(1U << (aBit % kBitsPerByte)); }
 
     bool GetBit(uint8_t aBit) const { return (m8[BitIndex(aBit)] & BitFlag(aBit)) != 0; }
     void SetBit(uint8_t aBit) { m8[BitIndex(aBit)] |= BitFlag(aBit); }
@@ -405,16 +406,135 @@ private:
 };
 
 /**
- * This function creates Message for MeshCoP.
+ * Represents a Commissioning Dataset.
  *
  */
-inline Coap::Message *NewMeshCoPMessage(Coap::CoapBase &aCoap)
+class CommissioningDataset : public otCommissioningDataset, public Clearable<CommissioningDataset>
 {
-    return aCoap.NewMessage(Message::Settings(Message::kWithLinkSecurity, Message::kPriorityNet));
-}
+public:
+    /**
+     * Indicates whether or not the Border Router RLOC16 Locator is set in the Dataset.
+     *
+     * @returns TRUE if Border Router RLOC16 Locator is set, FALSE otherwise.
+     *
+     */
+    bool IsLocatorSet(void) const { return mIsLocatorSet; }
+
+    /**
+     * Gets the Border Router RLOC16 Locator in the Dataset.
+     *
+     * MUST be used when Locator is set in the Dataset, otherwise its behavior is undefined.
+     *
+     * @returns The Border Router RLOC16 Locator in the Dataset.
+     *
+     */
+    uint16_t GetLocator(void) const { return mLocator; }
+
+    /**
+     * Sets the Border Router RLOCG16 Locator in the Dataset.
+     *
+     * @param[in] aLocator  A Locator.
+     *
+     */
+    void SetLocator(uint16_t aLocator)
+    {
+        mIsLocatorSet = true;
+        mLocator      = aLocator;
+    }
+
+    /**
+     * Indicates whether or not the Session ID is set in the Dataset.
+     *
+     * @returns TRUE if Session ID is set, FALSE otherwise.
+     *
+     */
+    bool IsSessionIdSet(void) const { return mIsSessionIdSet; }
+
+    /**
+     * Gets the Session ID in the Dataset.
+     *
+     * MUST be used when Session ID is set in the Dataset, otherwise its behavior is undefined.
+     *
+     * @returns The Session ID in the Dataset.
+     *
+     */
+    uint16_t GetSessionId(void) const { return mSessionId; }
+
+    /**
+     * Sets the Session ID in the Dataset.
+     *
+     * @param[in] aSessionId  The Session ID.
+     *
+     */
+    void SetSessionId(uint16_t aSessionId)
+    {
+        mIsSessionIdSet = true;
+        mSessionId      = aSessionId;
+    }
+
+    /**
+     * Indicates whether or not the Steering Data is set in the Dataset.
+     *
+     * @returns TRUE if Steering Data is set, FALSE otherwise.
+     *
+     */
+    bool IsSteeringDataSet(void) const { return mIsSteeringDataSet; }
+
+    /**
+     * Gets the Steering Data in the Dataset.
+     *
+     * MUST be used when Steering Data is set in the Dataset, otherwise its behavior is undefined.
+     *
+     * @returns The Steering Data in the Dataset.
+     *
+     */
+    const SteeringData &GetSteeringData(void) const { return static_cast<const SteeringData &>(mSteeringData); }
+
+    /**
+     * Returns a reference to the Steering Data in the Dataset to be updated by caller.
+     *
+     * @returns A reference to the Steering Data in the Dataset.
+     *
+     */
+    SteeringData &UpdateSteeringData(void)
+    {
+        mIsSteeringDataSet = true;
+        return static_cast<SteeringData &>(mSteeringData);
+    }
+
+    /**
+     * Indicates whether or not the Joiner UDP port is set in the Dataset.
+     *
+     * @returns TRUE if Joiner UDP port is set, FALSE otherwise.
+     *
+     */
+    bool IsJoinerUdpPortSet(void) const { return mIsJoinerUdpPortSet; }
+
+    /**
+     * Gets the Joiner UDP port in the Dataset.
+     *
+     * MUST be used when Joiner UDP port is set in the Dataset, otherwise its behavior is undefined.
+     *
+     * @returns The Joiner UDP port in the Dataset.
+     *
+     */
+    uint16_t GetJoinerUdpPort(void) const { return mJoinerUdpPort; }
+
+    /**
+     * Sets the Joiner UDP Port in the Dataset.
+     *
+     * @param[in] aJoinerUdpPort  The Joiner UDP Port.
+     *
+     */
+    void SetJoinerUdpPort(uint16_t aJoinerUdpPort)
+    {
+        mIsJoinerUdpPortSet = true;
+        mJoinerUdpPort      = aJoinerUdpPort;
+    }
+};
 
 /**
- * This function generates PSKc.
+ * Generates PSKc.
  *
  * PSKc is used to establish the Commissioner Session.
  *
@@ -427,13 +547,13 @@ inline Coap::Message *NewMeshCoPMessage(Coap::CoapBase &aCoap)
  * @retval kErrorInvalidArgs   If the length of passphrase is out of range.
  *
  */
-Error GeneratePskc(const char *              aPassPhrase,
-                   const Mac::NetworkName &  aNetworkName,
-                   const Mac::ExtendedPanId &aExtPanId,
-                   Pskc &                    aPskc);
+Error GeneratePskc(const char          *aPassPhrase,
+                   const NetworkName   &aNetworkName,
+                   const ExtendedPanId &aExtPanId,
+                   Pskc                &aPskc);
 
 /**
- * This function computes the Joiner ID from a factory-assigned IEEE EUI-64.
+ * Computes the Joiner ID from a factory-assigned IEEE EUI-64.
  *
  * @param[in]   aEui64     The factory-assigned IEEE EUI-64.
  * @param[out]  aJoinerId  The Joiner ID.
@@ -441,37 +561,12 @@ Error GeneratePskc(const char *              aPassPhrase,
  */
 void ComputeJoinerId(const Mac::ExtAddress &aEui64, Mac::ExtAddress &aJoinerId);
 
-/**
- * This function gets the border agent RLOC.
- *
- * @param[in]   aNetif  A reference to the thread interface.
- * @param[out]  aRloc   Border agent RLOC.
- *
- * @retval kErrorNone       Successfully got the Border Agent Rloc.
- * @retval kErrorNotFound   Border agent is not available.
- *
- */
-Error GetBorderAgentRloc(ThreadNetif &aNetIf, uint16_t &aRloc);
-
-#if (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_WARN) && (OPENTHREAD_CONFIG_LOG_MESHCOP == 1)
-/**
- * This function emits a log message indicating an error during a MeshCoP action.
- *
- * Note that log message is emitted only if there is an error, i.e. @p aError is not `kErrorNone`. The log
- * message will have the format "Failed to {aActionText} : {ErrorString}".
- *
- * @param[in] aActionText   A string representing the failed action.
- * @param[in] aError        The error in sending the message.
- *
- */
-void LogError(const char *aActionText, Error aError);
-#else
-inline void LogError(const char *, Error)
-{
-}
-#endif
-
 } // namespace MeshCoP
+
+DefineCoreType(otJoinerPskd, MeshCoP::JoinerPskd);
+DefineCoreType(otJoinerDiscerner, MeshCoP::JoinerDiscerner);
+DefineCoreType(otSteeringData, MeshCoP::SteeringData);
+DefineCoreType(otCommissioningDataset, MeshCoP::CommissioningDataset);
 
 } // namespace ot
 

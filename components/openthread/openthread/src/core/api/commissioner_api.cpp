@@ -42,18 +42,25 @@
 
 using namespace ot;
 
-otError otCommissionerStart(otInstance *                 aInstance,
+otError otCommissionerStart(otInstance                  *aInstance,
                             otCommissionerStateCallback  aStateCallback,
                             otCommissionerJoinerCallback aJoinerCallback,
-                            void *                       aCallbackContext)
+                            void                        *aCallbackContext)
 {
     return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().Start(aStateCallback, aJoinerCallback, aCallbackContext);
 }
 
-otError otCommissionerStop(otInstance *aInstance)
+const char *otCommissionerGetId(otInstance *aInstance)
 {
-    return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().Stop(/* aResign */ true);
+    return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().GetId();
 }
+
+otError otCommissionerSetId(otInstance *aInstance, const char *aId)
+{
+    return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().SetId(aId);
+}
+
+otError otCommissionerStop(otInstance *aInstance) { return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().Stop(); }
 
 otError otCommissionerAddJoiner(otInstance *aInstance, const otExtAddress *aEui64, const char *aPskd, uint32_t aTimeout)
 {
@@ -72,9 +79,9 @@ exit:
     return error;
 }
 
-otError otCommissionerAddJoinerWithDiscerner(otInstance *             aInstance,
+otError otCommissionerAddJoinerWithDiscerner(otInstance              *aInstance,
                                              const otJoinerDiscerner *aDiscerner,
-                                             const char *             aPskd,
+                                             const char              *aPskd,
                                              uint32_t                 aTimeout)
 {
     return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().AddJoiner(AsCoreType(aDiscerner), aPskd, aTimeout);
@@ -117,7 +124,7 @@ const char *otCommissionerGetProvisioningUrl(otInstance *aInstance)
     return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().GetProvisioningUrl();
 }
 
-otError otCommissionerAnnounceBegin(otInstance *        aInstance,
+otError otCommissionerAnnounceBegin(otInstance         *aInstance,
                                     uint32_t            aChannelMask,
                                     uint8_t             aCount,
                                     uint16_t            aPeriod,
@@ -127,25 +134,25 @@ otError otCommissionerAnnounceBegin(otInstance *        aInstance,
         aChannelMask, aCount, aPeriod, AsCoreType(aAddress));
 }
 
-otError otCommissionerEnergyScan(otInstance *                       aInstance,
+otError otCommissionerEnergyScan(otInstance                        *aInstance,
                                  uint32_t                           aChannelMask,
                                  uint8_t                            aCount,
                                  uint16_t                           aPeriod,
                                  uint16_t                           aScanDuration,
-                                 const otIp6Address *               aAddress,
+                                 const otIp6Address                *aAddress,
                                  otCommissionerEnergyReportCallback aCallback,
-                                 void *                             aContext)
+                                 void                              *aContext)
 {
     return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().GetEnergyScanClient().SendQuery(
         aChannelMask, aCount, aPeriod, aScanDuration, AsCoreType(aAddress), aCallback, aContext);
 }
 
-otError otCommissionerPanIdQuery(otInstance *                        aInstance,
+otError otCommissionerPanIdQuery(otInstance                         *aInstance,
                                  uint16_t                            aPanId,
                                  uint32_t                            aChannelMask,
-                                 const otIp6Address *                aAddress,
+                                 const otIp6Address                 *aAddress,
                                  otCommissionerPanIdConflictCallback aCallback,
-                                 void *                              aContext)
+                                 void                               *aContext)
 {
     return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().GetPanIdQueryClient().SendQuery(
         aPanId, aChannelMask, AsCoreType(aAddress), aCallback, aContext);
@@ -156,12 +163,13 @@ otError otCommissionerSendMgmtGet(otInstance *aInstance, const uint8_t *aTlvs, u
     return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().SendMgmtCommissionerGetRequest(aTlvs, aLength);
 }
 
-otError otCommissionerSendMgmtSet(otInstance *                  aInstance,
+otError otCommissionerSendMgmtSet(otInstance                   *aInstance,
                                   const otCommissioningDataset *aDataset,
-                                  const uint8_t *               aTlvs,
+                                  const uint8_t                *aTlvs,
                                   uint8_t                       aLength)
 {
-    return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().SendMgmtCommissionerSetRequest(*aDataset, aTlvs, aLength);
+    return AsCoreType(aInstance).Get<MeshCoP::Commissioner>().SendMgmtCommissionerSetRequest(AsCoreType(aDataset),
+                                                                                             aTlvs, aLength);
 }
 
 uint16_t otCommissionerGetSessionId(otInstance *aInstance)

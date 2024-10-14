@@ -1,6 +1,6 @@
 /**
  * @file
- * TCP API (to be used from TCPIP thread)\n
+ * TCP API (to be used from TCPIP thread)<br>
  * See also @ref tcp_raw
  */
 
@@ -468,6 +468,8 @@ struct tcp_pcb * tcp_listen_with_backlog(struct tcp_pcb *pcb, u8_t backlog);
 
 void             tcp_abort (struct tcp_pcb *pcb);
 err_t            tcp_close   (struct tcp_pcb *pcb);
+err_t            tcp_close_ext(struct tcp_pcb *pcb, u8_t rst_on_unacked_data);
+
 err_t            tcp_shutdown(struct tcp_pcb *pcb, int shut_rx, int shut_tx);
 
 err_t            tcp_write   (struct tcp_pcb *pcb, const void *dataptr, u16_t len,
@@ -486,9 +488,9 @@ err_t            tcp_tcp_get_tcp_addrinfo(struct tcp_pcb *pcb, int local, ip_add
 
 #if LWIP_TCP_PCB_NUM_EXT_ARGS
 u8_t tcp_ext_arg_alloc_id(void);
-void tcp_ext_arg_set_callbacks(struct tcp_pcb *pcb, uint8_t id, const struct tcp_ext_arg_callbacks * const callbacks);
-void tcp_ext_arg_set(struct tcp_pcb *pcb, uint8_t id, void *arg);
-void *tcp_ext_arg_get(const struct tcp_pcb *pcb, uint8_t id);
+void tcp_ext_arg_set_callbacks(struct tcp_pcb *pcb, u8_t id, const struct tcp_ext_arg_callbacks * const callbacks);
+void tcp_ext_arg_set(struct tcp_pcb *pcb, u8_t id, void *arg);
+void *tcp_ext_arg_get(const struct tcp_pcb *pcb, u8_t id);
 #endif
 
 #ifdef __cplusplus

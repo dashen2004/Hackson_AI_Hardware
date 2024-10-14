@@ -1,16 +1,8 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #pragma once
 
@@ -21,12 +13,31 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include "soc/soc_caps.h"
-
+#include "soc/clk_tree_defs.h"
+#include "esp_assert.h"
 
 /**
  * @brief UART port number, can be UART_NUM_0 ~ (UART_NUM_MAX -1).
  */
-typedef int uart_port_t;
+typedef enum {
+    UART_NUM_0,                         /*!< UART port 0 */
+    UART_NUM_1,                         /*!< UART port 1 */
+#if SOC_UART_HP_NUM > 2
+    UART_NUM_2,                         /*!< UART port 2 */
+#endif
+#if SOC_UART_HP_NUM > 3
+    UART_NUM_3,                         /*!< UART port 3 */
+#endif
+#if SOC_UART_HP_NUM > 4
+    UART_NUM_4,                         /*!< UART port 4 */
+#endif
+#if (SOC_UART_LP_NUM >= 1)
+    LP_UART_NUM_0,                      /*!< LP UART port 0 */
+#endif
+    UART_NUM_MAX,                       /*!< UART port max */
+} uart_port_t;
+
+ESP_STATIC_ASSERT(UART_NUM_MAX == SOC_UART_NUM, "UART_NUM_MAX does not match SOC_UART_NUM");
 
 /**
  * @brief UART mode selection
@@ -98,18 +109,14 @@ typedef enum {
 /**
  * @brief UART source clock
  */
-typedef enum {
-    UART_SCLK_APB = 0x0,            /*!< UART source clock from APB*/
-#if SOC_UART_SUPPORT_RTC_CLK
-    UART_SCLK_RTC = 0x1,            /*!< UART source clock from RTC*/
+typedef soc_periph_uart_clk_src_legacy_t uart_sclk_t;
+
+#if (SOC_UART_LP_NUM >= 1)
+/**
+ * @brief LP_UART source clock
+ */
+typedef soc_periph_lp_uart_clk_src_t lp_uart_sclk_t;
 #endif
-#if SOC_UART_SUPPORT_XTAL_CLK
-    UART_SCLK_XTAL = 0x2,           /*!< UART source clock from XTAL*/
-#endif
-#if SOC_UART_SUPPORT_REF_TICK
-    UART_SCLK_REF_TICK = 0x3,       /*!< UART source clock from REF_TICK*/
-#endif
-} uart_sclk_t;
 
 /**
  * @brief UART AT cmd char configuration parameters
@@ -132,22 +139,6 @@ typedef struct {
     uint8_t xon_thrd;      /*!< If the software flow control is enabled and the data amount in rxfifo is less than xon_thrd, an xon_char will be sent*/
     uint8_t xoff_thrd;       /*!< If the software flow control is enabled and the data amount in rxfifo is more than xoff_thrd, an xoff_char will be sent*/
 } uart_sw_flowctrl_t;
-
-/**
- * @brief UART configuration parameters for uart_param_config function
- */
-typedef struct {
-    int baud_rate;                      /*!< UART baud rate*/
-    uart_word_length_t data_bits;       /*!< UART byte size*/
-    uart_parity_t parity;               /*!< UART parity mode*/
-    uart_stop_bits_t stop_bits;         /*!< UART stop bits*/
-    uart_hw_flowcontrol_t flow_ctrl;    /*!< UART HW flow control mode (cts/rts)*/
-    uint8_t rx_flow_ctrl_thresh;        /*!< UART HW RTS threshold*/
-    union {
-        uart_sclk_t source_clk;         /*!< UART source clock selection */
-        bool use_ref_tick  __attribute__((deprecated)); /*!< Deprecated method to select ref tick clock source, set source_clk field instead */
-    };
-} uart_config_t;
 
 #ifdef __cplusplus
 }

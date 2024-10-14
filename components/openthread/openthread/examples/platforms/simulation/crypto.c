@@ -38,12 +38,12 @@
 
 // crypto key storage stubs
 
-otError otPlatCryptoImportKey(otCryptoKeyRef *     aKeyRef,
+otError otPlatCryptoImportKey(otCryptoKeyRef      *aKeyRef,
                               otCryptoKeyType      aKeyType,
                               otCryptoKeyAlgorithm aKeyAlgorithm,
                               int                  aKeyUsage,
                               otCryptoKeyStorage   aKeyPersistence,
-                              const uint8_t *      aKey,
+                              const uint8_t       *aKey,
                               size_t               aKeyLen)
 {
     OT_UNUSED_VARIABLE(aKeyRef);
@@ -79,6 +79,43 @@ bool otPlatCryptoHasKey(otCryptoKeyRef aKeyRef)
     OT_UNUSED_VARIABLE(aKeyRef);
 
     return false;
+}
+
+otError otPlatCryptoEcdsaGenerateAndImportKey(otCryptoKeyRef aKeyRef)
+{
+    OT_UNUSED_VARIABLE(aKeyRef);
+
+    return OT_ERROR_NONE;
+}
+
+otError otPlatCryptoEcdsaExportPublicKey(otCryptoKeyRef aKeyRef, otPlatCryptoEcdsaPublicKey *aPublicKey)
+{
+    OT_UNUSED_VARIABLE(aKeyRef);
+    OT_UNUSED_VARIABLE(aPublicKey);
+
+    return OT_ERROR_NONE;
+}
+
+otError otPlatCryptoEcdsaSignUsingKeyRef(otCryptoKeyRef                aKeyRef,
+                                         const otPlatCryptoSha256Hash *aHash,
+                                         otPlatCryptoEcdsaSignature   *aSignature)
+{
+    OT_UNUSED_VARIABLE(aKeyRef);
+    OT_UNUSED_VARIABLE(aHash);
+    OT_UNUSED_VARIABLE(aSignature);
+
+    return OT_ERROR_NONE;
+}
+
+otError otPlatCryptoEcdsaVerifyUsingKeyRef(otCryptoKeyRef                    aKeyRef,
+                                           const otPlatCryptoSha256Hash     *aHash,
+                                           const otPlatCryptoEcdsaSignature *aSignature)
+{
+    OT_UNUSED_VARIABLE(aKeyRef);
+    OT_UNUSED_VARIABLE(aHash);
+    OT_UNUSED_VARIABLE(aSignature);
+
+    return OT_ERROR_NONE;
 }
 
 #endif // OPENTHREAD_CONFIG_PLATFORM_KEY_REFERENCES_ENABLE

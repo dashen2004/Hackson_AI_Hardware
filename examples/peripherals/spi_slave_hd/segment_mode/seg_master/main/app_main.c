@@ -14,20 +14,15 @@
 #include "driver/spi_master.h"
 #include "esp_serial_slave_link/essl_spi.h"
 
-//Pin setting
-#if !CONFIG_IDF_TARGET_ESP32C3
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////// Please update the following configuration according to your Hardware spec /////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define GPIO_MOSI    11
 #define GPIO_MISO    13
 #define GPIO_SCLK    12
 #define GPIO_CS      10
-#else
-#define GPIO_MOSI    7
-#define GPIO_MISO    2
-#define GPIO_SCLK    6
-#define GPIO_CS      10
-#endif
 
-#define MASTER_HOST SPI2_HOST
+#define MASTER_HOST  SPI2_HOST
 #define DMA_CHAN     SPI_DMA_CH_AUTO
 
 #define TX_SIZE_MIN  40
@@ -54,7 +49,6 @@
 
 static const char TAG[] = "SEG_MASTER";
 
-
 static void get_spi_bus_default_config(spi_bus_config_t *bus_cfg)
 {
     memset(bus_cfg, 0x0, sizeof(spi_bus_config_t));
@@ -71,7 +65,7 @@ static void get_spi_bus_default_config(spi_bus_config_t *bus_cfg)
 static void get_spi_device_default_config(spi_device_interface_config_t *dev_cfg)
 {
     memset(dev_cfg, 0x0, sizeof(spi_device_interface_config_t));
-    dev_cfg->clock_speed_hz = 10*1000*1000;
+    dev_cfg->clock_speed_hz = 10 * 1000 * 1000;
     dev_cfg->mode = 0;
     dev_cfg->spics_io_num = GPIO_CS;
     dev_cfg->cs_ena_pretrans = 0;
@@ -99,7 +93,6 @@ static void init_master_hd(spi_device_handle_t* out_spi)
     get_spi_device_default_config(&dev_cfg);
     ESP_ERROR_CHECK(spi_bus_add_device(MASTER_HOST, &dev_cfg, out_spi));
 }
-
 
 //-------------------------------Function used for Master-Slave Synchronization---------------------------//
 //Wait for Slave to init the shared registers for its configurations, see the Helper Macros above
@@ -207,15 +200,15 @@ void app_main(void)
     ESP_ERROR_CHECK(get_slave_max_buf_size(spi, &slave_max_tx_buf_size, &slave_max_rx_buf_size));
     uint32_t rx_buf_size = slave_max_tx_buf_size;
     printf("\n\n---------SLAVE INFO---------\n\n");
-    printf("Slave MAX Send Buffer Size:       %d\n", slave_max_tx_buf_size);
-    printf("Slave MAX Receive Buffer Size:    %d\n", slave_max_rx_buf_size);
+    printf("Slave MAX Send Buffer Size:       %"PRIu32"\n", slave_max_tx_buf_size);
+    printf("Slave MAX Receive Buffer Size:    %"PRIu32"\n", slave_max_rx_buf_size);
 
-    uint8_t *recv_buf = heap_caps_calloc(1, rx_buf_size, MALLOC_CAP_DMA);
+    uint8_t *recv_buf = spi_bus_dma_memory_alloc(MASTER_HOST, rx_buf_size, 0);
     if (!recv_buf) {
         ESP_LOGE(TAG, "No enough memory!");
         abort();
     }
-    uint8_t *send_buf = heap_caps_calloc(1, slave_max_rx_buf_size, MALLOC_CAP_DMA);
+    uint8_t *send_buf = spi_bus_dma_memory_alloc(MASTER_HOST, slave_max_rx_buf_size, 0);
     if (!send_buf) {
         ESP_LOGE(TAG, "No enough memory!");
         abort();
@@ -245,7 +238,7 @@ void app_main(void)
         uint32_t size_can_be_read = get_slave_tx_buf_size(spi) - size_has_read;
 
         if (size_can_be_read > rx_buf_size) {
-            ESP_LOGW(TAG, "Slave is going to send buffer(%d Bytes) larger than pre-negotiated MAX size", size_can_be_read);
+            ESP_LOGW(TAG, "Slave is going to send buffer(%"PRIu32" Bytes) larger than pre-negotiated MAX size", size_can_be_read);
             /**
              * NOTE:
              * In this condition, Master should still increase its counter (``size_has_read``) by the size that Slave has loaded,
@@ -277,7 +270,7 @@ void app_main(void)
         //Prepare your TX transaction in your own way. Here is an example.
         //You can set any size to send (shorter, longer or equal to the Slave Max RX buf size), Slave can get the actual length by ``trans_len`` member of ``spi_slave_hd_data_t``
         uint32_t actual_tx_size = (rand() % (slave_max_rx_buf_size - TX_SIZE_MIN + 1)) + TX_SIZE_MIN;
-        snprintf((char *)send_buf, slave_max_rx_buf_size, "this is master's transaction %d", tx_trans_id);
+        snprintf((char *)send_buf, slave_max_rx_buf_size, "this is master's transaction %"PRIu32, tx_trans_id);
 
         for (int i = 0; i < num_to_send; i++) {
             ESP_ERROR_CHECK(essl_spi_wrdma(spi, send_buf, actual_tx_size, -1, 0));

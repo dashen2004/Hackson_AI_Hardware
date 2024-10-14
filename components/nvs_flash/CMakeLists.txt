@@ -11,11 +11,21 @@ set(srcs "src/nvs_api.cpp"
          "src/nvs_partition.cpp"
          "src/nvs_partition_lookup.cpp"
          "src/nvs_partition_manager.cpp"
-         "src/nvs_types.cpp")
+         "src/nvs_types.cpp"
+         "src/nvs_platform.cpp")
+
+set(requires esp_partition)
+if(${target} STREQUAL "linux")
+    set(priv_requires spi_flash)
+else()
+    set(priv_requires spi_flash newlib)
+endif()
 
 idf_component_register(SRCS "${srcs}"
-                    REQUIRES "spi_flash"
-                    INCLUDE_DIRS "include")
+                    REQUIRES "${requires}"
+                    PRIV_REQUIRES "${priv_requires}"
+                    INCLUDE_DIRS "include"
+                    PRIV_INCLUDE_DIRS "private_include")
 
 # If we use the linux target, we need to redirect the crc functions to the linux
 if(${target} STREQUAL "linux")
@@ -24,19 +34,13 @@ if(${target} STREQUAL "linux")
         message(FATAL_ERROR "NVS currently doesn't support encryption if built for Linux.")
     endif()
     target_compile_options(${COMPONENT_LIB} PUBLIC "-DLINUX_TARGET")
-else()
-    # TODO: this is a workaround until IDF-2085 is fixed
-    idf_component_get_property(mbedtls_lib mbedtls COMPONENT_LIB)
-    target_link_libraries(${COMPONENT_LIB} PUBLIC ${mbedtls_lib})
-endif()
-
-if(CONFIG_NVS_ENCRYPTION)
-    target_sources(${COMPONENT_LIB} PRIVATE "src/nvs_encrypted_partition.cpp")
-    idf_component_get_property(mbedtls_lib mbedtls COMPONENT_LIB)
-    target_link_libraries(${COMPONENT_LIB} PUBLIC ${mbedtls_lib})
-endif()
-
-if(${target} STREQUAL "linux")
     target_compile_options(${COMPONENT_LIB} PUBLIC --coverage)
     target_link_libraries(${COMPONENT_LIB} PUBLIC --coverage)
+else()
+    target_sources(${COMPONENT_LIB} PRIVATE "src/nvs_encrypted_partition.cpp")
+    target_link_libraries(${COMPONENT_LIB} PRIVATE idf::mbedtls)
+endif()
+
+if(CONFIG_COMPILER_STATIC_ANALYZER AND CMAKE_C_COMPILER_ID STREQUAL "GNU") # TODO IDF-10088
+    target_compile_options(${COMPONENT_LIB} PUBLIC "-fno-analyzer")
 endif()

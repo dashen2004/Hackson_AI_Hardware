@@ -6,9 +6,9 @@
  * See README for more details.
  */
 
-#include "utils/includes.h"
+#include "includes.h"
 
-#include "utils/common.h"
+#include "common.h"
 #include "defs.h"
 #include "ieee802_11_defs.h"
 #include "ieee802_11_common.h"
@@ -37,6 +37,22 @@ const u8 * get_ie(const u8 *ies, size_t len, u8 eid)
 	return NULL;
 }
 
+int ieee802_11_ie_count(const u8 *ies, size_t ies_len)
+{
+	const struct element *elem;
+	int count = 0;
+
+	if (ies == NULL)
+		return 0;
+
+	for_each_element(elem, ies, ies_len)
+		count++;
+
+	return count;
+}
+
+
+
 const u8 * get_vendor_ie(const u8 *ies, size_t len, u32 vendor_type)
 {
 	const struct element *elem;
@@ -49,6 +65,7 @@ const u8 * get_vendor_ie(const u8 *ies, size_t len, u32 vendor_type)
 
 	return NULL;
 }
+
 
 size_t mbo_add_ie(u8 *buf, size_t len, const u8 *attr, size_t attr_len)
 {
@@ -174,6 +191,73 @@ int ieee802_11_parse_candidate_list(const char *pos, u8 *nei_rep,
 	return nei_pos - nei_rep;
 }
 
+#ifdef CONFIG_SAE_PK
+static int ieee802_11_parse_vendor_specific(struct wpa_supplicant *wpa_s, const struct element *elem, const u8* pos)
+{
+	u32 oui;
+	oui = WPA_GET_BE24(pos);
+	switch (oui) {
+	case OUI_WFA:
+		switch (pos[3]) {
+		case SAE_PK_OUI_TYPE:
+			wpa_s->sae_pk_elems.sae_pk_len = elem->datalen - 4;
+			wpa_s->sae_pk_elems.sae_pk = (u8*)os_zalloc(sizeof(u8)*(elem->datalen-4));
+			if (!wpa_s->sae_pk_elems.sae_pk) {
+			    wpa_printf(MSG_EXCESSIVE, "Can not allocate memory for sae_pk");
+			    return -1;
+			}
+			os_memcpy(wpa_s->sae_pk_elems.sae_pk, pos+4, elem->datalen-4);
+			break;
+		default:
+			wpa_printf(MSG_EXCESSIVE, "Unknown WFA "
+				"information element ignored "
+				"(type=%d len=%lu)",
+				pos[3], (unsigned long) elem->datalen);
+			return -1;
+		}
+		break;
+	default:
+		 wpa_printf(MSG_EXCESSIVE, "unknown vendor specific "
+			"information element ignored (vendor OUI "
+			"%02x:%02x:%02x len=%lu)",
+			pos[0], pos[1], pos[2], (unsigned long) elem->datalen);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int ieee802_11_parse_extension(struct wpa_supplicant *wpa_s, const struct element *elem, const u8* pos){
+	// do not consider extension_id element len in datalen
+	if (elem->datalen < 1) {
+		wpa_printf(MSG_DEBUG,
+			"short information element (Ext)");
+		return -1;
+	}
+	u8 ext_id;
+	ext_id = *pos++;
+	switch (ext_id) {
+	case WLAN_EID_EXT_FILS_KEY_CONFIRM:
+		wpa_s->sae_pk_elems.fils_key_confirm_len = elem->datalen - 1;
+		wpa_s->sae_pk_elems.fils_key_confirm = (u8*)os_zalloc(sizeof(u8)*(elem->datalen - 1));
+		os_memcpy(wpa_s->sae_pk_elems.fils_key_confirm, pos, elem->datalen - 1);
+		break;
+	case WLAN_EID_EXT_FILS_PUBLIC_KEY:
+		wpa_s->sae_pk_elems.fils_pk_len = elem->datalen - 1;
+		wpa_s->sae_pk_elems.fils_pk = (u8*)os_zalloc(sizeof(u8)*(elem->datalen - 1));
+		os_memcpy(wpa_s->sae_pk_elems.fils_pk, pos, elem->datalen - 1);
+		break;
+	default:
+		wpa_printf(MSG_EXCESSIVE,
+			"IEEE 802.11 element parsing ignored unknown element extension (ext_id=%u elen=%u)",
+		   ext_id, (unsigned int) elem->datalen-1);
+		return -1;
+	}
+
+	return 0;
+}
+#endif /* CONFIG_SAE_PK */
+
 /**
  * ieee802_11_parse_elems - Parse information elements in management frames
  * @start: Pointer to the start of IEs
@@ -184,7 +268,9 @@ int ieee802_11_parse_candidate_list(const char *pos, u8 *nei_rep,
  */
 int ieee802_11_parse_elems(struct wpa_supplicant *wpa_s, const u8 *start, size_t len)
 {
+#if defined(CONFIG_RRM) ||  defined(CONFIG_SAE_PK)
 	const struct element *elem;
+	u8 unknown = 0;
 
 	if (!start)
 		return 0;
@@ -192,22 +278,74 @@ int ieee802_11_parse_elems(struct wpa_supplicant *wpa_s, const u8 *start, size_t
 	for_each_element(elem, start, len) {
 		u8 id = elem->id;
 		const u8 *pos = elem->data;
-
 		switch (id) {
+#ifdef CONFIG_RRM
 		case WLAN_EID_RRM_ENABLED_CAPABILITIES:
 			os_memcpy(wpa_s->rrm_ie, pos, 5);
 			wpa_s->rrm.rrm_used = true;
 			break;
+#endif
+#ifdef CONFIG_SAE_PK
+		case WLAN_EID_EXTENSION:
+			if(ieee802_11_parse_extension(wpa_s, elem, pos) != 0){
+				unknown++;
+			}
+			break;
+		case WLAN_EID_VENDOR_SPECIFIC:
+			if(ieee802_11_parse_vendor_specific(wpa_s, elem, pos) != 0){
+				unknown++;
+			}
+			break;
+#endif /*CONFIG_SAE_PK*/
+#ifdef CONFIG_RRM
 		case WLAN_EID_EXT_CAPAB:
 			/* extended caps can go beyond 8 octacts but we aren't using them now */
 			os_memcpy(wpa_s->extend_caps, pos, 5);
 			break;
+#endif
 		default:
 			break;
 
 		}
 	}
+	if (unknown)
+		return -1;
+
+#endif /* defined(CONFIG_RRM) ||  defined(CONFIG_SAE_PK) */
 	return 0;
+}
+
+struct wpabuf * ieee802_11_vendor_ie_concat(const u8 *ies, size_t ies_len,
+					    u32 oui_type)
+{
+	struct wpabuf *buf;
+	const struct element *elem, *found = NULL;
+
+	for_each_element_id(elem, WLAN_EID_VENDOR_SPECIFIC, ies, ies_len) {
+		if (elem->datalen >= 4 &&
+				WPA_GET_BE32(elem->data) == oui_type) {
+			found = elem;
+			break;
+		}
+	}
+
+	if (!found)
+		return NULL; /* No specified vendor IE found */
+
+	buf = wpabuf_alloc(ies_len);
+	if (buf == NULL)
+		return NULL;
+
+	/*
+	 * There may be multiple vendor IEs in the message, so need to
+	 * concatenate their data fields.
+	 */
+	for_each_element_id(elem, WLAN_EID_VENDOR_SPECIFIC, ies, ies_len) {
+		if (elem->datalen >= 4 && WPA_GET_BE32(elem->data) == oui_type)
+			wpabuf_put_data(buf, elem->data + 4, elem->datalen - 4);
+	}
+
+	return buf;
 }
 
 int ieee802_11_ext_capab(const u8 *ie, unsigned int capab)
@@ -219,16 +357,54 @@ int ieee802_11_ext_capab(const u8 *ie, unsigned int capab)
 
 u8 get_operating_class(u8 chan, int sec_channel)
 {
-	u8 op_class;
+	u8 op_class = 0;
 
-	if (chan < 1 || chan > 14)
-		return 0;
-	if (sec_channel == 1)
-		op_class = 83;
-	else if (sec_channel == -1)
-		op_class = 84;
-	else
-		op_class = 81;
+	if (chan >= 1 && chan < 14) {
+		if (sec_channel == 1)
+			op_class = 83;
+		else if (sec_channel == -1)
+			op_class = 84;
+		else
+			op_class = 81;
+	}
+
+	if (chan == 14)
+		op_class = 82;
+
+#if CONFIG_SOC_WIFI_SUPPORT_5G
+	if (chan >= 36 && chan <= 48) {
+		if (sec_channel == 1)
+			op_class = 116;
+		else if (sec_channel == -1)
+			op_class = 117;
+		else
+			op_class = 115;
+	}
+	if (chan >= 52 && chan <= 64) {
+		if (sec_channel == 1)
+			op_class = 119;
+		else if (sec_channel == -1)
+			op_class = 120;
+		else
+			op_class = 118;
+	}
+	if (chan >= 149 && chan <= 177) {
+		if (sec_channel == 1)
+			op_class = 126;
+		else if (sec_channel == -1)
+			op_class = 127;
+		else
+			op_class = 125;
+	}
+	if (chan >= 100 && chan <= 144) {
+		if (sec_channel == 1)
+			op_class = 122;
+		else if (sec_channel == -1)
+			op_class = 123;
+		else
+			op_class = 121;
+	}
+#endif
 
 	return op_class;
 }

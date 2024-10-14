@@ -6,22 +6,24 @@ Provisioning API
 .. toctree::
     :maxdepth: 1
 
-    Protocol Communication <protocomm>
-    Unified Provisioning <provisioning>
-    Wi-Fi Provisioning <wifi_provisioning>
+    protocomm
+    :SOC_WIFI_SUPPORTED: provisioning
+    :SOC_WIFI_SUPPORTED: wifi_provisioning
 
-Code examples for above API are provided in the :example:`provisioning` directory of ESP-IDF examples.
+.. only:: SOC_WIFI_SUPPORTED
 
-.. toctree::
-    :maxdepth: 1
+    Code examples for above API are provided in the :example:`provisioning` directory of ESP-IDF examples.
 
-    SmartConfig <../network/esp_smartconfig>
+    .. toctree::
+        :maxdepth: 1
 
-Code example for above API is provided in :example:`wifi/smart_config`
+        ../network/esp_smartconfig
 
-.. toctree::
-    :maxdepth: 1
+    Code example for above API is provided in :example:`wifi/smart_config`.
 
-    EasyConnect <../network/esp_dpp>
+    .. toctree::
+        :maxdepth: 1
 
-Code example for above API is provided in :example:`wifi/wifi_easy_connect/dpp-enrollee`
+        ../network/esp_dpp
+
+    Code example for above API is provided in :example:`wifi/wifi_easy_connect/dpp-enrollee`.

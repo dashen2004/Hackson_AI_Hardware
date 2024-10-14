@@ -40,6 +40,7 @@
 
 #include "common/encoding.hpp"
 #include "common/locator.hpp"
+#include "common/notifier.hpp"
 #include "common/tasklet.hpp"
 #include "common/timer.hpp"
 #include "mac/mac_frame.hpp"
@@ -64,12 +65,13 @@ namespace Trel {
  */
 
 /**
- * This class represents a Thread Radio Encapsulation Link (TREL).
+ * Represents a Thread Radio Encapsulation Link (TREL).
  *
  */
 class Link : public InstanceLocator
 {
     friend class ot::Instance;
+    friend class ot::Notifier;
     friend class Interface;
 
 public:
@@ -77,7 +79,7 @@ public:
     static constexpr uint8_t  kFcsSize = 0;                          ///< FCS size for TREL frame.
 
     /**
-     * This constructor initializes the `Link` object.
+     * Initializes the `Link` object.
      *
      * @param[in]  aInstance  A reference to the OpenThread instance.
      *
@@ -85,7 +87,7 @@ public:
     explicit Link(Instance &aInstance);
 
     /**
-     * This method sets the PAN Identifier.
+     * Sets the PAN Identifier.
      *
      * @param[in] aPanId   A PAN Identifier.
      *
@@ -93,32 +95,32 @@ public:
     void SetPanId(Mac::PanId aPanId) { mPanId = aPanId; }
 
     /**
-     * This method notifies TREL radio link that device's extended MAC address has changed for it to update any
+     * Notifies TREL radio link that device's extended MAC address has changed for it to update any
      * internal address/state.
      *
      */
     void HandleExtAddressChange(void) { mInterface.HandleExtAddressChange(); }
 
     /**
-     * This method enables the TREL radio link.
+     * Enables the TREL radio link.
      *
      */
     void Enable(void);
 
     /**
-     * This method disables the TREL radio link.
+     * Disables the TREL radio link.
      *
      */
     void Disable(void);
 
     /**
-     * This method requests TREL radio link to transition to Sleep mode
+     * Requests TREL radio link to transition to Sleep mode
      *
      */
     void Sleep(void);
 
     /**
-     * This method requests TREL radio link to transition to Receive mode on a given channel.
+     * Requests TREL radio link to transition to Receive mode on a given channel.
      *
      * `Mac::HandleReceivedFrame()` is used to notify MAC layer upon receiving a frame.
      *
@@ -128,7 +130,7 @@ public:
     void Receive(uint8_t aChannel);
 
     /**
-     * This method gets the radio transmit frame for TREL radio link.
+     * Gets the radio transmit frame for TREL radio link.
      *
      * @returns The transmit frame.
      *
@@ -136,7 +138,7 @@ public:
     Mac::TxFrame &GetTransmitFrame(void) { return mTxFrame; }
 
     /**
-     * This method requests a frame to be sent over TREL radio link.
+     * Requests a frame to be sent over TREL radio link.
      *
      * The frame should be already placed in `GetTransmitFrame()` frame.
      *
@@ -151,6 +153,7 @@ private:
     static constexpr uint16_t k154AckFrameSize = 3 + kFcsSize;
     static constexpr int8_t   kRxRssi          = -20; // The RSSI value used for received frames on TREL radio link.
     static constexpr uint32_t kAckWaitWindow   = 750; // (in msec)
+    static constexpr uint16_t kFcfFramePending = 1 << 4;
 
     enum State : uint8_t
     {
@@ -170,21 +173,21 @@ private:
     void SendAck(Packet &aRxPacket);
     void ReportDeferredAckStatus(Neighbor &aNeighbor, Error aError);
     void HandleTimer(Neighbor &aNeighbor);
-
-    static void HandleTxTasklet(Tasklet &aTasklet);
-    void        HandleTxTasklet(void);
-
-    static void HandleTimer(Timer &aTimer);
-    void        HandleTimer(void);
+    void HandleNotifierEvents(Events aEvents);
+    void HandleTxTasklet(void);
+    void HandleTimer(void);
 
     static const char *StateToString(State aState);
+
+    using TxTasklet    = TaskletIn<Link, &Link::HandleTxTasklet>;
+    using TimeoutTimer = TimerMilliIn<Link, &Link::HandleTimer>;
 
     State        mState;
     uint8_t      mRxChannel;
     Mac::PanId   mPanId;
     uint32_t     mTxPacketNumber;
-    Tasklet      mTxTasklet;
-    TimerMilli   mTimer;
+    TxTasklet    mTxTasklet;
+    TimeoutTimer mTimer;
     Interface    mInterface;
     Mac::RxFrame mRxFrame;
     Mac::TxFrame mTxFrame;
@@ -194,7 +197,7 @@ private:
 };
 
 /**
- * This class defines all the neighbor info required for TREL link.
+ * Defines all the neighbor info required for TREL link.
  *
  * `Neighbor` class publicly inherits from this class.
  *

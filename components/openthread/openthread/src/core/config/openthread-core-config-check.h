@@ -65,6 +65,10 @@
 #error "OPENTHREAD_CONFIG_ENABLE_AUTO_START_SUPPORT was removed."
 #endif
 
+#ifdef OPENTHREAD_ENABLE_ANDROID_NDK
+#error "OPENTHREAD_ENABLE_ANDROID_NDK was replaced by OPENTHREAD_CONFIG_ANDROID_NDK_ENABLE."
+#endif
+
 #ifdef OPENTHREAD_ENABLE_CERT_LOG
 #error "OPENTHREAD_ENABLE_CERT_LOG was replaced by OPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE."
 #endif
@@ -118,7 +122,7 @@
 #endif
 
 #ifdef OPENTHREAD_ENABLE_DTLS
-#error "OPENTHREAD_ENABLE_DTLS was replaced by OPENTHREAD_CONFIG_DTLS_ENABLE."
+#error "OPENTHREAD_ENABLE_DTLS was replaced by OPENTHREAD_CONFIG_SECURE_TRANSPORT_ENABLE."
 #endif
 
 #ifdef OPENTHREAD_ENABLE_JAM_DETECTION
@@ -143,6 +147,10 @@
 
 #ifdef OPENTHREAD_ENABLE_LEGACY
 #error "OPENTHREAD_ENABLE_LEGACY was replaced by OPENTHREAD_CONFIG_LEGACY_ENABLE."
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LEGACY_ENABLE
+#error "OPENTHREAD_CONFIG_LEGACY_ENABLE was removed."
 #endif
 
 #ifdef OPENTHREAD_ENABLE_CHILD_SUPERVISION
@@ -478,11 +486,6 @@
 #error "OPENTHREAD_CONFIG_LOG_OUTPUT_NCP_SPINEL is removed, use OPENTHREAD_CONFIG_LOG_OUTPUT_APP instead"
 #endif
 
-#ifdef OPENTHREAD_CONFIG_PLAT_LOG_FUNCTION
-#error "OPENTHREAD_CONFIG_PLAT_LOG_FUNCTION was replaced by OPENTHREAD_CONFIG_PLAT_LOG_MACRO_NAME " \
-       "(and OPENTHREAD_CONFIG_LOG_DEFINE_AS_MACRO_ONLY)"
-#endif
-
 #ifdef OPENTHREAD_CONFIG_DNS_RESPONSE_TIMEOUT
 #error "OPENTHREAD_CONFIG_DNS_RESPONSE_TIMEOUT was replaced by OPENTHREAD_CONFIG_DNS_CLIENT_DEFAULT_RESPONSE_TIMEOUT"
 #endif
@@ -506,7 +509,7 @@
 
 #ifdef OPENTHREAD_CONFIG_SRP_SERVER_SERVICE_NUMBER
 #error "OPENTHREAD_CONFIG_SRP_SERVER_SERVICE_NUMBER was removed. "\
-       "Service numbers are defined in `network_data_servcie.hpp` per spec"
+       "Service numbers are defined in `network_data_service.hpp` per spec"
 #endif
 
 #ifdef OPENTHREAD_CONFIG_SRP_SERVER_UDP_PORT
@@ -517,6 +520,171 @@
 #ifdef OPENTHREAD_CONFIG_MLE_LINK_METRICS_ENABLE
 #error "OPENTHREAD_CONFIG_MLE_LINK_METRICS_ENABLE was replaced by OPENTHREAD_CONFIG_MLE_LINK_METRICS_INITIATOR_ENABLE" \
        " and OPENTHREAD_CONFIG_MLE_LINK_METRICS_SUBJECT_ENABLE"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_DEFINE_AS_MACRO_ONLY
+#error "OPENTHREAD_CONFIG_LOG_DEFINE_AS_MACRO_ONLY was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_PLAT_LOG_MACRO_NAME
+#error "OPENTHREAD_CONFIG_PLAT_LOG_MACRO_NAME was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_PLAT_LOG_FUNCTION
+#error "OPENTHREAD_CONFIG_PLAT_LOG_FUNCTION was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_UNSECURE_TRAFFIC_MANAGED_BY_STACK_ENABLE
+#error "OPENTHREAD_CONFIG_UNSECURE_TRAFFIC_MANAGED_BY_STACK_ENABLE was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_API
+#error "OPENTHREAD_CONFIG_LOG_API was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_MLE
+#error "OPENTHREAD_CONFIG_LOG_MLE was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_MESHCOP
+#error "OPENTHREAD_CONFIG_LOG_MESHCOP was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_ARP
+#error "OPENTHREAD_CONFIG_LOG_ARP was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_NETDATA
+#error "OPENTHREAD_CONFIG_LOG_NETDATA was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_ICMP
+#error "OPENTHREAD_CONFIG_LOG_ICMP was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_IP6
+#error "OPENTHREAD_CONFIG_LOG_IP6 was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_TCP
+#error "OPENTHREAD_CONFIG_LOG_TCP was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_MAC
+#error "OPENTHREAD_CONFIG_LOG_MAC was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_MEM
+#error "OPENTHREAD_CONFIG_LOG_MEM was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_NETDIAG
+#error "OPENTHREAD_CONFIG_LOG_NETDIAG was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_COAP
+#error "OPENTHREAD_CONFIG_LOG_COAP was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_CORE
+#error "OPENTHREAD_CONFIG_LOG_CORE was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_UTIL
+#error "OPENTHREAD_CONFIG_LOG_UTIL was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_BBR
+#error "OPENTHREAD_CONFIG_LOG_BBR was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_MLR
+#error "OPENTHREAD_CONFIG_LOG_MLR was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_DUA
+#error "OPENTHREAD_CONFIG_LOG_DUA was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_BR
+#error "OPENTHREAD_CONFIG_LOG_BR was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_SRP
+#error "OPENTHREAD_CONFIG_LOG_SRP was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_DNS
+#error "OPENTHREAD_CONFIG_LOG_DNS was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_LOG_PREPEND_REGION
+#error "OPENTHREAD_CONFIG_LOG_PREPEND_REGION was removed and not longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_SRP_SERVER_MAX_ADDRESSES_NUM
+#error "OPENTHREAD_CONFIG_SRP_SERVER_MAX_ADDRESSES_NUM was removed. "\
+       "SRP host uses dynamic heap array to store addresses so no need for config on max number of addresses".
+#endif
+
+#ifdef OPENTHREAD_CONFIG_PLATFORM_CSL_UNCERT
+#error "OPENTHREAD_CONFIG_PLATFORM_CSL_UNCERT was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_BORDER_ROUTING_VICARIOUS_RS_ENABLE
+#error "OPENTHREAD_CONFIG_BORDER_ROUTING_VICARIOUS_RS_ENABLE was removed and no longer supported"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_SRP_CLIENT_UPDATE_TX_DELAY
+#error "OPENTHREAD_CONFIG_SRP_CLIENT_UPDATE_TX_DELAY was replaced with "\
+        "OPENTHREAD_CONFIG_SRP_CLIENT_UPDATE_TX_MIN_DELAY and OPENTHREAD_CONFIG_SRP_CLIENT_UPDATE_TX_MAX_DELAY"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_BORDER_ROUTING_NAT64_ENABLE
+#error "OPENTHREAD_CONFIG_BORDER_ROUTING_NAT64_ENABLE was replaced by OPENTHREAD_CONFIG_NAT64_BORDER_ROUTING_ENABLE"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_CHILD_SUPERVISION_ENABLE
+#error "OPENTHREAD_CONFIG_CHILD_SUPERVISION_ENABLE is removed. The feature is now supported by default (on 1.3.0)"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_CHILD_SUPERVISION_MSG_NO_ACK_REQUEST
+#error "OPENTHREAD_CONFIG_CHILD_SUPERVISION_MSG_NO_ACK_REQUEST is removed".
+#endif
+
+#ifdef OPENTHREAD_CONFIG_TMF_NETWORK_DIAG_MTD_ENABLE
+#error "OPENTHREAD_CONFIG_TMF_NETWORK_DIAG_MTD_ENABLE is removed. "\
+        "Use OPENTHREAD_CONFIG_TMF_NETDIAG_CLIENT_ENABLE to enable client functionality."\
+        "Netdiag server functionality is always supported."
+#endif
+
+#ifdef OPENTHREAD_CONFIG_PING_SENDER_DEFAULT_INTEVRAL
+#error "OPENTHREAD_CONFIG_PING_SENDER_DEFAULT_INTEVRAL was replaced by "\
+       "OPENTHREAD_CONFIG_PING_SENDER_DEFAULT_INTERVAL."
+#endif
+
+#ifdef OPENTHREAD_CONFIG_SRP_SERVER_DEFAULT_ADDDRESS_MODE
+#error "OPENTHREAD_CONFIG_SRP_SERVER_DEFAULT_ADDDRESS_MODE was replaced by "\
+       "OPENTHREAD_CONFIG_SRP_SERVER_DEFAULT_ADDRESS_MODE."
+#endif
+
+#ifdef OPENTHREAD_CONFIG_CSL_MIN_RECEIVE_ON
+#error "OPENTHREAD_CONFIG_CSL_MIN_RECEIVE_ON was replaced with "\
+        "OPENTHREAD_CONFIG_MIN_RECEIVE_ON_AHEAD and OPENTHREAD_CONFIG_MIN_RECEIVE_ON_AFTER"
+#endif
+
+#ifdef OPENTHREAD_CONFIG_PLATFORM_RADIO_SPINEL_RX_FRAME_BUFFER_SIZE
+#error "OPENTHREAD_CONFIG_PLATFORM_RADIO_SPINEL_RX_FRAME_BUFFER_SIZE was replaced by"\
+       "OPENTHREAD_LIB_SPINEL_RX_FRAME_BUFFER_SIZE. Pass the macro to source code under"\
+       "src/lib/spinel."
+#endif
+
+#ifdef OPENTHREAD_CONFIG_SRP_CLIENT_UPDATE_TX_MIN_DELAY
+#error "OPENTHREAD_CONFIG_SRP_CLIENT_UPDATE_TX_MIN_DELAY was removed."
+#endif
+
+#ifdef OPENTHREAD_CONFIG_SRP_CLIENT_UPDATE_TX_MAX_DELAY
+#error "OPENTHREAD_CONFIG_SRP_CLIENT_UPDATE_TX_MAX_DELAY was removed."
 #endif
 
 #endif // OPENTHREAD_CORE_CONFIG_CHECK_H_

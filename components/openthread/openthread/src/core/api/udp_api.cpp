@@ -62,7 +62,7 @@ otError otUdpClose(otInstance *aInstance, otUdpSocket *aSocket)
 
 otError otUdpBind(otInstance *aInstance, otUdpSocket *aSocket, const otSockAddr *aSockName, otNetifIdentifier aNetif)
 {
-    return AsCoreType(aInstance).Get<Ip6::Udp>().Bind(AsCoreType(aSocket), AsCoreType(aSockName), aNetif);
+    return AsCoreType(aInstance).Get<Ip6::Udp>().Bind(AsCoreType(aSocket), AsCoreType(aSockName), MapEnum(aNetif));
 }
 
 otError otUdpConnect(otInstance *aInstance, otUdpSocket *aSocket, const otSockAddr *aSockName)
@@ -72,14 +72,17 @@ otError otUdpConnect(otInstance *aInstance, otUdpSocket *aSocket, const otSockAd
 
 otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessage, const otMessageInfo *aMessageInfo)
 {
-    return AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(aMessage),
-                                                        AsCoreType(aMessageInfo));
+    otError error;
+
+    VerifyOrExit(!AsCoreType(aMessage).IsOriginThreadNetif(), error = kErrorInvalidArgs);
+
+    error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(aMessage),
+                                                         AsCoreType(aMessageInfo));
+exit:
+    return error;
 }
 
-otUdpSocket *otUdpGetSockets(otInstance *aInstance)
-{
-    return AsCoreType(aInstance).Get<Ip6::Udp>().GetUdpSockets();
-}
+otUdpSocket *otUdpGetSockets(otInstance *aInstance) { return AsCoreType(aInstance).Get<Ip6::Udp>().GetUdpSockets(); }
 
 #if OPENTHREAD_CONFIG_UDP_FORWARD_ENABLE
 void otUdpForwardSetForwarder(otInstance *aInstance, otUdpForwarder aForwarder, void *aContext)
@@ -87,17 +90,15 @@ void otUdpForwardSetForwarder(otInstance *aInstance, otUdpForwarder aForwarder, 
     AsCoreType(aInstance).Get<Ip6::Udp>().SetUdpForwarder(aForwarder, aContext);
 }
 
-void otUdpForwardReceive(otInstance *        aInstance,
-                         otMessage *         aMessage,
+void otUdpForwardReceive(otInstance         *aInstance,
+                         otMessage          *aMessage,
                          uint16_t            aPeerPort,
                          const otIp6Address *aPeerAddr,
                          uint16_t            aSockPort)
 {
     Ip6::MessageInfo messageInfo;
 
-    OT_ASSERT(aMessage != nullptr && aPeerAddr != nullptr);
-
-    messageInfo.SetSockAddr(AsCoreType(aInstance).Get<Mle::MleRouter>().GetMeshLocal16());
+    messageInfo.SetSockAddr(AsCoreType(aInstance).Get<Mle::MleRouter>().GetMeshLocalRloc());
     messageInfo.SetSockPort(aSockPort);
     messageInfo.SetPeerAddr(AsCoreType(aPeerAddr));
     messageInfo.SetPeerPort(aPeerPort);
@@ -121,8 +122,13 @@ otError otUdpRemoveReceiver(otInstance *aInstance, otUdpReceiver *aUdpReceiver)
 
 otError otUdpSendDatagram(otInstance *aInstance, otMessage *aMessage, otMessageInfo *aMessageInfo)
 {
-    return AsCoreType(aInstance).Get<Ip6::Udp>().SendDatagram(AsCoreType(aMessage), AsCoreType(aMessageInfo),
-                                                              Ip6::kProtoUdp);
+    otError error;
+
+    VerifyOrExit(!AsCoreType(aMessage).IsOriginThreadNetif(), error = kErrorInvalidArgs);
+
+    return AsCoreType(aInstance).Get<Ip6::Udp>().SendDatagram(AsCoreType(aMessage), AsCoreType(aMessageInfo));
+exit:
+    return error;
 }
 
 bool otUdpIsPortInUse(otInstance *aInstance, uint16_t port)

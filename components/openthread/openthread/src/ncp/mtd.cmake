@@ -29,7 +29,9 @@
 add_library(openthread-ncp-mtd)
 
 target_compile_definitions(openthread-ncp-mtd PRIVATE
+    OPENTHREAD_FTD=0
     OPENTHREAD_MTD=1
+    OPENTHREAD_RADIO=0
     OPENTHREAD_CONFIG_NCP_HDLC_ENABLE=1
 )
 
@@ -49,5 +51,6 @@ target_link_libraries(openthread-ncp-mtd
         ${OT_MBEDTLS}
         openthread-hdlc
         openthread-spinel-ncp
+        ot-config-mtd
         ot-config
 )

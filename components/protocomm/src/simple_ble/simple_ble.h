@@ -25,11 +25,9 @@ typedef struct {
     /** Name to be displayed to devices scanning for ESP32 */
     const char *device_name;
     /** Raw advertisement data */
-    uint8_t *raw_adv_data_p;
-    uint8_t raw_adv_data_len;
+    esp_ble_adv_data_t *adv_data_p;
     /** Raw scan response data */
-    uint8_t *raw_scan_rsp_data_p;
-    uint8_t raw_scan_rsp_data_len;
+    esp_ble_adv_data_t *scan_rsp_data_p;
     /** Parameters to configure the nature of advertising */
     esp_ble_adv_params_t adv_params;
     /** Descriptor table which consists of the configuration
@@ -49,10 +47,27 @@ typedef struct {
     simple_ble_cb_t *connect_fn;
     /** MTU set callback */
     simple_ble_cb_t *set_mtu_fn;
-    /* BLE bonding */
-     unsigned ble_bonding:1;
+    /** BLE bonding */
+    unsigned ble_bonding:1;
+    /** BLE Secure Connection flag */
+    unsigned ble_sm_sc:1;
+    /** BLE Address */
+    uint8_t *ble_addr;
+    /**  Flag to keep BLE on */
+    unsigned keep_ble_on:1;
+
 } simple_ble_cfg_t;
 
+
+/**
+ * @brief   Get the current BLE keep-on status
+ *
+ * This function returns the current value of the `keep_ble_on` flag
+ * from the global BLE configuration structure.
+ *
+ * @return uint8_t  Current status of the `keep_ble_on` flag
+ */
+uint8_t get_keep_ble_on(void);
 
 /** Initialize a simple ble connection
  *
@@ -104,4 +119,11 @@ esp_err_t simple_ble_stop(void);
  */
 const uint8_t *simple_ble_get_uuid128(uint16_t handle);
 
+/** Terminates connection
+ *
+ * This API is called to initiate disconnection
+ *
+ * @return ESP_OK on success, and appropriate error code for failure
+ */
+esp_err_t simple_ble_disconnect(void);
 #endif /* _SIMPLE_BLE_ */

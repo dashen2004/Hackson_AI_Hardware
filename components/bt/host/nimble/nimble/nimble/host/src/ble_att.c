@@ -20,6 +20,17 @@
 #include <stddef.h>
 #include <errno.h>
 #include "ble_hs_priv.h"
+#include "host/ble_att.h"
+
+#if NIMBLE_BLE_CONNECT
+
+#ifndef min
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef max
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#endif
 
 static uint16_t ble_att_preferred_mtu_val;
 
@@ -58,7 +69,10 @@ static const struct ble_att_rx_dispatch_entry ble_att_rx_dispatch[] = {
     { BLE_ATT_OP_NOTIFY_REQ,           ble_att_svr_rx_notify },
     { BLE_ATT_OP_INDICATE_REQ,         ble_att_svr_rx_indicate },
     { BLE_ATT_OP_INDICATE_RSP,         ble_att_clt_rx_indicate },
+    { BLE_ATT_OP_READ_MULT_VAR_REQ,    ble_att_svr_rx_read_mult_var },
+    { BLE_ATT_OP_READ_MULT_VAR_RSP,    ble_att_clt_rx_read_mult_var },
     { BLE_ATT_OP_WRITE_CMD,            ble_att_svr_rx_write_no_rsp },
+    { BLE_ATT_OP_SIGNED_WRITE_CMD,     ble_att_svr_rx_signed_write },
 };
 
 #define BLE_ATT_RX_DISPATCH_SZ \
@@ -126,7 +140,7 @@ static const struct ble_att_rx_dispatch_entry *
 ble_att_rx_dispatch_entry_find(uint8_t op)
 {
     const struct ble_att_rx_dispatch_entry *entry;
-    int i;
+    unsigned int i;
 
     for (i = 0; i < BLE_ATT_RX_DISPATCH_SZ; i++) {
         entry = ble_att_rx_dispatch + i;
@@ -587,3 +601,5 @@ ble_att_init(void)
 
     return 0;
 }
+
+#endif

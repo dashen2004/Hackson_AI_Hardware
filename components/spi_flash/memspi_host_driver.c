@@ -1,24 +1,17 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include "soc/soc_caps.h"
 #include "spi_flash_defs.h"
 #include "memspi_host_driver.h"
 #include "string.h"
 #include "esp_log.h"
-#include "cache_utils.h"
+#include "esp_private/cache_utils.h"
 #include "esp_flash_partitions.h"
+#include "esp_memory_utils.h"
 
 
 #define SPI_FLASH_HAL_MAX_WRITE_BYTES 64
@@ -41,6 +34,7 @@ extern uint32_t spi_flash_hal_gpspi_check_status(spi_flash_host_inst_t *host);
 extern bool spi_flash_hal_gpspi_supports_direct_write(spi_flash_host_inst_t *host, const void *p);
 extern bool spi_flash_hal_gpspi_supports_direct_read(spi_flash_host_inst_t *host, const void *p);
 
+#if SOC_GPSPI_SUPPORTED
 /** Default configuration for GPSPI */
 static const spi_flash_host_driver_t esp_flash_gpspi_host = {
         .dev_config = spi_flash_hal_gpspi_device_config,
@@ -65,10 +59,17 @@ static const spi_flash_host_driver_t esp_flash_gpspi_host = {
         .resume = spi_flash_hal_resume,
         .suspend = spi_flash_hal_suspend,
 };
+#else
+static const spi_flash_host_driver_t esp_flash_gpspi_host = {};
+#endif
 #endif
 
 esp_err_t memspi_host_init_pointers(memspi_host_inst_t *host, const memspi_host_config_t *cfg)
 {
+    if (!esp_ptr_internal(host) && cfg->host_id == SPI1_HOST) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
 #if SOC_MEMSPI_IS_INDEPENDENT
     if (cfg->host_id == SPI1_HOST)
         host->inst.driver = &esp_flash_default_host;

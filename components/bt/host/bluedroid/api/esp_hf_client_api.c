@@ -1,16 +1,8 @@
-// Copyright 2018 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include "common/bt_target.h"
 #include <string.h>
@@ -50,7 +42,7 @@ esp_err_t esp_hf_client_init(void)
     msg.act = BTC_HF_CLIENT_INIT_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -67,7 +59,7 @@ esp_err_t esp_hf_client_deinit(void)
     msg.act = BTC_HF_CLIENT_DEINIT_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -89,7 +81,7 @@ esp_err_t esp_hf_client_connect(esp_bd_addr_t remote_bda)
 
     /* Switch to BTC context */
     memcpy(&(arg.connect), remote_bda, sizeof(bt_bdaddr_t));
-    stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -111,7 +103,7 @@ esp_err_t esp_hf_client_disconnect(esp_bd_addr_t remote_bda)
 
     /* Switch to BTC context */
     memcpy(&(arg.disconnect), remote_bda, sizeof(bt_bdaddr_t));
-    stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -133,7 +125,7 @@ esp_err_t esp_hf_client_connect_audio(esp_bd_addr_t remote_bda)
 
     /* Switch to BTC context */
     memcpy(&(arg.connect_audio), remote_bda, sizeof(bt_bdaddr_t));
-    stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -155,7 +147,7 @@ esp_err_t esp_hf_client_disconnect_audio(esp_bd_addr_t remote_bda)
 
     /* Switch to BTC context */
     memcpy(&(arg.disconnect_audio), remote_bda, sizeof(bt_bdaddr_t));
-    stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -173,7 +165,7 @@ esp_err_t esp_hf_client_start_voice_recognition(void)
     msg.act = BTC_HF_CLIENT_START_VOICE_RECOGNITION_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -190,7 +182,7 @@ esp_err_t esp_hf_client_stop_voice_recognition(void)
     msg.act = BTC_HF_CLIENT_STOP_VOICE_RECOGNITION_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -212,7 +204,7 @@ esp_err_t esp_hf_client_volume_update(esp_hf_volume_control_target_t type, int v
     arg.volume_update.volume = volume;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -241,7 +233,7 @@ esp_err_t esp_hf_client_dial(const char *number)
     }
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -262,7 +254,7 @@ esp_err_t esp_hf_client_dial_memory(int location)
     arg.dial_memory.location = location;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -284,7 +276,7 @@ esp_err_t esp_hf_client_send_chld_cmd(esp_hf_chld_type_t chld, int idx)
     arg.chld.idx = idx;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -305,7 +297,7 @@ esp_err_t esp_hf_client_send_btrh_cmd(esp_hf_btrh_cmd_t btrh)
     arg.btrh.cmd = btrh;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -322,7 +314,7 @@ esp_err_t esp_hf_client_answer_call(void)
     msg.act = BTC_HF_CLIENT_ANSWER_CALL_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -339,7 +331,7 @@ esp_err_t esp_hf_client_reject_call(void)
     msg.act = BTC_HF_CLIENT_REJECT_CALL_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -356,7 +348,7 @@ esp_err_t esp_hf_client_query_current_calls(void)
     msg.act = BTC_HF_CLIENT_QUERY_CURRENT_CALLS_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -373,7 +365,7 @@ esp_err_t esp_hf_client_query_current_operator_name(void)
     msg.act = BTC_HF_CLIENT_QUERY_CURRENT_OPERATOR_NAME_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -390,7 +382,7 @@ esp_err_t esp_hf_client_retrieve_subscriber_info(void)
     msg.act = BTC_HF_CLIENT_RETRIEVE_SUBSCRIBER_INFO_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -411,9 +403,62 @@ esp_err_t esp_hf_client_send_dtmf(char code)
     arg.send_dtmf.code = code;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
+
+esp_err_t esp_hf_client_send_xapl(char *information, uint32_t features)
+{
+    if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (information == NULL || strlen(information) != ESP_BT_HF_AT_SEND_XAPL_LEN) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    btc_msg_t msg;
+    btc_hf_client_args_t arg;
+
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_HF_CLIENT;
+    msg.act = BTC_HF_CLIENT_SEND_XAPL_EVT;
+
+    memset(&arg, 0, sizeof(btc_hf_client_args_t));
+    strcpy(arg.send_xapl.information, information);
+    arg.send_xapl.features = features;
+
+    /* Switch to BTC context */
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
+    return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
+}
+
+esp_err_t esp_hf_client_send_iphoneaccev(uint32_t bat_level, bool docked)
+{
+    if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (bat_level > 9) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    btc_msg_t msg;
+    btc_hf_client_args_t arg;
+
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_HF_CLIENT;
+    msg.act = BTC_HF_CLIENT_SEND_IPHONEACCEV_EVT;
+
+    memset(&arg, 0, sizeof(btc_hf_client_args_t));
+    arg.send_iphoneaccev.bat_level = bat_level;
+    arg.send_iphoneaccev.docked = docked;
+
+    /* Switch to BTC context */
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
+    return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
+}
+
 
 esp_err_t esp_hf_client_request_last_voice_tag_number(void)
 {
@@ -428,7 +473,7 @@ esp_err_t esp_hf_client_request_last_voice_tag_number(void)
     msg.act = BTC_HF_CLIENT_REQUEST_LAST_VOICE_TAG_NUMBER_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -444,7 +489,7 @@ esp_err_t esp_hf_client_send_nrec(void)
     msg.act = BTC_HF_CLIENT_SEND_NREC_EVT;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL);
+    bt_status_t stat = btc_transfer_context(&msg, NULL, 0, NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
@@ -466,12 +511,31 @@ esp_err_t esp_hf_client_register_data_callback(esp_hf_client_incoming_data_cb_t 
     arg.reg_data_cb.send = send;
 
     /* Switch to BTC context */
-    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL);
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
     return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
 }
 
+#if (BTM_SCO_HCI_INCLUDED == TRUE)
+esp_err_t esp_hf_client_pkt_stat_nums_get(uint16_t sync_conn_handle)
+{
+    if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
+        return ESP_ERR_INVALID_STATE;
+    }
 
-#if (BTM_SCO_HCI_INCLUDED == TRUE )
+    btc_msg_t msg;
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_HF_CLIENT;
+    msg.act = BTC_HF_CLIENT_REQUEST_PKT_STAT_EVT;
+
+    btc_hf_client_args_t arg;
+    memset(&arg, 0, sizeof(btc_hf_client_args_t));
+    arg.pkt_sync_hd.sync_conn_handle = sync_conn_handle;
+
+    /* Switch to BTC context */
+    bt_status_t stat = btc_transfer_context(&msg, &arg, sizeof(btc_hf_client_args_t), NULL, NULL);
+    return (stat == BT_STATUS_SUCCESS) ? ESP_OK : ESP_FAIL;
+}
+
 void esp_hf_client_outgoing_data_ready(void)
 {
     BTA_HfClientCiData();
@@ -492,6 +556,6 @@ int32_t esp_hf_client_pcm_resample(void *src, uint32_t in_bytes, void *dst)
     return BTA_DmPcmResample(src, in_bytes, dst);
 }
 
-#endif /* #if (BTM_SCO_HCI_INCLUDED == TRUE ) */
+#endif /* #if (BTM_SCO_HCI_INCLUDED == TRUE) */
 
 #endif /* BTC_HF_CLIENT_INCLUDED */

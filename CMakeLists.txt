@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(esp-idf C CXX ASM)
 
 if(CMAKE_CURRENT_LIST_DIR STREQUAL CMAKE_SOURCE_DIR)
@@ -7,11 +7,8 @@ if(CMAKE_CURRENT_LIST_DIR STREQUAL CMAKE_SOURCE_DIR)
     "again.")
 endif()
 
-unset(compile_options)
-unset(c_compile_options)
-unset(cxx_compile_options)
-unset(compile_definitions)
-unset(link_options)
+# Variables compile_options, c_compile_options, cxx_compile_options, compile_definitions, link_options shall
+# not be unset as they may already contain flags, set by toolchain-TARGET.cmake files.
 
 # Add the following build specifications here, since these seem to be dependent
 # on config values on the root Kconfig.
@@ -19,12 +16,19 @@ unset(link_options)
 if(NOT BOOTLOADER_BUILD)
 
     if(CONFIG_COMPILER_OPTIMIZATION_SIZE)
-        list(APPEND compile_options "-Os")
+        if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+            list(APPEND compile_options "-Oz")
+        else()
+            list(APPEND compile_options "-Os")
+        endif()
         if(CMAKE_C_COMPILER_ID MATCHES "GNU")
             list(APPEND compile_options "-freorder-blocks")
         endif()
-    elseif(CONFIG_COMPILER_OPTIMIZATION_DEFAULT)
+    elseif(CONFIG_COMPILER_OPTIMIZATION_DEBUG)
         list(APPEND compile_options "-Og")
+        if(CMAKE_C_COMPILER_ID MATCHES "GNU" AND NOT CONFIG_IDF_TARGET_LINUX)
+            list(APPEND compile_options "-fno-shrink-wrap")  # Disable shrink-wrapping to reduce binary size
+        endif()
     elseif(CONFIG_COMPILER_OPTIMIZATION_NONE)
         list(APPEND compile_options "-O0")
     elseif(CONFIG_COMPILER_OPTIMIZATION_PERF)
@@ -34,12 +38,19 @@ if(NOT BOOTLOADER_BUILD)
 else()  # BOOTLOADER_BUILD
 
     if(CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE)
-        list(APPEND compile_options "-Os")
+        if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+            list(APPEND compile_options "-Oz")
+        else()
+            list(APPEND compile_options "-Os")
+        endif()
         if(CMAKE_C_COMPILER_ID MATCHES "GNU")
             list(APPEND compile_options "-freorder-blocks")
         endif()
     elseif(CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG)
         list(APPEND compile_options "-Og")
+        if(CMAKE_C_COMPILER_ID MATCHES "GNU" AND NOT CONFIG_IDF_TARGET_LINUX)
+            list(APPEND compile_options "-fno-shrink-wrap")  # Disable shrink-wrapping to reduce binary size
+        endif()
     elseif(CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_NONE)
         list(APPEND compile_options "-O0")
     elseif(CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF)
@@ -63,23 +74,6 @@ endif()
 
 if(CONFIG_COMPILER_SAVE_RESTORE_LIBCALLS)
     list(APPEND compile_options "-msave-restore")
-endif()
-
-if(CONFIG_COMPILER_DISABLE_GCC8_WARNINGS)
-    list(APPEND compile_options "-Wno-parentheses"
-                                "-Wno-sizeof-pointer-memaccess"
-                                "-Wno-clobbered")
-
-    list(APPEND compile_options "-Wno-format-overflow"
-                                "-Wno-stringop-truncation"
-                                "-Wno-misleading-indentation"
-                                "-Wno-cast-function-type"
-                                "-Wno-implicit-fallthrough"
-                                "-Wno-unused-const-variable"
-                                "-Wno-switch-unreachable"
-                                "-Wno-format-truncation"
-                                "-Wno-memset-elt-size"
-                                "-Wno-int-in-bool-context")
 endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU")
@@ -110,7 +104,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang")
     list(APPEND compile_options "-Wno-pointer-bool-conversion")
     # mbedTLS md5.c triggers this warning in md5_test_buf (false positive)
     list(APPEND compile_options "-Wno-string-concatenation")
-    # multiple cases of implict convertions between unrelated enum types
+    # multiple cases of implicit conversions between unrelated enum types
     list(APPEND compile_options "-Wno-enum-conversion")
     # When IRAM_ATTR is specified both in function declaration and definition,
     # it produces different section names, since section names include __COUNTER__.
@@ -119,8 +113,26 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang")
     # Multiple cases of attributes unknown to clang, for example
     # __attribute__((optimize("-O3")))
     list(APPEND compile_options "-Wno-unknown-attributes")
+    # Disable Clang warnings for atomic operations with access size
+    # more then 4 bytes
+    list(APPEND compile_options "-Wno-atomic-alignment")
+    # several warnings in wpa_supplicant component
+    list(APPEND compile_options "-Wno-unused-but-set-variable")
     # Clang also produces many -Wunused-function warnings which GCC doesn't.
-    # However these aren't treated as errors.
+    list(APPEND compile_options "-Wno-unused-function")
+    # many warnings in bluedroid code
+    # warning: field 'hdr' with variable sized type 'BT_HDR' not at the end of a struct or class is a GNU extension
+    list(APPEND compile_options "-Wno-gnu-variable-sized-type-not-at-end")
+    # several warnings in bluedroid code
+    list(APPEND compile_options "-Wno-constant-logical-operand")
+    # warning: '_Static_assert' with no message is a C2x extension
+    list(APPEND compile_options "-Wno-c2x-extensions")
+    # warning on xMPU_SETTINGS for esp32s2 has size 0 for C and 1 for C++
+    list(APPEND compile_options "-Wno-extern-c-compat")
+    if(NOT (CONFIG_IDF_TARGET_LINUX AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin"))
+        # warning: implicit truncation from 'int' to a one-bit wide bit-field changes value from 1 to -1
+        list(APPEND compile_options "-Wno-single-bit-bitfield-constant-conversion")
+    endif()
 endif()
 # More warnings may exist in unit tests and example projects.
 
@@ -130,6 +142,10 @@ endif()
 
 if(CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE)
     list(APPEND compile_definitions "-DNDEBUG")
+endif()
+
+if(CONFIG_COMPILER_NO_MERGE_CONSTANTS)
+    list(APPEND compile_options "-fno-merge-constants")
 endif()
 
 if(CONFIG_COMPILER_STACK_CHECK_MODE_NORM)
@@ -144,18 +160,37 @@ if(CONFIG_COMPILER_DUMP_RTL_FILES)
     list(APPEND compile_options "-fdump-rtl-expand")
 endif()
 
-if(NOT ${CMAKE_C_COMPILER_VERSION} VERSION_LESS 8.0.0)
-    if(CONFIG_COMPILER_HIDE_PATHS_MACROS)
-        list(APPEND compile_options "-fmacro-prefix-map=${CMAKE_SOURCE_DIR}=.")
-        list(APPEND compile_options "-fmacro-prefix-map=${IDF_PATH}=IDF")
+__generate_prefix_map(prefix_map_compile_options)
+list(APPEND compile_options ${prefix_map_compile_options})
+
+if(CONFIG_COMPILER_DISABLE_GCC12_WARNINGS)
+    list(APPEND compile_options "-Wno-address"
+                                "-Wno-use-after-free")
+endif()
+
+if(CONFIG_COMPILER_DISABLE_GCC13_WARNINGS)
+    list(APPEND compile_options "-Wno-xor-used-as-pow")
+    list(APPEND c_compile_options "-Wno-enum-int-mismatch")
+    list(APPEND cxx_compile_options "-Wno-self-move"
+                                    "-Wno-dangling-reference")
+endif()
+
+if(CONFIG_COMPILER_DISABLE_GCC14_WARNINGS)
+    list(APPEND compile_options "-Wno-calloc-transposed-args")
+endif()
+
+if(CONFIG_COMPILER_DISABLE_DEFAULT_ERRORS)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
+        idf_build_replace_option_from_property(COMPILE_OPTIONS "-Werror" "-Werror=all")
     endif()
 endif()
 
 # GCC-specific options
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    list(APPEND compile_options "-fstrict-volatile-bitfields"
-                                "-Wno-error=unused-but-set-variable"
-                                )
+    list(APPEND compile_options "-fstrict-volatile-bitfields")
+    if(CONFIG_COMPILER_STATIC_ANALYZER)
+        list(APPEND compile_options "-fanalyzer")
+    endif()
 endif()
 
 if(CONFIG_ESP_SYSTEM_USE_EH_FRAME)
@@ -164,6 +199,47 @@ if(CONFIG_ESP_SYSTEM_USE_EH_FRAME)
 endif()
 
 list(APPEND link_options "-fno-lto")
+
+if(CONFIG_IDF_TARGET_LINUX AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    # Not all versions of the MacOS linker support the -warn_commons flag.
+    # ld version 1053.12 (and above) have been tested to support it.
+    # Hence, we extract the version string from the linker output
+    # before including the flag.
+
+    # Get the ld version, capturing both stdout and stderr
+    execute_process(
+        COMMAND ${CMAKE_LINKER} -v
+        OUTPUT_VARIABLE LD_VERSION_OUTPUT
+        ERROR_VARIABLE LD_VERSION_ERROR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Combine stdout and stderr
+    set(LD_VERSION_OUTPUT "${LD_VERSION_OUTPUT}\n${LD_VERSION_ERROR}")
+
+    # Extract the version string
+    string(REGEX MATCH "PROJECT:(ld|dyld)-([0-9]+)\\.([0-9]+)" LD_VERSION_MATCH "${LD_VERSION_OUTPUT}")
+    set(LD_VERSION_MAJOR_MINOR "${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+
+    message(STATUS "Linker Version: ${LD_VERSION_MAJOR_MINOR}")
+
+    # Compare the version with 1053.12
+    if(LD_VERSION_MAJOR_MINOR VERSION_GREATER_EQUAL "1053.12")
+        list(APPEND link_options "-Wl,-warn_commons")
+    endif()
+
+    list(APPEND link_options "-Wl,-dead_strip")
+else()
+    list(APPEND link_options "-Wl,--gc-sections")
+    list(APPEND link_options "-Wl,--warn-common")
+endif()
+
+# SMP FreeRTOS user provided minimal idle hook. This allows the user to provide
+# their own copy of vApplicationPassiveIdleHook()
+if(CONFIG_FREERTOS_USE_PASSIVE_IDLE_HOOK)
+    list(APPEND link_options "-Wl,--wrap=vApplicationPassiveIdleHook")
+endif()
 
 # Placing jump tables in flash would cause issues with code that required
 # to be placed in IRAM
@@ -174,13 +250,19 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU")
     list(APPEND compile_options "-fno-tree-switch-conversion")
 endif()
 
-if(CMAKE_C_COMPILER_ID MATCHES "LLVM")
+if(CMAKE_C_COMPILER_ID MATCHES "Clang")
     list(APPEND compile_options "-fno-use-cxa-atexit")
 endif()
+
+if(COMPILER_RT_LIB_NAME)
+    list(APPEND link_options "-rtlib=${CONFIG_COMPILER_RT_LIB_NAME}")
+endif()
+
 
 idf_build_set_property(COMPILE_OPTIONS "${compile_options}" APPEND)
 idf_build_set_property(C_COMPILE_OPTIONS "${c_compile_options}" APPEND)
 idf_build_set_property(CXX_COMPILE_OPTIONS "${cxx_compile_options}" APPEND)
+idf_build_set_property(ASM_COMPILE_OPTIONS "${asm_compile_options}" APPEND)
 idf_build_set_property(COMPILE_DEFINITIONS "${compile_definitions}" APPEND)
 idf_build_set_property(LINK_OPTIONS "${link_options}" APPEND)
 

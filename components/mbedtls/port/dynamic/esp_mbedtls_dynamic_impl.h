@@ -1,16 +1,27 @@
 /*
- * SPDX-FileCopyrightText: 2020-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
 #ifndef _DYNAMIC_IMPL_H_
 #define _DYNAMIC_IMPL_H_
 
 #include <stddef.h>
 #include <string.h>
+#include <stdbool.h>
+
+/* TODO: Remove this once the appropriate solution is found
+ *
+ * ssl_misc.h header uses private elements from
+ * mbedtls, which become undefined if the following flag
+ * is not defined
+ */
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+
+// located at mbedtls/library/ssl_misc.h
+#include "ssl_misc.h"
+
 #include "mbedtls/ssl.h"
-#include "mbedtls/ssl_internal.h"
 #include "mbedtls/platform.h"
 #include "esp_log.h"
 
@@ -26,7 +37,7 @@
     TRACE_CHECK(_fn, "state"); \
  \
     if ((_ret = _fn) != 0) { \
-        ESP_LOGV(TAG, "\"%s\" result is -0x%x", # _fn, -_ret); \
+        ESP_LOGV(TAG, "\"%s\" result is %d", # _fn, -_ret); \
         TRACE_CHECK(_fn, "fail"); \
         return _ret; \
     } \
@@ -46,7 +57,7 @@ struct esp_mbedtls_ssl_buf {
     unsigned char buf[];
 };
 
-#define SSL_BUF_HEAD_OFFSET_SIZE offsetof(struct esp_mbedtls_ssl_buf, buf)
+#define SSL_BUF_HEAD_OFFSET_SIZE ((int)offsetof(struct esp_mbedtls_ssl_buf, buf))
 
 void esp_mbedtls_free_buf(unsigned char *buf);
 
@@ -84,12 +95,6 @@ void esp_mbedtls_free_keycert_key(mbedtls_ssl_context *ssl);
 
 #ifdef CONFIG_MBEDTLS_DYNAMIC_FREE_CA_CERT
 void esp_mbedtls_free_cacert(mbedtls_ssl_context *ssl);
-#endif
-
-#ifdef CONFIG_MBEDTLS_DYNAMIC_FREE_PEER_CERT
-void esp_mbedtls_free_peer_cert(mbedtls_ssl_context *ssl);
-
-bool esp_mbedtls_ssl_is_rsa(mbedtls_ssl_context *ssl);
 #endif
 
 #endif /* _DYNAMIC_IMPL_H_ */

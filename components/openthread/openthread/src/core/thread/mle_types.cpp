@@ -33,16 +33,22 @@
 
 #include "mle_types.hpp"
 
+#include "common/array.hpp"
 #include "common/code_utils.hpp"
+#include "common/message.hpp"
+#include "common/random.hpp"
 
 namespace ot {
 namespace Mle {
+
+//---------------------------------------------------------------------------------------------------------------------
+// DeviceMode
 
 void DeviceMode::Get(ModeConfig &aModeConfig) const
 {
     aModeConfig.mRxOnWhenIdle = IsRxOnWhenIdle();
     aModeConfig.mDeviceType   = IsFullThreadDevice();
-    aModeConfig.mNetworkData  = IsFullNetworkData();
+    aModeConfig.mNetworkData  = (GetNetworkDataType() == NetworkData::kFullSet);
 }
 
 void DeviceMode::Set(const ModeConfig &aModeConfig)
@@ -57,18 +63,145 @@ DeviceMode::InfoString DeviceMode::ToString(void) const
 {
     InfoString string;
 
-    string.Append("rx-on:%s ftd:%s full-net:%s", IsRxOnWhenIdle() ? "yes" : "no", IsFullThreadDevice() ? "yes" : "no",
-                  IsFullNetworkData() ? "yes" : "no");
+    string.Append("rx-on:%s ftd:%s full-net:%s", ToYesNo(IsRxOnWhenIdle()), ToYesNo(IsFullThreadDevice()),
+                  ToYesNo(GetNetworkDataType() == NetworkData::kFullSet));
 
     return string;
 }
 
-void MeshLocalPrefix::SetFromExtendedPanId(const Mac::ExtendedPanId &aExtendedPanId)
+//---------------------------------------------------------------------------------------------------------------------
+// DeviceProperties
+
+#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MLE_DEVICE_PROPERTY_LEADER_WEIGHT_ENABLE
+
+DeviceProperties::DeviceProperties(void)
 {
-    m8[0] = 0xfd;
-    memcpy(&m8[1], aExtendedPanId.m8, 5);
-    m8[6] = 0x00;
-    m8[7] = 0x00;
+    Clear();
+
+    mPowerSupply            = OPENTHREAD_CONFIG_DEVICE_POWER_SUPPLY;
+    mLeaderWeightAdjustment = kDefaultAdjustment;
+#if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
+    mIsBorderRouter = true;
+#endif
+}
+
+void DeviceProperties::ClampWeightAdjustment(void)
+{
+    mLeaderWeightAdjustment = Clamp(mLeaderWeightAdjustment, kMinAdjustment, kMaxAdjustment);
+}
+
+uint8_t DeviceProperties::CalculateLeaderWeight(void) const
+{
+    static const int8_t kPowerSupplyIncs[] = {
+        kPowerBatteryInc,          // (0) kPowerSupplyBattery
+        kPowerExternalInc,         // (1) kPowerSupplyExternal
+        kPowerExternalStableInc,   // (2) kPowerSupplyExternalStable
+        kPowerExternalUnstableInc, // (3) kPowerSupplyExternalUnstable
+    };
+
+    static_assert(0 == kPowerSupplyBattery, "kPowerSupplyBattery value is incorrect");
+    static_assert(1 == kPowerSupplyExternal, "kPowerSupplyExternal value is incorrect");
+    static_assert(2 == kPowerSupplyExternalStable, "kPowerSupplyExternalStable value is incorrect");
+    static_assert(3 == kPowerSupplyExternalUnstable, "kPowerSupplyExternalUnstable value is incorrect");
+
+    uint8_t     weight      = kBaseWeight;
+    PowerSupply powerSupply = MapEnum(mPowerSupply);
+
+    if (mIsBorderRouter)
+    {
+        weight += (mSupportsCcm ? kCcmBorderRouterInc : kBorderRouterInc);
+    }
+
+    if (powerSupply < GetArrayLength(kPowerSupplyIncs))
+    {
+        weight += kPowerSupplyIncs[powerSupply];
+    }
+
+    if (mIsUnstable)
+    {
+        switch (powerSupply)
+        {
+        case kPowerSupplyBattery:
+        case kPowerSupplyExternalUnstable:
+            break;
+
+        default:
+            weight += kIsUnstableInc;
+        }
+    }
+
+    weight += mLeaderWeightAdjustment;
+
+    return weight;
+}
+
+#endif // #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MLE_DEVICE_PROPERTY_LEADER_WEIGHT_ENABLE
+
+//---------------------------------------------------------------------------------------------------------------------
+// RouterIdSet
+
+uint8_t RouterIdSet::GetNumberOfAllocatedIds(void) const
+{
+    uint8_t count = 0;
+
+    for (uint8_t byte : mRouterIdSet)
+    {
+        count += CountBitsInMask(byte);
+    }
+
+    return count;
+}
+
+//---------------------------------------------------------------------------------------------------------------------
+// TxChallenge
+
+void TxChallenge::GenerateRandom(void) { IgnoreError(Random::Crypto::Fill(*this)); }
+
+//---------------------------------------------------------------------------------------------------------------------
+// RxChallenge
+
+Error RxChallenge::ReadFrom(const Message &aMessage, const OffsetRange &aOffsetRange)
+{
+    Error       error       = kErrorNone;
+    OffsetRange offsetRange = aOffsetRange;
+
+    Clear();
+
+    offsetRange.ShrinkLength(kMaxSize);
+
+    VerifyOrExit(offsetRange.Contains(kMinSize), error = kErrorParse);
+
+    SuccessOrExit(error = aMessage.Read(offsetRange, mArray.GetArrayBuffer(), offsetRange.GetLength()));
+    mArray.SetLength(static_cast<uint8_t>(offsetRange.GetLength()));
+
+exit:
+    return error;
+}
+
+bool RxChallenge::operator==(const TxChallenge &aTxChallenge) const
+{
+    return (mArray.GetLength() == kMaxSize) && (memcmp(mArray.GetArrayBuffer(), aTxChallenge.m8, kMaxSize) == 0);
+}
+
+//---------------------------------------------------------------------------------------------------------------------
+
+const char *RoleToString(DeviceRole aRole)
+{
+    static const char *const kRoleStrings[] = {
+        "disabled", // (0) kRoleDisabled
+        "detached", // (1) kRoleDetached
+        "child",    // (2) kRoleChild
+        "router",   // (3) kRoleRouter
+        "leader",   // (4) kRoleLeader
+    };
+
+    static_assert(kRoleDisabled == 0, "kRoleDisabled value is incorrect");
+    static_assert(kRoleDetached == 1, "kRoleDetached value is incorrect");
+    static_assert(kRoleChild == 2, "kRoleChild value is incorrect");
+    static_assert(kRoleRouter == 3, "kRoleRouter value is incorrect");
+    static_assert(kRoleLeader == 4, "kRoleLeader value is incorrect");
+
+    return (aRole < GetArrayLength(kRoleStrings)) ? kRoleStrings[aRole] : "invalid";
 }
 
 } // namespace Mle

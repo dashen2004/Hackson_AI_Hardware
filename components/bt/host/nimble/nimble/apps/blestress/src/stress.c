@@ -19,6 +19,8 @@
 
 #include "stress.h"
 
+static struct os_callout stress_timer_callout;
+
 void
 com_stress_print_report(const struct com_stress_test_ctx *test_ctxs)
 {
@@ -119,7 +121,7 @@ stress_fill_mbuf_with_pattern(struct os_mbuf *om, uint16_t len)
     rest = len % STRESS_PAT_LEN;
 
     for (i = 0; i < mul; ++i) {
-        rc = os_mbuf_append(om, &test_6_pattern[29], STRESS_PAT_LEN);
+        rc = os_mbuf_append(om, &test_6_pattern[0], STRESS_PAT_LEN);
 
         if (rc) {
             os_mbuf_free_chain(om);
@@ -127,7 +129,7 @@ stress_fill_mbuf_with_pattern(struct os_mbuf *om, uint16_t len)
         }
     }
 
-    rc = os_mbuf_append(om, &test_6_pattern[29], rest);
+    rc = os_mbuf_append(om, &test_6_pattern[0], rest);
 
     if (rc) {
         os_mbuf_free_chain(om);
@@ -165,17 +167,20 @@ stress_l2cap_coc_accept(uint16_t peer_mtu, struct ble_l2cap_chan *chan)
     console_printf("LE CoC accepting, chan: 0x%08lx, peer_mtu %d\n",
                    (uint32_t) chan, peer_mtu);
 
-    sdu_rx = os_msys_get_pkthdr(STRESS_COC_MTU, 0);
-    assert(sdu_rx != NULL);
+    for (int i = 0; i < MYNEWT_VAL(BLE_L2CAP_COC_SDU_BUFF_COUNT); i++) {
+        sdu_rx = os_msys_get_pkthdr(STRESS_COC_MTU, 0);
+        assert(sdu_rx != NULL);
 
-    rc = ble_l2cap_recv_ready(chan, sdu_rx);
-    assert(rc == 0);
+        rc = ble_l2cap_recv_ready(chan, sdu_rx);
+        assert(rc == 0);
+    }
 }
 
 void
 stress_start_timer(uint32_t timeout_ms, os_event_fn *ev_cb)
 {
     int rc;
+
     os_callout_stop(&stress_timer_callout);
 
     os_callout_init(&stress_timer_callout, os_eventq_dflt_get(), ev_cb, NULL);

@@ -41,7 +41,6 @@
 #if !NO_SYS /* don't build if not configured for use in lwipopts.h */
 
 #include "lwip/priv/tcpip_priv.h"
-#include "lwip/priv/api_msg.h"
 #include "lwip/sys.h"
 #include "lwip/memp.h"
 #include "lwip/mem.h"
@@ -60,11 +59,6 @@
 static tcpip_init_done_fn tcpip_init_done;
 static void *tcpip_init_done_arg;
 static sys_mbox_t tcpip_mbox;
-
-
-#if ESP_LWIP
-sys_thread_t g_lwip_task = 0;
-#endif
 
 #if LWIP_TCPIP_CORE_LOCKING
 /** The global semaphore to lock the stack. */
@@ -172,6 +166,11 @@ tcpip_thread_handle_msg(struct tcpip_msg *msg)
       msg->msg.api_call.arg->err = msg->msg.api_call.function(msg->msg.api_call.arg);
       sys_sem_signal(msg->msg.api_call.sem);
       break;
+    case TCPIP_MSG_CALLBACK_STATIC_WAIT:
+      LWIP_DEBUGF(TCPIP_DEBUG, ("tcpip_thread: CALLBACK WAIT message %p\n", (void *)msg));
+      msg->msg.cb_wait.function(msg->msg.cb_wait.ctx);
+      sys_sem_signal(msg->msg.cb_wait.sem);
+      break;
 #endif /* !LWIP_TCPIP_CORE_LOCKING */
 
 #if !LWIP_TCPIP_CORE_LOCKING_INPUT
@@ -223,7 +222,7 @@ tcpip_thread_poll_one(void)
   int ret = 0;
   struct tcpip_msg *msg;
 
-  if (sys_arch_mbox_tryfetch(&tcpip_mbox, (void **)&msg) != SYS_ARCH_TIMEOUT) {
+  if (sys_arch_mbox_tryfetch(&tcpip_mbox, (void **)&msg) != SYS_MBOX_EMPTY) {
     LOCK_TCPIP_CORE();
     if (msg != NULL) {
       tcpip_thread_handle_msg(msg);
@@ -525,7 +524,7 @@ tcpip_api_call(tcpip_api_call_fn fn, struct tcpip_api_call_data *call)
  * e.g. the message is allocated once and posted several times from an IRQ
  * using tcpip_callbackmsg_trycallback().
  * Example usage: Trigger execution of an ethernet IRQ DPC routine in lwIP thread context.
- * 
+ *
  * @param function the function to call
  * @param ctx parameter passed to function
  * @return a struct pointer to pass to tcpip_callbackmsg_trycallback().
@@ -596,6 +595,49 @@ tcpip_callbackmsg_trycallback_fromisr(struct tcpip_callback_msg *msg)
 }
 
 /**
+ * Sends a message to TCPIP thread to call a function. Caller thread blocks
+ * until the function returns.
+ * It is recommended to use LWIP_TCPIP_CORE_LOCKING (preferred) or
+ * LWIP_NETCONN_SEM_PER_THREAD.
+ * If not, a semaphore is created and destroyed on every call which is usually
+ * an expensive/slow operation.
+ *
+ * @param function the function to call
+ * @param ctx parameter passed to f
+ * @return ERR_OK if the function was called, another err_t if not
+ */
+err_t
+tcpip_callback_wait(tcpip_callback_fn function, void *ctx)
+{
+#if LWIP_TCPIP_CORE_LOCKING
+  LOCK_TCPIP_CORE();
+  function(ctx);
+  UNLOCK_TCPIP_CORE();
+  return ERR_OK;
+#else /* LWIP_TCPIP_CORE_LOCKING */
+  err_t err;
+  sys_sem_t sem;
+  struct tcpip_msg msg;
+
+  LWIP_ASSERT("Invalid mbox", sys_mbox_valid_val(tcpip_mbox));
+
+  err = sys_sem_new(&sem, 0);
+  if (err != ERR_OK) {
+    return err;
+  }
+
+  msg.type = TCPIP_MSG_CALLBACK_STATIC_WAIT;
+  msg.msg.cb_wait.function = function;
+  msg.msg.cb_wait.ctx = ctx;
+  msg.msg.cb_wait.sem = &sem;
+  sys_mbox_post(&tcpip_mbox, &msg);
+  sys_arch_sem_wait(&sem, 0);
+  sys_sem_free(&sem);
+  return ERR_OK;
+#endif /* LWIP_TCPIP_CORE_LOCKING */
+}
+
+/**
  * @ingroup lwip_os
  * Initialize this module:
  * - initialize all sub modules
@@ -620,15 +662,7 @@ tcpip_init(tcpip_init_done_fn initfunc, void *arg)
   }
 #endif /* LWIP_TCPIP_CORE_LOCKING */
 
-#if ESP_LWIP
-  g_lwip_task = sys_thread_new(TCPIP_THREAD_NAME
-                , tcpip_thread, NULL, TCPIP_THREAD_STACKSIZE, TCPIP_THREAD_PRIO);
-
-  LWIP_DEBUGF(TCPIP_DEBUG, ("tcpip_task_hdlxxx : %x, prio:%d,stack:%d\n",
-		 (u32_t)g_lwip_task,TCPIP_THREAD_PRIO,TCPIP_THREAD_STACKSIZE));
-#else
   sys_thread_new(TCPIP_THREAD_NAME, tcpip_thread, NULL, TCPIP_THREAD_STACKSIZE, TCPIP_THREAD_PRIO);
-#endif
 }
 
 /**

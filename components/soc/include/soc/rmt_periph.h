@@ -1,30 +1,24 @@
-// Copyright 2019-2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #pragma once
 
 #include "soc/soc_caps.h"
 #include "soc/periph_defs.h"
+#include "soc/regdma.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#if SOC_RMT_SUPPORTED
+
 typedef struct {
     struct {
         const int irq;
-        const periph_module_t module;
         struct {
             struct {
                 const int tx_sig;
@@ -35,6 +29,20 @@ typedef struct {
 } rmt_signal_conn_t;
 
 extern const rmt_signal_conn_t rmt_periph_signals;
+
+#if SOC_RMT_SUPPORT_SLEEP_RETENTION
+typedef struct {
+    const regdma_entries_config_t *regdma_entry_array;
+    uint32_t array_size;
+} rmt_reg_retention_info_t;
+
+// TODO: implement the retention link on the channel level, this can:
+// - save memory when not all RMT channels are used
+// - specify different retention dependency, e.g. only RMT channel x is capable to use DMA, we only want to add the DMA dependency for that channel
+extern const rmt_reg_retention_info_t rmt_reg_retention_info[SOC_RMT_GROUPS];
+#endif // SOC_RMT_SUPPORT_SLEEP_RETENTION
+
+#endif // SOC_RMT_SUPPORTED
 
 #ifdef __cplusplus
 }

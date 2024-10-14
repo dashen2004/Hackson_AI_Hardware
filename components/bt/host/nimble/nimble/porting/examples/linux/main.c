@@ -39,6 +39,7 @@ void nimble_host_task(void *param);
 void ble_hci_sock_ack_handler(void *param);
 void ble_hci_sock_init(void);
 void ble_hci_sock_set_device(int dev);
+void ble_store_ram_init(void);
 
 #define TASK_DEFAULT_PRIORITY       1
 #define TASK_DEFAULT_STACK          NULL
@@ -66,7 +67,7 @@ int main(int argc, char *argv[])
     }
 
     ble_hci_sock_init();
-    nimble_port_init();
+    ret = nimble_port_init();
 
     /* This example provides GATT Alert service */
     ble_svc_gap_init();

@@ -51,7 +51,7 @@
 #include "lwip/ip4_frag.h"
 #include "lwip/etharp.h"
 #include "lwip/dhcp.h"
-#include "lwip/autoip.h"
+#include "lwip/acd.h"
 #include "lwip/igmp.h"
 #include "lwip/dns.h"
 #include "lwip/nd6.h"
@@ -69,10 +69,6 @@
 
 #define LWIP_MAX_TIMEOUT  0x7fffffff
 
-#if ESP_DHCPS_TIMER
-extern void dhcps_coarse_tmr(void);
-#endif 
-
 /* Check if timer's expiry time is greater than time and care about u32_t wraparounds */
 #define TIME_LESS_THAN(t, compare_to) ( (((u32_t)((t)-(compare_to))) > LWIP_MAX_TIMEOUT) ? 1 : 0 )
 
@@ -85,35 +81,33 @@ const struct lwip_cyclic_timer lwip_cyclic_timers[] = {
   {TCP_TMR_INTERVAL, HANDLER(tcp_tmr)},
 #endif /* LWIP_TCP */
 #if LWIP_IPV4
-#if IP_REASSEMBLY
+#if IP_REASSEMBLY && !ESP_LWIP_IP4_REASSEMBLY_TIMERS_ONDEMAND
   {IP_TMR_INTERVAL, HANDLER(ip_reass_tmr)},
 #endif /* IP_REASSEMBLY */
 #if LWIP_ARP
   {ARP_TMR_INTERVAL, HANDLER(etharp_tmr)},
-#if ESP_GRATUITOUS_ARP
-  {GARP_TMR_INTERVAL, HANDLER(garp_tmr)},
-#endif /* ESP_GRATUITOUS_ARP */
 #endif /* LWIP_ARP */
 #if LWIP_DHCP
   {DHCP_COARSE_TIMER_MSECS, HANDLER(dhcp_coarse_tmr)},
-  {DHCP_FINE_TIMER_MSECS, HANDLER(dhcp_fine_tmr)},
 #endif /* LWIP_DHCP */
-#if ESP_DHCPS_TIMER
-  {DHCP_COARSE_TIMER_MSECS, HANDLER(dhcps_coarse_tmr)},
-#endif
-#if LWIP_AUTOIP
-  {AUTOIP_TMR_INTERVAL, HANDLER(autoip_tmr)},
-#endif /* LWIP_AUTOIP */
+#if LWIP_DHCP && !ESP_LWIP_DHCP_FINE_TIMERS_ONDEMAND
+  {DHCP_FINE_TIMER_MSECS, HANDLER(dhcp_fine_tmr)},
+#endif /*  LWIP_DHCP && !ESP_LWIP_DHCP_FINE_TIMERS_ONDEMAND */
+#if LWIP_ACD && !DHCP_DOES_ARP_CHECK
+  {ACD_TMR_INTERVAL, HANDLER(acd_tmr)},
+#endif /* LWIP_ACD */
 #if LWIP_IGMP && !ESP_LWIP_IGMP_TIMERS_ONDEMAND
   {IGMP_TMR_INTERVAL, HANDLER(igmp_tmr)},
 #endif /* LWIP_IGMP */
 #endif /* LWIP_IPV4 */
-#if LWIP_DNS
+#if LWIP_DNS && !ESP_LWIP_DNS_TIMERS_ONDEMAND
   {DNS_TMR_INTERVAL, HANDLER(dns_tmr)},
 #endif /* LWIP_DNS */
 #if LWIP_IPV6
+#if LWIP_ND6
   {ND6_TMR_INTERVAL, HANDLER(nd6_tmr)},
-#if LWIP_IPV6_REASS
+#endif /* LWIP_ND6 */
+#if LWIP_IPV6_REASS && !ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND
   {IP6_REASS_TMR_INTERVAL, HANDLER(ip6_reass_tmr)},
 #endif /* LWIP_IPV6_REASS */
 #if LWIP_IPV6_MLD && !ESP_LWIP_MLD6_TIMERS_ONDEMAND
@@ -251,7 +245,7 @@ lwip_cyclic_timer(void *arg)
   cyclic->handler();
 
   now = sys_now();
-  next_timeout_time = (u32_t)(current_timeout_due_time + cyclic->interval_ms);  /* overflow handled by TIME_LESS_THAN macro */ 
+  next_timeout_time = (u32_t)(current_timeout_due_time + cyclic->interval_ms);  /* overflow handled by TIME_LESS_THAN macro */
   if (TIME_LESS_THAN(next_timeout_time, now)) {
     /* timer would immediately expire again -> "overload" -> restart without any correction */
 #if LWIP_DEBUG_TIMERNAMES
@@ -315,7 +309,7 @@ sys_timeout(u32_t msecs, sys_timeout_handler handler, void *arg)
 
   LWIP_ASSERT("Timeout time too long, max is LWIP_UINT32_MAX/4 msecs", msecs <= (LWIP_UINT32_MAX / 4));
 
-  next_timeout_time = (u32_t)(sys_now() + msecs); /* overflow handled by TIME_LESS_THAN macro */ 
+  next_timeout_time = (u32_t)(sys_now() + msecs); /* overflow handled by TIME_LESS_THAN macro */
 
 #if LWIP_DEBUG_TIMERNAMES
   sys_timeout_abs(next_timeout_time, handler, arg, handler_name);

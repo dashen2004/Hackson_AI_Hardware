@@ -40,6 +40,7 @@
 
 #include <stdint.h>
 
+#include "common/callback.hpp"
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
 #include "common/notifier.hpp"
@@ -57,7 +58,7 @@ class JamDetector : public InstanceLocator, private NonCopyable
 
 public:
     /**
-     * This function pointer is called if jam state changes (assuming jamming detection is enabled).
+     * Pointer is called if jam state changes (assuming jamming detection is enabled).
      *
      * @param[in]  aJamState  `true` if jam is detected, `false` if jam is cleared.
      * @param[in]  aContext  A pointer to application-specific context.
@@ -66,7 +67,7 @@ public:
     typedef void (*Handler)(bool aJamState, void *aContext);
 
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      * @param[in]  aInstance     A reference to the OpenThread instance.
      *
@@ -111,7 +112,7 @@ public:
     /**
      * Set the Jam Detection RSSI Threshold (in dBm).
      *
-     * @param[in]  aRssiThreshold  The RSSI threshold.
+     * @param[in]  aThreshold  The RSSI threshold.
      *
      */
     void SetRssiThreshold(int8_t aThreshold);
@@ -181,31 +182,30 @@ private:
     static constexpr uint8_t kMaxWindow            = 63; // Max window size
     static constexpr int8_t  kDefaultRssiThreshold = 0;
 
-    static constexpr uint16_t kMaxSampleInterval = 256;  // in ms
-    static constexpr uint16_t kMinSampleInterval = 2;    // in ms
-    static constexpr uint32_t kMaxRandomDelay    = 4;    // in ms
-    static constexpr uint32_t kOneSecondInterval = 1000; // in ms
+    static constexpr uint16_t kMaxSampleInterval = 256; // in ms
+    static constexpr uint16_t kMinSampleInterval = 2;   // in ms
+    static constexpr uint32_t kMaxRandomDelay    = 4;   // in ms
 
-    void        CheckState(void);
-    void        SetJamState(bool aNewState);
-    static void HandleTimer(Timer &aTimer);
-    void        HandleTimer(void);
-    void        UpdateHistory(bool aDidExceedThreshold);
-    void        UpdateJamState(void);
-    void        HandleNotifierEvents(Events aEvents);
+    void CheckState(void);
+    void SetJamState(bool aNewState);
+    void HandleTimer(void);
+    void UpdateHistory(bool aDidExceedThreshold);
+    void UpdateJamState(void);
+    void HandleNotifierEvents(Events aEvents);
 
-    Handler    mHandler;                  // Handler/callback to inform about jamming state
-    void *     mContext;                  // Context for handler/callback
-    TimerMilli mTimer;                    // RSSI sample timer
-    uint64_t   mHistoryBitmap;            // History bitmap, each bit correspond to 1 sec interval
-    TimeMilli  mCurSecondStartTime;       // Start time for current 1 sec interval
-    uint16_t   mSampleInterval;           // Current sample interval
-    uint8_t    mWindow : 6;               // Window (in sec) to monitor jamming
-    uint8_t    mBusyPeriod : 6;           // BusyPeriod (in sec) with mWindow to alert jamming
-    bool       mEnabled : 1;              // If jam detection is enabled
-    bool       mAlwaysAboveThreshold : 1; // State for current 1 sec interval
-    bool       mJamState : 1;             // Current jam state
-    int8_t     mRssiThreshold;            // RSSI threshold for jam detection
+    using SampleTimer = TimerMilliIn<JamDetector, &JamDetector::HandleTimer>;
+
+    Callback<Handler> mCallback;                 // Callback to inform about jamming state
+    SampleTimer       mTimer;                    // RSSI sample timer
+    uint64_t          mHistoryBitmap;            // History bitmap, each bit correspond to 1 sec interval
+    TimeMilli         mCurSecondStartTime;       // Start time for current 1 sec interval
+    uint16_t          mSampleInterval;           // Current sample interval
+    uint8_t           mWindow : 6;               // Window (in sec) to monitor jamming
+    uint8_t           mBusyPeriod : 6;           // BusyPeriod (in sec) with mWindow to alert jamming
+    bool              mEnabled : 1;              // If jam detection is enabled
+    bool              mAlwaysAboveThreshold : 1; // State for current 1 sec interval
+    bool              mJamState : 1;             // Current jam state
+    int8_t            mRssiThreshold;            // RSSI threshold for jam detection
 };
 
 /**

@@ -38,14 +38,18 @@
 namespace ot {
 namespace Ip6 {
 
-Error Header::Init(const Message &aMessage)
+//---------------------------------------------------------------------------------------------------------------------
+// Header
+
+Error Header::ParseFrom(const Message &aMessage)
 {
-    Error error = kErrorNone;
+    Error error = kErrorParse;
 
-    SuccessOrExit(error = aMessage.Read(0, *this));
+    SuccessOrExit(aMessage.Read(0, *this));
+    VerifyOrExit(IsValid());
+    VerifyOrExit(sizeof(Header) + GetPayloadLength() == aMessage.GetLength());
 
-    VerifyOrExit(IsValid(), error = kErrorParse);
-    VerifyOrExit((sizeof(*this) + GetPayloadLength()) == aMessage.GetLength(), error = kErrorParse);
+    error = kErrorNone;
 
 exit:
     return error;
@@ -53,20 +57,75 @@ exit:
 
 bool Header::IsValid(void) const
 {
-    bool ret = true;
-
-    // check Version
-    VerifyOrExit(IsVersion6(), ret = false);
-
-    // check Payload Length
 #if !OPENTHREAD_CONFIG_IP6_FRAGMENTATION_ENABLE
-    VerifyOrExit((sizeof(*this) + GetPayloadLength()) <= Ip6::kMaxDatagramLength, ret = false);
+    static constexpr uint32_t kMaxLength = kMaxDatagramLength;
 #else
-    VerifyOrExit((sizeof(*this) + GetPayloadLength()) <= Ip6::kMaxAssembledDatagramLength, ret = false);
+    static constexpr uint32_t kMaxLength = kMaxAssembledDatagramLength;
 #endif
 
+    return IsVersion6() && ((sizeof(Header) + GetPayloadLength()) <= kMaxLength);
+}
+
+//---------------------------------------------------------------------------------------------------------------------
+// Option
+
+Error Option::ParseFrom(const Message &aMessage, const OffsetRange &aOffsetRange)
+{
+    Error error;
+
+    // Read the Type first to check for the Pad1 Option.
+    // If it is not, then we read the full `Option` header.
+
+    SuccessOrExit(error = aMessage.Read(aOffsetRange, this, sizeof(mType)));
+
+    if (mType == kTypePad1)
+    {
+        SetLength(0);
+        ExitNow();
+    }
+
+    SuccessOrExit(error = aMessage.Read(aOffsetRange, *this));
+    VerifyOrExit(aOffsetRange.Contains(GetSize()), error = kErrorParse);
+
 exit:
-    return ret;
+    return error;
+}
+
+uint16_t Option::GetSize(void) const
+{
+    return (mType == kTypePad1) ? sizeof(mType) : static_cast<uint16_t>(mLength) + sizeof(Option);
+}
+
+//---------------------------------------------------------------------------------------------------------------------
+// PadOption
+
+void PadOption::InitForPadSize(uint8_t aPadSize)
+{
+    OT_UNUSED_VARIABLE(mPads);
+
+    Clear();
+
+    if (aPadSize == 1)
+    {
+        SetType(kTypePad1);
+    }
+    else
+    {
+        SetType(kTypePadN);
+        SetLength(aPadSize - sizeof(Option));
+    }
+}
+
+Error PadOption::InitToPadHeaderWithSize(uint16_t aHeaderSize)
+{
+    Error   error = kErrorNone;
+    uint8_t size  = static_cast<uint8_t>(aHeaderSize % ExtensionHeader::kLengthUnitSize);
+
+    VerifyOrExit(size != 0, error = kErrorAlready);
+    InitForPadSize(ExtensionHeader::kLengthUnitSize - size);
+
+exit:
+    return error;
 }
 
 } // namespace Ip6

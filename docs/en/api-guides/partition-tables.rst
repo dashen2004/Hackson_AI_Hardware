@@ -1,5 +1,6 @@
 Partition Tables
 ================
+
 :link_to_translation:`zh_CN:[中文]`
 
 Overview
@@ -7,7 +8,7 @@ Overview
 
 A single {IDF_TARGET_NAME}'s flash can contain multiple apps, as well as many different kinds of data (calibration data, filesystems, parameter storage, etc). For this reason a partition table is flashed to (:ref:`default offset <CONFIG_PARTITION_TABLE_OFFSET>`) 0x8000 in the flash.
 
-Partition table length is 0xC00 bytes (maximum 95 partition table entries). An MD5 checksum, which is used for checking the integrity of the partition table, is appended after the table data.
+The partition table length is 0xC00 bytes, as we allow a maximum of 95 entries. An MD5 checksum, used for checking the integrity of the partition table at runtime, is appended after the table data. Thus, the partition table occupies an entire flash sector, which size is 0x1000 (4 KB). As a result, any partition following it must be at least located at (:ref:`default offset <CONFIG_PARTITION_TABLE_OFFSET>`) + 0x1000.
 
 Each entry in the partition table has a name (label), type (app, data, or something else), subtype and the offset in flash where the partition is loaded.
 
@@ -66,12 +67,12 @@ The CSV format is the same format as printed in the summaries shown above. Howev
 * Each non-comment line in the CSV file is a partition definition.
 * The "Offset" field for each partition is empty. The gen_esp32part.py tool fills in each blank offset, starting after the partition table and making sure each partition is aligned correctly.
 
-Name field
+Name Field
 ~~~~~~~~~~
 
-Name field can be any meaningful name. It is not significant to the {IDF_TARGET_NAME}. Names longer than 16 characters will be truncated.
+Name field can be any meaningful name. It is not significant to the {IDF_TARGET_NAME}. The maximum length of names is 16 bytes, including one null terminator. Names longer than the maximum length will be truncated.
 
-Type field
+Type Field
 ~~~~~~~~~~
 
 Partition type field can be specified as ``app`` (0x00) or ``data`` (0x01). Or it can be a number 0-254 (or as hex 0x00-0xFE). Types 0x00-0x3F are reserved for ESP-IDF core functions.
@@ -88,12 +89,13 @@ The ESP-IDF bootloader ignores any partition types other than ``app`` (0x00) and
 
 SubType
 ~~~~~~~
+{IDF_TARGET_ESP_PHY_REF:default = ":ref:`CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION`", esp32p4, esp32c5, esp32c61="NOT UPDATED YET"}
 
-The 8-bit subtype field is specific to a given partition type. ESP-IDF currently only specifies the meaning of the subtype field for ``app`` and ``data`` partition types.
+The 8-bit SubType field is specific to a given partition type. ESP-IDF currently only specifies the meaning of the subtype field for ``app`` and ``data`` partition types.
 
 See enum :cpp:type:`esp_partition_subtype_t` for the full list of subtypes defined by ESP-IDF, including the following:
 
-* When type is ``app``, the subtype field can be specified as ``factory`` (0x00), ``ota_0`` (0x10) ... ``ota_15`` (0x1F) or ``test`` (0x20).
+* When type is ``app``, the SubType field can be specified as ``factory`` (0x00), ``ota_0`` (0x10) ... ``ota_15`` (0x1F) or ``test`` (0x20).
 
   - ``factory`` (0x00) is the default app partition. The bootloader will execute the factory app unless there it sees a partition of type data/ota, in which case it reads this partition to determine which OTA image to boot.
 
@@ -109,11 +111,15 @@ See enum :cpp:type:`esp_partition_subtype_t` for the full list of subtypes defin
   - ``phy`` (1) is for storing PHY initialisation data. This allows PHY to be configured per-device, instead of in firmware.
 
     - In the default configuration, the phy partition is not used and PHY initialisation data is compiled into the app itself. As such, this partition can be removed from the partition table to save space.
-    - To load PHY data from this partition, open the project configuration menu (``idf.py menuconfig``) and enable :ref:`CONFIG_ESP_PHY_INIT_DATA_IN_PARTITION` option. You will also need to flash your devices with phy init data as the esp-idf build system does not do this automatically.
+    - To load PHY data from this partition, open the project configuration menu (``idf.py menuconfig``) and enable {IDF_TARGET_ESP_PHY_REF} option. You will also need to flash your devices with phy init data as the esp-idf build system does not do this automatically.
   - ``nvs`` (2) is for the :doc:`Non-Volatile Storage (NVS) API <../api-reference/storage/nvs_flash>`.
 
     - NVS is used to store per-device PHY calibration data (different to initialisation data).
-    - NVS is used to store WiFi data if the :doc:`esp_wifi_set_storage(WIFI_STORAGE_FLASH) <../api-reference/network/esp_wifi>` initialisation function is used.
+
+    .. only:: SOC_WIFI_SUPPORTED
+
+        - NVS is used to store Wi-Fi data if the :doc:`esp_wifi_set_storage(WIFI_STORAGE_FLASH) <../api-reference/network/esp_wifi>` initialization function is used.
+
     - The NVS API can also be used for other application data.
     - It is strongly recommended that you include an NVS partition of at least 0x3000 bytes in your project.
     - If using NVS API to store a lot of data, increase the NVS partition size from the default 0x6000 bytes.
@@ -122,33 +128,62 @@ See enum :cpp:type:`esp_partition_subtype_t` for the full list of subtypes defin
     - It is used to store NVS encryption keys when `NVS Encryption` feature is enabled.
     - The size of this partition should be 4096 bytes (minimum partition size).
 
-  - There are other predefined data subtypes for data storage supported by ESP-IDF. These include :doc:`FAT filesystem </api-reference/storage/fatfs>` (:cpp:enumerator:`ESP_PARTITION_SUBTYPE_DATA_FAT`), :doc:`SPIFFS </api-reference/storage/spiffs>` (:cpp:enumerator:`ESP_PARTITION_SUBTYPE_DATA_SPIFFS`), etc.
+  - There are other predefined data subtypes for data storage supported by ESP-IDF. These include:
+
+    - ``coredump`` (0x03) is for storing core dumps while using a custom partition table CSV file. See :doc:`/api-guides/core_dump` for more details.
+    - ``efuse`` (0x05) is for emulating eFuse bits using :ref:`virtual-efuses`.
+    - ``undefined`` (0x06) is implicitly used for data partitions with unspecified (empty) subtype, but it is possible to explicitly mark them as undefined as well.
+    - ``fat`` (0x81) is for :doc:`/api-reference/storage/fatfs`.
+    - ``spiffs`` (0x82) is for :doc:`/api-reference/storage/spiffs`.
+    - ``littlefs`` (0x83) is for `LittleFS filesystem <https://github.com/littlefs-project/littlefs>`_. See :example:`storage/littlefs` example for more details.
+
+.. Comment: ``esphttpd`` (0x80) was not added to the list because there is no docs section for it and it is not clear whether user should use it explicitly.
 
   Other subtypes of ``data`` type are reserved for future ESP-IDF uses.
 
 * If the partition type is any application-defined value (range 0x40-0xFE), then ``subtype`` field can be any value chosen by the application (range 0x00-0xFE).
 
-  Note that when writing in C++, an application-defined subtype value requires casting to type :cpp:type:`esp_partition_subtype_t` in order to use it with the :ref:`partition API<api-reference-partition-table>`.
+  Note that when writing in C++, an application-defined subtype value requires casting to type :cpp:type:`esp_partition_subtype_t` in order to use it with the :ref:`partition API <api-reference-partition-table>`.
+
+Extra Partition SubTypes
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+A component can define a new partition subtype by setting the ``EXTRA_PARTITION_SUBTYPES`` property. This property is a CMake list, each entry of which is a comma separated string with ``<type>, <subtype>, <value>`` format. The build system uses this property to add extra subtypes and creates fields named ``ESP_PARTITION_SUBTYPE_<type>_<subtype>`` in :cpp:type:`esp_partition_subtype_t`. The project can use this subtype to define partitions in the partitions table CSV file and use the new fields in :cpp:type:`esp_partition_subtype_t`.
+
+.. _partition-offset-and-size:
 
 Offset & Size
 ~~~~~~~~~~~~~
 
-Partitions with blank offsets in the CSV file will start after the previous partition, or after the partition table in the case of the first partition.
+.. list::
 
-Partitions of type ``app`` have to be placed at offsets aligned to 0x10000 (64K). If you leave the offset field blank,  ``gen_esp32part.py`` will automatically align the partition. If you specify an unaligned offset for an app partition, the tool will return an error.
-
-Sizes and offsets can be specified as decimal numbers, hex numbers with the prefix 0x, or size multipliers K or M (1024 and 1024*1024 bytes).
+    - The offset represents the partition address in the SPI flash, which sector size is 0x1000 (4 KB). Thus, the offset must be a multiple of 4 KB.
+    - Partitions with blank offsets in the CSV file will start after the previous partition, or after the partition table in the case of the first partition.
+    - Partitions of type ``app`` have to be placed at offsets aligned to 0x10000 (64 KB). If you leave the offset field blank, ``gen_esp32part.py`` will automatically align the partition. If you specify an unaligned offset for an ``app`` partition, the tool will return an error.
+    - Partitions of type ``app`` should have the size aligned to the flash sector size (4 KB). If you specify an unaligned size for an ``app`` partition, the tool will return an error.
+    :SOC_SECURE_BOOT_V1: - If Secure Boot V1 is enabled, then the partition of type ``app`` needs to have size aligned to 0x10000 (64 KB) boundary.
+    - Sizes and offsets can be specified as decimal numbers, hex numbers with the prefix 0x, or size multipliers K or M (1024 and 1024*1024 bytes).
 
 If you want the partitions in the partition table to work relative to any placement (:ref:`CONFIG_PARTITION_TABLE_OFFSET`) of the table itself, leave the offset field (in CSV file) for all partitions blank. Similarly, if changing the partition table offset then be aware that all blank partition offsets may change to match, and that any fixed offsets may now collide with the partition table (causing an error).
 
 Flags
 ~~~~~
 
-Only one flag is currently supported, ``encrypted``. If this field is set to ``encrypted``, this partition will be encrypted if :doc:`/security/flash-encryption` is enabled.
+Two flags are currently supported, ``encrypted`` and ``readonly``:
 
-.. note::
+  - If ``encrypted`` flag is set, the partition will be encrypted if :doc:`/security/flash-encryption` is enabled.
 
-    ``app`` type partitions will always be encrypted, regardless of whether this flag is set or not.
+  .. note::
+
+      ``app`` type partitions will always be encrypted, regardless of whether this flag is set or not.
+
+  - If ``readonly`` flag is set, the partition will be read-only. This flag is only supported for ``data`` type partitions except ``ota``` and ``coredump``` subtypes. This flag can help to protect against accidental writes to a partition that contains critical device-specific configuration data, e.g., factory data partition.
+
+  .. note::
+
+      Using C file I/O API to open a file (``fopen```) in any write mode (``w``, ``w+``, ``a``, ``a+``, ``r+``) will fail and return ``NULL``. Using ``open`` with any other flag than ``O_RDONLY`` will fail and return ``-1`` while ``errno`` global variable will be set to ``EROFS``. This is also true for any other POSIX syscall function performing write or erase operations. Opening a handle in read-write mode for NVS on a read-only partition will fail and return :c:macro:`ESP_ERR_NOT_ALLOWED` error code. Using a lower level API like ``esp_partition``, ``spi_flash``, etc. to write to a read-only partition will result in :c:macro:`ESP_ERR_NOT_ALLOWED` error code.
+
+You can specify multiple flags by separating them with a colon. For example, ``encrypted:readonly``.
 
 Generating Binary Partition Table
 ---------------------------------
@@ -177,31 +212,27 @@ The ESP-IDF build system will automatically check if generated binaries fit in t
 Currently these checks are performed for the following binaries:
 
 * Bootloader binary must fit in space before partition table (see :ref:`bootloader-size`).
-* App binary should fit in at least one partition of type "app". If the app binary doesn't fit in any app partition, the build will fail. If it only fits in some of the app partitions, a warning is printed about this.
+* App binary should fit in at least one partition of type "app". If the app binary does not fit in any app partition, the build will fail. If it only fits in some of the app partitions, a warning is printed about this.
 
 .. note::
 
    Although the build process will fail if the size check returns an error, the binary files are still generated and can be flashed (although they may not work if they are too large for the available space.)
 
-.. note::
-
-   Build system binary size checks are only performed when using the CMake build system. When using the legacy GNU Make build system, file sizes can be checked manually or an error will be logged during boot.
-
-MD5 checksum
+MD5 Checksum
 ~~~~~~~~~~~~
 
 The binary format of the partition table contains an MD5 checksum computed based on the partition table. This checksum is used for checking the integrity of the partition table during the boot.
 
 .. only:: esp32
 
-    The MD5 checksum generation can be disabled by the ``--disable-md5sum`` option of ``gen_esp32part.py`` or by the :ref:`CONFIG_PARTITION_TABLE_MD5` option. This is useful for example when one :ref:`uses a bootloader from ESP-IDF before v3.1 <CONFIG_ESP32_COMPATIBLE_PRE_V3_1_BOOTLOADERS>` which cannot process MD5 checksums and the boot fails with the error message ``invalid magic number 0xebeb``.
+    The MD5 checksum generation can be disabled by the ``--disable-md5sum`` option of ``gen_esp32part.py`` or by the :ref:`CONFIG_PARTITION_TABLE_MD5` option. This is useful for example when one :ref:`uses a bootloader from ESP-IDF before v3.1 <CONFIG_APP_COMPATIBLE_PRE_V3_1_BOOTLOADERS>` which cannot process MD5 checksums and the boot fails with the error message ``invalid magic number 0xebeb``.
 
 .. only:: not esp32
 
     The MD5 checksum generation can be disabled by the ``--disable-md5sum`` option of ``gen_esp32part.py`` or by the :ref:`CONFIG_PARTITION_TABLE_MD5` option.
 
 
-Flashing the partition table
+Flashing the Partition Table
 ----------------------------
 
 * ``idf.py partition-table-flash``: will flash the partition table with esptool.py.
@@ -211,13 +242,13 @@ A manual flashing command is also printed as part of ``idf.py partition-table`` 
 
 .. note::
 
-  Note that updating the partition table doesn't erase data that may have been stored according to the old partition table. You can use ``idf.py erase-flash`` (or ``esptool.py erase_flash``) to erase the entire flash contents.
+  Note that updating the partition table does not erase data that may have been stored according to the old partition table. You can use ``idf.py erase-flash`` (or ``esptool.py erase_flash``) to erase the entire flash contents.
 
 
-Partition Tool (parttool.py)
-----------------------------
+Partition Tool (``parttool.py``)
+--------------------------------
 
-The component `partition_table` provides a tool :component_file:`parttool.py<partition_table/parttool.py>` for performing partition-related operations on a target device. The following operations can be performed using the tool:
+The component `partition_table` provides a tool :component_file:`parttool.py <partition_table/parttool.py>` for performing partition-related operations on a target device. The following operations can be performed using the tool:
 
   - reading a partition and saving the contents to a file (read_partition)
   - writing the contents of a file to a partition (write_partition)
@@ -246,7 +277,7 @@ The starting point for using the tool's Python API to do is create a `ParttoolTa
 
 .. code-block:: python
 
-  # Create a partool.py target device connected on serial port /dev/ttyUSB1
+  # Create a parttool.py target device connected on serial port /dev/ttyUSB1
   target = ParttoolTarget("/dev/ttyUSB1")
 
 The created object can now be used to perform operations on the target device:
@@ -292,10 +323,29 @@ The command-line interface of `parttool.py` has the following structure:
   parttool.py --port "/dev/ttyUSB1" read_partition --partition-type=data --partition-subtype=spiffs --output "spiffs.bin"
 
   # Write to partition 'factory' the contents of a file named 'factory.bin'
-  parttool.py --port "/dev/ttyUSB1" write_partition --partition-name=factory "factory.bin"
+  parttool.py --port "/dev/ttyUSB1" write_partition --partition-name=factory --input "factory.bin"
 
   # Print the size of default boot partition
   parttool.py --port "/dev/ttyUSB1" get_partition_info --partition-boot-default --info size
+
+.. note::
+  If the device has already enabled ``Flash Encryption`` or ``Secure Boot``, attempting to use commands that modify the flash content, such as ``erase_partition`` or ``write_partition``, will result in an error. This error is generated by the erase command of ``esptool.py``, which is called first before writing. This error is done as a safety measure to prevent bricking your device.
+
+  ::
+
+    A fatal error occurred: Active security features detected, erasing flash is disabled as a safety measure. Use --force to override, please use with caution, otherwise it may brick your device!
+
+  To work around this, you need use the ``--force`` flag with ``esptool.py``. Specifically, the ``parttool.py`` provides the ``--esptool-erase-args`` argument that help to pass this flag to ``esptool.py``.
+
+  .. code-block:: bash
+
+    # Erase partition with name 'storage'
+    # If Flash Encryption or Secure Boot are enabled then add "--esptool-erase-args=force"
+    parttool.py --port "/dev/ttyUSB1" --esptool-erase-args=force erase_partition --partition-name=storage
+
+    # Write to partition 'factory' the contents of a file named 'factory.bin'
+    # If Flash Encryption or Secure Boot are enabled then add "--esptool-erase-args=force"
+    parttool.py --port "/dev/ttyUSB1" --esptool-erase-args=force write_partition --partition-name=factory --input "factory.bin"
 
 More information can be obtained by specifying `--help` as argument:
 

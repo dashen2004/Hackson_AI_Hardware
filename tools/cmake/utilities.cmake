@@ -22,8 +22,8 @@ endfunction()
 # Take a variable whose value was space-delimited values, convert to a cmake
 # list (semicolon-delimited)
 #
-# Note: if using this for directories, keeps the issue in place that
-# directories can't contain spaces...
+# Note: do not use this for directories or full paths, as they may contain
+# spaces.
 #
 # TODO: look at cmake separate_arguments, which is quote-aware
 function(spaces2list variable_name)
@@ -103,7 +103,7 @@ function(target_add_binary_data target embed_file embed_type)
         WORKING_DIRECTORY "${build_dir}"
         VERBATIM)
 
-    set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${embed_srcfile}")
+    set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" APPEND PROPERTY ADDITIONAL_CLEAN_FILES "${embed_srcfile}")
 
     target_sources("${target}" PRIVATE "${embed_srcfile}")
 endfunction()
@@ -152,24 +152,18 @@ function(target_linker_script target deptype scriptfiles)
         get_filename_component(search_dir "${abs_script}" DIRECTORY)
         get_filename_component(scriptname "${abs_script}" NAME)
 
-        if(deptype STREQUAL INTERFACE OR deptype STREQUAL PUBLIC)
-            get_target_property(link_libraries "${target}" INTERFACE_LINK_LIBRARIES)
-        else()
-            get_target_property(link_libraries "${target}" LINK_LIBRARIES)
-        endif()
-
-        list(FIND "${link_libraries}" "-L \"${search_dir}\"" found_search_dir)
-        if(found_search_dir EQUAL "-1")  # not already added as a search path
-            target_link_libraries("${target}" "${deptype}" "-L \"${search_dir}\"")
-        endif()
-
-        target_link_libraries("${target}" "${deptype}" "-T ${scriptname}")
+        target_link_directories("${target}" "${deptype}" ${search_dir})
+        # Regarding the usage of SHELL, see
+        # https://cmake.org/cmake/help/latest/command/target_link_options.html#option-de-duplication
+        target_link_options("${target}" "${deptype}" "SHELL:-T ${scriptname}")
 
         # Note: In ESP-IDF, most targets are libraries and libary LINK_DEPENDS don't propagate to
-        # executable(s) the library is linked to. Attach manually to executable once it is known.
-        #
-        # Property INTERFACE_LINK_DEPENDS is available in CMake 3.13 which should propagate link
-        # dependencies.
+        # executable(s) the library is linked to. Since CMake 3.13, INTERFACE_LINK_DEPENDS is
+        # available to solve this. However, when GNU Make generator is used, this property also
+        # propagates INTERFACE_LINK_DEPENDS dependencies to other static libraries.
+        # TODO: see if this is an expected behavior and possibly report this as a bug to CMake.
+        # For the time being, record all linker scripts in __LINK_DEPENDS and attach manually to
+        # the executable target once it is known.
         if(NOT __PROCESS)
             idf_build_set_property(__LINK_DEPENDS ${abs_script} APPEND)
         endif()
@@ -178,7 +172,12 @@ endfunction()
 
 # Convert a CMake list to a JSON list and store it in a variable
 function(make_json_list list variable)
-    string(REPLACE ";" "\", \"" result "[ \"${list}\" ]")
+    list(LENGTH list length)
+    if(${length})
+        string(REPLACE ";" "\", \"" result "[ \"${list}\" ]")
+    else()
+        set(result "[]")
+    endif()
     set("${variable}" "${result}" PARENT_SCOPE)
 endfunction()
 
@@ -283,6 +282,17 @@ function(add_c_compile_options)
     endforeach()
 endfunction()
 
+# add_compile_options variant for ASM code only
+#
+# This adds global options, set target properties for
+# component-specific flags
+function(add_asm_compile_options)
+    foreach(option ${ARGV})
+        # note: the Visual Studio Generator doesn't support this...
+        add_compile_options($<$<COMPILE_LANGUAGE:ASM>:${option}>)
+    endforeach()
+endfunction()
+
 
 # add_prebuild_library
 #
@@ -325,7 +335,7 @@ function(file_generate output)
     endif()
 
     set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${output}")
+        APPEND PROPERTY ADDITIONAL_CLEAN_FILES "${output}")
 endfunction()
 
 # add_subdirectory_if_exists
@@ -347,9 +357,23 @@ endfunction()
 # Creates an alias for exising target and shows deprectation warning
 function(add_deprecated_target_alias old_target new_target)
     add_custom_target(${old_target}
-        COMMAND ${CMAKE_COMMAND} -E echo
-        "Warning: Command \"${old_target}\" is deprecated and will be removed in the next major release. \
-        Please use \"${new_target}\" instead."
+     # `COMMAND` is important to print the `COMMENT` message at the end of the target action.
+        COMMAND ${CMAKE_COMMAND} -E echo ""
+        COMMENT "Warning: command \"${old_target}\" is deprecated. Have you wanted to run \"${new_target}\" instead?"
     )
     add_dependencies(${old_target} ${new_target})
+endfunction()
+
+
+# Remove duplicates from a string containing compilation flags
+function(remove_duplicated_flags FLAGS UNIQFLAGS)
+    set(FLAGS_LIST "${FLAGS}")
+    # Convert the given flags, as a string, into a CMake list type
+    separate_arguments(FLAGS_LIST)
+    # Remove all the duplicated flags
+    list(REMOVE_DUPLICATES FLAGS_LIST)
+    # Convert the list back to a string
+    string(REPLACE ";" " " FLAGS_LIST "${FLAGS_LIST}")
+    # Return that string to the caller
+    set(${UNIQFLAGS} "${FLAGS_LIST}" PARENT_SCOPE)
 endfunction()

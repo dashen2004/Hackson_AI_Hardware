@@ -36,6 +36,7 @@
 #include "openthread-core-config.h"
 
 #include "lib/hdlc/hdlc.hpp"
+#include "lib/spinel/multi_frame_buffer.hpp"
 #include "ncp/ncp_base.hpp"
 
 #if OPENTHREAD_ENABLE_NCP_SPINEL_ENCRYPTER
@@ -58,14 +59,27 @@ public:
      */
     explicit NcpHdlc(Instance *aInstance, otNcpHdlcSendCallback aSendCallback);
 
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && OPENTHREAD_RADIO
     /**
-     * This method is called when uart tx is finished. It prepares and sends the next data chunk (if any) to uart.
+     * Constructor
+     *
+     * @param[in]  aInstancs      The OpenThread instance pointers array.
+     * @param[in]  aCount         Number of instances in the array.
+     * @param[in]  aSendCallback  Callback for sending data.
+     *
+     */
+    explicit NcpHdlc(Instance **aInstances, uint8_t aCount, otNcpHdlcSendCallback aSendCallback);
+
+#endif // OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && OPENTHREAD_RADIO
+
+    /**
+     * Is called when uart tx is finished. It prepares and sends the next data chunk (if any) to uart.
      *
      */
     void HandleHdlcSendDone(void);
 
     /**
-     * This method is called when uart received a data buffer.
+     * Is called when uart received a data buffer.
      *
      */
     void HandleHdlcReceiveDone(const uint8_t *aBuf, uint16_t aBufLength);
@@ -122,20 +136,20 @@ private:
 
     static void           EncodeAndSend(Tasklet &aTasklet);
     static void           HandleFrame(void *aContext, otError aError);
-    static void           HandleFrameAddedToNcpBuffer(void *                   aContext,
+    static void           HandleFrameAddedToNcpBuffer(void                    *aContext,
                                                       Spinel::Buffer::FrameTag aTag,
                                                       Spinel::Buffer::Priority aPriority,
-                                                      Spinel::Buffer *         aBuffer);
+                                                      Spinel::Buffer          *aBuffer);
     otNcpHdlcSendCallback mSendCallback;
 
-    Hdlc::Encoder                        mFrameEncoder;
-    Hdlc::Decoder                        mFrameDecoder;
-    Hdlc::FrameBuffer<kHdlcTxBufferSize> mHdlcBuffer;
-    HdlcTxState                          mState;
-    uint8_t                              mByte;
-    Hdlc::FrameBuffer<kRxBufferSize>     mRxBuffer;
-    bool                                 mHdlcSendImmediate;
-    Tasklet                              mHdlcSendTask;
+    Spinel::FrameBuffer<kHdlcTxBufferSize> mHdlcBuffer;
+    Hdlc::Encoder                          mFrameEncoder;
+    Hdlc::Decoder                          mFrameDecoder;
+    HdlcTxState                            mState;
+    uint8_t                                mByte;
+    Spinel::FrameBuffer<kRxBufferSize>     mRxBuffer;
+    bool                                   mHdlcSendImmediate;
+    Tasklet                                mHdlcSendTask;
 
 #if OPENTHREAD_ENABLE_NCP_SPINEL_ENCRYPTER
     BufferEncrypterReader mTxFrameBufferEncrypterReader;

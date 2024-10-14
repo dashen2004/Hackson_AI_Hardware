@@ -40,65 +40,91 @@
 
 #include <openthread/dataset.h>
 
-#include "cli/cli_output.hpp"
-#include "utils/lookup_table.hpp"
-#include "utils/parse_cmdline.hpp"
+#include "cli/cli_utils.hpp"
 
 namespace ot {
 namespace Cli {
 
 /**
- * This class implements the Dataset CLI interpreter.
+ * Implements the Dataset CLI interpreter.
  *
  */
-class Dataset : private OutputWrapper
+class Dataset : private Utils
 {
 public:
-    typedef Utils::CmdLineParser::Arg Arg;
-
-    explicit Dataset(Output &aOutput)
-        : OutputWrapper(aOutput)
+    Dataset(otInstance *aInstance, OutputImplementer &aOutputImplementer)
+        : Utils(aInstance, aOutputImplementer)
     {
     }
 
     /**
-     * This method interprets a list of CLI arguments.
+     * Processes a CLI sub-command.
      *
-     * @param[in]  aArgs        An array of command line arguments.
+     * @param[in]  aArgs     An array of command line arguments.
+     *
+     * @retval OT_ERROR_NONE              Successfully executed the CLI command.
+     * @retval OT_ERROR_PENDING           The CLI command was successfully started but final result is pending.
+     * @retval OT_ERROR_INVALID_COMMAND   Invalid or unknown CLI command.
+     * @retval OT_ERROR_INVALID_ARGS      Invalid arguments.
+     * @retval ...                        Error during execution of the CLI command.
      *
      */
     otError Process(Arg aArgs[]);
 
 private:
-    struct Command
+    using Command    = CommandEntry<Dataset>;
+    using Components = otOperationalDatasetComponents;
+
+    struct ComponentMapper
     {
+        int Compare(const char *aName) const { return strcmp(aName, mName); }
+
+        constexpr static bool AreInOrder(const ComponentMapper &aFirst, const ComponentMapper &aSecond)
+        {
+            return AreStringsInOrder(aFirst.mName, aSecond.mName);
+        }
+
         const char *mName;
-        otError (Dataset::*mHandler)(Arg aArgs[]);
+        bool Components::*mIsPresentPtr;
+        void (Dataset::*mOutput)(const otOperationalDataset &aDataset);
+        otError (Dataset::*mParse)(Arg *&aArgs, otOperationalDataset &aDataset);
     };
 
-    otError Print(otOperationalDataset &aDataset);
+    const ComponentMapper *LookupMapper(const char *aName) const;
 
-    otError ProcessHelp(Arg aArgs[]);
-    otError ProcessActive(Arg aArgs[]);
-    otError ProcessActiveTimestamp(Arg aArgs[]);
-    otError ProcessChannel(Arg aArgs[]);
-    otError ProcessChannelMask(Arg aArgs[]);
-    otError ProcessClear(Arg aArgs[]);
-    otError ProcessCommit(Arg aArgs[]);
-    otError ProcessDelay(Arg aArgs[]);
-    otError ProcessExtPanId(Arg aArgs[]);
-    otError ProcessInit(Arg aArgs[]);
-    otError ProcessMeshLocalPrefix(Arg aArgs[]);
-    otError ProcessNetworkName(Arg aArgs[]);
-    otError ProcessNetworkKey(Arg aArgs[]);
-    otError ProcessPanId(Arg aArgs[]);
-    otError ProcessPending(Arg aArgs[]);
-    otError ProcessPendingTimestamp(Arg aArgs[]);
-    otError ProcessMgmtSetCommand(Arg aArgs[]);
-    otError ProcessMgmtGetCommand(Arg aArgs[]);
-    otError ProcessPskc(Arg aArgs[]);
-    otError ProcessSecurityPolicy(Arg aArgs[]);
-    otError ProcessSet(Arg aArgs[]);
+    void OutputActiveTimestamp(const otOperationalDataset &aDataset);
+    void OutputChannel(const otOperationalDataset &aDataset);
+    void OutputChannelMask(const otOperationalDataset &aDataset);
+    void OutputDelay(const otOperationalDataset &aDataset);
+    void OutputExtendedPanId(const otOperationalDataset &aDataset);
+    void OutputMeshLocalPrefix(const otOperationalDataset &aDataset);
+    void OutputNetworkKey(const otOperationalDataset &aDataset);
+    void OutputNetworkName(const otOperationalDataset &aDataset);
+    void OutputPanId(const otOperationalDataset &aDataset);
+    void OutputPendingTimestamp(const otOperationalDataset &aDataset);
+    void OutputPskc(const otOperationalDataset &aDataset);
+    void OutputSecurityPolicy(const otOperationalDataset &aDataset);
+
+    otError ParseActiveTimestamp(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParseChannel(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParseChannelMask(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParseDelay(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParseExtendedPanId(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParseMeshLocalPrefix(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParseNetworkKey(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParseNetworkName(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParsePanId(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParsePendingTimestamp(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParsePskc(Arg *&aArgs, otOperationalDataset &aDataset);
+    otError ParseSecurityPolicy(Arg *&aArgs, otOperationalDataset &aDataset);
+
+    otError ParseTlvs(Arg &aArg, otOperationalDatasetTlvs &aDatasetTlvs);
+
+    otError ProcessCommand(const ComponentMapper &aMapper, Arg aArgs[]);
+
+    template <CommandId kCommandId> otError Process(Arg aArgs[]);
+
+    otError Print(otOperationalDatasetTlvs &aDatasetTlvs);
 
 #if OPENTHREAD_CONFIG_DATASET_UPDATER_ENABLE && OPENTHREAD_FTD
     otError     ProcessUpdater(Arg aArgs[]);
@@ -109,36 +135,7 @@ private:
     void    OutputSecurityPolicy(const otSecurityPolicy &aSecurityPolicy);
     otError ParseSecurityPolicy(otSecurityPolicy &aSecurityPolicy, Arg *&aArgs);
 
-    static constexpr Command sCommands[] = {
-        {"active", &Dataset::ProcessActive},
-        {"activetimestamp", &Dataset::ProcessActiveTimestamp},
-        {"channel", &Dataset::ProcessChannel},
-        {"channelmask", &Dataset::ProcessChannelMask},
-        {"clear", &Dataset::ProcessClear},
-        {"commit", &Dataset::ProcessCommit},
-        {"delay", &Dataset::ProcessDelay},
-        {"extpanid", &Dataset::ProcessExtPanId},
-        {"help", &Dataset::ProcessHelp},
-        {"init", &Dataset::ProcessInit},
-        {"meshlocalprefix", &Dataset::ProcessMeshLocalPrefix},
-        {"mgmtgetcommand", &Dataset::ProcessMgmtGetCommand},
-        {"mgmtsetcommand", &Dataset::ProcessMgmtSetCommand},
-        {"networkkey", &Dataset::ProcessNetworkKey},
-        {"networkname", &Dataset::ProcessNetworkName},
-        {"panid", &Dataset::ProcessPanId},
-        {"pending", &Dataset::ProcessPending},
-        {"pendingtimestamp", &Dataset::ProcessPendingTimestamp},
-        {"pskc", &Dataset::ProcessPskc},
-        {"securitypolicy", &Dataset::ProcessSecurityPolicy},
-        {"set", &Dataset::ProcessSet},
-#if OPENTHREAD_CONFIG_DATASET_UPDATER_ENABLE && OPENTHREAD_FTD
-        {"updater", &Dataset::ProcessUpdater},
-#endif
-    };
-
-    static_assert(Utils::LookupTable::IsSorted(sCommands), "Command Table is not sorted");
-
-    static otOperationalDataset sDataset;
+    static otOperationalDatasetTlvs sDatasetTlvs;
 };
 
 } // namespace Cli

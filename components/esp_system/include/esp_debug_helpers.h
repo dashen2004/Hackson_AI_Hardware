@@ -1,16 +1,8 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #pragma once
 
@@ -21,8 +13,9 @@ extern "C" {
 #ifndef __ASSEMBLER__
 
 #include <stdbool.h>
-#include "esp_err.h"
+#include "sdkconfig.h"
 #include "soc/soc.h"  // [refactor-todo] IDF-2297
+#include "esp_err.h"
 #include "esp_cpu.h"
 
 /*
@@ -104,12 +97,17 @@ bool esp_backtrace_get_next_frame(esp_backtrace_frame_t *frame);
  *      - ESP_OK    Backtrace successfully printed to completion or to depth limit
  *      - ESP_FAIL  Backtrace is corrupted
  */
-esp_err_t IRAM_ATTR esp_backtrace_print_from_frame(int depth, const esp_backtrace_frame_t* frame, bool panic);
+esp_err_t esp_backtrace_print_from_frame(int depth, const esp_backtrace_frame_t* frame, bool panic);
 
 /**
  * @brief Print the backtrace of the current stack
  *
  * @param depth The maximum number of stack frames to print (should be > 0)
+ *
+ * @note On RISC-V targets printing backtrace at run-time is only available if
+ *       CONFIG_ESP_SYSTEM_USE_EH_FRAME is selected. Otherwise we simply print
+ *       a register dump. Function assumes it is called in a context where the
+ *       calling task will not migrate to another core, e.g. interrupts disabled/panic handler.
  *
  * @return
  *      - ESP_OK    Backtrace successfully printed to completion or to depth limit
@@ -118,12 +116,26 @@ esp_err_t IRAM_ATTR esp_backtrace_print_from_frame(int depth, const esp_backtrac
 esp_err_t esp_backtrace_print(int depth);
 
 /**
+ * @brief Print the backtrace of all tasks
+ *
+ * @param depth The maximum number of stack frames to print (must be > 0)
+ *
+ * @note Users must ensure that no tasks are created or deleted while this function is running.
+ * @note This function must be called from a task context.
+ *
+ * @return
+ *      - ESP_OK    All backtraces successfully printed to completion or to depth limit
+ *      - ESP_FAIL  One or more backtraces are corrupt
+ */
+esp_err_t esp_backtrace_print_all_tasks(int depth);
+
+/**
  * @brief Set a watchpoint to break/panic when a certain memory range is accessed.
  * Superseded by esp_cpu_set_watchpoint in esp_cpu.h.
  */
 static inline __attribute__((deprecated)) esp_err_t esp_set_watchpoint(int no, void *adr, int size, int flags)
 {
-    return esp_cpu_set_watchpoint(no, adr, size, flags);
+    return esp_cpu_set_watchpoint(no, adr, size, (esp_cpu_watchpoint_trigger_t)flags);
 }
 
 /**

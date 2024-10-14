@@ -6,37 +6,36 @@
 #     the fast build will be built.
 #
 # Needs to be called under IDF root folder
-#
-# This script will call find_apps.py with the following arguments:
-# - CMake build arguments: --work-dir {BUILD_PATH}/cmake --build-dir ${BUILD_DIR} --build-log ${BUILD_LOG_CMAKE}
-# - Make build arguments: --work-dir {BUILD_PATH}/make/${BUILD_DIR} --build-dir build --build-log ${BUILD_LOG_MAKE}
 
 set -euo pipefail
 
+TEMPLATE_APP_PATH="esp-idf-template"
+
 gen_configs() {
     # CONFIG_COMPILER_OPTIMIZATION_NONE with flag -O0
-    echo "CONFIG_COMPILER_OPTIMIZATION_NONE=y" > esp-idf-template/sdkconfig.ci.O0
-    echo "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_NONE=y" >> esp-idf-template/sdkconfig.ci.O0
-    # -O0 makes the bootloader too large to fit in the default space, otherwise(!)
-    echo "CONFIG_PARTITION_TABLE_OFFSET=0x10000" >> esp-idf-template/sdkconfig.ci.O0
+    echo "CONFIG_COMPILER_OPTIMIZATION_NONE=y" > ${TEMPLATE_APP_PATH}/sdkconfig.ci.O0
 
     # CONFIG_COMPILER_OPTIMIZATION_SIZE with flag -Os
-    echo "CONFIG_COMPILER_OPTIMIZATION_SIZE=y" > esp-idf-template/sdkconfig.ci.Os
-    echo "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE=y" >> esp-idf-template/sdkconfig.ci.Os
+    echo "CONFIG_COMPILER_OPTIMIZATION_SIZE=y" > ${TEMPLATE_APP_PATH}/sdkconfig.ci.Os
+    echo "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE=y" >> ${TEMPLATE_APP_PATH}/sdkconfig.ci.Os
 
     # CONFIG_COMPILER_OPTIMIZATION_PERF with flag -O2
-    echo "CONFIG_COMPILER_OPTIMIZATION_PERF=y" > esp-idf-template/sdkconfig.ci.O2
-    echo "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF=y" >> esp-idf-template/sdkconfig.ci.O2
+    echo "CONFIG_COMPILER_OPTIMIZATION_PERF=y" > ${TEMPLATE_APP_PATH}/sdkconfig.ci.O2
+    echo "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF=y" >> ${TEMPLATE_APP_PATH}/sdkconfig.ci.O2
+    # -O2 makes the bootloader too large to fit in the default space, otherwise(!)
+    echo "CONFIG_PARTITION_TABLE_OFFSET=0x10000" >> ${TEMPLATE_APP_PATH}/sdkconfig.ci.O2
 
     # This part will be built in earlier stage (pre_build job) with only cmake. Built with make in later stage
-    # CONFIG_COMPILER_OPTIMIZATION_DEFAULT with flag -Og
-    echo "CONFIG_COMPILER_OPTIMIZATION_DEFAULT=y" > esp-idf-template/sdkconfig.ci2.Og
-    echo "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG=y" >> esp-idf-template/sdkconfig.ci2.Og
+    # CONFIG_COMPILER_OPTIMIZATION_DEBUG with flag -Og
+    echo "CONFIG_COMPILER_OPTIMIZATION_DEBUG=y" > ${TEMPLATE_APP_PATH}/sdkconfig.ci2.Og
+    echo "CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG=y" >> ${TEMPLATE_APP_PATH}/sdkconfig.ci2.Og
+    # -Og makes the bootloader too large to fit in the default space, otherwise(!)
+    echo "CONFIG_PARTITION_TABLE_OFFSET=0x10000" >> ${TEMPLATE_APP_PATH}/sdkconfig.ci2.Og
 
     # Needs to be built with specific extra flags
     # Same as O2, but also disable assertions.
-    cp esp-idf-template/sdkconfig.ci.O2 esp-idf-template/sdkconfig.ci3.no_assert
-    echo "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=y" >> esp-idf-template/sdkconfig.ci3.no_assert
+    cp ${TEMPLATE_APP_PATH}/sdkconfig.ci.O2 ${TEMPLATE_APP_PATH}/sdkconfig.ci3.no_assert
+    echo "CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=y" >> ${TEMPLATE_APP_PATH}/sdkconfig.ci3.no_assert
 }
 
 get_config_str() {
@@ -49,65 +48,37 @@ get_config_str() {
     echo ${CONFIG_STR}
 }
 
-search_cmake() {
-    TARGET=$1
-    shift
-    CONFIG_STR=$*
-    tools/find_apps.py -vv --format json --work-dir ${BUILD_PATH}/cmake --build-dir ${BUILD_DIR} --build-log ${BUILD_LOG_CMAKE} -p esp-idf-template --build-system cmake ${CONFIG_STR} --target ${TARGET} --output scan_temp.json
-    cat scan_temp.json >> scan.json
-    rm scan_temp.json
-}
-
-search_make() {
-    TARGET=$1
-    shift
-    CONFIG_STR=$*
-    tools/find_apps.py -vv --format json --work-dir ${BUILD_PATH}/make/${BUILD_DIR} --build-dir build --build-log ${BUILD_LOG_MAKE} -p esp-idf-template --build-system make ${CONFIG_STR} --target ${TARGET} --output scan_temp.json
-    cat scan_temp.json >> scan.json
-    rm scan_temp.json
-}
-
-build() {
-    tools/build_apps.py -vv --format json --keep-going --parallel-count 1 --parallel-index 1 --size-info ${SIZE_INFO_LOCATION} scan.json
-    rm scan.json
-}
-
 build_stage2() {
     CONFIG_STR=$(get_config_str sdkconfig.ci.*=)
-    search_cmake esp32 ${CONFIG_STR}
-    search_cmake esp32s2 ${CONFIG_STR}
-    search_cmake esp32s3 ${CONFIG_STR}
-    search_cmake esp32c3 ${CONFIG_STR}
-    search_cmake esp32h2 ${CONFIG_STR}
-
-    CONFIG_STR=$(get_config_str sdkconfig.ci.*= sdkconfig.ci2.*=)
-    search_make esp32 ${CONFIG_STR}
-
-    build build_list_1.json
-
-    CONFIG_STR=$(get_config_str sdkconfig.ci3.*=)
-    search_make esp32 ${CONFIG_STR}
-    search_cmake esp32 ${CONFIG_STR}
-    search_cmake esp32s2 ${CONFIG_STR}
-    search_cmake esp32s3 ${CONFIG_STR}
-    search_cmake esp32c3 ${CONFIG_STR}
-    search_cmake esp32h2 ${CONFIG_STR}
 
     # Override EXTRA_CFLAGS and EXTRA_CXXFLAGS in the environment
     export EXTRA_CFLAGS=${PEDANTIC_CFLAGS/-Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function/}
     export EXTRA_CXXFLAGS=${PEDANTIC_CXXFLAGS/-Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function/}
-    build
+    python -m idf_build_apps build -vv \
+        -p ${TEMPLATE_APP_PATH} \
+        -t all \
+        ${CONFIG_STR} \
+        --work-dir ${BUILD_PATH}/cmake \
+        --build-dir ${BUILD_DIR} \
+        --build-log ${BUILD_LOG_CMAKE} \
+        --size-file size.json \
+        --keep-going \
+        --collect-size-info size_info.txt \
+        --default-build-targets esp32 esp32s2 esp32s3 esp32c2 esp32c3 esp32c5 esp32c6 esp32h2 esp32p4 esp32c61
 }
 
 build_stage1() {
     CONFIG_STR=$(get_config_str sdkconfig.ci2.*=)
-    search_cmake esp32 ${CONFIG_STR}
-    search_cmake esp32s2 ${CONFIG_STR}
-    search_cmake esp32s3 ${CONFIG_STR}
-    search_cmake esp32c3 ${CONFIG_STR}
-    search_cmake esp32h2 ${CONFIG_STR}
-
-    build
+    python -m idf_build_apps build -vv \
+        -p ${TEMPLATE_APP_PATH} \
+        -t all \
+        ${CONFIG_STR} \
+        --work-dir ${BUILD_PATH}/cmake \
+        --build-dir ${BUILD_DIR} \
+        --build-log ${BUILD_LOG_CMAKE} \
+        --size-file size.json \
+        --collect-size-info size_info.txt \
+        --default-build-targets esp32 esp32s2 esp32s3 esp32c2 esp32c3 esp32c5 esp32c6 esp32h2 esp32p4 esp32c61
 }
 
 # Default arguments
@@ -123,7 +94,6 @@ do
     fi
 done
 
-mkdir -p ${BUILD_PATH}/make
 mkdir -p ${BUILD_PATH}/cmake
 mkdir -p ${LOG_PATH}
 rm -f scan.json

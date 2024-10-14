@@ -1,25 +1,16 @@
-// Copyright 2017-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "bt_hidd.h"
 
 #if CONFIG_BT_HID_DEVICE_ENABLED
-#include "esp_bt.h"
 #include "esp_bt_defs.h"
 #include "esp_bt_main.h"
 #include "esp_hidd.h"
 #include "esp_hidd_api.h"
-#include "esp_hidd_private.h"
+#include "esp_private/esp_hidd_private.h"
 #include "esp_log.h"
 #include "osi/mutex.h"
 #include "string.h"
@@ -52,8 +43,7 @@ typedef struct {
     uint8_t                     devices_len;
 } esp_bt_hidd_dev_t;
 
-typedef struct
-{
+typedef struct {
     osi_mutex_t mutex;
     esp_bt_hidd_dev_t *dev;
     esp_hidd_app_param_t app_param;
@@ -322,7 +312,7 @@ static bool esp_bt_hidd_dev_connected(void *devp)
             ret = false;
             break;
         }
-    } while(0);
+    } while (0);
     if (ret) {
         ret = dev->connected;
     }
@@ -346,7 +336,7 @@ static esp_err_t esp_bt_hidd_dev_deinit(void *devp)
             ESP_LOGE(TAG, "Wrong HID device provided");
             ret = ESP_FAIL;
         }
-    } while(0);
+    } while (0);
     osi_mutex_unlock(&s_hidd_param.mutex);
 
     if (ret == ESP_OK) {
@@ -378,7 +368,7 @@ static esp_err_t esp_bt_hidd_dev_disconnect(void *devp)
             ESP_LOGW(TAG, "already disconnected");
             return ESP_OK;
         }
-    } while(0);
+    } while (0);
     osi_mutex_unlock(&s_hidd_param.mutex);
 
     if (ret == ESP_OK) {
@@ -432,7 +422,7 @@ static esp_err_t esp_bt_hidd_dev_input_set(void *devp, size_t index, size_t id, 
             ret = ESP_FAIL;
             break;
         }
-    } while(0);
+    } while (0);
     osi_mutex_unlock(&s_hidd_param.mutex);
 
     if (ret == ESP_OK) {
@@ -478,7 +468,7 @@ static esp_err_t esp_bt_hidd_dev_feature_set(void *devp, size_t index, size_t id
             ret = ESP_FAIL;
             break;
         }
-    } while(0);
+    } while (0);
     osi_mutex_unlock(&s_hidd_param.mutex);
 
     if (ret == ESP_OK) {
@@ -577,7 +567,7 @@ void bt_hidd_cb(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param)
     case ESP_HIDD_REGISTER_APP_EVT: {
         if (param->register_app.status == ESP_HIDD_SUCCESS) {
             ESP_LOGD(TAG, "Setting hid parameters success!");
-            if (param->register_app.in_use && param->register_app.bd_addr != NULL) {
+            if (param->register_app.in_use) {
                 ESP_LOGI(TAG, "Start virtual cable plug!");
                 esp_bt_hid_device_connect(param->register_app.bd_addr);
             }
@@ -643,8 +633,8 @@ void bt_hidd_cb(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param)
         break;
     case ESP_HIDD_GET_REPORT_EVT: {
         uint8_t *data_ptr = NULL;
-        p_rpt = get_report_by_id_and_type((esp_bt_hidd_dev_t *)s_hidd_param.dev->dev, param->get_report.report_id,
-                                          param->get_report.report_type, &map_index);
+        p_rpt = get_report_by_id_and_type(s_hidd_param.dev, param->get_report.report_id, param->get_report.report_type,
+                                          &map_index);
         if (p_rpt == NULL) {
             ESP_LOGE(TAG, "Can not find report!");
             esp_bt_hid_device_report_error(ESP_HID_PAR_HANDSHAKE_RSP_ERR_INVALID_REP_ID);
@@ -684,8 +674,8 @@ void bt_hidd_cb(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param)
         break;
     }
     case ESP_HIDD_SET_REPORT_EVT: {
-        p_rpt = get_report_by_id_and_type((esp_bt_hidd_dev_t *)s_hidd_param.dev->dev, param->set_report.report_id,
-                                          param->set_report.report_type, &map_index);
+        p_rpt = get_report_by_id_and_type(s_hidd_param.dev, param->set_report.report_id, param->set_report.report_type,
+                                          &map_index);
         if (p_rpt == NULL) {
             ESP_LOGE(TAG, "Can not find report!");
             esp_bt_hid_device_report_error(ESP_HID_PAR_HANDSHAKE_RSP_ERR_INVALID_REP_ID);
@@ -725,11 +715,9 @@ void bt_hidd_cb(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param)
     }
     case ESP_HIDD_SET_PROTOCOL_EVT: {
         if (param->set_protocol.protocol_mode != ESP_HIDD_UNSUPPORTED_MODE) {
-            if (s_hidd_param.dev->protocol_mode == param->set_protocol.protocol_mode) {
-                break;
-            }
             osi_mutex_lock(&s_hidd_param.mutex, OSI_MUTEX_MAX_TIMEOUT);
-            s_hidd_param.dev->protocol_mode = param->set_protocol.protocol_mode;
+            s_hidd_param.dev->protocol_mode =
+                param->set_protocol.protocol_mode ? ESP_HID_PROTOCOL_MODE_BOOT : ESP_HID_PROTOCOL_MODE_REPORT;
             osi_mutex_unlock(&s_hidd_param.mutex);
             cb_param.protocol_mode.dev = s_hidd_param.dev->dev;
             cb_param.protocol_mode.protocol_mode = s_hidd_param.dev->protocol_mode;
@@ -743,8 +731,8 @@ void bt_hidd_cb(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param)
         break;
     }
     case ESP_HIDD_INTR_DATA_EVT: {
-        p_rpt = get_report_by_id_and_type((esp_bt_hidd_dev_t *)s_hidd_param.dev->dev, param->intr_data.report_id,
-                                          ESP_HID_REPORT_TYPE_OUTPUT, &map_index);
+        p_rpt = get_report_by_id_and_type(s_hidd_param.dev, param->intr_data.report_id, ESP_HID_REPORT_TYPE_OUTPUT,
+                                          &map_index);
         if (p_rpt == NULL) {
             ESP_LOGE(TAG, "Can not find report!");
             break;

@@ -1,20 +1,13 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <stddef.h>
 #include <string.h>
 #include "sdkconfig.h"
+#include "esp_compiler.h"
 #include "hal/twai_hal.h"
 
 #ifdef CONFIG_TWAI_ERRATA_FIX_RX_FIFO_CORRUPT
@@ -198,7 +191,12 @@ void twai_hal_set_tx_buffer_and_transmit(twai_hal_context_t *hal_ctx, twai_hal_f
     }
     TWAI_HAL_SET_BITS(hal_ctx->state_flags, TWAI_HAL_STATE_FLAG_TX_BUFF_OCCUPIED);
 #if defined(CONFIG_TWAI_ERRATA_FIX_RX_FRAME_INVALID) || defined(CONFIG_TWAI_ERRATA_FIX_RX_FIFO_CORRUPT)
+    if (&hal_ctx->tx_frame_save == tx_frame) {
+        return;
+    }
     //Save transmitted frame in case we need to retry
+    ESP_COMPILER_DIAGNOSTIC_PUSH_IGNORE("-Wanalyzer-overlapping-buffers") // TODO IDF-11085
     memcpy(&hal_ctx->tx_frame_save, tx_frame, sizeof(twai_hal_frame_t));
+    ESP_COMPILER_DIAGNOSTIC_POP("-Wanalyzer-overlapping-buffers")
 #endif  //defined(CONFIG_TWAI_ERRATA_FIX_RX_FRAME_INVALID) || defined(CONFIG_TWAI_ERRATA_FIX_RX_FIFO_CORRUPT)
 }

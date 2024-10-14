@@ -54,6 +54,11 @@
 
 #if LWIP_IPV6 && LWIP_IPV6_REASS  /* don't build if not configured for use in lwipopts.h */
 
+#if ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND
+#include "stdbool.h"
+#include "lwip/timeouts.h"
+static bool s_is_tmr_start = false;
+#endif /* ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND */
 
 /** Setting this to 0, you can turn off checking the fragments for overlapping
  * regions. The code gets a little smaller. Only use this if you know that
@@ -109,10 +114,24 @@ static void ip6_reass_free_complete_datagram(struct ip6_reassdata *ipr);
 static void ip6_reass_remove_oldest_datagram(struct ip6_reassdata *ipr, int pbufs_needed);
 #endif /* IP_REASS_FREE_OLDEST */
 
+#if ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND
+/**
+ * Wrapper function with matching prototype which calls the actual callback
+ */
+static void ip6_reass_timeout_cb(void *arg)
+{
+  LWIP_UNUSED_ARG(arg);
+  ip6_reass_tmr();
+}
+#endif /* ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND */
+
 void
 ip6_reass_tmr(void)
 {
   struct ip6_reassdata *r, *tmp;
+#if ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND
+  bool tmr_restart = false;
+#endif /* ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND */
 
 #if !IPV6_FRAG_COPYHEADER
   LWIP_ASSERT("sizeof(struct ip6_reass_helper) <= IP6_FRAG_HLEN, set IPV6_FRAG_COPYHEADER to 1",
@@ -126,6 +145,9 @@ ip6_reass_tmr(void)
     if (r->timer > 0) {
       r->timer--;
       r = r->next;
+#if ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND
+      tmr_restart = true;
+#endif /* ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND */
     } else {
       /* reassembly timed out */
       tmp = r;
@@ -135,6 +157,14 @@ ip6_reass_tmr(void)
       ip6_reass_free_complete_datagram(tmp);
      }
    }
+#if ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND
+  if (tmr_restart) {
+    sys_timeout(IP6_REASS_TMR_INTERVAL, ip6_reass_timeout_cb, NULL);
+  } else {
+    sys_untimeout(ip6_reass_timeout_cb, NULL);
+    s_is_tmr_start = false;
+  }
+#endif/* ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND */
 }
 
 /**
@@ -166,7 +196,7 @@ ip6_reass_free_complete_datagram(struct ip6_reassdata *ipr)
     /* Then, move back to the original ipv6 header (we are now pointing to Fragment header).
        This cannot fail since we already checked when receiving this fragment. */
     if (pbuf_header_force(p, (s16_t)((u8_t*)p->payload - (u8_t*)ipr->iphdr))) {
-      LWIP_ASSERT("ip6_reass_free: moving p->payload to ip6 header failed\n", 0);
+      LWIP_ASSERT("ip6_reass_free: moving p->payload to ip6 header failed", 0);
     }
     else {
       /* Reconstruct the zoned source and destination addresses, so that we do
@@ -320,8 +350,8 @@ ip6_reass(struct pbuf *p)
        in the reassembly buffer. If so, we proceed with copying the
        fragment into the buffer. */
     if ((frag_hdr->_identification == ipr->identification) &&
-        ip6_addr_cmp_packed(ip6_current_src_addr(), &(IPV6_FRAG_SRC(ipr)), ipr->src_zone) &&
-        ip6_addr_cmp_packed(ip6_current_dest_addr(), &(IPV6_FRAG_DEST(ipr)), ipr->dest_zone)) {
+        ip6_addr_packed_eq(ip6_current_src_addr(), &(IPV6_FRAG_SRC(ipr)), ipr->src_zone) &&
+        ip6_addr_packed_eq(ip6_current_dest_addr(), &(IPV6_FRAG_DEST(ipr)), ipr->dest_zone)) {
       IP6_FRAG_STATS_INC(ip6_frag.cachehit);
       break;
     }
@@ -357,7 +387,6 @@ ip6_reass(struct pbuf *p)
     /* enqueue the new structure to the front of the list */
     ipr->next = reassdatagrams;
     reassdatagrams = ipr;
-
     /* Use the current IPv6 header for src/dest address reference.
      * Eventually, we will replace it when we get the first fragment
      * (it might be this one, in any case, it is done later). */
@@ -652,7 +681,7 @@ ip6_reass(struct pbuf *p)
 
     /* Move pbuf back to IPv6 header. This should never fail. */
     if (pbuf_header_force(p, (s16_t)((u8_t*)p->payload - (u8_t*)iphdr_ptr))) {
-      LWIP_ASSERT("ip6_reass: moving p->payload to ip6 header failed\n", 0);
+      LWIP_ASSERT("ip6_reass: moving p->payload to ip6 header failed", 0);
       pbuf_free(p);
       return NULL;
     }
@@ -660,6 +689,12 @@ ip6_reass(struct pbuf *p)
     /* Return the pbuf chain */
     return p;
   }
+#if ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND
+  if (!s_is_tmr_start) {
+    sys_timeout(IP6_REASS_TMR_INTERVAL, ip6_reass_timeout_cb, NULL);
+    s_is_tmr_start = true;
+  }
+#endif /* ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND */
   /* the datagram is not (yet?) reassembled completely */
   return NULL;
 
@@ -730,7 +765,11 @@ ip6_frag(struct pbuf *p, struct netif *netif, const ip6_addr_t *dest)
 #endif
   static u32_t identification;
   u16_t left, cop;
+#if LWIP_ND6
   const u16_t mtu = nd6_get_destination_mtu(dest, netif);
+#else 
+  const u16_t mtu = IP6_MIN_MTU_LENGTH;
+#endif /* LWIP_ND6 */
   const u16_t nfb = (u16_t)((mtu - (IP6_HLEN + IP6_FRAG_HLEN)) & IP6_FRAG_OFFSET_MASK);
   u16_t fragment_offset = 0;
   u16_t last;
@@ -781,7 +820,7 @@ ip6_frag(struct pbuf *p, struct netif *netif, const ip6_addr_t *dest)
       return ERR_MEM;
     }
     LWIP_ASSERT("this needs a pbuf in one piece!",
-                (p->len >= (IP6_HLEN)));
+                (rambuf->len >= (IP6_HLEN)));
     SMEMCPY(rambuf->payload, original_ip6hdr, IP6_HLEN);
     ip6hdr = (struct ip6_hdr *)rambuf->payload;
     frag_hdr = (struct ip6_frag_hdr *)((u8_t*)rambuf->payload + IP6_HLEN);

@@ -1,16 +1,21 @@
-from __future__ import print_function
-
+# SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
 import os
 import re
 import sys
-from distutils.dir_util import copy_tree
+from shutil import copy
+from shutil import copytree
+from typing import Dict
+
+import click
+from idf_py_actions.tools import PropertyDict
 
 
-def get_type(action):
+def get_type(action: str) -> str:
     return action.split('-')[1]
 
 
-def replace_in_file(filename, pattern, replacement):
+def replace_in_file(filename: str, pattern: str, replacement: str) -> None:
     with open(filename, 'r+') as f:
         content = f.read()
         overwritten_content = re.sub(pattern, replacement, content, flags=re.M)
@@ -19,7 +24,7 @@ def replace_in_file(filename, pattern, replacement):
         f.truncate()
 
 
-def is_empty_and_create(path, action):
+def is_empty_and_create(path: str, action: str) -> None:
     abspath = os.path.abspath(path)
     if not os.path.exists(abspath):
         os.makedirs(abspath)
@@ -33,22 +38,26 @@ def is_empty_and_create(path, action):
         sys.exit(3)
 
 
-def create_project(target_path, name):
-    copy_tree(os.path.join(os.environ['IDF_PATH'], 'examples', 'get-started', 'sample_project'), target_path)
+def create_project(target_path: str, name: str) -> None:
+    copytree(
+        os.path.join(os.environ['IDF_PATH'], 'tools', 'templates', 'sample_project'),
+        target_path,
+        copy_function=copy,
+        dirs_exist_ok=True,
+    )
     main_folder = os.path.join(target_path, 'main')
     os.rename(os.path.join(main_folder, 'main.c'), os.path.join(main_folder, '.'.join((name, 'c'))))
     replace_in_file(os.path.join(main_folder, 'CMakeLists.txt'), 'main', name)
     replace_in_file(os.path.join(target_path, 'CMakeLists.txt'), 'main', name)
-    os.remove(os.path.join(target_path, 'README.md'))
-
-    # after manual removing "Makefile" and "component.mk" from `examples/get-started/sample_project`
-    # remove following two lines as well
-    os.remove(os.path.join(target_path, 'Makefile'))
-    os.remove(os.path.join(target_path, 'main', 'component.mk'))
 
 
-def create_component(target_path, name):
-    copy_tree(os.path.join(os.environ['IDF_PATH'], 'tools', 'templates', 'sample_component'), target_path)
+def create_component(target_path: str, name: str) -> None:
+    copytree(
+        os.path.join(os.environ['IDF_PATH'], 'tools', 'templates', 'sample_component'),
+        target_path,
+        copy_function=copy,
+        dirs_exist_ok=True,
+    )
     os.rename(os.path.join(target_path, 'main.c'), os.path.join(target_path, '.'.join((name, 'c'))))
     os.rename(os.path.join(target_path, 'include', 'main.h'),
               os.path.join(target_path, 'include', '.'.join((name, 'h'))))
@@ -57,8 +66,8 @@ def create_component(target_path, name):
     replace_in_file(os.path.join(target_path, 'CMakeLists.txt'), 'main', name)
 
 
-def action_extensions(base_actions, project_path):
-    def create_new(action, ctx, global_args, **action_args):
+def action_extensions(base_actions: Dict, project_path: str) -> Dict:
+    def create_new(action: str, ctx: click.core.Context, global_args: PropertyDict, **action_args: str) -> Dict:
         target_path = action_args.get('path') or os.path.join(project_path, action_args['name'])
 
         is_empty_and_create(target_path, action)

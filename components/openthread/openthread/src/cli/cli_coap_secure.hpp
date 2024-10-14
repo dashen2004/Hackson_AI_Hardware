@@ -42,9 +42,7 @@
 
 #include <openthread/coap_secure.h>
 
-#include "cli/cli_output.hpp"
-#include "utils/lookup_table.hpp"
-#include "utils/parse_cmdline.hpp"
+#include "cli/cli_utils.hpp"
 
 #ifndef CLI_COAP_SECURE_USE_COAP_DEFAULT_HANDLER
 #define CLI_COAP_SECURE_USE_COAP_DEFAULT_HANDLER 0
@@ -54,44 +52,42 @@ namespace ot {
 namespace Cli {
 
 /**
- * This class implements the CLI CoAP Secure server and client.
+ * Implements the CLI CoAP Secure server and client.
  *
  */
-class CoapSecure : private OutputWrapper
+class CoapSecure : private Utils
 {
 public:
-    typedef Utils::CmdLineParser::Arg Arg;
-
     /**
      * Constructor
      *
-     * @param[in]  aOutput The CLI console output context
+     * @param[in]  aInstance            The OpenThread Instance.
+     * @param[in]  aOutputImplementer   An `OutputImplementer`.
      *
      */
-    explicit CoapSecure(Output &aOutput);
+    CoapSecure(otInstance *aInstance, OutputImplementer &aOutputImplementer);
 
     /**
-     * This method interprets a list of CLI arguments.
+     * Processes a CLI sub-command.
      *
-     * @param[in]  aArgs        An array of command line arguments.
+     * @param[in]  aArgs     An array of command line arguments.
+     *
+     * @retval OT_ERROR_NONE              Successfully executed the CLI command.
+     * @retval OT_ERROR_PENDING           The CLI command was successfully started but final result is pending.
+     * @retval OT_ERROR_INVALID_COMMAND   Invalid or unknown CLI command.
+     * @retval OT_ERROR_INVALID_ARGS      Invalid arguments.
+     * @retval ...                        Error during execution of the CLI command.
      *
      */
     otError Process(Arg aArgs[]);
 
 private:
-    enum
-    {
-        kMaxUriLength   = 32,
-        kMaxBufferSize  = 16,
-        kPskMaxLength   = 32,
-        kPskIdMaxLength = 32
-    };
+    static constexpr uint16_t kMaxUriLength   = 32;
+    static constexpr uint16_t kMaxBufferSize  = 16;
+    static constexpr uint8_t  kPskMaxLength   = 32;
+    static constexpr uint8_t  kPskIdMaxLength = 32;
 
-    struct Command
-    {
-        const char *mName;
-        otError (CoapSecure::*mHandler)(Arg aArgs[]);
-    };
+    using Command = CommandEntry<CoapSecure>;
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
     enum BlockType : uint8_t{
@@ -102,21 +98,10 @@ private:
 
     void PrintPayload(otMessage *aMessage);
 
-    otError ProcessConnect(Arg aArgs[]);
-    otError ProcessDelete(Arg aArgs[]);
-    otError ProcessDisconnect(Arg aArgs[]);
-    otError ProcessGet(Arg aArgs[]);
-    otError ProcessHelp(Arg aArgs[]);
-    otError ProcessPost(Arg aArgs[]);
-    otError ProcessPsk(Arg aArgs[]);
-    otError ProcessPut(Arg aArgs[]);
-    otError ProcessResource(Arg aArgs[]);
-    otError ProcessSet(Arg aArgs[]);
-    otError ProcessStart(Arg aArgs[]);
-    otError ProcessStop(Arg aArgs[]);
-    otError ProcessX509(Arg aArgs[]);
+    template <CommandId kCommandId> otError Process(Arg aArgs[]);
 
     otError ProcessRequest(Arg aArgs[], otCoapCode aCoapCode);
+    otError ProcessIsRequest(Arg aArgs[], bool (*IsChecker)(otInstance *));
 
     void Stop(void);
 
@@ -128,7 +113,7 @@ private:
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
 
-    static otError BlockwiseReceiveHook(void *         aContext,
+    static otError BlockwiseReceiveHook(void          *aContext,
                                         const uint8_t *aBlock,
                                         uint32_t       aPosition,
                                         uint16_t       aBlockLength,
@@ -139,11 +124,11 @@ private:
                                         uint16_t       aBlockLength,
                                         bool           aMore,
                                         uint32_t       aTotalLength);
-    static otError BlockwiseTransmitHook(void *    aContext,
-                                         uint8_t * aBlock,
+    static otError BlockwiseTransmitHook(void     *aContext,
+                                         uint8_t  *aBlock,
                                          uint32_t  aPosition,
                                          uint16_t *aBlockLength,
-                                         bool *    aMore);
+                                         bool     *aMore);
     otError        BlockwiseTransmitHook(uint8_t *aBlock, uint32_t aPosition, uint16_t *aBlockLength, bool *aMore);
 #endif
 
@@ -154,28 +139,6 @@ private:
 
     static void HandleConnected(bool aConnected, void *aContext);
     void        HandleConnected(bool aConnected);
-
-    static constexpr Command sCommands[] = {
-        {"connect", &CoapSecure::ProcessConnect},
-        {"delete", &CoapSecure::ProcessDelete},
-        {"disconnect", &CoapSecure::ProcessDisconnect},
-        {"get", &CoapSecure::ProcessGet},
-        {"help", &CoapSecure::ProcessHelp},
-        {"post", &CoapSecure::ProcessPost},
-#ifdef MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
-        {"psk", &CoapSecure::ProcessPsk},
-#endif
-        {"put", &CoapSecure::ProcessPut},
-        {"resource", &CoapSecure::ProcessResource},
-        {"set", &CoapSecure::ProcessSet},
-        {"start", &CoapSecure::ProcessStart},
-        {"stop", &CoapSecure::ProcessStop},
-#ifdef MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED
-        {"x509", &CoapSecure::ProcessX509},
-#endif
-    };
-
-    static_assert(Utils::LookupTable::IsSorted(sCommands), "Command Table is not sorted");
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
     otCoapBlockwiseResource mResource;

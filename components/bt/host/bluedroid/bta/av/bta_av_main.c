@@ -35,6 +35,7 @@
 #include "stack/l2c_api.h"
 #include "stack/l2cdefs.h"
 #include "bta/bta_av_co.h"
+#include "stack/a2d_api.h"
 #if( defined BTA_AR_INCLUDED ) && (BTA_AR_INCLUDED == TRUE)
 #include "bta/bta_ar_api.h"
 #endif
@@ -152,6 +153,7 @@ static void bta_av_api_enable(tBTA_AV_DATA *p_data);
 static void bta_av_api_register(tBTA_AV_DATA *p_data);
 #if (BTA_AV_SINK_INCLUDED == TRUE)
 static void bta_av_api_sink_enable(tBTA_AV_DATA *p_data);
+static void bta_av_api_get_delay_value(tBTA_AV_DATA *p_data);
 #endif
 static void bta_av_ci_data(tBTA_AV_DATA *p_data);
 #if (AVDT_REPORTING == TRUE)
@@ -179,12 +181,14 @@ const tBTA_AV_NSM_ACT bta_av_nsm_act[] = {
     bta_av_dereg_comp,      /* BTA_AV_DEREG_COMP_EVT */
 #if (BTA_AV_SINK_INCLUDED == TRUE)
     bta_av_api_sink_enable, /* BTA_AV_API_SINK_ENABLE_EVT */
+    bta_av_api_get_delay_value, /* BTA_AV_API_GET_DELAY_VALUE_EVT */
 #endif
 #if (AVDT_REPORTING == TRUE)
     bta_av_rpc_conn,        /* BTA_AV_AVDT_RPT_CONN_EVT */
 #endif
     bta_av_api_to_ssm,      /* BTA_AV_API_START_EVT */
     bta_av_api_to_ssm,      /* BTA_AV_API_STOP_EVT */
+    bta_av_api_to_ssm,      /* BTA_AV_API_SET_DELAY_VALUE_EVT */
 };
 
 /*****************************************************************************
@@ -457,7 +461,7 @@ static void bta_av_a2dp_report_cback(UINT8 handle, AVDT_REPORT_TYPE type,
 **
 ** Function         bta_av_api_sink_enable
 **
-** Description      activate, deactive A2DP Sink,
+** Description      activate, deactivate A2DP Sink,
 **
 ** Returns          void
 **
@@ -470,6 +474,7 @@ static void bta_av_api_sink_enable(tBTA_AV_DATA *p_data)
     APPL_TRACE_DEBUG("bta_av_api_sink_enable %d \n", activate_sink)
     char p_service_name[BTA_SERVICE_NAME_LEN + 1];
     BCM_STRNCPY_S(p_service_name, BTIF_AVK_SERVICE_NAME, BTA_SERVICE_NAME_LEN);
+    p_service_name[BTA_SERVICE_NAME_LEN] = '\0';
 
     if (activate_sink) {
         AVDT_SINK_Activate();
@@ -487,6 +492,27 @@ static void bta_av_api_sink_enable(tBTA_AV_DATA *p_data)
             bta_sys_remove_uuid(UUID_SERVCLASS_AUDIO_SINK);
         }
     }
+}
+
+/*******************************************************************************
+**
+** Function         bta_av_api_get_delay_value
+**
+** Description      Get delay reporting value
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+static void bta_av_api_get_delay_value(tBTA_AV_DATA *p_data)
+{
+    UNUSED(p_data);
+    tBTA_AV_DELAY delay;
+
+    delay.delay_value = AVDT_GetDelayValue();
+
+    /* call callback with get delay value event */
+    (*bta_av_cb.p_cback)(BTA_AV_GET_DELAY_VALUE_EVT, (tBTA_AV *)&delay);
 }
 #endif
 /*******************************************************************************
@@ -512,6 +538,7 @@ static void bta_av_api_register(tBTA_AV_DATA *p_data)
     UINT8           index = 0;
     char p_avk_service_name[BTA_SERVICE_NAME_LEN + 1];
     BCM_STRNCPY_S(p_avk_service_name, BTIF_AVK_SERVICE_NAME, BTA_SERVICE_NAME_LEN);
+    p_avk_service_name[BTA_SERVICE_NAME_LEN] = '\0';
 
     memset(&cs, 0, sizeof(tAVDT_CS));
 
@@ -558,15 +585,15 @@ static void bta_av_api_register(tBTA_AV_DATA *p_data)
                                 (UINT8)(bta_av_cb.sec_mask & (~BTA_SEC_AUTHORIZE)), BTA_ID_AV);
                 if (p_data->api_reg.tsep == AVDT_TSEP_SRC) {
                     bta_ar_reg_avrc(UUID_SERVCLASS_AV_REM_CTRL_TARGET, "AV Remote Control Target\n", NULL,
-                                p_bta_av_cfg->avrc_src_tg_cat, BTA_ID_AV);
+                                p_bta_av_cfg->avrc_src_tg_cat, BTA_ID_AV, p_bta_av_cfg->avrc_br);
                 } else {
                     bta_ar_reg_avrc(UUID_SERVCLASS_AV_REM_CTRL_TARGET, "AV Remote Control Target\n", NULL,
-                                p_bta_av_cfg->avrc_snk_tg_cat, BTA_ID_AV);
+                                p_bta_av_cfg->avrc_snk_tg_cat, BTA_ID_AV, p_bta_av_cfg->avrc_br);
                 }
 #endif
             }
 
-            /* Set the Calss of Device (Audio & Capturing/Rendering service class bit) */
+            /* Set the Class of Device (Audio & Capturing/Rendering service class bit) */
             if (p_data->api_reg.tsep == AVDT_TSEP_SRC) {
                 cod.service = BTM_COD_SERVICE_CAPTURING | BTM_COD_SERVICE_AUDIO;
                 cod.major = BTM_COD_MAJOR_AUDIO;
@@ -625,6 +652,8 @@ static void bta_av_api_register(tBTA_AV_DATA *p_data)
 #endif
             if (bta_av_cb.features & BTA_AV_FEAT_DELAY_RPT) {
                 cs.cfg.psc_mask |= AVDT_PSC_DELAY_RPT;
+                a2d_set_avdt_sdp_ver(AVDT_VERSION_SYNC);
+                a2d_set_a2dp_sdp_ver(A2D_VERSION_1_4);
             }
 
             /* keep the configuration in the stream control block */
@@ -692,10 +721,10 @@ static void bta_av_api_register(tBTA_AV_DATA *p_data)
                     /* create an SDP record as AVRC CT. */
                     if (p_data->api_reg.tsep == AVDT_TSEP_SRC) {
                         bta_ar_reg_avrc(UUID_SERVCLASS_AV_REMOTE_CONTROL, "AV Remote Control Controller\n", NULL,
-                                    p_bta_av_cfg->avrc_src_ct_cat, BTA_ID_AV);
+                                    p_bta_av_cfg->avrc_src_ct_cat, BTA_ID_AV, p_bta_av_cfg->avrc_br);
                     } else {
                         bta_ar_reg_avrc(UUID_SERVCLASS_AV_REMOTE_CONTROL, "AV Remote Control Controller\n", NULL,
-                                    p_bta_av_cfg->avrc_snk_ct_cat, BTA_ID_AV);
+                                    p_bta_av_cfg->avrc_snk_ct_cat, BTA_ID_AV, p_bta_av_cfg->avrc_br);
                     }
 #endif
                 }
@@ -1219,12 +1248,21 @@ BOOLEAN bta_av_hdl_event(BT_HDR *p_msg)
         APPL_TRACE_VERBOSE("AV sm event=0x%x(%s)\n", event, bta_av_evt_code(event));
         /* state machine events */
         bta_av_sm_execute(&bta_av_cb, p_msg->event, (tBTA_AV_DATA *) p_msg);
+#if BTA_AV_CA_INCLUDED
+    } else if (event >= BTA_AV_CA_FIRST_SM_EVT && event <= BTA_AV_CA_LAST_SM_EVT) {
+        if (p_msg->layer_specific < BTA_AV_NUM_RCB) {
+            tBTA_AV_RCB *p_rcb = &bta_av_cb.rcb[p_msg->layer_specific];
+            bta_av_ca_sm_execute(p_rcb, p_msg->event, (tBTA_AV_DATA *) p_msg);
+        }
+#endif
     } else {
         APPL_TRACE_VERBOSE("handle=0x%x\n", p_msg->layer_specific);
         tBTA_AV_SCB *p_scb = bta_av_hndl_to_scb(p_msg->layer_specific);
-        p_scb->disc_rsn = p_msg->offset;
-        /* stream state machine events */
-        bta_av_ssm_execute(p_scb, p_msg->event, (tBTA_AV_DATA *) p_msg);
+        if (p_scb) {
+            p_scb->disc_rsn = p_msg->offset;
+            /* stream state machine events */
+            bta_av_ssm_execute(p_scb, p_msg->event, (tBTA_AV_DATA *) p_msg);
+        }
     }
     return TRUE;
 }
@@ -1259,6 +1297,7 @@ char *bta_av_evt_code(UINT16 evt_code)
     case BTA_AV_API_CLOSE_EVT: return "API_CLOSE";
     case BTA_AV_AP_START_EVT: return "AP_START";
     case BTA_AV_AP_STOP_EVT: return "AP_STOP";
+    case BTA_AV_AP_SET_DELAY_VALUE_EVT: return "AP_SET_DELAY_VALUE";
     case BTA_AV_API_RECONFIG_EVT: return "API_RECONFIG";
     case BTA_AV_API_PROTECT_REQ_EVT: return "API_PROTECT_REQ";
     case BTA_AV_API_PROTECT_RSP_EVT: return "API_PROTECT_RSP";
@@ -1303,12 +1342,14 @@ char *bta_av_evt_code(UINT16 evt_code)
     case BTA_AV_DEREG_COMP_EVT: return "DEREG_COMP";
 #if (BTA_AV_SINK_INCLUDED == TRUE)
     case BTA_AV_API_SINK_ENABLE_EVT: return "SINK_ENABLE";
+    case BTA_AV_API_GET_DELAY_VALUE_EVT: return "GET_DELAY_VALUE";
 #endif
 #if (AVDT_REPORTING == TRUE)
     case BTA_AV_AVDT_RPT_CONN_EVT: return "RPT_CONN";
 #endif
     case BTA_AV_API_START_EVT: return "API_START";
     case BTA_AV_API_STOP_EVT: return "API_STOP";
+    case BTA_AV_API_SET_DELAY_VALUE_EVT: return "API_SET_DELAY_VALUE";
     default:             return "unknown";
     }
 }

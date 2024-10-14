@@ -17,6 +17,8 @@
 #include "hal/spi_flash_hal.h"
 #include "hal/assert.h"
 #include "soc/soc_caps.h"
+#include "soc/chip_revision.h"
+#include "hal/efuse_hal.h"
 #include "sdkconfig.h"
 
 #define ADDRESS_MASK_24BIT 0xFFFFFF
@@ -65,7 +67,7 @@ esp_err_t spi_flash_hal_device_config(spi_flash_host_inst_t *host)
         spi_flash_hal_disable_auto_resume_mode(host);
     }
 #endif //SOC_SPI_MEM_SUPPORT_AUTO_SUSPEND
-#if SOC_SPI_MEM_SUPPORT_TIME_TUNING
+#if SOC_SPI_MEM_SUPPORT_TIMING_TUNING
     // Always keep the extra dummy on SPI1 is 0, add extra dummy to user dummy
     spimem_flash_ll_set_extra_dummy((spi_mem_dev_t*)dev, 0);
 #endif
@@ -101,16 +103,49 @@ esp_err_t spi_flash_hal_configure_host_io_mode(
         return ESP_ERR_NOT_SUPPORTED;
     }
 
-#if SOC_SPI_PERIPH_SUPPORT_CONTROL_DUMMY_OUTPUT
+#ifndef GPSPI_BUILD
+#if SOC_SPI_PERIPH_SUPPORT_CONTROL_DUMMY_OUT
     // The CONTROL_DUMMY_OUTPUT feature is used to control M7-M0 bits.
     spi_flash_ll_set_dummy_out(dev, (conf_required? 1: 0), 1);
 #else
-    // On ESP32, dummy output is not supported. These dummy bits will be moved into the address
-    // phase (and appended as ones).
+    /**
+     * - On current chips, addr phase can support 32 bits at most.
+     * - Flash chip requires continuous mode bits
+     *
+     * We send continuous mode bits via the dummy output feature, so as to support
+     * 32-bit address.
+     *
+     * On chips without dummy output feature (ESP32, ESP32C6), we fallback to use
+     * addr phase to send the continuous mode bits:
+     * - On ESP32 (QIO), qio_dummy: 6 - 4 / 4 = 5, addr_bitlen: 24 + 4 = 28. (This
+     *   setting exists for long time, we keep this on ESP32)
+     * - On ESP32C6 (QIO), qio_dummy: 6 - 8 / 4 = 4, addr_bitlen: 24 + 8 = 32
+     * - On future chips without dummy output feature, we follow the ESP32C6 (QIO)
+     *   way.
+     * - Above two ways, the timings are same.
+     * - DIO is similar.
+     */
     if (conf_required) {
         int line_width = (io_mode == SPI_FLASH_DIO? 2: 4);
-        dummy_cyclelen_base -= 4 / line_width;
-        addr_bitlen += 4;   //extra 4 bits indicate the conf bits is included
+        dummy_cyclelen_base -= SPI_FLASH_LL_CONTINUOUS_MODE_BIT_NUMS / line_width;
+        addr_bitlen += SPI_FLASH_LL_CONTINUOUS_MODE_BIT_NUMS;
+        spi_flash_ll_set_extra_address(dev, 0);
+    }
+#endif
+#else
+    gpspi_flash_ll_set_dummy_out(dev, (conf_required? 1: 0), 1);
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32P4
+    // TODO: This is temporarily for ESP32P4-ECO0, please remove it when eco0 is not widly used. IDF-10019
+    unsigned chip_version = efuse_hal_chip_revision();
+    if (unlikely(!ESP_CHIP_REV_ABOVE(chip_version, 1))) {
+        if (conf_required) {
+            int line_width = (io_mode == SPI_FLASH_DIO? 2: 4);
+            dummy_cyclelen_base -= SPI_FLASH_LL_CONTINUOUS_MODE_BIT_NUMS / line_width;
+            addr_bitlen += SPI_FLASH_LL_CONTINUOUS_MODE_BIT_NUMS;
+            spi_flash_ll_set_extra_address(dev, 0);
+        }
     }
 #endif
 
@@ -135,16 +170,12 @@ esp_err_t spi_flash_hal_common_command(spi_flash_host_inst_t *host, spi_flash_tr
     esp_flash_io_mode_t io_mode = ((spi_flash_hal_context_t*)host)->base_io_mode;
     uint16_t command;
     uint8_t dummy_bitlen;
-    if (trans->reserved != 0) {
-        // Back-compatible with caller functions of ESP32-S3 ROM
-        command = (uint8_t)trans->reserved;
-        dummy_bitlen = 0;
-    } else {
-        command = trans->command;
-        dummy_bitlen = trans->dummy_bitlen;
-        if ((trans->flags & SPI_FLASH_TRANS_FLAG_IGNORE_BASEIO) != 0) {
-            io_mode = trans->io_mode;
-        }
+    bool pe_ops = false;
+
+    command = trans->command;
+    dummy_bitlen = trans->dummy_bitlen;
+    if ((trans->flags & SPI_FLASH_TRANS_FLAG_IGNORE_BASEIO) != 0) {
+        io_mode = trans->io_mode;
     }
 
     host->driver->configure_host_io_mode(host, command, trans->address_bitlen, dummy_bitlen, io_mode);
@@ -159,7 +190,10 @@ esp_err_t spi_flash_hal_common_command(spi_flash_host_inst_t *host, spi_flash_tr
     spi_flash_ll_set_buffer_data(dev, trans->mosi_data, trans->mosi_len);
 
     spi_flash_ll_set_miso_bitlen(dev, trans->miso_len * 8);
-    spi_flash_ll_user_start(dev);
+    if ((trans->flags & SPI_FLASH_TRANS_FLAG_PE_CMD) != 0) {
+        pe_ops = true;
+    }
+    spi_flash_ll_user_start(dev, pe_ops);
     host->driver->poll_cmd_done(host);
     if (trans->miso_len > 0) {
         spi_flash_ll_get_buffer_data(dev, trans->miso_data, trans->miso_len);
@@ -175,7 +209,7 @@ esp_err_t spi_flash_hal_read(spi_flash_host_inst_t *host, void *buffer, uint32_t
     //filled with ones by the function below
     spi_flash_ll_set_usr_address(dev, address, bitlen & (~7));
     spi_flash_ll_set_miso_bitlen(dev, read_len * 8);
-    spi_flash_ll_user_start(dev);
+    spi_flash_ll_user_start(dev, false);
     host->driver->poll_cmd_done(host);
     if (read_len > 0) {
         spi_flash_ll_get_buffer_data(dev, buffer, read_len);

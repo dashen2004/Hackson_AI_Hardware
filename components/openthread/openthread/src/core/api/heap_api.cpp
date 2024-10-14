@@ -35,7 +35,7 @@
 
 #include <openthread/heap.h>
 
-#include "common/instance.hpp"
+#include "common/heap.hpp"
 
 #if OPENTHREAD_RADIO
 
@@ -60,13 +60,7 @@ void otHeapFree(void *aPointer)
 }
 
 #else  // OPENTHREAD_RADIO
-void *otHeapCAlloc(size_t aCount, size_t aSize)
-{
-    return ot::Instance::HeapCAlloc(aCount, aSize);
-}
+void *otHeapCAlloc(size_t aCount, size_t aSize) { return ot::Heap::CAlloc(aCount, aSize); }
 
-void otHeapFree(void *aPointer)
-{
-    ot::Instance::HeapFree(aPointer);
-}
+void otHeapFree(void *aPointer) { ot::Heap::Free(aPointer); }
 #endif // OPENTHREAD_RADIO

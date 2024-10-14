@@ -70,7 +70,7 @@
 #define AES_BLOCK_NUM_REG       ((DR_REG_AES_BASE) + 0x98)
 #define AES_INC_SEL_REG         ((DR_REG_AES_BASE) + 0x9C)
 #define AES_CONTINUE_REG        ((DR_REG_AES_BASE) + 0xA8)
-#define AES_INT_CLR_REG         ((DR_REG_AES_BASE) + 0xAC)
+#define AES_INT_CLEAR_REG       ((DR_REG_AES_BASE) + 0xAC)
 #define AES_INT_ENA_REG         ((DR_REG_AES_BASE) + 0xB0)
 #define AES_DATE_REG            ((DR_REG_AES_BASE) + 0xB4)
 #define AES_DMA_EXIT_REG        ((DR_REG_AES_BASE) + 0xB8)
@@ -112,7 +112,7 @@
 #define HMAC_SOFT_JTAG_CTRL            BIT((0)
 #define HMAC_WR_JTAG_REG               ((DR_REG_HMAC_BASE) + 0xFC)
 
-/* AES-XTS registers */
+/* XTS-AES registers */
 #define AES_XTS_PLAIN_BASE        ((DR_REG_EXT_MEM_ENC) + 0x00)
 #define AES_XTS_SIZE_REG          ((DR_REG_EXT_MEM_ENC) + 0x40)
 #define AES_XTS_DESTINATION_REG   ((DR_REG_EXT_MEM_ENC) + 0x44)

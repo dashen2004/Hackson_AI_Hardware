@@ -9,28 +9,19 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <stddef.h>
 #include <string.h>
-#include "esp_wifi.h"
+#include <stdlib.h>
+#include <inttypes.h>
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "protocol_examples_common.h"
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "freertos/queue.h"
-
-#include "lwip/sockets.h"
-#include "lwip/dns.h"
-#include "lwip/netdb.h"
-
 #include "esp_log.h"
 #include "mqtt_client.h"
 
-static const char *TAG = "MQTT_EXAMPLE";
+static const char *TAG = "mqtt_example";
 
 
 static void log_error_if_nonzero(const char *message, int error_code)
@@ -52,7 +43,7 @@ static void log_error_if_nonzero(const char *message, int error_code)
  */
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
-    ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
+    ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%" PRIi32 "", base, event_id);
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
     int msg_id;
@@ -110,12 +101,12 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 static void mqtt_app_start(void)
 {
     esp_mqtt_client_config_t mqtt_cfg = {
-        .uri = CONFIG_BROKER_URL,
+        .broker.address.uri = CONFIG_BROKER_URL,
     };
 #if CONFIG_BROKER_URL_FROM_STDIN
     char line[128];
 
-    if (strcmp(mqtt_cfg.uri, "FROM_STDIN") == 0) {
+    if (strcmp(mqtt_cfg.broker.address.uri, "FROM_STDIN") == 0) {
         int count = 0;
         printf("Please enter url of mqtt broker\n");
         while (count < 128) {
@@ -129,7 +120,7 @@ static void mqtt_app_start(void)
             }
             vTaskDelay(10 / portTICK_PERIOD_MS);
         }
-        mqtt_cfg.uri = line;
+        mqtt_cfg.broker.address.uri = line;
         printf("Broker url: %s\n", line);
     } else {
         ESP_LOGE(TAG, "Configuration mismatch: wrong broker url");
@@ -146,16 +137,16 @@ static void mqtt_app_start(void)
 void app_main(void)
 {
     ESP_LOGI(TAG, "[APP] Startup..");
-    ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
 
     esp_log_level_set("*", ESP_LOG_INFO);
-    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
-    esp_log_level_set("MQTT_EXAMPLE", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT_BASE", ESP_LOG_VERBOSE);
+    esp_log_level_set("mqtt_client", ESP_LOG_VERBOSE);
+    esp_log_level_set("mqtt_example", ESP_LOG_VERBOSE);
+    esp_log_level_set("transport_base", ESP_LOG_VERBOSE);
     esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
-    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+    esp_log_level_set("transport", ESP_LOG_VERBOSE);
+    esp_log_level_set("outbox", ESP_LOG_VERBOSE);
 
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());

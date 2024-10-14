@@ -128,7 +128,7 @@ class TestMlr(thread_cert.TestCase):
 
         # Bring up Leader
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual('leader', self.nodes[LEADER].get_state())
 
         # Bring up Router
@@ -211,9 +211,6 @@ class TestMlr(thread_cert.TestCase):
         # Device unsubscribes MA
         self.nodes[nodeid].del_ipmaddr(ma)
         self.simulator.go(1)
-
-        # Verify MA is not reachable from Host after unsubscribed
-        self.assertFalse(self.nodes[HOST].ping(ma, backbone=True, ttl=10))
 
 
 if __name__ == '__main__':

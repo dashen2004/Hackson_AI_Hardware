@@ -1,17 +1,16 @@
 /*
- * SPDX-FileCopyrightText: 2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
  */
 
 #include <stdio.h>
+#include <inttypes.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include "driver/touch_pad.h"
-#include "soc/rtc_periph.h"
-#include "soc/sens_periph.h"
 
 static const char *TAG = "Touch pad";
 
@@ -76,7 +75,7 @@ static void tp_example_set_thresholds(void)
         touch_pad_read_benchmark(button[i], &touch_value);
         //set interrupt threshold.
         touch_pad_set_thresh(button[i], touch_value * button_threshold[i]);
-        ESP_LOGI(TAG, "touch pad [%d] base %d, thresh %d", \
+        ESP_LOGI(TAG, "touch pad [%d] base %"PRIu32", thresh %"PRIu32, \
                  button[i], touch_value, (uint32_t)(touch_value * button_threshold[i]));
     }
 }
@@ -101,11 +100,11 @@ static void tp_example_read_task(void *pvParameter)
     touch_event_t evt = {0};
     static uint8_t guard_mode_flag = 0;
     /* Wait touch sensor init done */
-    vTaskDelay(50 / portTICK_RATE_MS);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
     tp_example_set_thresholds();
 
     while (1) {
-        int ret = xQueueReceive(que_touch, &evt, (portTickType)portMAX_DELAY);
+        int ret = xQueueReceive(que_touch, &evt, (TickType_t)portMAX_DELAY);
         if (ret != pdTRUE) {
             continue;
         }
@@ -113,10 +112,10 @@ static void tp_example_read_task(void *pvParameter)
             /* if guard pad be touched, other pads no response. */
             if (evt.pad_num == button[3]) {
                 guard_mode_flag = 1;
-                ESP_LOGW(TAG, "TouchSensor [%d] be activated, enter guard mode", evt.pad_num);
+                ESP_LOGW(TAG, "TouchSensor [%"PRIu32"] be activated, enter guard mode", evt.pad_num);
             } else {
                 if (guard_mode_flag == 0) {
-                    ESP_LOGI(TAG, "TouchSensor [%d] be activated, status mask 0x%x", evt.pad_num, evt.pad_status);
+                    ESP_LOGI(TAG, "TouchSensor [%"PRIu32"] be activated, status mask 0x%"PRIu32"", evt.pad_num, evt.pad_status);
                 } else {
                     ESP_LOGW(TAG, "In guard mode. No response");
                 }
@@ -126,19 +125,19 @@ static void tp_example_read_task(void *pvParameter)
             /* if guard pad be touched, other pads no response. */
             if (evt.pad_num == button[3]) {
                 guard_mode_flag = 0;
-                ESP_LOGW(TAG, "TouchSensor [%d] be inactivated, exit guard mode", evt.pad_num);
+                ESP_LOGW(TAG, "TouchSensor [%"PRIu32"] be inactivated, exit guard mode", evt.pad_num);
             } else {
                 if (guard_mode_flag == 0) {
-                    ESP_LOGI(TAG, "TouchSensor [%d] be inactivated, status mask 0x%x", evt.pad_num, evt.pad_status);
+                    ESP_LOGI(TAG, "TouchSensor [%"PRIu32"] be inactivated, status mask 0x%"PRIu32, evt.pad_num, evt.pad_status);
                 }
             }
         }
         if (evt.intr_mask & TOUCH_PAD_INTR_MASK_SCAN_DONE) {
-            ESP_LOGI(TAG, "The touch sensor group measurement is done [%d].", evt.pad_num);
+            ESP_LOGI(TAG, "The touch sensor group measurement is done [%"PRIu32"].", evt.pad_num);
         }
         if (evt.intr_mask & TOUCH_PAD_INTR_MASK_TIMEOUT) {
             /* Add your exception handling in here. */
-            ESP_LOGI(TAG, "Touch sensor channel %d measure timeout. Skip this exception channel!!", evt.pad_num);
+            ESP_LOGI(TAG, "Touch sensor channel %"PRIu32" measure timeout. Skip this exception channel!!", evt.pad_num);
             touch_pad_timeout_resume(); // Point on the next channel to measure.
         }
     }
@@ -159,7 +158,8 @@ void app_main(void)
 
 #if TOUCH_CHANGE_CONFIG
     /* If you want change the touch sensor default setting, please write here(after initialize). There are examples: */
-    touch_pad_set_meas_time(TOUCH_PAD_SLEEP_CYCLE_DEFAULT, TOUCH_PAD_MEASURE_CYCLE_DEFAULT);
+    touch_pad_set_measurement_interval(TOUCH_PAD_SLEEP_CYCLE_DEFAULT);
+    touch_pad_set_charge_discharge_times(TOUCH_PAD_MEASURE_CYCLE_DEFAULT);
     touch_pad_set_voltage(TOUCH_PAD_HIGH_VOLTAGE_THRESHOLD, TOUCH_PAD_LOW_VOLTAGE_THRESHOLD, TOUCH_PAD_ATTEN_VOLTAGE_THRESHOLD);
     touch_pad_set_idle_channel_connect(TOUCH_PAD_IDLE_CH_CONNECT_DEFAULT);
     for (int i = 0; i < TOUCH_BUTTON_NUM; i++) {
@@ -196,7 +196,7 @@ void app_main(void)
 
     /* Filter setting */
     touchsensor_filter_set(TOUCH_PAD_FILTER_IIR_16);
-    touch_pad_timeout_set(true, SOC_TOUCH_PAD_THRESHOLD_MAX);
+    touch_pad_timeout_set(true, TOUCH_PAD_THRESHOLD_MAX);
     /* Register touch interrupt ISR, enable intr type. */
     touch_pad_isr_register(touchsensor_interrupt_cb, NULL, TOUCH_PAD_INTR_MASK_ALL);
     /* If you have other touch algorithm, you can get the measured value after the `TOUCH_PAD_INTR_MASK_SCAN_DONE` interrupt is generated. */
@@ -207,5 +207,5 @@ void app_main(void)
     touch_pad_fsm_start();
 
     // Start a task to show what pads have been touched
-    xTaskCreate(&tp_example_read_task, "touch_pad_read_task", 2048, NULL, 5, NULL);
+    xTaskCreate(&tp_example_read_task, "touch_pad_read_task", 4096, NULL, 5, NULL);
 }

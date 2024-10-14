@@ -35,6 +35,16 @@
 #ifndef CONFIG_MAC_H_
 #define CONFIG_MAC_H_
 
+/**
+ * @addtogroup config-mac
+ *
+ * @brief
+ *   This module includes configuration variables for MAC.
+ *
+ * @{
+ *
+ */
+
 #include "config/time_sync.h"
 
 /**
@@ -83,6 +93,66 @@
  */
 #ifndef OPENTHREAD_CONFIG_MAC_DEFAULT_MAX_FRAME_RETRIES_INDIRECT
 #define OPENTHREAD_CONFIG_MAC_DEFAULT_MAX_FRAME_RETRIES_INDIRECT 0
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MAC_ADD_DELAY_ON_NO_ACK_ERROR_BEFORE_RETRY
+ *
+ * Define as 1 to add random backoff delay in between frame transmission retries when the previous attempt resulted in
+ * no-ack error.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_ADD_DELAY_ON_NO_ACK_ERROR_BEFORE_RETRY
+#define OPENTHREAD_CONFIG_MAC_ADD_DELAY_ON_NO_ACK_ERROR_BEFORE_RETRY 1
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MAC_RETX_DELAY_MIN_BACKOFF_EXPONENT
+ *
+ * Specifies the minimum backoff exponent to start with when adding random delay in between frame transmission
+ * retries on no-ack error. It is applicable only when `OPENTHREAD_CONFIG_MAC_ADD_DELAY_ON_NO_ACK_ERROR_BEFORE_RETRY`
+ * is enabled.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_RETX_DELAY_MIN_BACKOFF_EXPONENT
+#define OPENTHREAD_CONFIG_MAC_RETX_DELAY_MIN_BACKOFF_EXPONENT 0
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MAC_RETX_DELAY_MAX_BACKOFF_EXPONENT
+ *
+ * Specifies the maximum backoff exponent when adding random delay in between frame transmission retries on no-ack
+ * error. It is applicable only when `OPENTHREAD_CONFIG_MAC_ADD_DELAY_ON_NO_ACK_ERROR_BEFORE_RETRY` is enabled.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_RETX_DELAY_MAX_BACKOFF_EXPONENT
+#define OPENTHREAD_CONFIG_MAC_RETX_DELAY_MAX_BACKOFF_EXPONENT 5
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MAC_COLLISION_AVOIDANCE_DELAY_ENABLE
+ *
+ * Define as 1 to enable collision avoidance delay feature, which adds a delay wait time after a successful frame tx
+ * to a neighbor which is expected to forward the frame. This delay is applied before the next direct frame tx (towards
+ * any neighbor) on an FTD.
+ *
+ * The delay interval is specified by `OPENTHREAD_CONFIG_MAC_COLLISION_AVOIDANCE_DELAY_INTERVAL` (in milliseconds).
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_COLLISION_AVOIDANCE_DELAY_ENABLE
+#define OPENTHREAD_CONFIG_MAC_COLLISION_AVOIDANCE_DELAY_ENABLE 1
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MAC_COLLISION_AVOIDANCE_DELAY_INTERVAL
+ *
+ * Specifies the collision avoidance delay interval in milliseconds. This is added after a successful frame tx to a
+ * neighbor that is expected to forward the frame (when `OPENTHREAD_CONFIG_MAC_COLLISION_AVOIDANCE_DELAY_ENABLE` is
+ * enabled).
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_COLLISION_AVOIDANCE_DELAY_INTERVAL
+#define OPENTHREAD_CONFIG_MAC_COLLISION_AVOIDANCE_DELAY_INTERVAL 8
 #endif
 
 /**
@@ -336,6 +406,16 @@
 #endif
 
 /**
+ * @def OPENTHREAD_CONFIG_MAC_SOFTWARE_RX_ON_WHEN_IDLE_ENABLE
+ *
+ * Define to 1 to enable software rx off when idle switching.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_SOFTWARE_RX_ON_WHEN_IDLE_ENABLE
+#define OPENTHREAD_CONFIG_MAC_SOFTWARE_RX_ON_WHEN_IDLE_ENABLE 0
+#endif
+
+/**
  * @def OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
  *
  * Define to 1 to enable csl transmitter logic.
@@ -363,6 +443,28 @@
  */
 #ifndef OPENTHREAD_CONFIG_MAC_CSL_AUTO_SYNC_ENABLE
 #define OPENTHREAD_CONFIG_MAC_CSL_AUTO_SYNC_ENABLE OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_LOCAL_TIME_SYNC
+ *
+ * This setting configures the usage of local time rather than radio time for calculating the
+ * elapsed time since last CSL synchronization event in order to schedule the duration of the
+ * CSL receive window.
+ *
+ * This is done at expense of too short or too long receive windows depending on the drift
+ * between the two clocks within the CSL timeout period. In order to compensate for a too
+ * short receive window, CSL uncertainty can be increased.
+ *
+ * This setting can be useful for platforms in which is important to reduce the number of
+ * radio API calls, for instance when they are costly. One typical situation is a multicore
+ * chip architecture in which different instances of current time are being kept in host and
+ * radio cores. In this case, accessing the radio core current time API requires serialization
+ * and it is more costly than just accessing local host time.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_LOCAL_TIME_SYNC
+#define OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_LOCAL_TIME_SYNC 0
 #endif
 
 /**
@@ -407,6 +509,18 @@
 #endif
 
 /**
+ * @def OPENTHREAD_CONFIG_CSL_TRANSMIT_TIME_AHEAD
+ *
+ * Transmission scheduling and ramp up time needed for the CSL transmitter to be ready, in units of microseconds.
+ * This time must include at least the radio's turnaround time between end of CCA and start of preamble transmission.
+ * To avoid early CSL transmission it also must not be configured higher than the actual scheduling and ramp up time.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_CSL_TRANSMIT_TIME_AHEAD
+#define OPENTHREAD_CONFIG_CSL_TRANSMIT_TIME_AHEAD 40
+#endif
+
+/**
  * @def OPENTHREAD_CONFIG_CSL_RECEIVE_TIME_AHEAD
  *
  * Reception scheduling and ramp up time needed for the CSL receiver to be ready, in units of microseconds.
@@ -417,16 +531,27 @@
 #endif
 
 /**
- * @def OPENTHREAD_CONFIG_CSL_MIN_RECEIVE_ON
+ * @def OPENTHREAD_CONFIG_MIN_RECEIVE_ON_AHEAD
  *
- * The minimum CSL receive window (in microseconds) required to receive an IEEE 802.15.4 frame.
- * - Maximum frame size with preamble: 6*2+127*2 symbols
- * - AIFS: 12 symbols
- * - Maximum ACK size with preamble: 6*2+33*2 symbols
+ * The minimum time (in microseconds) before the MHR start that the radio should be in receive state and ready to
+ * properly receive in order to properly receive any IEEE 802.15.4 frame. Defaults to the duration of SHR + PHR.
  *
  */
-#ifndef OPENTHREAD_CONFIG_CSL_MIN_RECEIVE_ON
-#define OPENTHREAD_CONFIG_CSL_MIN_RECEIVE_ON 356 * 16
+#ifndef OPENTHREAD_CONFIG_MIN_RECEIVE_ON_AHEAD
+#define OPENTHREAD_CONFIG_MIN_RECEIVE_ON_AHEAD (6 * 32)
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MIN_RECEIVE_ON_AFTER
+ *
+ * The minimum time (in microseconds) after the MHR start that the radio should be in receive state in order
+ * to properly receive any IEEE 802.15.4 frame. Defaults to the duration of a maximum size frame, plus AIFS,
+ * plus the duration of maximum enh-ack frame. Platforms are encouraged to improve this value for energy
+ * efficiency purposes.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MIN_RECEIVE_ON_AFTER
+#define OPENTHREAD_CONFIG_MIN_RECEIVE_ON_AFTER ((127 + 6 + 39) * 32)
 #endif
 
 /**
@@ -438,5 +563,43 @@
 #ifndef OPENTHREAD_CONFIG_MAC_SCAN_DURATION
 #define OPENTHREAD_CONFIG_MAC_SCAN_DURATION 300
 #endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MAC_BEACON_PAYLOAD_PARSING_ENABLE
+ *
+ * This setting configures if the beacon payload parsing needs to be enabled in MAC. This is optional and is disabled by
+ * default because Thread 1.2.1 has removed support for beacon payloads.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_BEACON_PAYLOAD_PARSING_ENABLE
+#define OPENTHREAD_CONFIG_MAC_BEACON_PAYLOAD_PARSING_ENABLE 0
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MAC_OUTGOING_BEACON_PAYLOAD_ENABLE
+ *
+ * This setting configures if the beacon payload needs to be enabled in outgoing beacon frames. This is optional and is
+ * disabled by default because Thread 1.2.1 has removed support for beacon payloads.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_OUTGOING_BEACON_PAYLOAD_ENABLE
+#define OPENTHREAD_CONFIG_MAC_OUTGOING_BEACON_PAYLOAD_ENABLE 0
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_MAC_DATA_POLL_TIMEOUT
+ *
+ * This setting specifies the timeout for receiving the Data Frame (in msec) - after an ACK with FP bit set was
+ * received.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_MAC_DATA_POLL_TIMEOUT
+#define OPENTHREAD_CONFIG_MAC_DATA_POLL_TIMEOUT 100
+#endif
+
+/**
+ * @}
+ *
+ */
 
 #endif // CONFIG_MAC_H_

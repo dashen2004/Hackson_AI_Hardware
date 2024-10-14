@@ -2,22 +2,8 @@
 #
 # spiffsgen is a tool used to generate a spiffs image from a directory
 #
-# Copyright 2019 Espressif Systems (Shanghai) PTE LTD
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http:#www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from __future__ import division, print_function
-
+# SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
 import argparse
 import io
 import math
@@ -178,7 +164,7 @@ class SpiffsObjLuPage(SpiffsPage):
             img += struct.pack(SpiffsPage._endianness_dict[self.build_config.endianness] +
                                SpiffsPage._len_dict[self.build_config.obj_id_len], obj_id)
 
-        assert(len(img) <= self.build_config.page_size)
+        assert len(img) <= self.build_config.page_size
 
         img += b'\xFF' * (self.build_config.page_size - len(img))
 
@@ -240,7 +226,7 @@ class SpiffsObjIndexPage(SpiffsObjPageWithIdx):
         # Add padding before the object index page specific information
         img += b'\xFF' * self.build_config.OBJ_DATA_PAGE_HEADER_LEN_ALIGNED_PAD
 
-        # If this is the first object index page for the object, add filname, type
+        # If this is the first object index page for the object, add filename, type
         # and size information
         if self.span_ix == 0:
             img += struct.pack(SpiffsPage._endianness_dict[self.build_config.endianness] +
@@ -254,13 +240,13 @@ class SpiffsObjIndexPage(SpiffsObjPageWithIdx):
                 + self.build_config.meta_len
                 + self.build_config.OBJ_INDEX_PAGES_HEADER_LEN_ALIGNED_PAD))
 
-        # Finally, add the page index of daa pages
+        # Finally, add the page index of data pages
         for page in self.pages:
             page = page >> int(math.log(self.build_config.page_size, 2))
             img += struct.pack(SpiffsPage._endianness_dict[self.build_config.endianness] +
                                SpiffsPage._len_dict[self.build_config.page_ix_len], page)
 
-        assert(len(img) <= self.build_config.page_size)
+        assert len(img) <= self.build_config.page_size
 
         img += b'\xFF' * (self.build_config.page_size - len(img))
 
@@ -286,7 +272,7 @@ class SpiffsObjDataPage(SpiffsObjPageWithIdx):
 
         img += self.contents
 
-        assert(len(img) <= self.build_config.page_size)
+        assert len(img) <= self.build_config.page_size
 
         img += b'\xFF' * (self.build_config.page_size - len(img))
 
@@ -385,7 +371,7 @@ class SpiffsBlock(object):
             for page in self.pages:
                 img += page.to_binary()
 
-        assert(len(img) <= self.build_config.block_size)
+        assert len(img) <= self.build_config.block_size
 
         img += b'\xFF' * (self.build_config.block_size - len(img))
         return img

@@ -31,11 +31,12 @@
 
 #if OPENTHREAD_CONFIG_SNTP_CLIENT_ENABLE
 
+#include "common/as_core_type.hpp"
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
+#include "instance/instance.hpp"
 #include "net/udp6.hpp"
 #include "thread/thread_netif.hpp"
 
@@ -47,52 +48,11 @@
 namespace ot {
 namespace Sntp {
 
-Header::Header(void)
-    : mFlags(kNtpVersion << kVersionOffset | kModeClient << kModeOffset)
-    , mStratum(0)
-    , mPoll(0)
-    , mPrecision(0)
-    , mRootDelay(0)
-    , mRootDispersion(0)
-    , mReferenceId(0)
-    , mReferenceTimestampSeconds(0)
-    , mReferenceTimestampFraction(0)
-    , mOriginateTimestampSeconds(0)
-    , mOriginateTimestampFraction(0)
-    , mReceiveTimestampSeconds(0)
-    , mReceiveTimestampFraction(0)
-    , mTransmitTimestampSeconds(0)
-    , mTransmitTimestampFraction(0)
-{
-}
-
-QueryMetadata::QueryMetadata(void)
-    : mTransmitTimestamp(0)
-    , mResponseHandler(nullptr)
-    , mResponseContext(nullptr)
-    , mTransmissionTime(0)
-    , mDestinationPort(0)
-    , mRetransmissionCount(0)
-{
-    mSourceAddress.Clear();
-    mDestinationAddress.Clear();
-}
-
-QueryMetadata::QueryMetadata(otSntpResponseHandler aHandler, void *aContext)
-    : mTransmitTimestamp(0)
-    , mResponseHandler(aHandler)
-    , mResponseContext(aContext)
-    , mTransmissionTime(0)
-    , mDestinationPort(0)
-    , mRetransmissionCount(0)
-{
-    mSourceAddress.Clear();
-    mDestinationAddress.Clear();
-}
+RegisterLogModule("SntpClnt");
 
 Client::Client(Instance &aInstance)
-    : mSocket(aInstance)
-    , mRetransmissionTimer(aInstance, Client::HandleRetransmissionTimer)
+    : mSocket(aInstance, *this)
+    , mRetransmissionTimer(aInstance)
     , mUnixEra(0)
 {
 }
@@ -101,8 +61,8 @@ Error Client::Start(void)
 {
     Error error;
 
-    SuccessOrExit(error = mSocket.Open(&Client::HandleUdpReceive, this));
-    SuccessOrExit(error = mSocket.Bind(0, OT_NETIF_UNSPECIFIED));
+    SuccessOrExit(error = mSocket.Open());
+    SuccessOrExit(error = mSocket.Bind(0, Ip6::kNetifUnspecified));
 
 exit:
     return error;
@@ -110,18 +70,12 @@ exit:
 
 Error Client::Stop(void)
 {
-    Message *     message = mPendingQueries.GetHead();
-    Message *     messageToRemove;
-    QueryMetadata queryMetadata;
-
-    // Remove all pending queries.
-    while (message != nullptr)
+    for (Message &message : mPendingQueries)
     {
-        messageToRemove = message;
-        message         = message->GetNext();
+        QueryMetadata queryMetadata;
 
-        queryMetadata.ReadFrom(*messageToRemove);
-        FinalizeSntpTransaction(*messageToRemove, queryMetadata, 0, kErrorAbort);
+        queryMetadata.ReadFrom(message);
+        FinalizeSntpTransaction(message, queryMetadata, 0, kErrorAbort);
     }
 
     return mSocket.Close();
@@ -130,21 +84,24 @@ Error Client::Stop(void)
 Error Client::Query(const otSntpQuery *aQuery, otSntpResponseHandler aHandler, void *aContext)
 {
     Error                   error;
-    QueryMetadata           queryMetadata(aHandler, aContext);
-    Message *               message     = nullptr;
-    Message *               messageCopy = nullptr;
+    QueryMetadata           queryMetadata;
+    Message                *message     = nullptr;
+    Message                *messageCopy = nullptr;
     Header                  header;
     const Ip6::MessageInfo *messageInfo;
 
     VerifyOrExit(aQuery->mMessageInfo != nullptr, error = kErrorInvalidArgs);
+
+    header.Init();
 
     // Originate timestamp is used only as a unique token.
     header.SetTransmitTimestampSeconds(TimerMilli::GetNow().GetValue() / 1000 + kTimeAt1970);
 
     VerifyOrExit((message = NewMessage(header)) != nullptr, error = kErrorNoBufs);
 
-    messageInfo = static_cast<const Ip6::MessageInfo *>(aQuery->mMessageInfo);
+    messageInfo = AsCoreTypePtr(aQuery->mMessageInfo);
 
+    queryMetadata.mResponseHandler.Set(aHandler, aContext);
     queryMetadata.mTransmitTimestamp   = header.GetTransmitTimestampSeconds();
     queryMetadata.mTransmissionTime    = TimerMilli::GetNow() + kResponseTimeout;
     queryMetadata.mSourceAddress       = messageInfo->GetSockAddr();
@@ -236,103 +193,74 @@ exit:
     if (error != kErrorNone)
     {
         FreeMessage(messageCopy);
-        otLogWarnIp6("Failed to send SNTP request: %s", ErrorToString(error));
+        LogWarnOnError(error, "send SNTP request");
     }
 }
 
 Message *Client::FindRelatedQuery(const Header &aResponseHeader, QueryMetadata &aQueryMetadata)
 {
-    Header   header;
-    Message *message = mPendingQueries.GetHead();
+    Message *matchedMessage = nullptr;
 
-    while (message != nullptr)
+    for (Message &message : mPendingQueries)
     {
         // Read originate timestamp.
-        aQueryMetadata.ReadFrom(*message);
+        aQueryMetadata.ReadFrom(message);
 
         if (aQueryMetadata.mTransmitTimestamp == aResponseHeader.GetOriginateTimestampSeconds())
         {
-            ExitNow();
+            matchedMessage = &message;
+            break;
         }
-
-        message = message->GetNext();
     }
 
-exit:
-    return message;
+    return matchedMessage;
 }
 
-void Client::FinalizeSntpTransaction(Message &            aQuery,
+void Client::FinalizeSntpTransaction(Message             &aQuery,
                                      const QueryMetadata &aQueryMetadata,
                                      uint64_t             aTime,
                                      Error                aResult)
 {
     DequeueMessage(aQuery);
-
-    if (aQueryMetadata.mResponseHandler != nullptr)
-    {
-        aQueryMetadata.mResponseHandler(aQueryMetadata.mResponseContext, aTime, aResult);
-    }
-}
-
-void Client::HandleRetransmissionTimer(Timer &aTimer)
-{
-    aTimer.Get<Client>().HandleRetransmissionTimer();
+    aQueryMetadata.mResponseHandler.InvokeIfSet(aTime, aResult);
 }
 
 void Client::HandleRetransmissionTimer(void)
 {
-    TimeMilli        now      = TimerMilli::GetNow();
-    TimeMilli        nextTime = now.GetDistantFuture();
+    NextFireTime     nextTime;
     QueryMetadata    queryMetadata;
-    Message *        message;
-    Message *        nextMessage;
     Ip6::MessageInfo messageInfo;
 
-    for (message = mPendingQueries.GetHead(); message != nullptr; message = nextMessage)
+    for (Message &message : mPendingQueries)
     {
-        nextMessage = message->GetNext();
+        queryMetadata.ReadFrom(message);
 
-        queryMetadata.ReadFrom(*message);
-
-        if (now >= queryMetadata.mTransmissionTime)
+        if (nextTime.GetNow() >= queryMetadata.mTransmissionTime)
         {
             if (queryMetadata.mRetransmissionCount >= kMaxRetransmit)
             {
                 // No expected response.
-                FinalizeSntpTransaction(*message, queryMetadata, 0, kErrorResponseTimeout);
+                FinalizeSntpTransaction(message, queryMetadata, 0, kErrorResponseTimeout);
                 continue;
             }
 
             // Increment retransmission counter and timer.
             queryMetadata.mRetransmissionCount++;
-            queryMetadata.mTransmissionTime = now + kResponseTimeout;
-            queryMetadata.UpdateIn(*message);
+            queryMetadata.mTransmissionTime = nextTime.GetNow() + kResponseTimeout;
+            queryMetadata.UpdateIn(message);
 
             // Retransmit
             messageInfo.SetPeerAddr(queryMetadata.mDestinationAddress);
             messageInfo.SetPeerPort(queryMetadata.mDestinationPort);
             messageInfo.SetSockAddr(queryMetadata.mSourceAddress);
 
-            SendCopy(*message, messageInfo);
+            SendCopy(message, messageInfo);
         }
 
-        if (nextTime > queryMetadata.mTransmissionTime)
-        {
-            nextTime = queryMetadata.mTransmissionTime;
-        }
+        nextTime.UpdateIfEarlier(queryMetadata.mTransmissionTime);
     }
 
-    if (nextTime < now.GetDistantFuture())
-    {
-        mRetransmissionTimer.FireAt(nextTime);
-    }
-}
-
-void Client::HandleUdpReceive(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo)
-{
-    static_cast<Client *>(aContext)->HandleUdpReceive(*static_cast<Message *>(aMessage),
-                                                      *static_cast<const Ip6::MessageInfo *>(aMessageInfo));
+    mRetransmissionTimer.FireAt(nextTime);
 }
 
 void Client::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
@@ -342,7 +270,7 @@ void Client::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessag
     Error         error = kErrorNone;
     Header        responseHeader;
     QueryMetadata queryMetadata;
-    Message *     message  = nullptr;
+    Message      *message  = nullptr;
     uint64_t      unixTime = 0;
 
     SuccessOrExit(aMessage.Read(aMessage.GetOffset(), responseHeader));
@@ -360,7 +288,7 @@ void Client::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessag
         memcpy(kissCode, responseHeader.GetKissCode(), Header::kKissCodeLength);
         kissCode[Header::kKissCodeLength] = 0;
 
-        otLogInfoIp6("SNTP response contains the Kiss-o'-death packet with %s code", kissCode);
+        LogInfo("SNTP response contains the Kiss-o'-death packet with %s code", kissCode);
         ExitNow(error = kErrorBusy);
     }
 

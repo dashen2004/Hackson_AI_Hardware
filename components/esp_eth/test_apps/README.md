@@ -1,7 +1,13 @@
+# EMAC Test
 | Supported Targets | ESP32 |
 | ----------------- | ----- |
 
-This test app is used to test MAC layer behavior with different PHY chips:
+This test app is used to test Ethernet MAC behavior with different chips.
 
-- ip101
-- lan8720
+
+## Prerequisites
+Install third part Python packages:
+
+```bash
+pip install scapy
+```

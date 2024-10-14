@@ -1127,7 +1127,7 @@ tx_stress_10_gap_event(struct ble_gap_event *event, void *arg)
             assert(sdu_rx != NULL);
 
             tx_stress_ctx->conn_handle = event->connect.conn_handle;
-            rc = ble_l2cap_connect(event->connect.conn_handle, 1,
+            rc = ble_l2cap_connect(event->connect.conn_handle, TEST_PSM,
                                    STRESS_COC_MTU, sdu_rx,
                                    tx_stress_10_l2cap_event, NULL);
             assert(rc == 0);
@@ -1271,7 +1271,6 @@ tx_stress_13_gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_NOTIFY_RX:
         MODLOG_DFLT(INFO, "Notify RX event\n");
         console_printf("\033[0;32m>\033[0m");
-        os_mbuf_free_chain(event->notify_rx.om);
         ++tx_stress_ctx->rcv_num;
         return 0;
 
@@ -1292,17 +1291,16 @@ tx_stress_14_subs_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
     assert(error->status == 0);
 
     /* If the first subscription after finding cccd */
-    if(arg == NULL) {
+    if (arg == NULL) {
         return 0;
     }
 
-    sub = (bool*)arg;
+    sub = (bool *)arg;
 
     /* Enable notifications */
-    if(*sub == 0) {
+    if (*sub == 0) {
         *sub = true;
-        om = ble_hs_mbuf_from_flat(
-            (uint8_t[]) {0x01, 0x00}, 2);
+        om = ble_hs_mbuf_from_flat((uint8_t[]) {0x01, 0x00}, 2);
 
         tx_stress_ctx->begin_us = tx_stress_ctx->end_us;
 
@@ -1391,7 +1389,7 @@ tx_stress_14_gap_event(struct ble_gap_event *event, void *arg)
         if (++tx_stress_ctx->rcv_num >= MYNEWT_VAL(BLE_STRESS_REPEAT)) {
             rc = ble_gap_terminate(event->notify_rx.conn_handle,
                                    BLE_ERR_REM_USER_CONN_TERM);
-            MODLOG_DFLT(INFO, "rc=%d\n");
+            MODLOG_DFLT(INFO, "rc=%d\n", rc);
             assert(rc == 0);
             return 0;
         }
@@ -1415,7 +1413,7 @@ tx_stress_14_gap_event(struct ble_gap_event *event, void *arg)
 
 static int
 tx_stress_15_write_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
-                     struct ble_gatt_attr *attr, void *arg)
+                      struct ble_gatt_attr *attr, void *arg)
 {
     /* Disconnect */
     ble_gap_terminate(conn_handle, BLE_ERR_REM_USER_CONN_TERM);
@@ -1464,7 +1462,7 @@ tx_stress_15_gap_event(struct ble_gap_event *event, void *arg)
 
     case BLE_GAP_EVENT_DISCONNECT:
         /* Perform use case specified number of times */
-        if(tx_stress_ctx->con_stat[15].num >= MYNEWT_VAL(BLE_STRESS_REPEAT)) {
+        if (tx_stress_ctx->con_stat[15].num >= MYNEWT_VAL(BLE_STRESS_REPEAT)) {
             tx_stress_on_test_finish(15);
             return 0;
         }
@@ -1473,7 +1471,7 @@ tx_stress_15_gap_event(struct ble_gap_event *event, void *arg)
         return 0;
 
     default:
-    MODLOG_DFLT(INFO, "Other event occurs=%d\n", event->type);
+        MODLOG_DFLT(INFO, "Other event occurs=%d\n", event->type);
         return 0;
     }
 }
@@ -1607,7 +1605,8 @@ tx_stress_test_perform(int test_num)
 }
 
 static void
-tx_stress_read_command_cb(void) {
+tx_stress_read_command_cb(void)
+{
     console_printf("Start testing\n");
     os_sem_release(&tx_stress_main_sem);
 }
@@ -1642,7 +1641,7 @@ tx_stress_main_task_fn(void *arg)
         /* Wait for the scan to find the test. Then 1 token will be
          * released allowing to pass through semaphore. */
         os_sem_pend(&tx_stress_main_sem, OS_TIMEOUT_NEVER);
-        if(tx_stress_ctx->scan_timeout) {
+        if (tx_stress_ctx->scan_timeout) {
             break;
         }
 

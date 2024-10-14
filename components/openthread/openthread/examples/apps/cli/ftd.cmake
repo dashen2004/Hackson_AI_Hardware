@@ -33,15 +33,28 @@ add_executable(ot-cli-ftd
 
 target_include_directories(ot-cli-ftd PRIVATE ${COMMON_INCLUDES})
 
+if(NOT DEFINED OT_PLATFORM_LIB_FTD)
+    set(OT_PLATFORM_LIB_FTD ${OT_PLATFORM_LIB})
+endif()
+
 target_link_libraries(ot-cli-ftd PRIVATE
     openthread-cli-ftd
-    ${OT_PLATFORM_LIB}
+    ${OT_PLATFORM_LIB_FTD}
     openthread-ftd
-    ${OT_PLATFORM_LIB}
+    ${OT_PLATFORM_LIB_FTD}
     openthread-cli-ftd
     ${OT_MBEDTLS}
+    ot-config-ftd
     ot-config
 )
+
+if(OT_LINKER_MAP)
+    if("${CMAKE_CXX_COMPILER_ID}" MATCHES "AppleClang")
+        target_link_libraries(ot-cli-ftd PRIVATE -Wl,-map,ot-cli-ftd.map)
+    else()
+        target_link_libraries(ot-cli-ftd PRIVATE -Wl,-Map=ot-cli-ftd.map)
+    endif()
+endif()
 
 install(TARGETS ot-cli-ftd
     DESTINATION bin)

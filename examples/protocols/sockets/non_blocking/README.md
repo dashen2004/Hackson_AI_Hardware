@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- | -------- | -------- |
+
 
 # TCP non-blocking client and server examples
 
@@ -8,7 +11,7 @@ It could be configured to run either a TCP server, or a TCP client, or both, in 
 
 ## How to use example
 
-The example is configured by default as the TCP client. 
+The example is configured by default as the TCP client.
 
 Note that the example uses string representation of IP addresses and ports and thus
 could be used on both IPv4 and IPv6 protocols.
@@ -67,4 +70,4 @@ See the Getting Started Guide for full steps to configure and use ESP-IDF to bui
 ## Troubleshooting
 
 Follow the same troubleshooting instruction as for the standard [TCP sever](../tcp_server/README.md) and the [TCP client](../tcp_client/README.md),
-using the host tools and scripts as descibed in the upper level documentation on [BSD socket examples](../README.md).
+using the host tools and scripts as described in the upper level documentation on [BSD socket examples](../README.md).

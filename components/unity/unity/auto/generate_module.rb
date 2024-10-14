@@ -13,7 +13,10 @@ require 'fileutils'
 require 'pathname'
 
 # TEMPLATE_TST
-TEMPLATE_TST ||= '#include "unity.h"
+TEMPLATE_TST ||= '#ifdef %5$s
+
+#include "unity.h"
+
 %2$s#include "%1$s.h"
 
 void setUp(void)
@@ -24,10 +27,12 @@ void tearDown(void)
 {
 }
 
-void test_%1$s_NeedToImplement(void)
+void test_%4$s_NeedToImplement(void)
 {
     TEST_IGNORE_MESSAGE("Need to Implement %1$s");
 }
+
+#endif // %5$s
 '.freeze
 
 # TEMPLATE_SRC
@@ -35,18 +40,16 @@ TEMPLATE_SRC ||= '%2$s#include "%1$s.h"
 '.freeze
 
 # TEMPLATE_INC
-TEMPLATE_INC ||= '#ifndef _%3$s_H
-#define _%3$s_H
+TEMPLATE_INC ||= '#ifndef %3$s_H
+#define %3$s_H
 %2$s
 
-#endif // _%3$s_H
+#endif // %3$s_H
 '.freeze
 
 class UnityModuleGenerator
   ############################
   def initialize(options = nil)
-    here = File.expand_path(File.dirname(__FILE__)) + '/'
-
     @options = UnityModuleGenerator.default_options
     case options
     when NilClass then @options
@@ -56,9 +59,9 @@ class UnityModuleGenerator
     end
 
     # Create default file paths if none were provided
-    @options[:path_src] = here + '../src/'    if @options[:path_src].nil?
-    @options[:path_inc] = @options[:path_src] if @options[:path_inc].nil?
-    @options[:path_tst] = here + '../test/'   if @options[:path_tst].nil?
+    @options[:path_src] = "#{__dir__}/../src/"   if @options[:path_src].nil?
+    @options[:path_inc] = @options[:path_src]    if @options[:path_inc].nil?
+    @options[:path_tst] = "#{__dir__}/../test/"  if @options[:path_tst].nil?
     @options[:path_src] += '/'                unless @options[:path_src][-1] == 47
     @options[:path_inc] += '/'                unless @options[:path_inc][-1] == 47
     @options[:path_tst] += '/'                unless @options[:path_tst][-1] == 47
@@ -105,7 +108,8 @@ class UnityModuleGenerator
       update_svn: false,
       boilerplates: {},
       test_prefix: 'Test',
-      mock_prefix: 'Mock'
+      mock_prefix: 'Mock',
+      test_define: 'TEST'
     }
   end
 
@@ -113,8 +117,8 @@ class UnityModuleGenerator
   def self.grab_config(config_file)
     options = default_options
     unless config_file.nil? || config_file.empty?
-      require 'yaml'
-      yaml_guts = YAML.load_file(config_file)
+      require_relative 'yaml_helper'
+      yaml_guts = YamlHelper.load_file(config_file)
       options.merge!(yaml_guts[:unity] || yaml_guts[:cmock])
       raise "No :unity or :cmock section found in #{config_file}" unless options
     end
@@ -129,9 +133,9 @@ class UnityModuleGenerator
 
     # create triad definition
     prefix = @options[:test_prefix] || 'Test'
-    triad = [{ ext: '.c', path: @options[:path_src], prefix: '', template: TEMPLATE_SRC, inc: :src, boilerplate: @options[:boilerplates][:src] },
+    triad = [{ ext: '.c', path: @options[:path_src], prefix: '',     template: TEMPLATE_SRC, inc: :src, boilerplate: @options[:boilerplates][:src] },
              { ext: '.h', path: @options[:path_inc], prefix: '',     template: TEMPLATE_INC, inc: :inc, boilerplate: @options[:boilerplates][:inc] },
-             { ext: '.c', path: @options[:path_tst], prefix: prefix, template: TEMPLATE_TST, inc: :tst, boilerplate: @options[:boilerplates][:tst] }]
+             { ext: '.c', path: @options[:path_tst], prefix: prefix, template: TEMPLATE_TST, inc: :tst, boilerplate: @options[:boilerplates][:tst], test_define: @options[:test_define] }]
 
     # prepare the pattern for use
     pattern = (pattern || @options[:pattern] || 'src').downcase
@@ -151,6 +155,7 @@ class UnityModuleGenerator
           path: (Pathname.new("#{cfg[:path]}#{subfolder}") + filename).cleanpath,
           name: submodule_name,
           template: cfg[:template],
+          test_define: cfg[:test_define],
           boilerplate: cfg[:boilerplate],
           includes: case (cfg[:inc])
                     when :src then (@options[:includes][:src] || []) | (pattern_traits[:inc].map { |f| format(f, module_name) })
@@ -165,23 +170,23 @@ class UnityModuleGenerator
   end
 
   ############################
+  def neutralize_filename(name, start_cap: true)
+    return name if name.empty?
+
+    name = name.split(/(?:\s+|_|(?=[A-Z][a-z]))|(?<=[a-z])(?=[A-Z])/).map(&:capitalize).join('_')
+    name = name[0].downcase + name[1..] unless start_cap
+    name
+  end
+
+  ############################
   def create_filename(part1, part2 = '')
-    if part2.empty?
-      case (@options[:naming])
-      when 'bumpy' then part1
-      when 'camel' then part1
-      when 'snake' then part1.downcase
-      when 'caps'  then part1.upcase
-      else              part1
-      end
-    else
-      case (@options[:naming])
-      when 'bumpy' then part1 + part2
-      when 'camel' then part1 + part2
-      when 'snake' then part1.downcase + '_' + part2.downcase
-      when 'caps'  then part1.upcase + '_' + part2.upcase
-      else              part1 + '_' + part2
-      end
+    name = part2.empty? ? part1 : "#{part1}_#{part2}"
+    case (@options[:naming])
+    when 'bumpy' then neutralize_filename(name, start_cap: false).delete('_')
+    when 'camel' then neutralize_filename(name).delete('_')
+    when 'snake' then neutralize_filename(name).downcase
+    when 'caps'  then neutralize_filename(name).upcase
+    else              name
     end
   end
 
@@ -209,7 +214,9 @@ class UnityModuleGenerator
         f.write("#{file[:boilerplate]}\n" % [file[:name]]) unless file[:boilerplate].nil?
         f.write(file[:template] % [file[:name],
                                    file[:includes].map { |ff| "#include \"#{ff}\"\n" }.join,
-                                   file[:name].upcase])
+                                   file[:name].upcase.tr('-', '_'),
+                                   file[:name].tr('-', '_'),
+                                   file[:test_define]])
       end
       if @options[:update_svn]
         `svn add \"#{file[:path]}\"`
@@ -257,14 +264,15 @@ if $0 == __FILE__
     case arg
     when /^-d/            then destroy = true
     when /^-u/            then options[:update_svn] = true
-    when /^-p\"?(\w+)\"?/ then options[:pattern] = Regexp.last_match(1)
-    when /^-s\"?(.+)\"?/  then options[:path_src] = Regexp.last_match(1)
-    when /^-i\"?(.+)\"?/  then options[:path_inc] = Regexp.last_match(1)
-    when /^-t\"?(.+)\"?/  then options[:path_tst] = Regexp.last_match(1)
-    when /^-n\"?(.+)\"?/  then options[:naming] = Regexp.last_match(1)
-    when /^-y\"?(.+)\"?/  then options = UnityModuleGenerator.grab_config(Regexp.last_match(1))
+    when /^-p"?(\w+)"?/ then options[:pattern] = Regexp.last_match(1)
+    when /^-s"?(.+)"?/  then options[:path_src] = Regexp.last_match(1)
+    when /^-i"?(.+)"?/  then options[:path_inc] = Regexp.last_match(1)
+    when /^-t"?(.+)"?/  then options[:path_tst] = Regexp.last_match(1)
+    when /^-n"?(.+)"?/  then options[:naming] = Regexp.last_match(1)
+    when /^-y"?(.+)"?/  then options = UnityModuleGenerator.grab_config(Regexp.last_match(1))
     when /^(\w+)/
       raise "ERROR: You can't have more than one Module name specified!" unless module_name.nil?
+
       module_name = arg
     when /^-(h|-help)/
       ARGV = [].freeze
@@ -299,6 +307,7 @@ if $0 == __FILE__
   end
 
   raise 'ERROR: You must have a Module name specified! (use option -h for help)' if module_name.nil?
+
   if destroy
     UnityModuleGenerator.new(options).destroy(module_name)
   else

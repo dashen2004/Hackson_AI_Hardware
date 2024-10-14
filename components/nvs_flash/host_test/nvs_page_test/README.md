@@ -1,3 +1,6 @@
+| Supported Targets | Linux |
+| ----------------- | ----- |
+
 # NVS Page Unit Test
 
 This unit test for the `nvs::Page` C++ class uses CMock to abstract its dependency to the `spi_flash` component. Its `CMakeLists.txt` builds mocks instead of the actual `spi_flash` component by setting the component property `USE_MOCK` for `spi_flash`. It also needs some stubs for CRC32 since the ROM component can not be mocked yet. These are retrieved from the `mock` directory inside `nvs_flash`.
@@ -30,10 +33,8 @@ First, make sure that the target is set to Linux. Run `idf.py --preview set-targ
 
 ## Run
 
-IDF monitor doesn't work yet for Linux. You have to run the app manually: 
-
 ```bash
-./build/host_nvs_page_test.elf
+idf.py monitor
 ```
 
 ## Coverage
@@ -45,7 +46,7 @@ To generate the coverage, run: `idf.py coverage`. Afterwards, you can view the c
 Ideally, all tests pass, which is indicated by the last two log lines after the dashed line:
 
 ```bash
-build/host_nvs_page_test.elf 
+$ idf.py monitor
 ../main/nvs_page_test.cpp:880:test_Page_load_reading_header_fails:PASS
 ../main/nvs_page_test.cpp:881:test_Page_load_reading_data_fails:PASS
 ../main/nvs_page_test.cpp:882:test_Page_load__uninitialized_page_has_0xfe:PASS

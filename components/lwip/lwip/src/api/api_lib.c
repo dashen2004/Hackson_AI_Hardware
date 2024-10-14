@@ -94,13 +94,8 @@
 #if LWIP_NETCONN_FULLDUPLEX
 #define NETCONN_RECVMBOX_WAITABLE(conn) (sys_mbox_valid(&(conn)->recvmbox) && (((conn)->flags & NETCONN_FLAG_MBOXINVALID) == 0))
 #define NETCONN_ACCEPTMBOX_WAITABLE(conn) (sys_mbox_valid(&(conn)->acceptmbox) && (((conn)->flags & (NETCONN_FLAG_MBOXCLOSED|NETCONN_FLAG_MBOXINVALID)) == 0))
-#if ESP_LWIP_LOCK
-#define NETCONN_MBOX_WAITING_INC(conn) conn->mbox_threads_waiting += 1
-#define NETCONN_MBOX_WAITING_DEC(conn) conn->mbox_threads_waiting -= 1
-#else 
 #define NETCONN_MBOX_WAITING_INC(conn) SYS_ARCH_INC(conn->mbox_threads_waiting, 1)
 #define NETCONN_MBOX_WAITING_DEC(conn) SYS_ARCH_DEC(conn->mbox_threads_waiting, 1)
-#endif /* ESP_LWIP_LOCK */
 #else /* LWIP_NETCONN_FULLDUPLEX */
 #define NETCONN_RECVMBOX_WAITABLE(conn)   sys_mbox_valid(&(conn)->recvmbox)
 #define NETCONN_ACCEPTMBOX_WAITABLE(conn) (sys_mbox_valid(&(conn)->acceptmbox) && (((conn)->flags & NETCONN_FLAG_MBOXCLOSED) == 0))
@@ -131,6 +126,9 @@ netconn_apimsg(tcpip_callback_fn fn, struct api_msg *apimsg)
 
 #if LWIP_NETCONN_SEM_PER_THREAD
   apimsg->op_completed_sem = LWIP_NETCONN_THREAD_SEM_GET();
+  if (!sys_sem_valid(apimsg->op_completed_sem)) {
+    return ERR_MEM;
+  }
 #endif /* LWIP_NETCONN_SEM_PER_THREAD */
 
   err = tcpip_send_msg_wait_sem(fn, apimsg, LWIP_API_MSG_SEM(apimsg));
@@ -206,16 +204,16 @@ netconn_prepare_delete(struct netconn *conn)
 
   API_MSG_VAR_ALLOC(msg);
   API_MSG_VAR_REF(msg).conn = conn;
+#if LWIP_TCP
 #if LWIP_SO_SNDTIMEO || LWIP_SO_LINGER
   /* get the time we started, which is later compared to
      sys_now() + conn->send_timeout */
   API_MSG_VAR_REF(msg).msg.sd.time_started = sys_now();
 #else /* LWIP_SO_SNDTIMEO || LWIP_SO_LINGER */
-#if LWIP_TCP
   API_MSG_VAR_REF(msg).msg.sd.polls_left =
     ((LWIP_TCP_CLOSE_TIMEOUT_MS_DEFAULT + TCP_SLOW_INTERVAL - 1) / TCP_SLOW_INTERVAL) + 1;
-#endif /* LWIP_TCP */
 #endif /* LWIP_SO_SNDTIMEO || LWIP_SO_LINGER */
+#endif /* LWIP_TCP */
   err = netconn_apimsg(lwip_netconn_do_delconn, &API_MSG_VAR_REF(msg));
   API_MSG_VAR_FREE(msg);
 
@@ -328,7 +326,7 @@ netconn_bind(struct netconn *conn, const ip_addr_t *addr, u16_t port)
    * and NETCONN_FLAG_IPV6_V6ONLY is 0, use IP_ANY_TYPE to bind
    */
   if ((netconn_get_ipv6only(conn) == 0) &&
-      ip_addr_cmp(addr, IP6_ADDR_ANY)) {
+      ip_addr_eq(addr, IP6_ADDR_ANY)) {
     addr = IP_ANY_TYPE;
   }
 #endif /* LWIP_IPV4 && LWIP_IPV6 */
@@ -505,7 +503,7 @@ netconn_accept(struct netconn *conn, struct netconn **new_conn)
 
   NETCONN_MBOX_WAITING_INC(conn);
   if (netconn_is_nonblocking(conn)) {
-    if (sys_arch_mbox_tryfetch(&conn->acceptmbox, &accept_ptr) == SYS_ARCH_TIMEOUT) {
+    if (sys_arch_mbox_tryfetch(&conn->acceptmbox, &accept_ptr) == SYS_MBOX_EMPTY) {
       API_MSG_VAR_FREE_ACCEPT(msg);
       NETCONN_MBOX_WAITING_DEC(conn);
       return ERR_WOULDBLOCK;
@@ -590,14 +588,8 @@ netconn_recv_data(struct netconn *conn, void **new_buf, u8_t apiflags)
   *new_buf = NULL;
   LWIP_ERROR("netconn_recv: invalid conn",    (conn != NULL),    return ERR_ARG;);
 
-#if ESP_LWIP_LOCK
-  NETCONN_MBOX_WAITING_INC(conn);
-#endif /* ESP_LWIP_LOCK */
   if (!NETCONN_RECVMBOX_WAITABLE(conn)) {
     err_t err = netconn_err(conn);
-#if ESP_LWIP_LOCK
-    NETCONN_MBOX_WAITING_DEC(conn);
-#endif /* ESP_LWIP_LOCK */   
     if (err != ERR_OK) {
       /* return pending error */
       return err;
@@ -605,12 +597,10 @@ netconn_recv_data(struct netconn *conn, void **new_buf, u8_t apiflags)
     return ERR_CONN;
   }
 
-#if !ESP_LWIP_LOCK
   NETCONN_MBOX_WAITING_INC(conn);
-#endif /* !ESP_LWIP_LOCK */  
   if (netconn_is_nonblocking(conn) || (apiflags & NETCONN_DONTBLOCK) ||
       (conn->flags & NETCONN_FLAG_MBOXCLOSED) || (conn->pending_err != ERR_OK)) {
-    if (sys_arch_mbox_tryfetch(&conn->recvmbox, &buf) == SYS_ARCH_TIMEOUT) {
+    if (sys_arch_mbox_tryfetch(&conn->recvmbox, &buf) == SYS_MBOX_EMPTY) {
       err_t err;
       NETCONN_MBOX_WAITING_DEC(conn);
       err = netconn_err(conn);
@@ -1273,13 +1263,13 @@ netconn_join_leave_group_netif(struct netconn *conn,
  *
  * @param name a string representation of the DNS host name to query
  * @param addr a preallocated ip_addr_t where to store the resolved IP address
- * @param dns_addrtype IP address type (IPv4 / IPv6)
  * @return ERR_OK: resolving succeeded
  *         ERR_MEM: memory error, try again later
  *         ERR_ARG: dns client not initialized or invalid hostname
  *         ERR_VAL: dns server response was invalid
  */
 #if LWIP_IPV4 && LWIP_IPV6
+/** @param dns_addrtype IP address type (IPv4 / IPv6) */
 err_t
 netconn_gethostbyname_addrtype(const char *name, ip_addr_t *addr, u8_t dns_addrtype)
 #else
@@ -1288,9 +1278,9 @@ netconn_gethostbyname(const char *name, ip_addr_t *addr)
 #endif
 {
   API_VAR_DECLARE(struct dns_api_msg, msg);
-#if !LWIP_MPU_COMPATIBLE
+#if !LWIP_MPU_COMPATIBLE && !LWIP_NETCONN_SEM_PER_THREAD
   sys_sem_t sem;
-#endif /* LWIP_MPU_COMPATIBLE */
+#endif /* !LWIP_MPU_COMPATIBLE && !LWIP_NETCONN_SEM_PER_THREAD */
   err_t err;
   err_t cberr;
 
@@ -1318,7 +1308,9 @@ netconn_gethostbyname(const char *name, ip_addr_t *addr)
   API_VAR_REF(msg).name[DNS_MAX_NAME_LENGTH - 1] = 0;
 #else /* LWIP_MPU_COMPATIBLE */
   msg.err = &err;
+#if !LWIP_NETCONN_SEM_PER_THREAD
   msg.sem = &sem;
+#endif
   API_VAR_REF(msg).addr = API_VAR_REF(addr);
   API_VAR_REF(msg).name = name;
 #endif /* LWIP_MPU_COMPATIBLE */
@@ -1327,6 +1319,9 @@ netconn_gethostbyname(const char *name, ip_addr_t *addr)
 #endif /* LWIP_IPV4 && LWIP_IPV6 */
 #if LWIP_NETCONN_SEM_PER_THREAD
   API_VAR_REF(msg).sem = LWIP_NETCONN_THREAD_SEM_GET();
+  if (!sys_sem_valid(API_VAR_REF(msg).sem)) {
+    return ERR_MEM;
+  }
 #else /* LWIP_NETCONN_SEM_PER_THREAD*/
   err = sys_sem_new(API_EXPR_REF(API_VAR_REF(msg).sem), 0);
   if (err != ERR_OK) {
@@ -1359,7 +1354,7 @@ void
 netconn_thread_init(void)
 {
   sys_sem_t *sem = LWIP_NETCONN_THREAD_SEM_GET();
-  if ((sem == NULL) || !sys_sem_valid(sem)) {
+  if (!sys_sem_valid(sem)) {
     /* call alloc only once */
     LWIP_NETCONN_THREAD_SEM_ALLOC();
     LWIP_ASSERT("LWIP_NETCONN_THREAD_SEM_ALLOC() failed", sys_sem_valid(LWIP_NETCONN_THREAD_SEM_GET()));
@@ -1370,7 +1365,7 @@ void
 netconn_thread_cleanup(void)
 {
   sys_sem_t *sem = LWIP_NETCONN_THREAD_SEM_GET();
-  if ((sem != NULL) && sys_sem_valid(sem)) {
+  if (sys_sem_valid(sem)) {
     /* call free only once */
     LWIP_NETCONN_THREAD_SEM_FREE();
   }

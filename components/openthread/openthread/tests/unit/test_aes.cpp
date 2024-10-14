@@ -32,7 +32,9 @@
 #include "crypto/aes_ccm.hpp"
 
 #include "test_platform.h"
-#include "test_util.h"
+#include "test_util.hpp"
+
+namespace ot {
 
 /**
  * Verifies test vectors from IEEE 802.15.4-2006 Annex C Section C.2.1
@@ -55,11 +57,11 @@ void TestMacBeaconFrame(void)
                            0xAC, 0x02, 0x05, 0x00, 0x00, 0x00, 0x55, 0xCF, 0x00, 0x00, 0x51, 0x52,
                            0x53, 0x54, 0x22, 0x3B, 0xC1, 0xEC, 0x84, 0x1A, 0xB5, 0x53};
 
-    otInstance *       instance = testInitInstance();
-    ot::Crypto::AesCcm aesCcm;
-    uint32_t           headerLength  = sizeof(test) - 8;
-    uint32_t           payloadLength = 0;
-    uint8_t            tagLength     = 8;
+    otInstance    *instance = testInitInstance();
+    Crypto::AesCcm aesCcm;
+    uint32_t       headerLength  = sizeof(test) - 8;
+    uint32_t       payloadLength = 0;
+    uint8_t        tagLength     = 8;
 
     uint8_t nonce[] = {
         0xAC, 0xDE, 0x48, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x02,
@@ -88,7 +90,7 @@ void TestMacBeaconFrame(void)
 /**
  * Verifies test vectors from IEEE 802.15.4-2006 Annex C Section C.2.3
  */
-void TestMacCommandFrame()
+void TestMacCommandFrame(void)
 {
     uint8_t key[] = {
         0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf,
@@ -100,8 +102,9 @@ void TestMacCommandFrame()
         0x00, 0x00, 0x01, 0xCE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
 
-    uint32_t headerLength = 29, payloadLength = 1;
-    uint8_t  tagLength = 8;
+    static constexpr uint32_t kHeaderLength  = 29;
+    static constexpr uint32_t kPayloadLength = 1;
+    static constexpr uint8_t  kTagLength     = 8;
 
     uint8_t encrypted[] = {
         0x2B, 0xDC, 0x84, 0x21, 0x43, 0x02, 0x00, 0x00, 0x00, 0x00, 0x48, 0xDE, 0xAC,
@@ -119,28 +122,146 @@ void TestMacCommandFrame()
         0xAC, 0xDE, 0x48, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x06,
     };
 
-    ot::Crypto::AesCcm aesCcm;
+    uint8_t tag[kTagLength];
+
+    Instance      *instance = testInitInstance();
+    Message       *message;
+    Crypto::AesCcm aesCcm;
+
+    VerifyOrQuit(instance != nullptr);
+
     aesCcm.SetKey(key, sizeof(key));
-    aesCcm.Init(headerLength, payloadLength, tagLength, nonce, sizeof(nonce));
-    aesCcm.Header(test, headerLength);
-    aesCcm.Payload(test + headerLength, test + headerLength, payloadLength, ot::Crypto::AesCcm::kEncrypt);
-    VerifyOrQuit(aesCcm.GetTagLength() == tagLength);
-    aesCcm.Finalize(test + headerLength + payloadLength);
+    aesCcm.Init(kHeaderLength, kPayloadLength, kTagLength, nonce, sizeof(nonce));
+    aesCcm.Header(test, kHeaderLength);
+    aesCcm.Payload(test + kHeaderLength, test + kHeaderLength, kPayloadLength, Crypto::AesCcm::kEncrypt);
+    VerifyOrQuit(aesCcm.GetTagLength() == kTagLength);
+    aesCcm.Finalize(test + kHeaderLength + kPayloadLength);
     VerifyOrQuit(memcmp(test, encrypted, sizeof(encrypted)) == 0);
 
-    aesCcm.Init(headerLength, payloadLength, tagLength, nonce, sizeof(nonce));
-    aesCcm.Header(test, headerLength);
-    aesCcm.Payload(test + headerLength, test + headerLength, payloadLength, ot::Crypto::AesCcm::kDecrypt);
-    VerifyOrQuit(aesCcm.GetTagLength() == tagLength);
-    aesCcm.Finalize(test + headerLength + payloadLength);
+    aesCcm.Init(kHeaderLength, kPayloadLength, kTagLength, nonce, sizeof(nonce));
+    aesCcm.Header(test, kHeaderLength);
+    aesCcm.Payload(test + kHeaderLength, test + kHeaderLength, kPayloadLength, Crypto::AesCcm::kDecrypt);
+    VerifyOrQuit(aesCcm.GetTagLength() == kTagLength);
+    aesCcm.Finalize(test + kHeaderLength + kPayloadLength);
 
     VerifyOrQuit(memcmp(test, decrypted, sizeof(decrypted)) == 0);
+
+    // Verify encryption/decryption in place within a message.
+
+    message = instance->Get<MessagePool>().Allocate(Message::kTypeIp6);
+    VerifyOrQuit(message != nullptr);
+
+    SuccessOrQuit(message->AppendBytes(test, kHeaderLength + kPayloadLength));
+
+    aesCcm.Init(kHeaderLength, kPayloadLength, kTagLength, nonce, sizeof(nonce));
+    aesCcm.Header(test, kHeaderLength);
+
+    aesCcm.Payload(*message, kHeaderLength, kPayloadLength, Crypto::AesCcm::kEncrypt);
+    VerifyOrQuit(aesCcm.GetTagLength() == kTagLength);
+    aesCcm.Finalize(tag);
+    SuccessOrQuit(message->Append(tag));
+    VerifyOrQuit(message->GetLength() == sizeof(encrypted));
+    VerifyOrQuit(message->Compare(0, encrypted));
+
+    aesCcm.Init(kHeaderLength, kPayloadLength, kTagLength, nonce, sizeof(nonce));
+    aesCcm.Header(test, kHeaderLength);
+    aesCcm.Payload(*message, kHeaderLength, kPayloadLength, Crypto::AesCcm::kDecrypt);
+
+    VerifyOrQuit(message->GetLength() == sizeof(encrypted));
+    VerifyOrQuit(message->Compare(0, decrypted));
+
+    message->Free();
+    testFreeInstance(instance);
 }
+
+/**
+ * Verifies in-place encryption/decryption.
+ *
+ */
+void TestInPlaceAesCcmProcessing(void)
+{
+    static constexpr uint16_t kTagLength    = 4;
+    static constexpr uint32_t kHeaderLength = 19;
+
+    static const uint8_t kKey[] = {
+        0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
+    };
+
+    static const uint8_t kNonce[] = {
+        0xac, 0xde, 0x48, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x06,
+    };
+
+    static uint16_t kMessageLengths[] = {30, 400, 800};
+
+    uint8_t tag[kTagLength];
+    uint8_t header[kHeaderLength];
+
+    Crypto::AesCcm aesCcm;
+    Instance      *instance = testInitInstance();
+    Message       *message;
+    Message       *messageClone;
+
+    VerifyOrQuit(instance != nullptr);
+
+    message = instance->Get<MessagePool>().Allocate(Message::kTypeIp6);
+    VerifyOrQuit(message != nullptr);
+
+    aesCcm.SetKey(kKey, sizeof(kKey));
+
+    for (uint16_t msgLength : kMessageLengths)
+    {
+        printf("msgLength %d\n", msgLength);
+
+        SuccessOrQuit(message->SetLength(0));
+
+        for (uint16_t i = msgLength; i != 0; i--)
+        {
+            SuccessOrQuit(message->Append<uint8_t>(i & 0xff));
+        }
+
+        messageClone = message->Clone();
+        VerifyOrQuit(messageClone != nullptr);
+        VerifyOrQuit(messageClone->GetLength() == msgLength);
+
+        SuccessOrQuit(message->Read(0, header));
+
+        // Encrypt in place
+        aesCcm.Init(kHeaderLength, msgLength - kHeaderLength, kTagLength, kNonce, sizeof(kNonce));
+        aesCcm.Header(header);
+        aesCcm.Payload(*message, kHeaderLength, msgLength - kHeaderLength, Crypto::AesCcm::kEncrypt);
+
+        // Append the tag
+        aesCcm.Finalize(tag);
+        SuccessOrQuit(message->Append(tag));
+
+        VerifyOrQuit(message->GetLength() == msgLength + kTagLength);
+
+        // Decrypt in place
+        aesCcm.Init(kHeaderLength, msgLength - kHeaderLength, kTagLength, kNonce, sizeof(kNonce));
+        aesCcm.Header(header);
+        aesCcm.Payload(*message, kHeaderLength, msgLength - kHeaderLength, Crypto::AesCcm::kDecrypt);
+
+        // Check the tag against what is the message
+        aesCcm.Finalize(tag);
+        VerifyOrQuit(message->Compare(msgLength, tag));
+
+        // Check that decrypted message is the same as original (cloned) message
+        VerifyOrQuit(message->CompareBytes(0, *messageClone, 0, msgLength));
+
+        messageClone->Free();
+    }
+
+    message->Free();
+    testFreeInstance(instance);
+}
+
+} // namespace ot
 
 int main(void)
 {
-    TestMacBeaconFrame();
-    TestMacCommandFrame();
+    ot::TestMacBeaconFrame();
+    ot::TestMacCommandFrame();
+    ot::TestInPlaceAesCcmProcessing();
     printf("All tests passed\n");
     return 0;
 }

@@ -1,22 +1,15 @@
-// Copyright 2021 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #pragma once
 
-#include "soc/lldesc.h"
+#include "esp_crypto_dma.h"
 #include "esp_private/gdma.h"
 #include "esp_err.h"
+#include "soc/lldesc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,17 +17,40 @@ extern "C" {
 
 /**
  * @brief Start a GDMA transfer on the shared crypto DMA channel
+ *        Only supports AHB-DMA.
  *
  * @note Will allocate a GDMA channel for AES & SHA if no such channel is already allocated
  *
- * @param input Input linked list descriptor
- * @param output Output linked list descriptor
+ * @param input Input linked list descriptor (lldesc_t *)
+ * @param output Output linked list descriptor (lldesc_t *)
  * @param peripheral Crypto peripheral to connect the DMA to, either GDMA_TRIG_PERIPH_AES or
  *                   GDMA_TRIG_PERIPH_SHA
  * @return esp_err_t ESP_FAIL if no GDMA channel available
  */
-esp_err_t esp_crypto_shared_gdma_start(const lldesc_t *input, const lldesc_t *output, gdma_trigger_peripheral_t peripheral);
+esp_err_t esp_crypto_shared_gdma_start(const lldesc_t *input, const lldesc_t *output, gdma_trigger_peripheral_t peripheral) __attribute__((deprecated("use esp_crypto_shared_gdma_start_axi_ahb instead")));
 
+/**
+ * @brief Start a GDMA transfer on the shared crypto DMA channel
+ *        Supports AXI-DMA and AHB-DMA.
+ *
+ * @note Will allocate a GDMA channel for AES & SHA if no such channel is already allocated
+ *
+ * @param input Input linked list descriptor (crypto_dma_desc_t *)
+ * @param output Output linked list descriptor (crypto_dma_desc_t *)
+ * @param peripheral Crypto peripheral to connect the DMA to, either GDMA_TRIG_PERIPH_AES or
+ *                   GDMA_TRIG_PERIPH_SHA
+ * @return esp_err_t ESP_FAIL if no GDMA channel available
+ */
+esp_err_t esp_crypto_shared_gdma_start_axi_ahb(const crypto_dma_desc_t *input, const crypto_dma_desc_t *output, gdma_trigger_peripheral_t peripheral);
+
+#if SOC_AXI_GDMA_SUPPORTED
+/**
+ * @brief Busy wait until GDMA RX data transfer is complete
+ *
+ * @return true, when GDMA RX data transfer is complete
+ */
+bool esp_crypto_shared_gdma_done(void);
+#endif /* SOC_AXI_GDMA_SUPPORTED */
 
 /**
  * @brief Frees any shared crypto DMA channel, if esp_crypto_shared_gdma_start is called after

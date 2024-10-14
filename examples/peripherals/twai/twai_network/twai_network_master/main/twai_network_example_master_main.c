@@ -1,11 +1,8 @@
-/* TWAI Network Master Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/*
+ * SPDX-FileCopyrightText: 2010-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: CC0-1.0
+ */
 
 /*
  * The following example demonstrates a master node in a TWAI network. The master
@@ -66,12 +63,44 @@ static const twai_timing_config_t t_config = TWAI_TIMING_CONFIG_25KBITS();
 static const twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 static const twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(TX_GPIO_NUM, RX_GPIO_NUM, TWAI_MODE_NORMAL);
 
-static const twai_message_t ping_message = {.identifier = ID_MASTER_PING, .data_length_code = 0,
-                                           .ss = 1, .data = {0, 0 , 0 , 0 ,0 ,0 ,0 ,0}};
-static const twai_message_t start_message = {.identifier = ID_MASTER_START_CMD, .data_length_code = 0,
-                                            .data = {0, 0 , 0 , 0 ,0 ,0 ,0 ,0}};
-static const twai_message_t stop_message = {.identifier = ID_MASTER_STOP_CMD, .data_length_code = 0,
-                                           .data = {0, 0 , 0 , 0 ,0 ,0 ,0 ,0}};
+static const twai_message_t ping_message = {
+    // Message type and format settings
+    .extd = 0,              // Standard Format message (11-bit ID)
+    .rtr = 0,               // Send a data frame
+    .ss = 1,                // Is single shot (won't retry on error or NACK)
+    .self = 0,              // Not a self reception request
+    .dlc_non_comp = 0,      // DLC is less than 8
+    // Message ID and payload
+    .identifier = ID_MASTER_PING,
+    .data_length_code = 0,
+    .data = {0},
+};
+
+static const twai_message_t start_message = {
+    // Message type and format settings
+    .extd = 0,              // Standard Format message (11-bit ID)
+    .rtr = 0,               // Send a data frame
+    .ss = 0,                // Not single shot
+    .self = 0,              // Not a self reception request
+    .dlc_non_comp = 0,      // DLC is less than 8
+    // Message ID and payload
+    .identifier = ID_MASTER_START_CMD,
+    .data_length_code = 0,
+    .data = {0},
+};
+
+static const twai_message_t stop_message = {
+    // Message type and format settings
+    .extd = 0,              // Standard Format message (11-bit ID)
+    .rtr = 0,               // Send a data frame
+    .ss = 0,                // Not single shot
+    .self = 0,              // Not a self reception request
+    .dlc_non_comp = 0,      // DLC is less than 8
+    // Message ID and payload
+    .identifier = ID_MASTER_STOP_CMD,
+    .data_length_code = 0,
+    .data = {0},
+};
 
 static QueueHandle_t tx_task_queue;
 static QueueHandle_t rx_task_queue;
@@ -109,7 +138,7 @@ static void twai_receive_task(void *arg)
                     for (int i = 0; i < rx_msg.data_length_code; i++) {
                         data |= (rx_msg.data[i] << (i * 8));
                     }
-                    ESP_LOGI(EXAMPLE_TAG, "Received data value %d", data);
+                    ESP_LOGI(EXAMPLE_TAG, "Received data value %"PRIu32, data);
                     data_msgs_rec ++;
                 }
             }

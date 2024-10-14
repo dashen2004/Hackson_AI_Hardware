@@ -13,19 +13,42 @@ if(EXISTS "${COMPONENT_DIR}/${target}")
     add_prefix(srcs "${target}/" ${EFUSE_SOC_SRCS})
 endif()
 
-list(APPEND srcs "src/esp_efuse_api.c"
-                 "src/esp_efuse_fields.c"
-                 "src/esp_efuse_utility.c")
-if("esp32" STREQUAL "${target}")
-    list(APPEND srcs "src/esp_efuse_api_key_esp32.c")
+if(CONFIG_SOC_EFUSE_KEY_PURPOSE_FIELD)
+    set(type "with_key_purposes")
 else()
-    list(APPEND srcs "src/esp_efuse_api_key_esp32xx.c")
+    if(CONFIG_SOC_EFUSE_CONSISTS_OF_ONE_KEY_BLOCK)
+        set(type "without_key_purposes/one_key_block")
+    else()
+        set(type "without_key_purposes/three_key_blocks")
+    endif()
 endif()
 
-idf_component_register(SRCS "${srcs}"
+list(APPEND srcs "src/esp_efuse_api.c"
+                 "src/esp_efuse_fields.c"
+                 "src/esp_efuse_utility.c"
+                 "src/efuse_controller/keys/${type}/esp_efuse_api_key.c")
+
+if(BOOTLOADER_BUILD)
+    idf_component_register(SRCS "${srcs}"
                     PRIV_REQUIRES bootloader_support soc spi_flash
                     INCLUDE_DIRS "${include_dirs}"
                     PRIV_INCLUDE_DIRS "${private_include}")
+else()
+    list(APPEND srcs "src/esp_efuse_startup.c")
+    if(${target} STREQUAL "linux")
+        set(priv_requires soc spi_flash esp_system esp_partition)
+    else()
+        set(priv_requires bootloader_support soc spi_flash esp_system esp_partition esp_app_format)
+    endif()
+    idf_component_register(SRCS "${srcs}"
+                    PRIV_REQUIRES "${priv_requires}"
+                    INCLUDE_DIRS "${include_dirs}"
+                    PRIV_INCLUDE_DIRS "${private_include}")
+    if(NOT ${target} STREQUAL "linux")
+        # Forces the linker to include esp_efuse_startup.c
+        target_link_libraries(${COMPONENT_LIB} INTERFACE "-u esp_efuse_startup_include_func")
+    endif()
+endif()
 
 if(target)
     set(TOOL_TARGET -t ${target})

@@ -155,7 +155,8 @@ rx_stress_simple_adv(struct rx_stress_adv_set *adv_set)
     assert (rc == 0);
 
     if (own_addr_type == 0) {
-        memcpy(addr.val, MYNEWT_VAL(BLE_PUBLIC_DEV_ADDR), 6);
+        rc = ble_hs_id_copy_addr(BLE_ADDR_PUBLIC, addr.val, NULL);
+        assert (rc == 0);
     } else {
         rc = ble_hs_id_gen_rnd(1, &addr);
         assert (rc == 0);
@@ -837,14 +838,6 @@ rx_stress_10_l2cap_event(struct ble_l2cap_event *event, void *arg)
     MODLOG_DFLT(INFO, "Data buf %s\n", data_buf ? "OK" : "NOK");
     assert(data_buf != NULL);
 
-    /* The first 2 bytes of data is the size of appended pattern data. */
-    rc = os_mbuf_append(data_buf, (uint8_t[]) {data_len >> 8, data_len},
-                        2);
-    if (rc) {
-        os_mbuf_free_chain(data_buf);
-        assert(0);
-    }
-
     /* Fill mbuf with the pattern */
     stress_fill_mbuf_with_pattern(data_buf, data_len);
 
@@ -852,8 +845,13 @@ rx_stress_10_l2cap_event(struct ble_l2cap_event *event, void *arg)
     rc = ble_l2cap_send(rx_stress_ctx->chan, data_buf);
     MODLOG_DFLT(INFO, "Return code=%d\n", rc);
     if (rc) {
-        MODLOG_DFLT(INFO, "L2CAP stalled - waiting\n");
-        stalled = true;
+        if (rc == BLE_HS_ESTALLED) {
+            MODLOG_DFLT(INFO, "L2CAP stalled - waiting\n");
+            stalled = true;
+        } else {
+            MODLOG_DFLT(INFO, "Sending data via L2CAP failed with error "
+                        "code %d\n", rc);
+        }
     }
 
     MODLOG_DFLT(INFO, " %d, %d\n", ++send_cnt, data_len);
@@ -1007,18 +1005,30 @@ rx_stress_12_gap_event(struct ble_gap_event *event, void *arg)
     rx_stress_ctx->begin_us = os_get_uptime_usec();
     om = os_msys_get_pkthdr(om_len, 0);
     stress_fill_mbuf_with_pattern(om, om_len);
-    rc = ble_gattc_indicate_custom(rx_stress_ctx->conn_handle, hrs_hrm_handle,
+    rc = ble_gatts_indicate_custom(rx_stress_ctx->conn_handle, hrs_hrm_handle,
                                    om);
     assert(rc == 0);
     return 0;
 }
 
+static struct ble_npl_event rx_stress_13_notify_ev;
+
+static void
+rx_stress_13_notify_ev_func(struct ble_npl_event *ev)
+{
+    struct os_mbuf *om;
+    int rc;
+
+    om = ble_hs_mbuf_from_flat(test_6_pattern, 10);
+    rc = ble_gatts_notify_custom(rx_stress_ctx->conn_handle,
+                                 hrs_hrm_handle, om);
+    assert(rc == 0);
+
+}
+
 static int
 rx_stress_13_gap_event(struct ble_gap_event *event, void *arg)
 {
-    int rc;
-    struct os_mbuf *om = NULL;
-
     switch (event->type) {
     case BLE_GAP_EVENT_CONNECT:
         /* A new connection was established or a connection attempt failed */
@@ -1029,6 +1039,9 @@ rx_stress_13_gap_event(struct ble_gap_event *event, void *arg)
             rx_stress_ctx->conn_handle = event->connect.conn_handle;
 
             rx_stress_ctx->begin_us = os_get_uptime_usec();
+
+            ble_npl_eventq_put((struct ble_npl_eventq *)os_eventq_dflt_get(),
+                               &rx_stress_13_notify_ev);
             break;
         } else {
             /* Connection failed; resume advertising */
@@ -1048,7 +1061,7 @@ rx_stress_13_gap_event(struct ble_gap_event *event, void *arg)
         rx_stress_ctx->s13_notif_time = rx_stress_ctx->time_sum /
                                         rx_stress_ctx->send_num;
 
-        MODLOG_DFLT(INFO, "Average time: %lld us\n",
+        MODLOG_DFLT(INFO, "Average time: %d us\n",
                     rx_stress_ctx->s13_notif_time);
         rx_stress_on_test_finish(13);
         return 0;
@@ -1064,6 +1077,9 @@ rx_stress_13_gap_event(struct ble_gap_event *event, void *arg)
                               BLE_ERR_REM_USER_CONN_TERM);
             return 0;
         }
+
+        ble_npl_eventq_put((struct ble_npl_eventq *)os_eventq_dflt_get(),
+                           &rx_stress_13_notify_ev);
         break;
 
     default:
@@ -1072,7 +1088,7 @@ rx_stress_13_gap_event(struct ble_gap_event *event, void *arg)
     }
 
     om = ble_hs_mbuf_from_flat(test_6_pattern, 10);
-    rc = ble_gattc_notify_custom(rx_stress_ctx->conn_handle,
+    rc = ble_gatts_notify_custom(rx_stress_ctx->conn_handle,
                                  hrs_hrm_handle, om);
     assert(rc == 0);
     return 0;
@@ -1130,7 +1146,7 @@ rx_stress_14_gap_event(struct ble_gap_event *event, void *arg)
             /* Notify data pattern */
             om = ble_hs_mbuf_from_flat(test_6_pattern, bytes_num);
 
-            rc = ble_gattc_notify_custom(rx_stress_ctx->conn_handle,
+            rc = ble_gatts_notify_custom(rx_stress_ctx->conn_handle,
                                          hrs_hrm_handle, om);
             assert(rc == 0);
 
@@ -1365,7 +1381,7 @@ rx_stress_start(int test_num)
         break;
     case 10:
         console_printf("Stress L2CAP send\033[0m\n");
-        rc = ble_l2cap_create_server(1, STRESS_COC_MTU,
+        rc = ble_l2cap_create_server(TEST_PSM, STRESS_COC_MTU,
                                      rx_stress_10_l2cap_event, NULL);
         assert(rc == 0);
         rx_stress_simple_adv(&rx_stress_adv_sets[10]);
@@ -1380,6 +1396,8 @@ rx_stress_start(int test_num)
         break;
     case 13:
         console_printf("Stress GATT notification\033[0m\n");
+        ble_npl_event_init(&rx_stress_13_notify_ev,
+                           rx_stress_13_notify_ev_func, NULL);
         rx_stress_simple_adv(&rx_stress_adv_sets[13]);
         break;
     case 14:
@@ -1445,7 +1463,7 @@ rx_stress_main_task_fn(void *arg)
         if (i == 7 || i == 8 || i == 13) {
             /* 7,8: PHY update tests cause that the device during the next test
              * will stuck somewhere and will reset. Skip them for now.
-             * 13: Should work after fixing ble_gattc_notify_custom (nimble issue on GitHub)*/
+             * 13: Should work after fixing ble_gatts_notify_custom (nimble issue on GitHub)*/
             continue;
         }
         /* Start test. */

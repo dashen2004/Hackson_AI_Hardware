@@ -36,20 +36,70 @@
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
 
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
 
 namespace ot {
 namespace BackboneRouter {
+
+RegisterLogModule("Bbr");
+
+BackboneTmfAgent::BackboneTmfAgent(Instance &aInstance)
+    : Coap::Coap(aInstance)
+{
+    SetInterceptor(&Filter, this);
+    SetResourceHandler(&HandleResource);
+}
 
 Error BackboneTmfAgent::Start(void)
 {
     Error error = kErrorNone;
 
-    SuccessOrExit(error = Coap::Start(kBackboneUdpPort, OT_NETIF_BACKBONE));
+    SuccessOrExit(error = Coap::Start(kBackboneUdpPort, Ip6::kNetifBackbone));
+    LogInfo("Start listening on port %u", kBackboneUdpPort);
     SubscribeMulticast(Get<Local>().GetAllNetworkBackboneRoutersAddress());
 
 exit:
     return error;
+}
+
+bool BackboneTmfAgent::HandleResource(CoapBase               &aCoapBase,
+                                      const char             *aUriPath,
+                                      ot::Coap::Message      &aMessage,
+                                      const Ip6::MessageInfo &aMessageInfo)
+{
+    return static_cast<BackboneTmfAgent &>(aCoapBase).HandleResource(aUriPath, aMessage, aMessageInfo);
+}
+
+bool BackboneTmfAgent::HandleResource(const char             *aUriPath,
+                                      ot::Coap::Message      &aMessage,
+                                      const Ip6::MessageInfo &aMessageInfo)
+{
+    OT_UNUSED_VARIABLE(aMessage);
+    OT_UNUSED_VARIABLE(aMessageInfo);
+
+    bool didHandle = true;
+    Uri  uri       = UriFromPath(aUriPath);
+
+#define Case(kUri, Type)                                     \
+    case kUri:                                               \
+        Get<Type>().HandleTmf<kUri>(aMessage, aMessageInfo); \
+        break
+
+    switch (uri)
+    {
+#if OPENTHREAD_CONFIG_BACKBONE_ROUTER_DUA_NDPROXYING_ENABLE
+        Case(kUriBackboneQuery, Manager);
+        Case(kUriBackboneAnswer, Manager);
+#endif
+
+    default:
+        didHandle = false;
+        break;
+    }
+
+#undef Case
+
+    return didHandle;
 }
 
 Error BackboneTmfAgent::Filter(const ot::Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo, void *aContext)
@@ -70,27 +120,38 @@ bool BackboneTmfAgent::IsBackboneTmfMessage(const Ip6::MessageInfo &aMessageInfo
     //     2. All Domain BBRs (Link-Local scope)
     //     3. A Backbone Link-Local address
     // The source must be a Backbone Link-local address.
-    return (Get<BackboneRouter::Local>().IsEnabled() && src.IsLinkLocal() &&
-            (dst.IsLinkLocal() || dst == Get<BackboneRouter::Local>().GetAllNetworkBackboneRoutersAddress() ||
+    return (Get<BackboneRouter::Local>().IsEnabled() && src.IsLinkLocalUnicast() &&
+            (dst.IsLinkLocalUnicast() || dst == Get<BackboneRouter::Local>().GetAllNetworkBackboneRoutersAddress() ||
              dst == Get<BackboneRouter::Local>().GetAllDomainBackboneRoutersAddress()));
 }
 
 void BackboneTmfAgent::SubscribeMulticast(const Ip6::Address &aAddress)
 {
-    Error error;
+    Error error = mSocket.JoinNetifMulticastGroup(Ip6::kNetifBackbone, aAddress);
 
-    error = mSocket.JoinNetifMulticastGroup(OT_NETIF_BACKBONE, aAddress);
-
-    otLogResultBbr(error, "Backbone TMF subscribes %s", aAddress.ToString().AsCString());
+    LogError("Backbone TMF subscribes", aAddress, error);
 }
 
 void BackboneTmfAgent::UnsubscribeMulticast(const Ip6::Address &aAddress)
 {
-    Error error;
+    Error error = mSocket.LeaveNetifMulticastGroup(Ip6::kNetifBackbone, aAddress);
 
-    error = mSocket.LeaveNetifMulticastGroup(OT_NETIF_BACKBONE, aAddress);
+    LogError("Backbone TMF unsubscribes", aAddress, error);
+}
 
-    otLogResultBbr(error, "Backbone TMF unsubscribes %s", aAddress.ToString().AsCString());
+void BackboneTmfAgent::LogError(const char *aText, const Ip6::Address &aAddress, Error aError) const
+{
+    OT_UNUSED_VARIABLE(aText);
+    OT_UNUSED_VARIABLE(aAddress);
+
+    if (aError == kErrorNone)
+    {
+        LogInfo("%s %s: %s", aText, aAddress.ToString().AsCString(), ErrorToString(aError));
+    }
+    else
+    {
+        LogWarn("%s %s: %s", aText, aAddress.ToString().AsCString(), ErrorToString(aError));
+    }
 }
 
 } // namespace BackboneRouter

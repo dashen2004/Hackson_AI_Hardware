@@ -111,9 +111,7 @@ err_t            dns_gethostbyname(const char *hostname, ip_addr_t *addr,
 err_t            dns_gethostbyname_addrtype(const char *hostname, ip_addr_t *addr,
                                    dns_found_callback found, void *callback_arg,
                                    u8_t dns_addrtype);
-#if ESP_DNS
-void             dns_clear_servers(bool keep_fallback);
-#endif
+void             dns_clear_cache(void);
 
 #if DNS_LOCAL_HOSTLIST
 size_t         dns_local_iterate(dns_found_callback iterator_fn, void *iterator_arg);
@@ -123,6 +121,12 @@ int            dns_local_removehost(const char *hostname, const ip_addr_t *addr)
 err_t          dns_local_addhost(const char *hostname, const ip_addr_t *addr);
 #endif /* DNS_LOCAL_HOSTLIST_IS_DYNAMIC */
 #endif /* DNS_LOCAL_HOSTLIST */
+
+#if LWIP_DNS_SETSERVER_WITH_NETIF
+typedef void (*dns_setserver_callback_t)(struct netif* netif, u8_t numdns, const ip_addr_t *dnsserver);
+void            dns_setserver_with_netif(struct netif* netif, u8_t numdns, const ip_addr_t *dnsserver);
+err_t           dns_setserver_callback(dns_setserver_callback_t callback);
+#endif /* LWIP_DNS_SETSERVER_WITH_NETIF */
 
 #ifdef __cplusplus
 }

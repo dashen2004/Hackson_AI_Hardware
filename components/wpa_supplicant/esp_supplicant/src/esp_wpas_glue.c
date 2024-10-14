@@ -1,16 +1,8 @@
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #ifdef ESP_SUPPLICANT
 
@@ -19,10 +11,12 @@
 #include "common/eapol_common.h"
 #include "rsn_supp/wpa.h"
 #include "rsn_supp/pmksa_cache.h"
+#include "esp_wpas_glue.h"
+#include "esp_private/wifi.h"
 
-u8   *wpa_sm_alloc_eapol(struct wpa_sm *sm, u8 type,
-                         const void *data, u16 data_len,
-                         size_t *msg_len, void **data_pos)
+u8 *wpa_alloc_eapol(void *sm, u8 type,
+                    const void *data, u16 data_len,
+                    size_t *msg_len, void **data_pos)
 {
     void *buffer;
     struct ieee802_1x_hdr *hdr;
@@ -38,7 +32,7 @@ u8   *wpa_sm_alloc_eapol(struct wpa_sm *sm, u8 type,
     /* XXX: reserve l2_ethhdr is enough */
     hdr = (struct ieee802_1x_hdr *)((char *)buffer + sizeof(struct l2_ethhdr));
 
-    hdr->version = sm->eapol_version;
+    hdr->version = DEFAULT_EAPOL_VERSION;
     hdr->type = type;
     hdr->length = host_to_be16(data_len);
 
@@ -55,19 +49,101 @@ u8   *wpa_sm_alloc_eapol(struct wpa_sm *sm, u8 type,
     return (u8 *) hdr;
 }
 
-void  wpa_sm_free_eapol(u8 *buffer)
+void wpa_free_eapol(u8 *buffer)
 {
+    if (!buffer) {
+        return;
+    }
     buffer = buffer - sizeof(struct l2_ethhdr);
     os_free(buffer);
 }
 
+int wpa_ether_send(void *ctx, const u8 *dest, u16 proto,
+                   const u8 *data, size_t data_len)
+{
+    void *buffer = (void *)(data - sizeof(struct l2_ethhdr));
+    struct l2_ethhdr *eth = (struct l2_ethhdr *)buffer;
+
+    os_memcpy(eth->h_dest, dest, ETH_ALEN);
+    os_memcpy(eth->h_source, gWpaSm.own_addr, ETH_ALEN);
+    eth->h_proto = host_to_be16(proto);
+
+    return esp_wifi_internal_tx(WIFI_IF_STA, buffer, sizeof(struct l2_ethhdr) + data_len);
+}
+
+int hostapd_send_eapol(const u8 *source, const u8 *sta_addr,
+                       const u8 *data, size_t data_len)
+{
+    void *buffer = os_malloc(data_len + sizeof(struct l2_ethhdr));
+    struct l2_ethhdr *eth = buffer;
+
+    if (!buffer) {
+        wpa_printf(MSG_DEBUG, "send_eapol, buffer=%p", buffer);
+        return -1;
+    }
+
+    memcpy(eth->h_dest, sta_addr, ETH_ALEN);
+    memcpy(eth->h_source, source, ETH_ALEN);
+    eth->h_proto = host_to_be16(ETH_P_EAPOL);
+
+    memcpy((char *)buffer + sizeof(struct l2_ethhdr), data, data_len);
+    esp_wifi_internal_tx(WIFI_IF_AP, buffer, sizeof(struct l2_ethhdr) + data_len);
+    os_free(buffer);
+    return 0;
+
+}
+
+static void disable_wpa_wpa2(void)
+{
+    esp_wifi_sta_disable_wpa2_authmode_internal();
+}
+
+void wpa_supplicant_transition_disable(struct wpa_sm *sm, u8 bitmap)
+{
+    wpa_printf(MSG_DEBUG, "TRANSITION_DISABLE %02x", bitmap);
+
+    if ((bitmap & TRANSITION_DISABLE_WPA3_PERSONAL) &&
+            wpa_key_mgmt_sae(sm->key_mgmt)) {
+        disable_wpa_wpa2();
+    }
+
+    if ((bitmap & TRANSITION_DISABLE_SAE_PK) &&
+            wpa_key_mgmt_sae(sm->key_mgmt)) {
+        wpa_printf(MSG_INFO,
+                   "SAE-PK: SAE authentication without PK disabled based on AP notification");
+        disable_wpa_wpa2();
+        esp_wifi_enable_sae_pk_only_mode_internal();
+    }
+
+    if ((bitmap & TRANSITION_DISABLE_WPA3_ENTERPRISE) &&
+            wpa_key_mgmt_wpa_ieee8021x(sm->key_mgmt)) {
+        disable_wpa_wpa2();
+    }
+
+    if ((bitmap & TRANSITION_DISABLE_ENHANCED_OPEN) &&
+            wpa_key_mgmt_owe(sm->key_mgmt)) {
+        esp_wifi_sta_disable_owe_trans_internal();
+    }
+}
+
+u8 *wpa_sm_alloc_eapol(struct wpa_sm *sm, u8 type,
+                       const void *data, u16 data_len,
+                       size_t *msg_len, void **data_pos)
+{
+    return wpa_alloc_eapol(sm, type, data, data_len, msg_len, data_pos);
+}
+
+void wpa_sm_free_eapol(u8 *buffer)
+{
+    return wpa_free_eapol(buffer);
+}
+
 void  wpa_sm_deauthenticate(struct wpa_sm *sm, u8 reason_code)
 {
-
     /*only need send deauth frame when associated*/
     if (WPA_SM_STATE(sm) >= WPA_ASSOCIATED) {
         pmksa_cache_clear_current(sm);
-        sm->wpa_deauthenticate(reason_code);
+        wpa_deauthenticate(reason_code);
     }
 }
 

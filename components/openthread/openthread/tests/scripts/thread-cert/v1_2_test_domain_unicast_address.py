@@ -137,7 +137,7 @@ class TestDomainUnicastAddress(thread_cert.TestCase):
 
     def __check_dua_registration(self, node, iid, dp_cid):
         ''' Check whether or not the specified Domain Unicast Address is registered in Address
-        Registraion TLV.
+        Registration TLV.
 
         Args:
             node (int) : The device id
@@ -160,7 +160,7 @@ class TestDomainUnicastAddress(thread_cert.TestCase):
         self.nodes[BBR_1].set_backbone_router(seqno=1)
         self.nodes[BBR_1].start()
         WAIT_TIME = WAIT_ATTACH + ROUTER_SELECTION_JITTER
-        self.simulator.go(WAIT_TIME)
+        self.simulator.go(WAIT_TIME * 2)
         self.assertEqual(self.nodes[BBR_1].get_state(), 'leader')
         self.nodes[BBR_1].enable_backbone_router()
         WAIT_TIME = BBR_REGISTRATION_JITTER + WAIT_REDUNDANCE
@@ -242,10 +242,8 @@ class TestDomainUnicastAddress(thread_cert.TestCase):
         WAIT_TIME = WAIT_REDUNDANCE
         self.simulator.go(WAIT_TIME)
         dua = self.nodes[MED_1_2].get_addr(config.DOMAIN_PREFIX)
-        assert ipaddress.ip_address(dua) == ipaddress.ip_address(
-            med_1_2_dua), 'Error: Expected SLAAC DUA not generated'
-        assert ipaddress.ip_address(med_1_2_dua) == ipaddress.ip_address(
-            dua), 'Error: Expected same SLAAC DUA not generated'
+        self.assertEqual(ipaddress.ip_address(dua), ipaddress.ip_address(med_1_2_dua))
+        self.assertEqual(ipaddress.ip_address(med_1_2_dua), ipaddress.ip_address(dua))
 
         self.__check_dua_registration(MED_1_2, med_1_2_dua_iid, domain_prefix_cid)
 
@@ -269,8 +267,7 @@ class TestDomainUnicastAddress(thread_cert.TestCase):
         self.simulator.go(WAIT_TIME)
         dua = self.nodes[MED_1_2].get_addr(config.DOMAIN_PREFIX)
         assert dua, 'Error: Expected DUA not found'
-        assert ipaddress.ip_address(med_1_2_dua) == ipaddress.ip_address(
-            dua), 'Error: Expected same SLAAC DUA not generated'
+        self.assertEqual(ipaddress.ip_address(med_1_2_dua), ipaddress.ip_address(dua))
 
         self.__check_dua_registration(MED_1_2, med_1_2_dua_iid, domain_prefix_cid)
 
@@ -299,8 +296,7 @@ class TestDomainUnicastAddress(thread_cert.TestCase):
         self.simulator.go(WAIT_TIME)
         dua = self.nodes[MED_1_2].get_addr(config.DOMAIN_PREFIX)
         assert dua, 'Error: Expected DUA not found'
-        assert ipaddress.ip_address(med_1_2_dua) == ipaddress.ip_address(
-            dua), 'Error: Expected same SLAAC DUA not generated'
+        self.assertEqual(ipaddress.ip_address(med_1_2_dua), ipaddress.ip_address(dua))
 
         self.__check_dua_registration(MED_1_2, med_1_2_dua_iid, domain_prefix_cid)
 

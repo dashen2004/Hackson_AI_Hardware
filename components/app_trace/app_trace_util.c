@@ -1,7 +1,7 @@
 /*
- * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
  *
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 //
 #include "freertos/FreeRTOS.h"
@@ -9,12 +9,14 @@
 #include "esp_app_trace_util.h"
 #include "sdkconfig.h"
 
+#define ESP_APPTRACE_PRINT_LOCK 0
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// Locks /////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #if ESP_APPTRACE_PRINT_LOCK
-static esp_apptrace_lock_t s_log_lock = {.irq_stat = 0, .portmux = portMUX_INITIALIZER_UNLOCKED};
+static esp_apptrace_lock_t s_log_lock = { .mux = portMUX_INITIALIZER_UNLOCKED };
 #endif
 
 int esp_apptrace_log_lock(void)
@@ -31,7 +33,7 @@ int esp_apptrace_log_lock(void)
 
 void esp_apptrace_log_unlock(void)
 {
- #if ESP_APPTRACE_PRINT_LOCK
+#if ESP_APPTRACE_PRINT_LOCK
     esp_apptrace_lock_give(&s_log_lock);
 #endif
 }
@@ -57,35 +59,26 @@ esp_err_t esp_apptrace_tmo_check(esp_apptrace_tmo_t *tmo)
 
 esp_err_t esp_apptrace_lock_take(esp_apptrace_lock_t *lock, esp_apptrace_tmo_t *tmo)
 {
-    int res;
+    esp_err_t ret;
 
     while (1) {
-        //Todo: Replace the current locking mechanism and int_state with portTRY_ENTER_CRITICAL() instead.
-        // do not overwrite lock->int_state before we actually acquired the mux
-        unsigned int_state = portSET_INTERRUPT_MASK_FROM_ISR();
-        bool success = vPortCPUAcquireMutexTimeout(&lock->mux, 0);
-        if (success) {
-            lock->int_state = int_state;
+        // Try enter a critical section (i.e., take the spinlock) with 0 timeout
+        if (portTRY_ENTER_CRITICAL(&(lock->mux), 0) == pdTRUE) {
             return ESP_OK;
         }
-        portCLEAR_INTERRUPT_MASK_FROM_ISR(int_state);
-        // we can be preempted from this place till the next call (above) to portSET_INTERRUPT_MASK_FROM_ISR()
-        res = esp_apptrace_tmo_check(tmo);
-        if (res != ESP_OK) {
-            break;
+        // Failed to enter the critical section, so interrupts are still enabled. Check if we have timed out.
+        ret = esp_apptrace_tmo_check(tmo);
+        if (ret != ESP_OK) {
+            break;  // Timed out, exit now
         }
+        // Haven't timed out, try again
     }
-    return res;
+    return ret;
 }
 
 esp_err_t esp_apptrace_lock_give(esp_apptrace_lock_t *lock)
 {
-    // save lock's irq state value for this CPU
-    unsigned int_state = lock->int_state;
-    // after call to the following func we can not be sure that lock->int_state
-    // is not overwritten by other CPU who has acquired the mux just after we released it. See esp_apptrace_lock_take().
-    vPortCPUReleaseMutex(&lock->mux);
-    portCLEAR_INTERRUPT_MASK_FROM_ISR(int_state);
+    portEXIT_CRITICAL(&(lock->mux));
     return ESP_OK;
 }
 
@@ -96,7 +89,7 @@ esp_err_t esp_apptrace_lock_give(esp_apptrace_lock_t *lock)
 uint8_t *esp_apptrace_rb_produce(esp_apptrace_rb_t *rb, uint32_t size)
 {
     uint8_t *ptr = rb->data + rb->wr;
-    // check for avalable space
+    // check for available space
     if (rb->rd <= rb->wr) {
         // |?R......W??|
         if (rb->wr + size >= rb->size) {

@@ -19,7 +19,7 @@
 
 # Toolchain commands
 CROSS_COMPILE ?=
-CC      := ccache $(CROSS_COMPLIE)gcc
+CC      := ccache $(CROSS_COMPILE)gcc
 CXX     := ccache $(CROSS_COMPILE)g++
 LD      := $(CROSS_COMPILE)gcc
 AR      := $(CROSS_COMPILE)ar
@@ -46,6 +46,7 @@ include $(NIMBLE_ROOT)/porting/nimble/Makefile.defs
 SRC = \
 	$(wildcard $(NIMBLE_ROOT)/porting/npl/dummy/src/*.c) \
 	$(NIMBLE_SRC) \
+	$(wildcard $(NIMBLE_ROOT)/nimble/transport/socket/src/*.c) \
 	$(TINYCRYPT_SRC) \
 	main.c \
 
@@ -53,6 +54,7 @@ SRC = \
 INC = \
 	$(NIMBLE_ROOT)/porting/npl/dummy/include \
 	$(NIMBLE_INCLUDE) \
+	$(NIMBLE_ROOT)/nimble/transport/socket/include \
 	$(TINYCRYPT_INCLUDE) \
 	$(INCLUDE) \
 
@@ -60,6 +62,7 @@ OBJ := $(SRC:.c=.o)
 TINYCRYPT_OBJ := $(TINYCRYPT_SRC:.c=.o)
 
 CFLAGS := $(NIMBLE_CFLAGS)
+LDFLAGS := $(NIMBLE_LDFLAGS)
 
 .PHONY: all clean
 .DEFAULT: all
@@ -76,4 +79,4 @@ $(TINYCRYPT_OBJ): CFLAGS+=$(TINYCRYPT_CFLAGS)
 	$(CC) -c $(addprefix -I, $(INC)) $(CFLAGS) -o $@ $<
 
 dummy: $(OBJ) $(TINYCRYPT_OBJ)
-	$(CC) -o $@ $^
+	$(CC) -o $@ $^ $(LDFLAGS)

@@ -103,7 +103,7 @@ static const char *result_code_strings[] = {
 *******************************************************************************/
 int RFCOMM_CreateConnection (UINT16 uuid, UINT8 scn, BOOLEAN is_server,
                              UINT16 mtu, BD_ADDR bd_addr, UINT16 *p_handle,
-                             tPORT_CALLBACK *p_mgmt_cb)
+                             tPORT_MGMT_CALLBACK *p_mgmt_cb)
 {
     tPORT      *p_port;
     int        i;
@@ -464,11 +464,12 @@ int PORT_SetEventMask (UINT16 port_handle, UINT32 mask)
 **                  by handle is up and running
 **
 ** Parameters:      handle     - Handle returned in the RFCOMM_CreateConnection
+**                  ignore_rfc_state - If need to ignore rfc state
 **                  bd_addr    - OUT bd_addr of the peer
 **                  p_lcid     - OUT L2CAP's LCID
 **
 *******************************************************************************/
-int PORT_CheckConnection (UINT16 handle, BD_ADDR bd_addr, UINT16 *p_lcid)
+int PORT_CheckConnection(UINT16 handle, BOOLEAN ignore_rfc_state, BD_ADDR bd_addr, UINT16 *p_lcid)
 {
     tPORT      *p_port;
 
@@ -485,9 +486,8 @@ int PORT_CheckConnection (UINT16 handle, BD_ADDR bd_addr, UINT16 *p_lcid)
         return (PORT_NOT_OPENED);
     }
 
-    if (!p_port->rfc.p_mcb
-            || !p_port->rfc.p_mcb->peer_ready
-            || (p_port->rfc.state != RFC_STATE_OPENED)) {
+    if (!p_port->rfc.p_mcb || !p_port->rfc.p_mcb->peer_ready ||
+        (!ignore_rfc_state ? (p_port->rfc.state != RFC_STATE_OPENED) : false)) {
         return (PORT_LINE_ERR);
     }
 
@@ -1552,7 +1552,8 @@ int PORT_WriteDataCO (UINT16 handle, int *p_len, int len, UINT8 *p_data)
             length = (UINT16)available;
         }
 
-        UINT16 alloc_size = (UINT16)(sizeof(BT_HDR) + L2CAP_MIN_OFFSET + RFCOMM_DATA_OVERHEAD+length);
+        UINT16 alloc_size = (UINT16)(sizeof(BT_HDR) + L2CAP_MIN_OFFSET + RFCOMM_DATA_OVERHEAD
+                                + length + L2CAP_FCS_LEN);
         p_buf = (BT_HDR *)osi_malloc(alloc_size);
         if (!p_buf) {
             RFCOMM_TRACE_EVENT ("PORT_WriteDataCO: out of heap.");
@@ -1863,6 +1864,20 @@ const char *PORT_GetResultString (const uint8_t result_code)
     }
 
     return result_code_strings[result_code];
+}
+
+/*******************************************************************************
+**
+** Function         PORT_SetL2capErtm
+**
+** Description      This function sets whether RFCOMM uses L2CAP ERTM.
+**
+** Returns          void
+**
+*******************************************************************************/
+void PORT_SetL2capErtm (BOOLEAN enable_l2cap_ertm)
+{
+    rfc_cb.port.enable_l2cap_ertm = enable_l2cap_ertm;
 }
 
 #endif ///(defined RFCOMM_INCLUDED && RFCOMM_INCLUDED == TRUE)

@@ -38,7 +38,6 @@
 #include "common/as_core_type.hpp"
 #include "common/code_utils.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
 
 using namespace ot;
 
@@ -61,6 +60,4 @@ exit:
     return retval;
 }
 
-OT_TOOL_WEAK void otTaskletsSignalPending(otInstance *)
-{
-}
+OT_TOOL_WEAK void otTaskletsSignalPending(otInstance *) {}

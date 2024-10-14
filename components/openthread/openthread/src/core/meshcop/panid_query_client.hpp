@@ -40,28 +40,31 @@
 
 #include <openthread/commissioner.h>
 
-#include "coap/coap.hpp"
+#include "common/callback.hpp"
 #include "common/locator.hpp"
 #include "net/ip6_address.hpp"
 #include "net/udp6.hpp"
+#include "thread/tmf.hpp"
 
 namespace ot {
 
 /**
- * This class implements handling PANID Query Requests.
+ * Implements handling PANID Query Requests.
  *
  */
 class PanIdQueryClient : public InstanceLocator
 {
+    friend class Tmf::Agent;
+
 public:
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      */
     explicit PanIdQueryClient(Instance &aInstance);
 
     /**
-     * This method sends a PAN ID Query message.
+     * Sends a PAN ID Query message.
      *
      * @param[in]  aPanId         The PAN ID to query.
      * @param[in]  aChannelMask   The channel mask value.
@@ -75,19 +78,17 @@ public:
      */
     Error SendQuery(uint16_t                            aPanId,
                     uint32_t                            aChannelMask,
-                    const Ip6::Address &                aAddress,
+                    const Ip6::Address                 &aAddress,
                     otCommissionerPanIdConflictCallback aCallback,
-                    void *                              aContext);
+                    void                               *aContext);
 
 private:
-    static void HandleConflict(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo);
-    void        HandleConflict(Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
+    template <Uri kUri> void HandleTmf(Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
 
-    otCommissionerPanIdConflictCallback mCallback;
-    void *                              mContext;
-
-    Coap::Resource mPanIdQuery;
+    Callback<otCommissionerPanIdConflictCallback> mCallback;
 };
+
+DeclareTmfHandler(PanIdQueryClient, kUriPanIdConflict);
 
 /**
  * @}

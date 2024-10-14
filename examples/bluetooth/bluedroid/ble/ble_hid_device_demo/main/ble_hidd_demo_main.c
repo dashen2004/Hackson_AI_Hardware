@@ -1,8 +1,8 @@
-/* This example code is in the Public Domain (or CC0 licensed, at your option.)
-   Unless required by applicable law or agreed to in writing, this software is
-   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/*
+ * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -122,6 +122,12 @@ static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *
         case ESP_HIDD_EVENT_BLE_VENDOR_REPORT_WRITE_EVT: {
             ESP_LOGI(HID_DEMO_TAG, "%s, ESP_HIDD_EVENT_BLE_VENDOR_REPORT_WRITE_EVT", __func__);
             ESP_LOG_BUFFER_HEX(HID_DEMO_TAG, param->vendor_write.data, param->vendor_write.length);
+            break;
+        }
+        case ESP_HIDD_EVENT_BLE_LED_REPORT_WRITE_EVT: {
+            ESP_LOGI(HID_DEMO_TAG, "ESP_HIDD_EVENT_BLE_LED_REPORT_WRITE_EVT");
+            ESP_LOG_BUFFER_HEX(HID_DEMO_TAG, param->led_write.data, param->led_write.length);
+            break;
         }
         default:
             break;
@@ -200,30 +206,30 @@ void app_main(void)
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ret = esp_bt_controller_init(&bt_cfg);
     if (ret) {
-        ESP_LOGE(HID_DEMO_TAG, "%s initialize controller failed\n", __func__);
+        ESP_LOGE(HID_DEMO_TAG, "%s initialize controller failed", __func__);
         return;
     }
 
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
     if (ret) {
-        ESP_LOGE(HID_DEMO_TAG, "%s enable controller failed\n", __func__);
+        ESP_LOGE(HID_DEMO_TAG, "%s enable controller failed", __func__);
         return;
     }
 
     ret = esp_bluedroid_init();
     if (ret) {
-        ESP_LOGE(HID_DEMO_TAG, "%s init bluedroid failed\n", __func__);
+        ESP_LOGE(HID_DEMO_TAG, "%s init bluedroid failed", __func__);
         return;
     }
 
     ret = esp_bluedroid_enable();
     if (ret) {
-        ESP_LOGE(HID_DEMO_TAG, "%s init bluedroid failed\n", __func__);
+        ESP_LOGE(HID_DEMO_TAG, "%s init bluedroid failed", __func__);
         return;
     }
 
     if((ret = esp_hidd_profile_init()) != ESP_OK) {
-        ESP_LOGE(HID_DEMO_TAG, "%s init bluedroid failed\n", __func__);
+        ESP_LOGE(HID_DEMO_TAG, "%s init bluedroid failed", __func__);
     }
 
     ///register the callback function to the gap module

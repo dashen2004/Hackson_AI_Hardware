@@ -151,7 +151,7 @@ typedef enum otCoapOptionType
 } otCoapOptionType;
 
 /**
- * This structure represents a CoAP option.
+ * Represents a CoAP option.
  *
  */
 typedef struct otCoapOption
@@ -161,7 +161,7 @@ typedef struct otCoapOption
 } otCoapOption;
 
 /**
- * This structure acts as an iterator for CoAP options
+ * Acts as an iterator for CoAP options
  *
  */
 typedef struct otCoapOptionIterator
@@ -329,7 +329,7 @@ typedef enum otCoapBlockSzx
 } otCoapBlockSzx;
 
 /**
- * This function pointer is called when a CoAP response is received or on the request timeout.
+ * Pointer is called when a CoAP response is received or on the request timeout.
  *
  * @param[in]  aContext      A pointer to application-specific context.
  * @param[in]  aMessage      A pointer to the message buffer containing the response. NULL if no response was received.
@@ -341,13 +341,13 @@ typedef enum otCoapBlockSzx
  * @retval  OT_ERROR_RESPONSE_TIMEOUT  No response or acknowledgment received during timeout period.
  *
  */
-typedef void (*otCoapResponseHandler)(void *               aContext,
-                                      otMessage *          aMessage,
+typedef void (*otCoapResponseHandler)(void                *aContext,
+                                      otMessage           *aMessage,
                                       const otMessageInfo *aMessageInfo,
                                       otError              aResult);
 
 /**
- * This function pointer is called when a CoAP request with a given Uri-Path is received.
+ * Pointer is called when a CoAP request with a given Uri-Path is received.
  *
  * @param[in]  aContext      A pointer to arbitrary context information.
  * @param[in]  aMessage      A pointer to the message.
@@ -357,9 +357,9 @@ typedef void (*otCoapResponseHandler)(void *               aContext,
 typedef void (*otCoapRequestHandler)(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo);
 
 /**
- * This function pointer is called when a CoAP message with an block-wise transfer option is received.
+ * Pointer is called when a CoAP message with a block-wise transfer option is received.
  *
- * This function is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
+ * Is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
  * is enabled.
  *
  * @param[in]  aContext     A pointer to application-specific context.
@@ -375,7 +375,7 @@ typedef void (*otCoapRequestHandler)(void *aContext, otMessage *aMessage, const 
  * @retval  OT_ERROR_NO_FRAME_RECEIVED  Block segment missing.
  *
  */
-typedef otError (*otCoapBlockwiseReceiveHook)(void *         aContext,
+typedef otError (*otCoapBlockwiseReceiveHook)(void          *aContext,
                                               const uint8_t *aBlock,
                                               uint32_t       aPosition,
                                               uint16_t       aBlockLength,
@@ -383,15 +383,15 @@ typedef otError (*otCoapBlockwiseReceiveHook)(void *         aContext,
                                               uint32_t       aTotalLength);
 
 /**
- * This function pointer is called before the next block in a block-wise transfer is sent.
+ * Pointer is called before the next block in a block-wise transfer is sent.
  *
- * This function is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
+ * Is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
  * is enabled.
  *
  * @param[in]       aContext     A pointer to application-specific context.
- * @param[inout]    aBlock       A pointer to where the block segment can be written to.
+ * @param[in,out]   aBlock       A pointer to where the block segment can be written to.
  * @param[in]       aPosition    The position in a sequence from which to obtain the block segment.
- * @param[inout]    aBlockLength On entry, the maximum block segment length in bytes.
+ * @param[in,out]   aBlockLength On entry, the maximum block segment length in bytes.
  * @param[out]      aMore        A pointer to the flag if more block segments will follow.
  *
  * @warning By changing the value of aBlockLength, the block size of the whole exchange is
@@ -402,31 +402,31 @@ typedef otError (*otCoapBlockwiseReceiveHook)(void *         aContext,
  * @retval  OT_ERROR_INVALID_ARGS   Block at @p aPosition does not exist.
  *
  */
-typedef otError (*otCoapBlockwiseTransmitHook)(void *    aContext,
-                                               uint8_t * aBlock,
+typedef otError (*otCoapBlockwiseTransmitHook)(void     *aContext,
+                                               uint8_t  *aBlock,
                                                uint32_t  aPosition,
                                                uint16_t *aBlockLength,
-                                               bool *    aMore);
+                                               bool     *aMore);
 
 /**
- * This structure represents a CoAP resource.
+ * Represents a CoAP resource.
  *
  */
 typedef struct otCoapResource
 {
-    const char *           mUriPath; ///< The URI Path string
+    const char            *mUriPath; ///< The URI Path string
     otCoapRequestHandler   mHandler; ///< The callback for handling a received request
-    void *                 mContext; ///< Application-specific context
+    void                  *mContext; ///< Application-specific context
     struct otCoapResource *mNext;    ///< The next CoAP resource in the list
 } otCoapResource;
 
 /**
- * This structure represents a CoAP resource with block-wise transfer.
+ * Represents a CoAP resource with block-wise transfer.
  *
  */
 typedef struct otCoapBlockwiseResource
 {
-    const char *         mUriPath; ///< The URI Path string
+    const char          *mUriPath; ///< The URI Path string
     otCoapRequestHandler mHandler; ///< The callback for handling a received request
 
     /** The callback for handling incoming block-wise transfer.
@@ -440,12 +440,12 @@ typedef struct otCoapBlockwiseResource
      *  configuration is enabled.
      */
     otCoapBlockwiseTransmitHook     mTransmitHook;
-    void *                          mContext; ///< Application-specific context
+    void                           *mContext; ///< Application-specific context
     struct otCoapBlockwiseResource *mNext;    ///< The next CoAP resource in the list
 } otCoapBlockwiseResource;
 
 /**
- * This structure represents the CoAP transmission parameters.
+ * Represents the CoAP transmission parameters.
  *
  * @note mAckTimeout * ((2 ** (mMaxRetransmit + 1)) - 1) * (mAckRandomFactorNumerator / mAckRandomFactorDenominator)
  *       must not exceed what can be represented by a uint32_t (0xffffffff). This limitation allows OpenThread to
@@ -483,24 +483,24 @@ typedef struct otCoapTxParameters
 } otCoapTxParameters;
 
 /**
- * This function initializes the CoAP header.
+ * Initializes the CoAP header.
  *
- * @param[inout] aMessage   A pointer to the CoAP message to initialize.
- * @param[in]    aType      CoAP message type.
- * @param[in]    aCode      CoAP message code.
+ * @param[in,out] aMessage   A pointer to the CoAP message to initialize.
+ * @param[in]     aType      CoAP message type.
+ * @param[in]     aCode      CoAP message code.
  *
  */
 void otCoapMessageInit(otMessage *aMessage, otCoapType aType, otCoapCode aCode);
 
 /**
- * This function initializes a response message.
+ * Initializes a response message.
  *
  * @note Both message ID and token are set according to @p aRequest.
  *
- * @param[inout] aResponse  A pointer to the CoAP response message.
- * @param[in]    aRequest   A pointer to the CoAP request message.
- * @param[in]    aType      CoAP message type.
- * @param[in]    aCode      CoAP message code.
+ * @param[in,out]  aResponse  A pointer to the CoAP response message.
+ * @param[in]      aRequest   A pointer to the CoAP request message.
+ * @param[in]      aType      CoAP message type.
+ * @param[in]      aCode      CoAP message code.
  *
  * @retval OT_ERROR_NONE     Successfully initialized the response message.
  * @retval OT_ERROR_NO_BUFS  Insufficient message buffers available to initialize the response message.
@@ -509,11 +509,11 @@ void otCoapMessageInit(otMessage *aMessage, otCoapType aType, otCoapCode aCode);
 otError otCoapMessageInitResponse(otMessage *aResponse, const otMessage *aRequest, otCoapType aType, otCoapCode aCode);
 
 /**
- * This function sets the Token value and length in a header.
+ * Sets the Token value and length in a header.
  *
- * @param[inout]  aMessage          A pointer to the CoAP message.
- * @param[in]     aToken            A pointer to the Token value.
- * @param[in]     aTokenLength      The Length of @p aToken.
+ * @param[in,out]  aMessage          A pointer to the CoAP message.
+ * @param[in]      aToken            A pointer to the Token value.
+ * @param[in]      aTokenLength      The Length of @p aToken.
  *
  * @retval OT_ERROR_NONE     Successfully set the Token value.
  * @retval OT_ERROR_NO_BUFS  Insufficient buffers to set the Token value.
@@ -522,16 +522,16 @@ otError otCoapMessageInitResponse(otMessage *aResponse, const otMessage *aReques
 otError otCoapMessageSetToken(otMessage *aMessage, const uint8_t *aToken, uint8_t aTokenLength);
 
 /**
- * This function sets the Token length and randomizes its value.
+ * Sets the Token length and randomizes its value.
  *
- * @param[inout]  aMessage      A pointer to the CoAP message.
- * @param[in]     aTokenLength  The Length of a Token to set.
+ * @param[in,out]  aMessage      A pointer to the CoAP message.
+ * @param[in]      aTokenLength  The Length of a Token to set.
  *
  */
 void otCoapMessageGenerateToken(otMessage *aMessage, uint8_t aTokenLength);
 
 /**
- * This function appends the Content Format CoAP option as specified in
+ * Appends the Content Format CoAP option as specified in
  * https://tools.ietf.org/html/rfc7252#page-92.  This *must* be called before
  * setting otCoapMessageSetPayloadMarker if a payload is to be included in the
  * message.
@@ -540,8 +540,8 @@ void otCoapMessageGenerateToken(otMessage *aMessage, uint8_t aTokenLength);
  * and if the desired format type code isn't listed in otCoapOptionContentFormat,
  * this base function should be used instead.
  *
- * @param[inout]  aMessage          A pointer to the CoAP message.
- * @param[in]     aContentFormat    One of the content formats listed in
+ * @param[in,out]  aMessage          A pointer to the CoAP message.
+ * @param[in]      aContentFormat    One of the content formats listed in
  *                                  otCoapOptionContentFormat above.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
@@ -552,12 +552,12 @@ void otCoapMessageGenerateToken(otMessage *aMessage, uint8_t aTokenLength);
 otError otCoapMessageAppendContentFormatOption(otMessage *aMessage, otCoapOptionContentFormat aContentFormat);
 
 /**
- * This function appends a CoAP option in a header.
+ * Appends a CoAP option in a header.
  *
- * @param[inout]  aMessage  A pointer to the CoAP message.
- * @param[in]     aNumber   The CoAP Option number.
- * @param[in]     aLength   The CoAP Option length.
- * @param[in]     aValue    A pointer to the CoAP value.
+ * @param[in,out]  aMessage  A pointer to the CoAP message.
+ * @param[in]      aNumber   The CoAP Option number.
+ * @param[in]      aLength   The CoAP Option length.
+ * @param[in]      aValue    A pointer to the CoAP value.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
  * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
@@ -567,12 +567,12 @@ otError otCoapMessageAppendContentFormatOption(otMessage *aMessage, otCoapOption
 otError otCoapMessageAppendOption(otMessage *aMessage, uint16_t aNumber, uint16_t aLength, const void *aValue);
 
 /**
- * This function appends an unsigned integer CoAP option as specified in
+ * Appends an unsigned integer CoAP option as specified in
  * https://tools.ietf.org/html/rfc7252#section-3.2
  *
- * @param[inout]  aMessage A pointer to the CoAP message.
- * @param[in]     aNumber  The CoAP Option number.
- * @param[in]     aValue   The CoAP Option unsigned integer value.
+ * @param[in,out]  aMessage A pointer to the CoAP message.
+ * @param[in]      aNumber  The CoAP Option number.
+ * @param[in]      aValue   The CoAP Option unsigned integer value.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
  * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
@@ -583,10 +583,10 @@ otError otCoapMessageAppendOption(otMessage *aMessage, uint16_t aNumber, uint16_
 otError otCoapMessageAppendUintOption(otMessage *aMessage, uint16_t aNumber, uint32_t aValue);
 
 /**
- * This function appends an Observe option.
+ * Appends an Observe option.
  *
- * @param[inout]  aMessage  A pointer to the CoAP message.
- * @param[in]     aObserve  Observe field value.
+ * @param[in,out]  aMessage  A pointer to the CoAP message.
+ * @param[in]      aObserve  Observe field value.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
  * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
@@ -596,10 +596,10 @@ otError otCoapMessageAppendUintOption(otMessage *aMessage, uint16_t aNumber, uin
 otError otCoapMessageAppendObserveOption(otMessage *aMessage, uint32_t aObserve);
 
 /**
- * This function appends a Uri-Path option.
+ * Appends a Uri-Path option.
  *
- * @param[inout]  aMessage  A pointer to the CoAP message.
- * @param[in]     aUriPath  A pointer to a NULL-terminated string.
+ * @param[in,out]  aMessage  A pointer to the CoAP message.
+ * @param[in]      aUriPath  A pointer to a NULL-terminated string.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
  * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
@@ -609,7 +609,20 @@ otError otCoapMessageAppendObserveOption(otMessage *aMessage, uint32_t aObserve)
 otError otCoapMessageAppendUriPathOptions(otMessage *aMessage, const char *aUriPath);
 
 /**
- * This function converts a CoAP Block option SZX field to the actual block size
+ * Appends a Uri-Query option.
+ *
+ * @param[in,out]  aMessage   A pointer to the CoAP message.
+ * @param[in]      aUriQuery  A pointer to a NULL-terminated string.
+ *
+ * @retval OT_ERROR_NONE          Successfully appended the option.
+ * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
+ * @retval OT_ERROR_NO_BUFS       The option length exceeds the buffer size.
+ *
+ */
+otError otCoapMessageAppendUriQueryOptions(otMessage *aMessage, const char *aUriQuery);
+
+/**
+ * Converts a CoAP Block option SZX field to the actual block size
  *
  * @param[in]     aSize     Block size exponent.
  *
@@ -619,12 +632,12 @@ otError otCoapMessageAppendUriPathOptions(otMessage *aMessage, const char *aUriP
 uint16_t otCoapBlockSizeFromExponent(otCoapBlockSzx aSize);
 
 /**
- * This function appends a Block2 option
+ * Appends a Block2 option
  *
- * @param[inout]  aMessage  A pointer to the CoAP message.
- * @param[in]     aNum      Current block number.
- * @param[in]     aMore     Boolean to indicate more blocks are to be sent.
- * @param[in]     aSize     Block Size Exponent.
+ * @param[in,out]  aMessage  A pointer to the CoAP message.
+ * @param[in]      aNum      Current block number.
+ * @param[in]      aMore     Boolean to indicate more blocks are to be sent.
+ * @param[in]      aSize     Block Size Exponent.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
  * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
@@ -634,12 +647,12 @@ uint16_t otCoapBlockSizeFromExponent(otCoapBlockSzx aSize);
 otError otCoapMessageAppendBlock2Option(otMessage *aMessage, uint32_t aNum, bool aMore, otCoapBlockSzx aSize);
 
 /**
- * This function appends a Block1 option
+ * Appends a Block1 option
  *
- * @param[inout]  aMessage  A pointer to the CoAP message.
- * @param[in]     aNum      Current block number.
- * @param[in]     aMore     Boolean to indicate more blocks are to be sent.
- * @param[in]     aSize     Block Size Exponent.
+ * @param[in,out]  aMessage  A pointer to the CoAP message.
+ * @param[in]      aNum      Current block number.
+ * @param[in]      aMore     Boolean to indicate more blocks are to be sent.
+ * @param[in]      aSize     Block Size Exponent.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
  * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
@@ -649,10 +662,10 @@ otError otCoapMessageAppendBlock2Option(otMessage *aMessage, uint32_t aNum, bool
 otError otCoapMessageAppendBlock1Option(otMessage *aMessage, uint32_t aNum, bool aMore, otCoapBlockSzx aSize);
 
 /**
- * This function appends a Proxy-Uri option.
+ * Appends a Proxy-Uri option.
  *
- * @param[inout]  aMessage  A pointer to the CoAP message.
- * @param[in]     aUriPath  A pointer to a NULL-terminated string.
+ * @param[in,out]  aMessage  A pointer to the CoAP message.
+ * @param[in]      aUriPath  A pointer to a NULL-terminated string.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
  * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
@@ -662,10 +675,10 @@ otError otCoapMessageAppendBlock1Option(otMessage *aMessage, uint32_t aNum, bool
 otError otCoapMessageAppendProxyUriOption(otMessage *aMessage, const char *aUriPath);
 
 /**
- * This function appends a Max-Age option.
+ * Appends a Max-Age option.
  *
- * @param[inout]  aMessage  A pointer to the CoAP message.
- * @param[in]     aMaxAge   The Max-Age value.
+ * @param[in,out]  aMessage  A pointer to the CoAP message.
+ * @param[in]      aMaxAge   The Max-Age value.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
  * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
@@ -675,10 +688,10 @@ otError otCoapMessageAppendProxyUriOption(otMessage *aMessage, const char *aUriP
 otError otCoapMessageAppendMaxAgeOption(otMessage *aMessage, uint32_t aMaxAge);
 
 /**
- * This function appends a single Uri-Query option.
+ * Appends a single Uri-Query option.
  *
- * @param[inout]  aMessage  A pointer to the CoAP message.
- * @param[in]     aUriQuery A pointer to NULL-terminated string, which should contain a single key=value pair.
+ * @param[in,out]  aMessage  A pointer to the CoAP message.
+ * @param[in]      aUriQuery A pointer to NULL-terminated string, which should contain a single key=value pair.
  *
  * @retval OT_ERROR_NONE          Successfully appended the option.
  * @retval OT_ERROR_INVALID_ARGS  The option type is not equal or greater than the last option type.
@@ -687,9 +700,9 @@ otError otCoapMessageAppendMaxAgeOption(otMessage *aMessage, uint32_t aMaxAge);
 otError otCoapMessageAppendUriQueryOption(otMessage *aMessage, const char *aUriQuery);
 
 /**
- * This function adds Payload Marker indicating beginning of the payload to the CoAP header.
+ * Adds Payload Marker indicating beginning of the payload to the CoAP header.
  *
- * @param[inout]  aMessage  A pointer to the CoAP message.
+ * @param[in,out]  aMessage  A pointer to the CoAP message.
  *
  * @retval OT_ERROR_NONE     Payload Marker successfully added.
  * @retval OT_ERROR_NO_BUFS  Header Payload Marker exceeds the buffer size.
@@ -698,7 +711,7 @@ otError otCoapMessageAppendUriQueryOption(otMessage *aMessage, const char *aUriQ
 otError otCoapMessageSetPayloadMarker(otMessage *aMessage);
 
 /**
- * This function returns the Type value.
+ * Returns the Type value.
  *
  * @param[in]  aMessage  A pointer to the CoAP message.
  *
@@ -708,7 +721,7 @@ otError otCoapMessageSetPayloadMarker(otMessage *aMessage);
 otCoapType otCoapMessageGetType(const otMessage *aMessage);
 
 /**
- * This function returns the Code value.
+ * Returns the Code value.
  *
  * @param[in]  aMessage  A pointer to the CoAP message.
  *
@@ -718,7 +731,16 @@ otCoapType otCoapMessageGetType(const otMessage *aMessage);
 otCoapCode otCoapMessageGetCode(const otMessage *aMessage);
 
 /**
- * This method returns the CoAP Code as human readable string.
+ * Sets the Code value.
+ *
+ * @param[in,out]  aMessage  A pointer to the CoAP message to initialize.
+ * @param[in]      aCode     CoAP message code.
+ *
+ */
+void otCoapMessageSetCode(otMessage *aMessage, otCoapCode aCode);
+
+/**
+ * Returns the CoAP Code as human readable string.
  *
  * @param[in]   aMessage    A pointer to the CoAP message.
  *
@@ -728,7 +750,7 @@ otCoapCode otCoapMessageGetCode(const otMessage *aMessage);
 const char *otCoapMessageCodeToString(const otMessage *aMessage);
 
 /**
- * This function returns the Message ID value.
+ * Returns the Message ID value.
  *
  * @param[in]  aMessage  A pointer to the CoAP message.
  *
@@ -738,7 +760,7 @@ const char *otCoapMessageCodeToString(const otMessage *aMessage);
 uint16_t otCoapMessageGetMessageId(const otMessage *aMessage);
 
 /**
- * This function returns the Token length.
+ * Returns the Token length.
  *
  * @param[in]  aMessage  A pointer to the CoAP message.
  *
@@ -748,7 +770,7 @@ uint16_t otCoapMessageGetMessageId(const otMessage *aMessage);
 uint8_t otCoapMessageGetTokenLength(const otMessage *aMessage);
 
 /**
- * This function returns a pointer to the Token value.
+ * Returns a pointer to the Token value.
  *
  * @param[in]  aMessage  A pointer to the CoAP message.
  *
@@ -758,10 +780,10 @@ uint8_t otCoapMessageGetTokenLength(const otMessage *aMessage);
 const uint8_t *otCoapMessageGetToken(const otMessage *aMessage);
 
 /**
- * This function initialises an iterator for the options in the given message.
+ * Initialises an iterator for the options in the given message.
  *
- * @param[inout]  aIterator A pointer to the CoAP message option iterator.
- * @param[in]     aMessage  A pointer to the CoAP message.
+ * @param[in,out]  aIterator A pointer to the CoAP message option iterator.
+ * @param[in]      aMessage  A pointer to the CoAP message.
  *
  * @retval  OT_ERROR_NONE   Successfully initialised.
  * @retval  OT_ERROR_PARSE  Message state is inconsistent.
@@ -770,7 +792,7 @@ const uint8_t *otCoapMessageGetToken(const otMessage *aMessage);
 otError otCoapOptionIteratorInit(otCoapOptionIterator *aIterator, const otMessage *aMessage);
 
 /**
- * This function returns a pointer to the first option matching the specified option number.
+ * Returns a pointer to the first option matching the specified option number.
  *
  * @param[in]  aIterator A pointer to the CoAP message option iterator.
  * @param[in]  aOption   The option number sought.
@@ -781,9 +803,9 @@ otError otCoapOptionIteratorInit(otCoapOptionIterator *aIterator, const otMessag
 const otCoapOption *otCoapOptionIteratorGetFirstOptionMatching(otCoapOptionIterator *aIterator, uint16_t aOption);
 
 /**
- * This function returns a pointer to the first option.
+ * Returns a pointer to the first option.
  *
- * @param[inout]  aIterator A pointer to the CoAP message option iterator.
+ * @param[in,out]  aIterator A pointer to the CoAP message option iterator.
  *
  * @returns A pointer to the first option. If no option is present NULL pointer is returned.
  *
@@ -791,7 +813,7 @@ const otCoapOption *otCoapOptionIteratorGetFirstOptionMatching(otCoapOptionItera
 const otCoapOption *otCoapOptionIteratorGetFirstOption(otCoapOptionIterator *aIterator);
 
 /**
- * This function returns a pointer to the next option matching the specified option number.
+ * Returns a pointer to the next option matching the specified option number.
  *
  * @param[in]  aIterator A pointer to the CoAP message option iterator.
  * @param[in]  aOption   The option number sought.
@@ -802,9 +824,9 @@ const otCoapOption *otCoapOptionIteratorGetFirstOption(otCoapOptionIterator *aIt
 const otCoapOption *otCoapOptionIteratorGetNextOptionMatching(otCoapOptionIterator *aIterator, uint16_t aOption);
 
 /**
- * This function returns a pointer to the next option.
+ * Returns a pointer to the next option.
  *
- * @param[inout]  aIterator A pointer to the CoAP message option iterator.
+ * @param[in,out]  aIterator A pointer to the CoAP message option iterator.
  *
  * @returns A pointer to the next option. If no more options are present NULL pointer is returned.
  *
@@ -812,10 +834,10 @@ const otCoapOption *otCoapOptionIteratorGetNextOptionMatching(otCoapOptionIterat
 const otCoapOption *otCoapOptionIteratorGetNextOption(otCoapOptionIterator *aIterator);
 
 /**
- * This function fills current option value into @p aValue assuming the current value is an unsigned integer encoded
+ * Fills current option value into @p aValue assuming the current value is an unsigned integer encoded
  * according to https://tools.ietf.org/html/rfc7252#section-3.2
  *
- * @param[inout]    aIterator   A pointer to the CoAP message option iterator.
+ * @param[in,out]   aIterator   A pointer to the CoAP message option iterator.
  * @param[out]      aValue      A pointer to an unsigned integer to receive the option value.
  *
  * @retval  OT_ERROR_NONE       Successfully filled value.
@@ -827,10 +849,10 @@ const otCoapOption *otCoapOptionIteratorGetNextOption(otCoapOptionIterator *aIte
 otError otCoapOptionIteratorGetOptionUintValue(otCoapOptionIterator *aIterator, uint64_t *aValue);
 
 /**
- * This function fills current option value into @p aValue.
+ * Fills current option value into @p aValue.
  *
- * @param[inout]  aIterator A pointer to the CoAP message option iterator.
- * @param[out]    aValue    A pointer to a buffer to receive the option value.
+ * @param[in,out]  aIterator A pointer to the CoAP message option iterator.
+ * @param[out]     aValue    A pointer to a buffer to receive the option value.
  *
  * @retval  OT_ERROR_NONE       Successfully filled value.
  * @retval  OT_ERROR_NOT_FOUND  No current option.
@@ -839,7 +861,7 @@ otError otCoapOptionIteratorGetOptionUintValue(otCoapOptionIterator *aIterator, 
 otError otCoapOptionIteratorGetOptionValue(otCoapOptionIterator *aIterator, void *aValue);
 
 /**
- * This function creates a new CoAP message.
+ * Creates a new CoAP message.
  *
  * @note If @p aSettings is 'NULL', the link layer security is enabled and the message priority is set to
  * OT_MESSAGE_PRIORITY_NORMAL by default.
@@ -853,7 +875,7 @@ otError otCoapOptionIteratorGetOptionValue(otCoapOptionIterator *aIterator, void
 otMessage *otCoapNewMessage(otInstance *aInstance, const otMessageSettings *aSettings);
 
 /**
- * This function sends a CoAP request with custom transmission parameters.
+ * Sends a CoAP request with custom transmission parameters.
  *
  * If a response for a request is expected, respective function and context information should be provided.
  * If no response is expected, these arguments should be NULL pointers.
@@ -869,22 +891,22 @@ otMessage *otCoapNewMessage(otInstance *aInstance, const otMessageSettings *aSet
  *                              2. mAckRandomFactorNumerator / mAckRandomFactorDenominator must not be below 1.0.
  *                              3. The calculated exchange life time must not overflow uint32_t.
  *
- * @retval OT_ERROR_INVALID_ARGS    @p aTxParameters is invalid.
  * @retval OT_ERROR_NONE            Successfully sent CoAP message.
  * @retval OT_ERROR_NO_BUFS         Failed to allocate retransmission data.
+ * @retval OT_ERROR_INVALID_ARGS    Invalid arguments are given.
  *
  */
-otError otCoapSendRequestWithParameters(otInstance *              aInstance,
-                                        otMessage *               aMessage,
-                                        const otMessageInfo *     aMessageInfo,
+otError otCoapSendRequestWithParameters(otInstance               *aInstance,
+                                        otMessage                *aMessage,
+                                        const otMessageInfo      *aMessageInfo,
                                         otCoapResponseHandler     aHandler,
-                                        void *                    aContext,
+                                        void                     *aContext,
                                         const otCoapTxParameters *aTxParameters);
 
 /**
- * This function sends a CoAP request block-wise with custom transmission parameters.
+ * Sends a CoAP request block-wise with custom transmission parameters.
  *
- * This function is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
+ * Is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
  * is enabled.
  *
  * If a response for a request is expected, respective function and context information should be provided.
@@ -900,23 +922,24 @@ otError otCoapSendRequestWithParameters(otInstance *              aInstance,
  * @param[in]  aTransmitHook    A pointer to a hook function for outgoing block-wise transfer.
  * @param[in]  aReceiveHook     A pointer to a hook function for incoming block-wise transfer.
  *
- * @retval OT_ERROR_NONE    Successfully sent CoAP message.
- * @retval OT_ERROR_NO_BUFS Failed to allocate retransmission data.
+ * @retval OT_ERROR_NONE          Successfully sent CoAP message.
+ * @retval OT_ERROR_NO_BUFS       Failed to allocate retransmission data.
+ * @retval OT_ERROR_INVALID_ARGS  Invalid arguments are given.
  *
  */
-otError otCoapSendRequestBlockWiseWithParameters(otInstance *                aInstance,
-                                                 otMessage *                 aMessage,
-                                                 const otMessageInfo *       aMessageInfo,
+otError otCoapSendRequestBlockWiseWithParameters(otInstance                 *aInstance,
+                                                 otMessage                  *aMessage,
+                                                 const otMessageInfo        *aMessageInfo,
                                                  otCoapResponseHandler       aHandler,
-                                                 void *                      aContext,
-                                                 const otCoapTxParameters *  aTxParameters,
+                                                 void                       *aContext,
+                                                 const otCoapTxParameters   *aTxParameters,
                                                  otCoapBlockwiseTransmitHook aTransmitHook,
                                                  otCoapBlockwiseReceiveHook  aReceiveHook);
 
 /**
- * This function sends a CoAP request block-wise.
+ * Sends a CoAP request block-wise.
  *
- * This function is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
+ * Is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
  * is enabled.
  *
  * If a response for a request is expected, respective function and context information should be provided.
@@ -935,11 +958,11 @@ otError otCoapSendRequestBlockWiseWithParameters(otInstance *                aIn
  * @retval OT_ERROR_NO_BUFS Failed to allocate retransmission data.
  *
  */
-static inline otError otCoapSendRequestBlockWise(otInstance *                aInstance,
-                                                 otMessage *                 aMessage,
-                                                 const otMessageInfo *       aMessageInfo,
+static inline otError otCoapSendRequestBlockWise(otInstance                 *aInstance,
+                                                 otMessage                  *aMessage,
+                                                 const otMessageInfo        *aMessageInfo,
                                                  otCoapResponseHandler       aHandler,
-                                                 void *                      aContext,
+                                                 void                       *aContext,
                                                  otCoapBlockwiseTransmitHook aTransmitHook,
                                                  otCoapBlockwiseReceiveHook  aReceiveHook)
 {
@@ -949,7 +972,7 @@ static inline otError otCoapSendRequestBlockWise(otInstance *                aIn
 }
 
 /**
- * This function sends a CoAP request.
+ * Sends a CoAP request.
  *
  * If a response for a request is expected, respective function and context information should be provided.
  * If no response is expected, these arguments should be NULL pointers.
@@ -964,18 +987,18 @@ static inline otError otCoapSendRequestBlockWise(otInstance *                aIn
  * @retval OT_ERROR_NO_BUFS Failed to allocate retransmission data.
  *
  */
-static inline otError otCoapSendRequest(otInstance *          aInstance,
-                                        otMessage *           aMessage,
-                                        const otMessageInfo * aMessageInfo,
+static inline otError otCoapSendRequest(otInstance           *aInstance,
+                                        otMessage            *aMessage,
+                                        const otMessageInfo  *aMessageInfo,
                                         otCoapResponseHandler aHandler,
-                                        void *                aContext)
+                                        void                 *aContext)
 {
     // NOLINTNEXTLINE(modernize-use-nullptr)
     return otCoapSendRequestWithParameters(aInstance, aMessage, aMessageInfo, aHandler, aContext, NULL);
 }
 
 /**
- * This function starts the CoAP server.
+ * Starts the CoAP server.
  *
  * @param[in]  aInstance  A pointer to an OpenThread instance.
  * @param[in]  aPort      The local UDP port to bind to.
@@ -987,7 +1010,7 @@ static inline otError otCoapSendRequest(otInstance *          aInstance,
 otError otCoapStart(otInstance *aInstance, uint16_t aPort);
 
 /**
- * This function stops the CoAP server.
+ * Stops the CoAP server.
  *
  * @param[in]  aInstance  A pointer to an OpenThread instance.
  *
@@ -997,7 +1020,7 @@ otError otCoapStart(otInstance *aInstance, uint16_t aPort);
 otError otCoapStop(otInstance *aInstance);
 
 /**
- * This function adds a resource to the CoAP server.
+ * Adds a resource to the CoAP server.
  *
  * @param[in]  aInstance  A pointer to an OpenThread instance.
  * @param[in]  aResource  A pointer to the resource.
@@ -1006,7 +1029,7 @@ otError otCoapStop(otInstance *aInstance);
 void otCoapAddResource(otInstance *aInstance, otCoapResource *aResource);
 
 /**
- * This function removes a resource from the CoAP server.
+ * Removes a resource from the CoAP server.
  *
  * @param[in]  aInstance  A pointer to an OpenThread instance.
  * @param[in]  aResource  A pointer to the resource.
@@ -1015,7 +1038,7 @@ void otCoapAddResource(otInstance *aInstance, otCoapResource *aResource);
 void otCoapRemoveResource(otInstance *aInstance, otCoapResource *aResource);
 
 /**
- * This function adds a block-wise resource to the CoAP server.
+ * Adds a block-wise resource to the CoAP server.
  *
  * @param[in]  aInstance  A pointer to an OpenThread instance.
  * @param[in]  aResource  A pointer to the resource.
@@ -1024,7 +1047,7 @@ void otCoapRemoveResource(otInstance *aInstance, otCoapResource *aResource);
 void otCoapAddBlockWiseResource(otInstance *aInstance, otCoapBlockwiseResource *aResource);
 
 /**
- * This function removes a block-wise resource from the CoAP server.
+ * Removes a block-wise resource from the CoAP server.
  *
  * @param[in]  aInstance  A pointer to an OpenThread instance.
  * @param[in]  aResource  A pointer to the resource.
@@ -1033,7 +1056,7 @@ void otCoapAddBlockWiseResource(otInstance *aInstance, otCoapBlockwiseResource *
 void otCoapRemoveBlockWiseResource(otInstance *aInstance, otCoapBlockwiseResource *aResource);
 
 /**
- * This function sets the default handler for unhandled CoAP requests.
+ * Sets the default handler for unhandled CoAP requests.
  *
  * @param[in]  aInstance  A pointer to an OpenThread instance.
  * @param[in]  aHandler   A function pointer that shall be called when an unhandled request arrives.
@@ -1043,26 +1066,27 @@ void otCoapRemoveBlockWiseResource(otInstance *aInstance, otCoapBlockwiseResourc
 void otCoapSetDefaultHandler(otInstance *aInstance, otCoapRequestHandler aHandler, void *aContext);
 
 /**
- * This function sends a CoAP response from the server with custom transmission parameters.
+ * Sends a CoAP response from the server with custom transmission parameters.
  *
  * @param[in]  aInstance        A pointer to an OpenThread instance.
  * @param[in]  aMessage         A pointer to the CoAP response to send.
  * @param[in]  aMessageInfo     A pointer to the message info associated with @p aMessage.
  * @param[in]  aTxParameters    A pointer to transmission parameters for this response. Use NULL for defaults.
  *
- * @retval OT_ERROR_NONE     Successfully enqueued the CoAP response message.
- * @retval OT_ERROR_NO_BUFS  Insufficient buffers available to send the CoAP response.
+ * @retval OT_ERROR_NONE          Successfully enqueued the CoAP response message.
+ * @retval OT_ERROR_NO_BUFS       Insufficient buffers available to send the CoAP response.
+ * @retval OT_ERROR_INVALID_ARGS  Invalid arguments are given.
  *
  */
-otError otCoapSendResponseWithParameters(otInstance *              aInstance,
-                                         otMessage *               aMessage,
-                                         const otMessageInfo *     aMessageInfo,
+otError otCoapSendResponseWithParameters(otInstance               *aInstance,
+                                         otMessage                *aMessage,
+                                         const otMessageInfo      *aMessageInfo,
                                          const otCoapTxParameters *aTxParameters);
 
 /**
- * This function sends a CoAP response block-wise from the server with custom transmission parameters.
+ * Sends a CoAP response block-wise from the server with custom transmission parameters.
  *
- * This function is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
+ * Is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
  * is enabled.
  *
  * @param[in]  aInstance        A pointer to an OpenThread instance.
@@ -1072,21 +1096,22 @@ otError otCoapSendResponseWithParameters(otInstance *              aInstance,
  * @param[in]  aContext         A pointer to arbitrary context information. May be NULL if not used.
  * @param[in]  aTransmitHook    A pointer to a hook function for outgoing block-wise transfer.
  *
- * @retval OT_ERROR_NONE     Successfully enqueued the CoAP response message.
- * @retval OT_ERROR_NO_BUFS  Insufficient buffers available to send the CoAP response.
+ * @retval OT_ERROR_NONE          Successfully enqueued the CoAP response message.
+ * @retval OT_ERROR_NO_BUFS       Insufficient buffers available to send the CoAP response.
+ * @retval OT_ERROR_INVALID_ARGS  Invalid arguments are given.
  *
  */
-otError otCoapSendResponseBlockWiseWithParameters(otInstance *                aInstance,
-                                                  otMessage *                 aMessage,
-                                                  const otMessageInfo *       aMessageInfo,
-                                                  const otCoapTxParameters *  aTxParameters,
-                                                  void *                      aContext,
+otError otCoapSendResponseBlockWiseWithParameters(otInstance                 *aInstance,
+                                                  otMessage                  *aMessage,
+                                                  const otMessageInfo        *aMessageInfo,
+                                                  const otCoapTxParameters   *aTxParameters,
+                                                  void                       *aContext,
                                                   otCoapBlockwiseTransmitHook aTransmitHook);
 
 /**
- * This function sends a CoAP response block-wise from the server.
+ * Sends a CoAP response block-wise from the server.
  *
- * This function is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
+ * Is available when OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE configuration
  * is enabled.
  *
  * @param[in]  aInstance     A pointer to an OpenThread instance.
@@ -1099,10 +1124,10 @@ otError otCoapSendResponseBlockWiseWithParameters(otInstance *                aI
  * @retval OT_ERROR_NO_BUFS  Insufficient buffers available to send the CoAP response.
  *
  */
-static inline otError otCoapSendResponseBlockWise(otInstance *                aInstance,
-                                                  otMessage *                 aMessage,
-                                                  const otMessageInfo *       aMessageInfo,
-                                                  void *                      aContext,
+static inline otError otCoapSendResponseBlockWise(otInstance                 *aInstance,
+                                                  otMessage                  *aMessage,
+                                                  const otMessageInfo        *aMessageInfo,
+                                                  void                       *aContext,
                                                   otCoapBlockwiseTransmitHook aTransmitHook)
 {
     // NOLINTNEXTLINE(modernize-use-nullptr)
@@ -1110,7 +1135,7 @@ static inline otError otCoapSendResponseBlockWise(otInstance *                aI
 }
 
 /**
- * This function sends a CoAP response from the server.
+ * Sends a CoAP response from the server.
  *
  * @param[in]  aInstance     A pointer to an OpenThread instance.
  * @param[in]  aMessage      A pointer to the CoAP response to send.

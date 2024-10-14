@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- |
+
 # Simple Sniffer Example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -23,22 +26,20 @@ See common pin assignments for Ethernet from [ethernet examples folder](../../et
 
 ### Configure the project
 
-Open the project configuration menu (`idf.py menuconfig`). Then go into `Example Configuration` menu.
+Open the project configuration menu (`idf.py menuconfig`). Then go into `Example Configuration` in top menu.
 
 - Check `Store command history in flash` if you want to save command history into flash (recommend).
 - Select where to save the pcap file in `Select destination to store pcap file` menu item.
   - `SD Card` means saving packets (pcap format) into the SD card you plug in. The default SD card work mode is set to SDMMC for target ESP32 and ESP32S3, but SPI is the only choice for other targets.
   - `Memory` means saving packets in memory and can parse packets in place.
-  - `JTAG (App Trace)` means sending packets (pcap format) to host via JTAG interface. This feature depends on [app trace component](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/app_trace.html), Component config -> Application Lelvel Tracing -> Data Destination -> Trace memory should be enabled to choose `JTAG (App Trace)` as destination.
+  - `JTAG (App Trace)` means sending packets (pcap format) to host via JTAG interface. This feature depends on [app trace component](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/app_trace.html), Component config -> Application Level Tracing -> Data Destination -> JTAG should be enabled to choose `JTAG (App Trace)` as destination.
 - Set the mount point in your filesystem in `SD card mount point in the filesystem` menu item. This configuration only takes effect when you choose to save packets into SD card.
 - Set max name length of pcap file in `Max name length of pcap file` menu item.
 - Set the length of sniffer work queue in `Length of sniffer work queue` menu item.
 - Set the stack size of the sniffer task in `Stack size of sniffer task` menu item.
 - Set the priority of the sniffer task in `Length of sniffer work queue` menu item.
-- Select Ethernet Type
-  - `No Ethernet` means your board does not have Ethernet.
-  - `Internal EMAC` means ESP32 EMAC is used in conjunction with with selected PHY.
-  - `DM9051 Module`, `W5500 Module` or `KSZ8851SNL Module` means that SPI-Ethernet module is used with its own EMAC and PHY.
+
+To configure Ethernet device(s), go to `Example Ethernet Configuration` in top menu.
   - For more information related to Ethernet configurations see common configuration of Ethernet from [ethernet examples folder](../../ethernet/README.md#common-configurations).
 
 ### Build and Flash
@@ -135,7 +136,7 @@ Press TAB when typing command name to auto-complete.
 sniffer> mount sd
 I (12653) example: Initializing SD card
 I (12653) example: Using SDMMC peripheral
-I (12663) gpio: GPIO[13]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (12663) gpio: GPIO[13]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0
 Name: SC64G
 Type: SDHC/SDXC
 Speed: 20 MHz
@@ -313,8 +314,8 @@ I (130566) cmd_pcap: .pcap file close done
 
 ## Troubleshooting
 
-- Make sure you have pluged in your SD card and mount it into filesystem before doing sniffer work or you will get error message like “Create file /sdcard/sniffer0.pcap failed”.
-- To protect the SD card, we recommand you to execute command `unmount sd` before you plug out your SD card.
+- Make sure you have plugged in your SD card and mount it into filesystem before doing sniffer work or you will get error message like “Create file /sdcard/sniffer0.pcap failed”.
+- To protect the SD card, we recommend you to execute command `unmount sd` before you plug out your SD card.
 - Make sure to run `esp32 apptrace` command before or immediately after a new sniffer task started when you try this example with JTAG. Otherwise the console will issue warning message `waiting for apptrace established` every 1 second. If the apptrace communication doesn't be established within 10 seconds (can be altered by macro `SNIFFER_APPTRACE_RETRY`), this sniffer command will failed with an error message `waiting for apptrace established timeout`.
 
 (For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you as soon as possible.)

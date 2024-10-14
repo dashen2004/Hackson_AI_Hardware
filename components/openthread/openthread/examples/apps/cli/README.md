@@ -6,8 +6,7 @@ This example application exposes OpenThread configuration and management APIs vi
 
 ```bash
 $ cd <path-to-openthread>
-$ ./bootstrap
-$ make -f examples/Makefile-simulation
+$ ./script/cmake-build simulation
 ```
 
 ## 2. Start node 1
@@ -15,7 +14,7 @@ $ make -f examples/Makefile-simulation
 Spawn the process:
 
 ```bash
-$ cd <path-to-openthread>/output/<platform>/bin
+$ cd <path-to-openthread>/build/simulation/examples/apps/cli
 $ ./ot-cli-ftd 1
 ```
 
@@ -34,7 +33,7 @@ Network Key: dfd34f0f05cad978ec4e32b0413038ff
 Network Name: OpenThread-8f28
 PAN ID: 0x8f28
 PSKc: c23a76e98f1a6483639b1ac1271e2e27
-Security Policy: 0, onrcb
+Security Policy: 0, onrc
 Done
 > dataset commit active
 Done
@@ -78,7 +77,7 @@ Done
 Spawn the process:
 
 ```bash
-$ cd <path-to-openthread>/output/<platform>/bin
+$ cd <path-to-openthread>/build/simulation/examples/apps/cli
 $ ./ot-cli-ftd 2
 ```
 

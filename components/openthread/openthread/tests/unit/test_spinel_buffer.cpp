@@ -29,9 +29,9 @@
 #include <ctype.h>
 
 #include "common/code_utils.hpp"
-#include "common/instance.hpp"
 #include "common/message.hpp"
 #include "common/random.hpp"
+#include "instance/instance.hpp"
 #include "lib/spinel/spinel_buffer.hpp"
 
 #include "test_platform.h"
@@ -57,8 +57,8 @@ static const uint8_t sMottoText[]      = "Think good thoughts, say good words, d
 static const uint8_t sMysteryText[]    = "4871(\\):|(3$}{4|/4/2%14(\\)";
 static const uint8_t sHexText[]        = "0123456789abcdef";
 
-static ot::Instance *sInstance;
-static MessagePool * sMessagePool;
+static Instance    *sInstance;
+static MessagePool *sMessagePool;
 
 struct CallbackContext
 {
@@ -126,10 +126,10 @@ void VerifyAndRemoveTagFromHistory(Spinel::Buffer::FrameTag aTag, Spinel::Buffer
     }
 }
 
-void FrameAddedCallback(void *                   aContext,
+void FrameAddedCallback(void                    *aContext,
                         Spinel::Buffer::FrameTag aTag,
                         Spinel::Buffer::Priority aPriority,
-                        Spinel::Buffer *         aNcpBuffer)
+                        Spinel::Buffer          *aNcpBuffer)
 {
     CallbackContext *callbackContext = reinterpret_cast<CallbackContext *>(aContext);
 
@@ -143,10 +143,10 @@ void FrameAddedCallback(void *                   aContext,
     callbackContext->mFrameAddedCount++;
 }
 
-void FrameRemovedCallback(void *                   aContext,
+void FrameRemovedCallback(void                    *aContext,
                           Spinel::Buffer::FrameTag aTag,
                           Spinel::Buffer::Priority aPriority,
-                          Spinel::Buffer *         aNcpBuffer)
+                          Spinel::Buffer          *aNcpBuffer)
 {
     CallbackContext *callbackContext = reinterpret_cast<CallbackContext *>(aContext);
 
@@ -173,10 +173,10 @@ void ReadAndVerifyContent(Spinel::Buffer &aNcpBuffer, const uint8_t *aContentBuf
 
 void WriteTestFrame1(Spinel::Buffer &aNcpBuffer, Spinel::Buffer::Priority aPriority)
 {
-    Message *       message;
+    Message        *message;
     CallbackContext oldContext;
 
-    message = sMessagePool->New(Message::kTypeIp6, 0);
+    message = sMessagePool->Allocate(Message::kTypeIp6);
     VerifyOrQuit(message != nullptr, "Null Message");
     SuccessOrQuit(message->SetLength(sizeof(sMottoText)));
     message->Write(0, sMottoText);
@@ -216,16 +216,16 @@ void VerifyAndRemoveFrame1(Spinel::Buffer &aNcpBuffer)
 
 void WriteTestFrame2(Spinel::Buffer &aNcpBuffer, Spinel::Buffer::Priority aPriority)
 {
-    Message *       message1;
-    Message *       message2;
+    Message        *message1;
+    Message        *message2;
     CallbackContext oldContext = sContext;
 
-    message1 = sMessagePool->New(Message::kTypeIp6, 0);
+    message1 = sMessagePool->Allocate(Message::kTypeIp6);
     VerifyOrQuit(message1 != nullptr, "Null Message");
     SuccessOrQuit(message1->SetLength(sizeof(sMysteryText)));
     message1->Write(0, sMysteryText);
 
-    message2 = sMessagePool->New(Message::kTypeIp6, 0);
+    message2 = sMessagePool->Allocate(Message::kTypeIp6);
     VerifyOrQuit(message2 != nullptr, "Null Message");
     SuccessOrQuit(message2->SetLength(sizeof(sHelloText)));
     message2->Write(0, sHelloText);
@@ -262,10 +262,10 @@ void VerifyAndRemoveFrame2(Spinel::Buffer &aNcpBuffer)
 
 void WriteTestFrame3(Spinel::Buffer &aNcpBuffer, Spinel::Buffer::Priority aPriority)
 {
-    Message *       message1;
+    Message        *message1;
     CallbackContext oldContext = sContext;
 
-    message1 = sMessagePool->New(Message::kTypeIp6, 0);
+    message1 = sMessagePool->Allocate(Message::kTypeIp6);
     VerifyOrQuit(message1 != nullptr, "Null Message");
 
     // An empty message with no content.
@@ -335,7 +335,7 @@ void TestBuffer(void)
     uint8_t        buffer[kTestBufferSize];
     Spinel::Buffer ncpBuffer(buffer, kTestBufferSize);
 
-    Message *                     message;
+    Message                      *message;
     uint8_t                       readBuffer[16];
     uint16_t                      readLen, readOffset;
     Spinel::Buffer::WritePosition pos1, pos2;
@@ -526,7 +526,7 @@ void TestBuffer(void)
         ncpBuffer.InFrameBegin((j % 2) == 0 ? Spinel::Buffer::kPriorityHigh : Spinel::Buffer::kPriorityLow);
         SuccessOrQuit(ncpBuffer.InFrameFeedData(sHelloText, sizeof(sHelloText)));
 
-        message = sMessagePool->New(Message::kTypeIp6, 0);
+        message = sMessagePool->Allocate(Message::kTypeIp6);
         VerifyOrQuit(message != nullptr, "Null Message");
         SuccessOrQuit(message->SetLength(sizeof(sMysteryText)));
         message->Write(0, sMysteryText);
@@ -731,7 +731,7 @@ void TestBuffer(void)
     VerifyOrQuit(ncpBuffer.InFrameFeedData(sOpenThreadText, 0) == OT_ERROR_INVALID_STATE);
     VerifyOrQuit(ncpBuffer.InFrameFeedData(sOpenThreadText, 0) == OT_ERROR_INVALID_STATE);
     VerifyOrQuit(ncpBuffer.InFrameEnd() == OT_ERROR_INVALID_STATE);
-    message = sMessagePool->New(Message::kTypeIp6, 0);
+    message = sMessagePool->Allocate(Message::kTypeIp6);
     VerifyOrQuit(message != nullptr, "Null Message");
     SuccessOrQuit(message->SetLength(sizeof(sMysteryText)));
     message->Write(0, sMysteryText);
@@ -891,7 +891,7 @@ uint32_t GetRandom(uint32_t max)
 
     if (kUseTrueRandomNumberGenerator)
     {
-        SuccessOrQuit(Random::Crypto::FillBuffer(reinterpret_cast<uint8_t *>(&value), sizeof(value)));
+        SuccessOrQuit(Random::Crypto::Fill(value));
     }
     else
     {

@@ -227,6 +227,18 @@ bool btu_task_post(uint32_t sig, void *param, uint32_t timeout)
         case SIG_BTU_HCI_MSG:
             status = osi_thread_post(btu_thread, btu_hci_msg_process, param, 0, timeout);
             break;
+        case SIG_BTU_HCI_ADV_RPT_MSG:
+#if BLE_INCLUDED == TRUE
+            if (param != NULL) {
+                btm_ble_adv_pkt_post(param);
+            }
+            btm_ble_adv_pkt_ready();
+            status = true;
+#else
+            osi_free(param);
+            status = false;
+#endif
+            break;
 #if (defined(BTA_INCLUDED) && BTA_INCLUDED == TRUE)
         case SIG_BTU_BTA_MSG:
             status = osi_thread_post(btu_thread, bta_sys_event, param, 0, timeout);
@@ -334,6 +346,7 @@ static void btu_general_alarm_process(void *param)
 
 
 #if (defined(AVDT_INCLUDED) && AVDT_INCLUDED == TRUE)
+    case BTU_TTYPE_AVDT_SCB_DELAY_RPT:
     case BTU_TTYPE_AVDT_CCB_RET:
     case BTU_TTYPE_AVDT_CCB_RSP:
     case BTU_TTYPE_AVDT_CCB_IDLE:
@@ -387,6 +400,9 @@ static void btu_general_alarm_process(void *param)
 
     case BTU_TTYPE_BTM_QOS:
         btm_qos_setup_timeout(p_tle);
+        break;
+    case BTU_TTYPE_BTM_SET_PAGE_TO:
+        btm_page_to_setup_timeout(p_tle);
         break;
     default:
         for (int i = 0; i < BTU_MAX_REG_TIMER; i++) {

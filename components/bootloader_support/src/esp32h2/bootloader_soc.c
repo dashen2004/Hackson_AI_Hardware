@@ -1,41 +1,20 @@
 /*
- * SPDX-FileCopyrightText: 2019-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <stdbool.h>
-#include "soc/soc.h"
-#include "soc/rtc_cntl_reg.h"
+#include "soc/lp_analog_peri_reg.h"
 
 void bootloader_ana_super_wdt_reset_config(bool enable)
 {
-    REG_CLR_BIT(RTC_CNTL_FIB_SEL_REG, RTC_CNTL_FIB_SUPER_WDT_RST);
-
-    if (enable) {
-        REG_SET_BIT(RTC_CNTL_SWD_CONF_REG, RTC_CNTL_SWD_BYPASS_RST);
-    } else {
-        REG_CLR_BIT(RTC_CNTL_SWD_CONF_REG, RTC_CNTL_SWD_BYPASS_RST);
-    }
+    //H2 doesn't support bypass super WDT reset
+    assert(enable);
+    REG_CLR_BIT(LP_ANALOG_PERI_LP_ANA_FIB_ENABLE_REG, LP_ANALOG_PERI_LP_ANA_FIB_SUPER_WDT_RST);
 }
 
-void bootloader_ana_bod_reset_config(bool enable)
-{
-    REG_CLR_BIT(RTC_CNTL_FIB_SEL_REG, RTC_CNTL_FIB_BOR_RST);
-
-    if (enable) {
-        REG_SET_BIT(RTC_CNTL_BROWN_OUT_REG, RTC_CNTL_BROWN_OUT_ANA_RST_EN);
-    } else {
-        REG_CLR_BIT(RTC_CNTL_BROWN_OUT_REG, RTC_CNTL_BROWN_OUT_ANA_RST_EN);
-    }
-}
-
+//Not supported but common bootloader calls the function. Do nothing
 void bootloader_ana_clock_glitch_reset_config(bool enable)
 {
-    REG_CLR_BIT(RTC_CNTL_FIB_SEL_REG, RTC_CNTL_FIB_GLITCH_RST);
-
-    if (enable) {
-        REG_SET_BIT(RTC_CNTL_ANA_CONF_REG, RTC_CNTL_GLITCH_RST_EN);
-    } else {
-        REG_CLR_BIT(RTC_CNTL_ANA_CONF_REG, RTC_CNTL_GLITCH_RST_EN);
-    }
+    (void)enable;
 }

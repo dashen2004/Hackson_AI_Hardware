@@ -1,16 +1,8 @@
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #ifndef __ESP_WPA_H__
 #define __ESP_WPA_H__
@@ -34,7 +26,7 @@ extern "C" {
   */
 
 /** \defgroup WPA_APIs  WPS APIs
-  * @brief ESP32 Supplicant APIs
+  * @brief Supplicant APIs
   *
   */
 
@@ -42,9 +34,10 @@ extern "C" {
   * @{
   */
 /* Crypto callback functions */
-const wpa_crypto_funcs_t g_wifi_default_wpa_crypto_funcs;
+extern const wpa_crypto_funcs_t g_wifi_default_wpa_crypto_funcs; // NOLINT(readability-redundant-declaration)
+
 /* Mesh crypto callback functions */
-const mesh_crypto_funcs_t g_wifi_default_mesh_crypto_funcs;
+extern const mesh_crypto_funcs_t g_wifi_default_mesh_crypto_funcs;
 
 /**
   * @brief     Supplicant initialization
@@ -63,6 +56,22 @@ esp_err_t esp_supplicant_init(void);
   *          - others: failed
   */
 esp_err_t esp_supplicant_deinit(void);
+
+/**
+ * @brief Disable or enable the caching of Pairwise Master Keys (PMK) in the supplicant.
+ *
+ * This function allows disabling or enabling the caching of Pairwise Master Keys (PMK).
+ * PMK caching is used in Wi-Fi Protected Access (WPA/WPA2/WPA3) networks to speed up the reconnection process
+ * by storing the PMK generated during the initial connection. Disabling PMK caching may result in slightly
+ * longer reconnection times. PMK caching is enabled by default, this configuration has been provided
+ * in case the AP is known not to support PMK caching or has a buggy implementation for PMK caching.
+ *
+ * @param disable Boolean indicating whether to disable (true) or enable (false) PMK caching.
+ * @return
+ *     - ESP_OK: Success
+ *     - An error code if disabling or enabling PMK caching fails.
+ */
+esp_err_t esp_supplicant_disable_pmk_caching(bool disable);
 
 /**
   * @}

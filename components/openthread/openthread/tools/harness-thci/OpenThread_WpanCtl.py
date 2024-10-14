@@ -648,8 +648,8 @@ class OpenThread_WpanCtl(IThci):
         print('call _setSecurityPolicy')
         try:
             cmd1 = self.wpan_cmd_prefix + 'setprop Dataset:SecPolicy:KeyRotation %s' % str(securityPolicySecs)
-            if securityPolicyFlags == 'onrcb':
-                cmd2 = self.wpan_cmd_prefix + 'setprop Dataset:SecPolicy:Flags 0xff'
+            if securityPolicyFlags == 'onrc':
+                cmd2 = self.wpan_cmd_prefix + 'setprop Dataset:SecPolicy:Flags 0xf7'
             else:
                 print('unknown policy flag :' + securityPolicyFlags)
                 return False
@@ -867,7 +867,7 @@ class OpenThread_WpanCtl(IThci):
         return self.__sendCommand(self.wpan_cmd_prefix + 'getprop -v NCP:Channel')[0]
 
     def setMAC(self, xEUI):
-        """set the extended addresss of Thread device
+        """set the extended address of Thread device
 
         Args:
             xEUI: extended address in hex format
@@ -1442,7 +1442,7 @@ class OpenThread_WpanCtl(IThci):
         # OT only accept hex format PSKc for now
         self.pskc = '00000000000000000000000000000000'
         self.securityPolicySecs = ModuleHelper.Default_SecurityPolicy
-        self.securityPolicyFlags = 'onrcb'
+        self.securityPolicyFlags = 'onrc'
         self.activetimestamp = ModuleHelper.Default_ActiveTimestamp
         # self.sedPollingRate = ModuleHelper.Default_Harness_SED_Polling_Rate
         self.__sedPollPeriod = 3 * 1000  # in milliseconds
@@ -2180,7 +2180,7 @@ class OpenThread_WpanCtl(IThci):
         Args:
             sAddr: IPv6 destination address for this message
             xCommissionerSessionId: commissioner session id
-            listChannelMask: a channel array to indicate which channels to be scaned
+            listChannelMask: a channel array to indicate which channels to be scanned
             xCount: number of IEEE 802.15.4 ED Scans (milliseconds)
             xPeriod: Period between successive IEEE802.15.4 ED Scans (milliseconds)
             xScanDuration: IEEE 802.15.4 ScanDuration to use when performing an IEEE 802.15.4 ED Scan (milliseconds)

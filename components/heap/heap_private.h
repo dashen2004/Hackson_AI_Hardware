@@ -1,16 +1,8 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #pragma once
 
 #include <stdlib.h>
@@ -19,6 +11,7 @@
 #include "multi_heap.h"
 #include "multi_heap_platform.h"
 #include "sys/queue.h"
+#include "esp_attr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,7 +44,7 @@ extern SLIST_HEAD(registered_heap_ll, heap_t_) registered_heaps;
 bool heap_caps_match(const heap_t *heap, uint32_t caps);
 
 /* return all possible capabilities (across all priorities) for a given heap */
-inline static IRAM_ATTR uint32_t get_all_caps(const heap_t *heap)
+FORCE_INLINE_ATTR uint32_t get_all_caps(const heap_t *heap)
 {
     if (heap->heap == NULL) {
         return 0;
@@ -63,6 +56,24 @@ inline static IRAM_ATTR uint32_t get_all_caps(const heap_t *heap)
     return all_caps;
 }
 
+/* Find the heap which belongs to ptr, or return NULL if it's
+   not in any heap.
+
+   (This confirms if ptr is inside the heap's region, doesn't confirm if 'ptr'
+   is an allocated block or is some other random address inside the heap.)
+*/
+FORCE_INLINE_ATTR heap_t *find_containing_heap(void *ptr )
+{
+    intptr_t p = (intptr_t)ptr;
+    heap_t *heap;
+    SLIST_FOREACH(heap, &registered_heaps, next) {
+        if (heap->heap != NULL && p >= heap->start && p < heap->end) {
+            return heap;
+        }
+    }
+    return NULL;
+}
+
 /*
  Because we don't want to add _another_ known allocation method to the stack of functions to trace wrt memory tracing,
  these are declared private. The newlib malloc()/realloc() implementation also calls these, so they are declared
@@ -70,7 +81,11 @@ inline static IRAM_ATTR uint32_t get_all_caps(const heap_t *heap)
 */
 void *heap_caps_realloc_default(void *p, size_t size);
 void *heap_caps_malloc_default(size_t size);
-
+void *heap_caps_aligned_alloc_default(size_t alignment, size_t size);
+void *heap_caps_realloc_base(void *ptr, size_t size, uint32_t caps);
+void *heap_caps_calloc_base(size_t n, size_t size, uint32_t caps);
+void *heap_caps_malloc_base(size_t size, uint32_t caps);
+void *heap_caps_aligned_alloc_base(size_t alignment, size_t size, uint32_t caps);
 
 #ifdef __cplusplus
 }

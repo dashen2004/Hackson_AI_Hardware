@@ -29,16 +29,16 @@
 import logging
 import subprocess
 import time
-from abc import abstractmethod
+from abc import abstractmethod, ABC
+from typing import Optional
 
 
-class OtCliHandler:
+class OtCliHandler(ABC):
     """This abstract class defines interfaces for a OT CLI Handler."""
 
     @abstractmethod
-    def readline(self) -> str:
+    def readline(self) -> Optional[str]:
         """Method readline should return the next line read from OT CLI."""
-        pass
 
     @abstractmethod
     def writeline(self, s: str) -> None:
@@ -46,7 +46,6 @@ class OtCliHandler:
 
         It should block until all characters are written to OT CLI.
         """
-        pass
 
     @abstractmethod
     def wait(self, duration: float) -> None:
@@ -55,15 +54,13 @@ class OtCliHandler:
         A normal implementation should just call `time.sleep(duration)`. This is intended for proceeding Virtual Time
         Simulation instances.
         """
-        pass
 
     @abstractmethod
     def close(self) -> None:
         """Method close should close the OT CLI Handler."""
-        pass
 
 
-class Simulator:
+class Simulator(ABC):
     """This abstract class defines interfaces for a Virtual Time Simulator."""
 
     @abstractmethod
@@ -83,10 +80,12 @@ class OtCliPopen(OtCliHandler):
     def __repr__(self):
         return 'OTCli<%d>' % self.__nodeid
 
-    def readline(self) -> str:
+    def readline(self) -> Optional[str]:
+        assert self.__otcli_proc.stdout is not None
         return self.__otcli_proc.stdout.readline().rstrip('\r\n')
 
     def writeline(self, s: str):
+        assert self.__otcli_proc.stdin is not None
         self.__otcli_proc.stdin.write(s + '\n')
         self.__otcli_proc.stdin.flush()
 
@@ -99,6 +98,8 @@ class OtCliPopen(OtCliHandler):
             time.sleep(duration)
 
     def close(self):
+        assert self.__otcli_proc.stdin is not None
+        assert self.__otcli_proc.stdout is not None
         self.__otcli_proc.stdin.close()
         self.__otcli_proc.stdout.close()
         self.__otcli_proc.wait()
@@ -119,7 +120,7 @@ class OtCliSim(OtCliPopen):
         super().__init__(proc, nodeid, simulator)
 
 
-class OtNcpSim(OtCliHandler):
+class OtNcpSim(OtCliPopen):
     """Connector for OT NCP Simulation instances."""
 
     def __init__(self, executable: str, nodeid: int, simulator: Simulator):
@@ -142,14 +143,25 @@ class OtCliSerial(OtCliHandler):
         self.__baudrate = baudrate
 
         import serial
-        self.__serial = serial.Serial(self.__dev, self.__baudrate, timeout=None, exclusive=True)
+        self.__serial = serial.Serial(self.__dev, self.__baudrate, timeout=0.1, exclusive=True)
+        self.__linebuffer = b''
 
     def __repr__(self):
         return self.__dev
 
-    def readline(self) -> str:
-        line = self.__serial.readline().decode('utf-8').rstrip('\r\n')
-        return line
+    def readline(self) -> Optional[str]:
+        while self.__serial.is_open:
+            line = self.__serial.readline()
+
+            if not line.endswith(b'\n'):
+                self.__linebuffer += line
+            else:
+                line = self.__linebuffer + line
+                self.__linebuffer = b''
+
+                return line.decode('utf-8', errors='ignore').rstrip('\r\n')
+
+        return None
 
     def writeline(self, s: str):
         self.__serial.write((s + '\n').encode('utf-8'))

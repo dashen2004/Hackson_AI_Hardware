@@ -3,7 +3,7 @@
 #inherit_from: .rubocop_todo.yml
 
 AllCops:
-  TargetRubyVersion: 2.1
+  TargetRubyVersion: 3.0
 
 # These are areas where ThrowTheSwitch's coding style diverges from the Ruby standard
 Style/SpecialGlobalVars:
@@ -12,16 +12,38 @@ Style/FormatString:
   Enabled: false
 Style/GlobalVars:
   Enabled: false
+Style/FrozenStringLiteralComment:
+  Enabled: false
 Style/RegexpLiteral:
   AllowInnerSlashes: true
 Style/HashSyntax:
   EnforcedStyle: no_mixed_keys
+Style/NumericPredicate:
+  Enabled: false
+Style/MultilineBlockChain:
+  Enabled: false
+Style/Alias:
+  Enabled: false
+Style/EvalWithLocation:
+  Enabled: false
+Style/MixinUsage:
+  Enabled: false
+Style/OptionalBooleanParameter:
+  Enabled: false
+
+# These are also places we diverge... but we will likely comply down the road
+Style/IfUnlessModifier:
+  Enabled: false
+Style/FormatStringToken:
+  Enabled: false
 
 # This is disabled because it seems to get confused over nested hashes
-Style/AlignHash:
+Layout/HashAlignment:
   Enabled: false
   EnforcedHashRocketStyle: table
   EnforcedColonStyle: table
+Layout/LineLength:
+  Enabled: false
 
 # We purposefully use these insecure features because they're what makes Ruby awesome
 Security/Eval:
@@ -45,8 +67,6 @@ Metrics/BlockNesting:
 Metrics/ClassLength:
   Enabled: false
 Metrics/CyclomaticComplexity:
-  Enabled: false
-Metrics/LineLength:
   Enabled: false
 Metrics/MethodLength:
   Enabled: false

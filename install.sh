@@ -4,22 +4,34 @@ set -e
 set -u
 
 basedir=$(dirname "$0")
-IDF_PATH=$(cd "${basedir}"; pwd)
+IDF_PATH=$(cd "${basedir}"; pwd -P)
 export IDF_PATH
 
 echo "Detecting the Python interpreter"
 . "${IDF_PATH}/tools/detect_python.sh"
 
-if [ "$#" -eq 0 ]; then
-  TARGETS="all"
-else
-  TARGETS=$1
-fi
+echo "Checking Python compatibility"
+"${ESP_PYTHON}" "${IDF_PATH}/tools/python_version_checker.py"
+
+while getopts ":h" option; do
+    case $option in
+        h)
+            "${ESP_PYTHON}" "${IDF_PATH}/tools/install_util.py" print_help sh
+            exit;;
+        \?)
+            ;;
+    esac
+done
+
+TARGETS=$("${ESP_PYTHON}" "${IDF_PATH}/tools/install_util.py" extract targets "$@")
+
 echo "Installing ESP-IDF tools"
-"${ESP_PYTHON}" "${IDF_PATH}/tools/idf_tools.py" install --targets=${TARGETS}
+"${ESP_PYTHON}" "${IDF_PATH}/tools/idf_tools.py" install --targets="${TARGETS}"
+
+FEATURES=$("${ESP_PYTHON}" "${IDF_PATH}/tools/install_util.py" extract features "$@")
 
 echo "Installing Python environment and packages"
-"${ESP_PYTHON}" "${IDF_PATH}/tools/idf_tools.py" install-python-env
+"${ESP_PYTHON}" "${IDF_PATH}/tools/idf_tools.py" install-python-env --features="${FEATURES}"
 
 echo "All done! You can now run:"
 echo ""

@@ -28,7 +28,7 @@
 
 /**
  * @file
- *   This file implements MAC types such as Address, Extended PAN Identifier, Network Name, etc.
+ *   This file implements MAC types.
  */
 
 #include "mac_types.hpp"
@@ -57,7 +57,7 @@ PanId GenerateRandomPanId(void)
 #if !OPENTHREAD_RADIO
 void ExtAddress::GenerateRandom(void)
 {
-    IgnoreError(Random::Crypto::FillBuffer(m8, sizeof(ExtAddress)));
+    IgnoreError(Random::Crypto::Fill(*this));
     SetGroup(false);
     SetLocal(true);
 }
@@ -110,78 +110,22 @@ Address::InfoString Address::ToString(void) const
     return string;
 }
 
-ExtendedPanId::InfoString ExtendedPanId::ToString(void) const
+void PanIds::SetSource(PanId aPanId)
 {
-    InfoString string;
-
-    string.AppendHexBytes(m8, sizeof(ExtendedPanId));
-
-    return string;
+    mSource          = aPanId;
+    mIsSourcePresent = true;
 }
 
-uint8_t NameData::CopyTo(char *aBuffer, uint8_t aMaxSize) const
+void PanIds::SetDestination(PanId aPanId)
 {
-    MutableData<kWithUint8Length> destData;
-
-    destData.Init(aBuffer, aMaxSize);
-    destData.ClearBytes();
-    IgnoreError(destData.CopyBytesFrom(*this));
-
-    return destData.GetLength();
+    mDestination          = aPanId;
+    mIsDestinationPresent = true;
 }
 
-NameData NetworkName::GetAsData(void) const
+void PanIds::SetBothSourceDestination(PanId aPanId)
 {
-    return NameData(m8, static_cast<uint8_t>(StringLength(m8, kMaxSize + 1)));
-}
-
-Error NetworkName::Set(const char *aNameString)
-{
-    // When setting `NetworkName` from a string, we treat it as `NameData`
-    // with `kMaxSize + 1` chars. `NetworkName::Set(data)` will look
-    // for null char in the data (within its given size) to calculate
-    // the name's length and ensure that the name fits in `kMaxSize`
-    // chars. The `+ 1` ensures that a `aNameString` with length
-    // longer than `kMaxSize` is correctly rejected (returning error
-    // `kErrorInvalidArgs`).
-
-    Error    error;
-    NameData data(aNameString, kMaxSize + 1);
-
-    VerifyOrExit(IsValidUtf8String(aNameString), error = kErrorInvalidArgs);
-
-    error = Set(data);
-
-exit:
-    return error;
-}
-
-Error NetworkName::Set(const NameData &aNameData)
-{
-    Error    error  = kErrorNone;
-    NameData data   = aNameData;
-    uint8_t  newLen = static_cast<uint8_t>(StringLength(data.GetBuffer(), data.GetLength()));
-
-    VerifyOrExit((0 < newLen) && (newLen <= kMaxSize), error = kErrorInvalidArgs);
-
-    data.SetLength(newLen);
-
-    // Ensure the new name does not match the current one.
-    if (data.MatchesBytesIn(m8) && m8[newLen] == '\0')
-    {
-        ExitNow(error = kErrorAlready);
-    }
-
-    data.CopyBytesTo(m8);
-    m8[newLen] = '\0';
-
-exit:
-    return error;
-}
-
-bool NetworkName::operator==(const NetworkName &aOther) const
-{
-    return GetAsData() == aOther.GetAsData();
+    SetSource(aPanId);
+    SetDestination(aPanId);
 }
 
 #if OPENTHREAD_CONFIG_MULTI_RADIO
@@ -303,17 +247,11 @@ uint32_t LinkFrameCounters::GetMaximum(void) const
     uint32_t counter = 0;
 
 #if OPENTHREAD_CONFIG_RADIO_LINK_IEEE_802_15_4_ENABLE
-    if (counter < m154Counter)
-    {
-        counter = m154Counter;
-    }
+    counter = Max(counter, m154Counter);
 #endif
 
 #if OPENTHREAD_CONFIG_RADIO_LINK_TREL_ENABLE
-    if (counter < mTrelCounter)
-    {
-        counter = mTrelCounter;
-    }
+    counter = Max(counter, mTrelCounter);
 #endif
 
     return counter;
@@ -355,18 +293,15 @@ void KeyMaterial::SetFrom(const Key &aKey, bool aIsExportable)
 {
 #if OPENTHREAD_CONFIG_PLATFORM_KEY_REFERENCES_ENABLE
     {
-        Error  error;
         KeyRef keyRef = 0;
 
         DestroyKey();
 
-        error = Crypto::Storage::ImportKey(keyRef, Crypto::Storage::kKeyTypeAes, Crypto::Storage::kKeyAlgorithmAesEcb,
-                                           (aIsExportable ? Crypto::Storage::kUsageExport : 0) |
-                                               Crypto::Storage::kUsageEncrypt | Crypto::Storage::kUsageDecrypt,
-                                           Crypto::Storage::kTypeVolatile, aKey.GetBytes(), Key::kSize);
-
-        OT_ASSERT(error == kErrorNone);
-        OT_UNUSED_VARIABLE(error);
+        SuccessOrAssert(Crypto::Storage::ImportKey(keyRef, Crypto::Storage::kKeyTypeAes,
+                                                   Crypto::Storage::kKeyAlgorithmAesEcb,
+                                                   (aIsExportable ? Crypto::Storage::kUsageExport : 0) |
+                                                       Crypto::Storage::kUsageEncrypt | Crypto::Storage::kUsageDecrypt,
+                                                   Crypto::Storage::kTypeVolatile, aKey.GetBytes(), Key::kSize));
 
         SetKeyRef(keyRef);
     }
@@ -376,19 +311,16 @@ void KeyMaterial::SetFrom(const Key &aKey, bool aIsExportable)
 #endif
 }
 
-void KeyMaterial::ExtractKey(Key &aKey)
+void KeyMaterial::ExtractKey(Key &aKey) const
 {
 #if OPENTHREAD_CONFIG_PLATFORM_KEY_REFERENCES_ENABLE
     aKey.Clear();
 
     if (Crypto::Storage::IsKeyRefValid(GetKeyRef()))
     {
-        Error  error;
         size_t keySize;
 
-        error = Crypto::Storage::ExportKey(GetKeyRef(), aKey.m8, Key::kSize, keySize);
-        OT_ASSERT(error == kErrorNone);
-        OT_UNUSED_VARIABLE(error);
+        SuccessOrAssert(Crypto::Storage::ExportKey(GetKeyRef(), aKey.m8, Key::kSize, keySize));
     }
 #else
     aKey = GetKey();

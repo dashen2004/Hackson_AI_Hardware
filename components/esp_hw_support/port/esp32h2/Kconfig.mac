@@ -1,4 +1,3 @@
-# ESP32H2-TODO: IDF-3390
 choice ESP32H2_UNIVERSAL_MAC_ADDRESSES
     bool "Number of universally administered (by IEEE) MAC address"
     default ESP32H2_UNIVERSAL_MAC_ADDRESSES_TWO
@@ -9,6 +8,7 @@ choice ESP32H2_UNIVERSAL_MAC_ADDRESSES
 
     config ESP32H2_UNIVERSAL_MAC_ADDRESSES_TWO
         bool "Two"
+        select ESP_MAC_UNIVERSAL_MAC_ADDRESSES_TWO
         select ESP_MAC_ADDR_UNIVERSE_IEEE802154
         select ESP_MAC_ADDR_UNIVERSE_BT
 endchoice

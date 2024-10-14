@@ -1,16 +1,8 @@
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /*******************************************************************************
  * NOTICE
@@ -25,10 +17,31 @@
 
 #include "soc/hwcrypto_reg.h"
 #include "soc/soc_caps.h"
+#include "soc/pcr_struct.h"
+#include "hal/ds_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @brief Enable the bus clock for Digital Signature peripheral module
+ *
+ * @param true to enable the module, false to disable the module
+ */
+static inline void ds_ll_enable_bus_clock(bool enable)
+{
+    PCR.ds_conf.ds_clk_en = enable;
+}
+
+/**
+ * @brief Reset the Digital Signature peripheral module
+ */
+static inline void ds_ll_reset_register(void)
+{
+    PCR.ds_conf.ds_rst_en = 1;
+    PCR.ds_conf.ds_rst_en = 0;
+}
 
 static inline void ds_ll_start(void)
 {
@@ -70,7 +83,7 @@ static inline ds_key_check_t ds_ll_key_error_source(void)
 static inline void ds_ll_configure_iv(const uint32_t *iv)
 {
     for (size_t i = 0; i < (SOC_DS_KEY_PARAM_MD_IV_LENGTH / sizeof(uint32_t)); i++) {
-        REG_WRITE(DS_IV_BASE + (i * 4) , iv[i]);
+        REG_WRITE(DS_IV_MEM + (i * 4) , iv[i]);
     }
 }
 
@@ -82,7 +95,7 @@ static inline void ds_ll_configure_iv(const uint32_t *iv)
  */
 static inline void ds_ll_write_message(const uint8_t *msg, size_t size)
 {
-    memcpy((uint8_t*) DS_X_BASE, msg, size);
+    memcpy((uint8_t*) DS_X_MEM, msg, size);
     asm volatile ("fence");
 }
 
@@ -99,10 +112,10 @@ static inline void ds_ll_write_private_key_params(const uint8_t *encrypted_key_p
     */
     typedef struct { uint32_t addr; size_t len; } frag_t;
     const frag_t frags[] = {
-                            {DS_C_Y_BASE,  SOC_DS_SIGNATURE_MAX_BIT_LEN / 8},
-                            {DS_C_M_BASE,  SOC_DS_SIGNATURE_MAX_BIT_LEN / 8},
-                            {DS_C_RB_BASE, SOC_DS_SIGNATURE_MAX_BIT_LEN / 8},
-                            {DS_C_BOX_BASE, DS_IV_BASE - DS_C_BOX_BASE},
+                            {DS_Y_MEM,  SOC_DS_SIGNATURE_MAX_BIT_LEN / 8},
+                            {DS_M_MEM,  SOC_DS_SIGNATURE_MAX_BIT_LEN / 8},
+                            {DS_RB_MEM, SOC_DS_SIGNATURE_MAX_BIT_LEN / 8},
+                            {DS_BOX_MEM, DS_IV_MEM - DS_BOX_MEM},
     };
     const size_t NUM_FRAGS = sizeof(frags)/sizeof(frag_t);
     const uint8_t *from = encrypted_key_params;
@@ -119,7 +132,7 @@ static inline void ds_ll_write_private_key_params(const uint8_t *encrypted_key_p
  */
 static inline void ds_ll_start_sign(void)
 {
-    REG_WRITE(DS_SET_ME_REG, 1);
+    REG_WRITE(DS_SET_CONTINUE_REG, 1);
 }
 
 /**
@@ -155,7 +168,7 @@ static inline ds_signature_check_t ds_ll_check_signature(void)
  */
 static inline void ds_ll_read_result(uint8_t *result, size_t size)
 {
-    memcpy(result, (uint8_t*) DS_Z_BASE, size);
+    memcpy(result, (uint8_t*) DS_Z_MEM, size);
     asm volatile ("fence");
 }
 

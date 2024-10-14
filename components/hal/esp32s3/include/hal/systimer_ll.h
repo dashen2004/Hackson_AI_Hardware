@@ -1,30 +1,16 @@
-// Copyright 2021 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2021-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "soc/systimer_struct.h"
+#include "soc/clk_tree_defs.h"
+#include "soc/system_struct.h"
 #include "hal/assert.h"
-
-#define SYSTIMER_LL_COUNTER_CLOCK       (0) // Counter used for "wallclock" time
-#define SYSTIMER_LL_COUNTER_OS_TICK     (1) // Counter used for OS tick
-#define SYSTIMER_LL_ALARM_OS_TICK_CORE0 (0) // Alarm used for OS tick of CPU core 0
-#define SYSTIMER_LL_ALARM_OS_TICK_CORE1 (1) // Alarm used for OS tick of CPU core 1
-#define SYSTIMER_LL_ALARM_CLOCK         (2) // Alarm used for "wallclock" time
-
-#define SYSTIMER_LL_TICKS_PER_US        (16) // 16 systimer ticks == 1us
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +25,45 @@ __attribute__((always_inline)) static inline void systimer_ll_enable_clock(systi
 {
     dev->conf.clk_en = en;
 }
+
+static inline void systimer_ll_set_clock_source(soc_periph_systimer_clk_src_t clk_src)
+{
+    (void)clk_src;
+}
+
+static inline soc_periph_systimer_clk_src_t systimer_ll_get_clock_source(void)
+{
+    return SYSTIMER_CLK_SRC_XTAL;
+}
+
+/**
+ * @brief Enable the bus clock for systimer module
+ *
+ * @param enable true to enable, false to disable
+ */
+static inline void systimer_ll_enable_bus_clock(bool enable)
+{
+    SYSTEM.perip_clk_en0.systimer_clk_en = enable;
+}
+
+/// use a macro to wrap the function, force the caller to use it in a critical section
+/// the critical section needs to declare the __DECLARE_RCC_RC_ATOMIC_ENV variable in advance
+#define systimer_ll_enable_bus_clock(...) (void)__DECLARE_RCC_RC_ATOMIC_ENV; systimer_ll_enable_bus_clock(__VA_ARGS__)
+
+/**
+ * @brief Reset the systimer module
+ *
+ * @param group_id Group ID
+ */
+static inline void systimer_ll_reset_register(void)
+{
+    SYSTEM.perip_rst_en0.systimer_rst = 1;
+    SYSTEM.perip_rst_en0.systimer_rst = 0;
+}
+
+/// use a macro to wrap the function, force the caller to use it in a critical section
+/// the critical section needs to declare the __DECLARE_RCC_RC_ATOMIC_ENV variable in advance
+#define systimer_ll_reset_register(...) (void)__DECLARE_RCC_RC_ATOMIC_ENV; systimer_ll_reset_register(__VA_ARGS__)
 
 /******************* Counter *************************/
 

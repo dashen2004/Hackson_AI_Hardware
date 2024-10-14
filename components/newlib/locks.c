@@ -1,22 +1,13 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <sys/lock.h>
 #include <stdlib.h>
 #include <sys/reent.h>
 #include "esp_attr.h"
-#include "soc/cpu.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -26,7 +17,7 @@
 /* Notes on our newlib lock implementation:
  *
  * - Use FreeRTOS mutex semaphores as locks.
- * - lock_t is int, but we store an xSemaphoreHandle there.
+ * - lock_t is int, but we store an SemaphoreHandle_t there.
  * - Locks are no-ops until the FreeRTOS scheduler is running.
  * - Due to this, locks need to be lazily initialised the first time
  *   they are acquired. Initialisation/deinitialisation of locks is
@@ -47,15 +38,14 @@ static portMUX_TYPE lock_init_spinlock = portMUX_INITIALIZER_UNLOCKED;
    Called by _lock_init*, also called by _lock_acquire* to lazily initialize locks that might have
    been initialised (to zero only) before the RTOS scheduler started.
 */
-static void IRAM_ATTR lock_init_generic(_lock_t *lock, uint8_t mutex_type) {
+static void IRAM_ATTR lock_init_generic(_lock_t *lock, uint8_t mutex_type)
+{
     portENTER_CRITICAL(&lock_init_spinlock);
     if (*lock) {
-         /* Lock already initialised (either we didn't check earlier,
-          or it got initialised while we were waiting for the
-          spinlock.) */
-    }
-    else
-    {
+        /* Lock already initialised (either we didn't check earlier,
+         or it got initialised while we were waiting for the
+         spinlock.) */
+    } else {
         /* Create a new semaphore
 
            this is a bit of an API violation, as we're calling the
@@ -70,7 +60,7 @@ static void IRAM_ATTR lock_init_generic(_lock_t *lock, uint8_t mutex_type) {
            without writing wrappers. Doing it this way seems much less
            spaghetti-like.
         */
-        xSemaphoreHandle new_sem = xQueueCreateMutex(mutex_type);
+        SemaphoreHandle_t new_sem = xQueueCreateMutex(mutex_type);
         if (!new_sem) {
             abort(); /* No more semaphores available or OOM */
         }
@@ -79,12 +69,14 @@ static void IRAM_ATTR lock_init_generic(_lock_t *lock, uint8_t mutex_type) {
     portEXIT_CRITICAL(&lock_init_spinlock);
 }
 
-void IRAM_ATTR _lock_init(_lock_t *lock) {
+void IRAM_ATTR _lock_init(_lock_t *lock)
+{
     *lock = 0; // In case lock's memory is uninitialized
     lock_init_generic(lock, queueQUEUE_TYPE_MUTEX);
 }
 
-void IRAM_ATTR _lock_init_recursive(_lock_t *lock) {
+void IRAM_ATTR _lock_init_recursive(_lock_t *lock)
+{
     *lock = 0; // In case lock's memory is uninitialized
     lock_init_generic(lock, queueQUEUE_TYPE_RECURSIVE_MUTEX);
 }
@@ -99,10 +91,11 @@ void IRAM_ATTR _lock_init_recursive(_lock_t *lock) {
    re-initialised if it is used again. Caller has to avoid doing
    this!
 */
-void IRAM_ATTR _lock_close(_lock_t *lock) {
+void IRAM_ATTR _lock_close(_lock_t *lock)
+{
     portENTER_CRITICAL(&lock_init_spinlock);
     if (*lock) {
-        xSemaphoreHandle h = (xSemaphoreHandle)(*lock);
+        SemaphoreHandle_t h = (SemaphoreHandle_t)(*lock);
 #if (INCLUDE_xSemaphoreGetMutexHolder == 1)
         configASSERT(xSemaphoreGetMutexHolder(h) == NULL); /* mutex should not be held */
 #endif
@@ -117,15 +110,16 @@ void _lock_close_recursive(_lock_t *lock) __attribute__((alias("_lock_close")));
 /* Acquire the mutex semaphore for lock. wait up to delay ticks.
    mutex_type is queueQUEUE_TYPE_RECURSIVE_MUTEX or queueQUEUE_TYPE_MUTEX
 */
-static int IRAM_ATTR lock_acquire_generic(_lock_t *lock, uint32_t delay, uint8_t mutex_type) {
-    xSemaphoreHandle h = (xSemaphoreHandle)(*lock);
+static int IRAM_ATTR lock_acquire_generic(_lock_t *lock, uint32_t delay, uint8_t mutex_type)
+{
+    SemaphoreHandle_t h = (SemaphoreHandle_t)(*lock);
     if (!h) {
         if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED) {
             return 0; /* locking is a no-op before scheduler is up, so this "succeeds" */
         }
         /* lazy initialise lock - might have had a static initializer (that we don't use) */
         lock_init_generic(lock, mutex_type);
-        h = (xSemaphoreHandle)(*lock);
+        h = (SemaphoreHandle_t)(*lock);
         configASSERT(h != NULL);
     }
 
@@ -146,8 +140,7 @@ static int IRAM_ATTR lock_acquire_generic(_lock_t *lock, uint32_t delay, uint8_t
         if (higher_task_woken) {
             portYIELD_FROM_ISR();
         }
-    }
-    else {
+    } else {
         /* In task context */
         if (mutex_type == queueQUEUE_TYPE_RECURSIVE_MUTEX) {
             success = xSemaphoreTakeRecursive(h, delay);
@@ -159,30 +152,35 @@ static int IRAM_ATTR lock_acquire_generic(_lock_t *lock, uint32_t delay, uint8_t
     return (success == pdTRUE) ? 0 : -1;
 }
 
-void IRAM_ATTR _lock_acquire(_lock_t *lock) {
+void IRAM_ATTR _lock_acquire(_lock_t *lock)
+{
     lock_acquire_generic(lock, portMAX_DELAY, queueQUEUE_TYPE_MUTEX);
 }
 
-void IRAM_ATTR _lock_acquire_recursive(_lock_t *lock) {
+void IRAM_ATTR _lock_acquire_recursive(_lock_t *lock)
+{
     lock_acquire_generic(lock, portMAX_DELAY, queueQUEUE_TYPE_RECURSIVE_MUTEX);
 }
 
-int IRAM_ATTR _lock_try_acquire(_lock_t *lock) {
+int IRAM_ATTR _lock_try_acquire(_lock_t *lock)
+{
     return lock_acquire_generic(lock, 0, queueQUEUE_TYPE_MUTEX);
 }
 
-int IRAM_ATTR _lock_try_acquire_recursive(_lock_t *lock) {
+int IRAM_ATTR _lock_try_acquire_recursive(_lock_t *lock)
+{
     return lock_acquire_generic(lock, 0, queueQUEUE_TYPE_RECURSIVE_MUTEX);
 }
 
 /* Release the mutex semaphore for lock.
    mutex_type is queueQUEUE_TYPE_RECURSIVE_MUTEX or queueQUEUE_TYPE_MUTEX
 */
-static void IRAM_ATTR lock_release_generic(_lock_t *lock, uint8_t mutex_type) {
+static void IRAM_ATTR lock_release_generic(_lock_t *lock, uint8_t mutex_type)
+{
     if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED) {
         return; /* locking is a no-op before scheduler is up */
     }
-    xSemaphoreHandle h = (xSemaphoreHandle)(*lock);
+    SemaphoreHandle_t h = (SemaphoreHandle_t)(*lock);
     assert(h);
 
     if (!xPortCanYield()) {
@@ -203,11 +201,13 @@ static void IRAM_ATTR lock_release_generic(_lock_t *lock, uint8_t mutex_type) {
     }
 }
 
-void IRAM_ATTR _lock_release(_lock_t *lock) {
+void IRAM_ATTR _lock_release(_lock_t *lock)
+{
     lock_release_generic(lock, queueQUEUE_TYPE_MUTEX);
 }
 
-void IRAM_ATTR _lock_release_recursive(_lock_t *lock) {
+void IRAM_ATTR _lock_release_recursive(_lock_t *lock)
+{
     lock_release_generic(lock, queueQUEUE_TYPE_RECURSIVE_MUTEX);
 }
 
@@ -251,8 +251,7 @@ _Static_assert(configSUPPORT_STATIC_ALLOCATION,
 static StaticSemaphore_t s_common_mutex;
 static StaticSemaphore_t s_common_recursive_mutex;
 
-
-#if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2)
+#if ESP_ROM_HAS_RETARGETABLE_LOCKING
 /* C3 and S3 ROMs are built without Newlib static lock symbols exported, and
  * with an extra level of _LOCK_T indirection in mind.
  * The following is a workaround for this:
@@ -267,7 +266,7 @@ static StaticSemaphore_t s_common_recursive_mutex;
  */
 
 #define ROM_NEEDS_MUTEX_OVERRIDE
-#endif // defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2)
+#endif // ESP_ROM_HAS_RETARGETABLE_LOCKING
 
 #ifdef ROM_NEEDS_MUTEX_OVERRIDE
 #define ROM_MUTEX_MAGIC  0xbb10c433
@@ -279,7 +278,6 @@ static StaticSemaphore_t s_common_recursive_mutex;
 #else  // ROM_NEEDS_MUTEX_OVERRIDE
 #define MAYBE_OVERRIDE_LOCK(_lock, _lock_to_use_instead)
 #endif // ROM_NEEDS_MUTEX_OVERRIDE
-
 
 void IRAM_ATTR __retarget_lock_init(_LOCK_T *lock)
 {
@@ -384,16 +382,16 @@ void esp_newlib_locks_init(void)
     extern _lock_t __sinit_lock;
     __sinit_lock = (_lock_t) &s_common_recursive_mutex;
     extern _lock_t __env_lock_object;
-    __env_lock_object = (_lock_t) &s_common_mutex;
+    __env_lock_object = (_lock_t) &s_common_recursive_mutex;
     extern _lock_t __tz_lock_object;
-    __tz_lock_object = (_lock_t) &s_common_recursive_mutex;
+    __tz_lock_object = (_lock_t) &s_common_mutex;
 #elif defined(CONFIG_IDF_TARGET_ESP32S2)
     /* Newlib 3.0.0 is used in ROM, the following lock symbols are defined: */
     extern _lock_t __sinit_recursive_mutex;
     __sinit_recursive_mutex = (_lock_t) &s_common_recursive_mutex;
     extern _lock_t __sfp_recursive_mutex;
     __sfp_recursive_mutex = (_lock_t) &s_common_recursive_mutex;
-#elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2)
+#elif ESP_ROM_HAS_RETARGETABLE_LOCKING
     /* Newlib 3.3.0 is used in ROM, built with _RETARGETABLE_LOCKING.
      * No access to lock variables for the purpose of ECO forward compatibility,
      * however we have an API to initialize lock variables used in the ROM.

@@ -9,7 +9,7 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_system.h"
+#include "esp_mac.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -39,8 +39,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                  MAC2STR(event->mac), event->aid);
     } else if (event_id == WIFI_EVENT_AP_STADISCONNECTED) {
         wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*) event_data;
-        ESP_LOGI(TAG, "station "MACSTR" leave, AID=%d",
-                 MAC2STR(event->mac), event->aid);
+        ESP_LOGI(TAG, "station "MACSTR" leave, AID=%d, reason=%d",
+                 MAC2STR(event->mac), event->aid, event->reason);
     }
 }
 
@@ -66,7 +66,15 @@ void wifi_init_softap(void)
             .channel = EXAMPLE_ESP_WIFI_CHANNEL,
             .password = EXAMPLE_ESP_WIFI_PASS,
             .max_connection = EXAMPLE_MAX_STA_CONN,
-            .authmode = WIFI_AUTH_WPA_WPA2_PSK
+#ifdef CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT
+            .authmode = WIFI_AUTH_WPA3_PSK,
+            .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
+#else /* CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT */
+            .authmode = WIFI_AUTH_WPA2_PSK,
+#endif
+            .pmf_cfg = {
+                    .required = true,
+            },
         },
     };
     if (strlen(EXAMPLE_ESP_WIFI_PASS) == 0) {

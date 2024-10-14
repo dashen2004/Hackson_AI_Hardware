@@ -1,16 +1,8 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #ifndef ESP_CORE_DUMP_PORT_H_
 #define ESP_CORE_DUMP_PORT_H_
 
@@ -26,8 +18,6 @@
 
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
-#include "soc/cpu.h"
-#include "esp_debug_helpers.h"
 #include "esp_app_format.h"
 #include "esp_core_dump_types.h"
 #include "esp_core_dump_port_impl.h"
@@ -50,8 +40,10 @@ uint16_t esp_core_dump_get_arch_id(void);
  *
  * @param info Pointer to the panic information. It contains the execution
  *             frame.
+ * @param isr_context A flag indicating whether the crash happened within an ISR context.
+ *                    Set to 1 if the crash occurred in an ISR, and 0 otherwise.
  */
-void esp_core_dump_port_init(panic_info_t *info);
+void esp_core_dump_port_init(panic_info_t *info, bool isr_context);
 
 /**
  * @brief Reset fake stacks allocator, if any.
@@ -68,14 +60,12 @@ void esp_core_dump_reset_fake_stacks(void);
  */
 uint32_t esp_core_dump_get_isr_stack_end(void);
 
-
 /**
  * @brief Get the top of the ISR stack.
  *
  * @return Pointer to the top of the ISR stack.
  */
 uint8_t* esp_core_dump_get_isr_stack_top(void);
-
 
 /**
  * @brief Check the stack defined by address given.
@@ -86,7 +76,6 @@ uint8_t* esp_core_dump_get_isr_stack_top(void);
  */
 bool esp_core_dump_check_stack(core_dump_task_header_t *task);
 
-
 /**
  * @brief Check if the memory segment is sane.
  *
@@ -96,7 +85,6 @@ bool esp_core_dump_check_stack(core_dump_task_header_t *task);
  * @return true if the memory segment is sane, false else.
  */
 bool esp_core_dump_mem_seg_is_sane(uint32_t addr, uint32_t sz);
-
 
 /**
  * @brief Get the stack of a task.
@@ -112,7 +100,6 @@ bool esp_core_dump_mem_seg_is_sane(uint32_t addr, uint32_t sz);
 uint32_t esp_core_dump_get_stack(core_dump_task_header_t* task_snapshot,
                                  uint32_t* stk_vaddr, uint32_t* stk_paddr);
 
-
 /**
  * @brief Check the task passed as a parameter.
  *
@@ -127,7 +114,6 @@ uint32_t esp_core_dump_get_stack(core_dump_task_header_t* task_snapshot,
  * @return True if the TCB is sane, false else.
  */
 bool esp_core_dump_check_task(core_dump_task_header_t *task);
-
 
 /**
  * @brief Get a dump of the task's registers.

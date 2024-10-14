@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,12 +8,7 @@
 #include "sdkconfig.h"
 #include "esp_err.h"
 #include "esp_log.h"
-#if CONFIG_IDF_TARGET_ESP32
-#include "esp32/rom/spi_flash.h"
-#elif CONFIG_IDF_TARGET_ESP32S2
-#include "esp32s2/rom/spi_flash.h"
-#include "esp32s2/rom/ets_sys.h"
-#endif
+#include "esp_rom_spiflash.h"
 #include "esp_rom_crc.h"
 #include "esp_rom_gpio.h"
 #include "esp_flash_partitions.h"
@@ -22,14 +17,17 @@
 #include "soc/gpio_periph.h"
 #include "soc/rtc.h"
 #include "soc/efuse_reg.h"
-#include "soc/soc_memory_types.h"
+#include "soc/chip_revision.h"
+#include "hal/efuse_hal.h"
 #include "hal/gpio_ll.h"
 #include "esp_image_format.h"
 #include "bootloader_sha.h"
 #include "sys/param.h"
 #include "bootloader_flash_priv.h"
+#include "esp_rom_caps.h"
 
 #define ESP_PARTITION_HASH_LEN 32 /* SHA-256 digest length */
+#define IS_FIELD_SET(rev_full) (((rev_full) != 65535) && ((rev_full) != 0))
 
 static const char* TAG = "boot_comm";
 
@@ -59,6 +57,31 @@ int bootloader_common_get_active_otadata(esp_ota_select_entry_t *two_otadata)
     return bootloader_common_select_otadata(two_otadata, valid_two_otadata, true);
 }
 
+#if !CONFIG_IDF_TARGET_ESP32
+esp_err_t bootloader_common_check_efuse_blk_validity(uint32_t min_rev_full, uint32_t max_rev_full)
+{
+    esp_err_t err = ESP_OK;
+#ifndef CONFIG_IDF_ENV_FPGA
+    // Check whether the efuse block version satisfy the requirements of current image.
+    uint32_t revision = efuse_hal_blk_version();
+    uint32_t major_rev = revision / 100;
+    uint32_t minor_rev = revision % 100;
+    if (IS_FIELD_SET(min_rev_full) && !ESP_EFUSE_BLK_REV_ABOVE(revision, min_rev_full)) {
+        ESP_LOGE(TAG, "Image requires efuse blk rev >= v%"PRIu32".%"PRIu32", but chip is v%"PRIu32".%"PRIu32,
+                    min_rev_full / 100, min_rev_full % 100, major_rev, minor_rev);
+        err = ESP_FAIL;
+    }
+    // If burnt `disable_blk_version_major` bit, skip the max version check
+    if ((IS_FIELD_SET(max_rev_full) && (revision > max_rev_full) && !efuse_hal_get_disable_blk_version_major())) {
+        ESP_LOGE(TAG, "Image requires efuse blk rev <= v%"PRIu32".%"PRIu32", but chip is v%"PRIu32".%"PRIu32,
+                    max_rev_full / 100, max_rev_full % 100, major_rev, minor_rev);
+        err = ESP_FAIL;
+    }
+#endif
+    return err;
+}
+#endif  // !CONFIG_IDF_TARGET_ESP32
+
 esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hdr, esp_image_type type)
 {
     esp_err_t err = ESP_OK;
@@ -66,21 +89,31 @@ esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hd
     if (chip_id != img_hdr->chip_id) {
         ESP_LOGE(TAG, "mismatch chip ID, expected %d, found %d", chip_id, img_hdr->chip_id);
         err = ESP_FAIL;
-    }
-
+    } else {
 #ifndef CONFIG_IDF_ENV_FPGA
-    uint8_t revision = bootloader_common_get_chip_revision();
-    if (revision < img_hdr->min_chip_rev) {
-        /* To fix this error, please update mininum supported chip revision from configuration,
-         * located in TARGET (e.g. ESP32) specific options under "Component config" menu */
-        ESP_LOGE(TAG, "This chip is revision %d but the application is configured for minimum revision %d. Can't run.", revision, img_hdr->min_chip_rev);
-        err = ESP_FAIL;
-    } else if (revision != img_hdr->min_chip_rev) {
-#ifdef BOOTLOADER_BUILD
-        ESP_LOGI(TAG, "chip revision: %d, min. %s chip revision: %d", revision, type == ESP_IMAGE_BOOTLOADER ? "bootloader" : "application", img_hdr->min_chip_rev);
-#endif
-    }
+        unsigned revision = efuse_hal_chip_revision();
+        unsigned int major_rev = revision / 100;
+        unsigned int minor_rev = revision % 100;
+        unsigned min_rev = img_hdr->min_chip_rev_full;
+        if (type == ESP_IMAGE_BOOTLOADER || type == ESP_IMAGE_APPLICATION) {
+            if (!ESP_CHIP_REV_ABOVE(revision, min_rev)) {
+                ESP_LOGE(TAG, "Image requires chip rev >= v%d.%d, but chip is v%d.%d",
+                         min_rev / 100, min_rev % 100,
+                         major_rev, minor_rev);
+                err = ESP_FAIL;
+            }
+        }
+        if (type == ESP_IMAGE_APPLICATION) {
+            unsigned max_rev = img_hdr->max_chip_rev_full;
+            if ((IS_FIELD_SET(max_rev) && (revision > max_rev) && !efuse_hal_get_disable_wafer_version_major())) {
+                ESP_LOGE(TAG, "Image requires chip rev <= v%d.%d, but chip is v%d.%d",
+                         max_rev / 100, max_rev % 100,
+                         major_rev, minor_rev);
+                err = ESP_FAIL;
+            }
+        }
 #endif // CONFIG_IDF_ENV_FPGA
+    }
 
     return err;
 }
@@ -111,81 +144,80 @@ int bootloader_common_select_otadata(const esp_ota_select_entry_t *two_otadata, 
     return active_otadata;
 }
 
-esp_err_t bootloader_common_get_partition_description(const esp_partition_pos_t *partition, esp_app_desc_t *app_desc)
-{
-    if (partition == NULL || app_desc == NULL || partition->offset == 0) {
-        return ESP_ERR_INVALID_ARG;
-    }
+#if CONFIG_BOOTLOADER_RESERVE_RTC_MEM
 
-    const uint32_t app_desc_offset = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t);
-    const uint32_t mmap_size = app_desc_offset + sizeof(esp_app_desc_t);
-    const uint8_t *image = bootloader_mmap(partition->offset, mmap_size);
-    if (image == NULL) {
-        ESP_LOGE(TAG, "bootloader_mmap(0x%x, 0x%x) failed", partition->offset, mmap_size);
-        return ESP_FAIL;
-    }
-
-    memcpy(app_desc, image + app_desc_offset, sizeof(esp_app_desc_t));
-    bootloader_munmap(image);
-
-    if (app_desc->magic_word != ESP_APP_DESC_MAGIC_WORD) {
-        return ESP_ERR_NOT_FOUND;
-    }
-
-    return ESP_OK;
+static uint32_t rtc_retain_mem_size(void) {
+#if CONFIG_BOOTLOADER_CUSTOM_RESERVE_RTC && !CONFIG_BOOTLOADER_CUSTOM_RESERVE_RTC_IN_CRC
+    /* A custom memory has been reserved by the user, do not consider this memory into CRC calculation as it may change without
+     * the have the user updating the CRC. Return the offset of the custom field, which is equivalent to size of the structure
+     * minus the size of everything after (including) `custom` */
+    return offsetof(rtc_retain_mem_t, custom);
+#else
+    return sizeof(rtc_retain_mem_t) - sizeof(bootloader_common_get_rtc_retain_mem()->crc);
+#endif
 }
 
-#if defined( CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP ) || defined( CONFIG_BOOTLOADER_CUSTOM_RESERVE_RTC )
-
-#define RTC_RETAIN_MEM_ADDR (SOC_RTC_DRAM_HIGH - sizeof(rtc_retain_mem_t))
-
-rtc_retain_mem_t *const rtc_retain_mem = (rtc_retain_mem_t *)RTC_RETAIN_MEM_ADDR;
-
-#ifndef BOOTLOADER_BUILD
-#include "heap_memory_layout.h"
-/* The app needs to be told this memory is reserved, important if configured to use RTC memory as heap.
-
-   Note that keeping this macro here only works when other symbols in this file are referenced by the app, as
-   this feature is otherwise 100% part of the bootloader. However this seems to happen in all apps.
- */
-SOC_RESERVE_MEMORY_REGION(RTC_RETAIN_MEM_ADDR, RTC_RETAIN_MEM_ADDR + sizeof(rtc_retain_mem_t), rtc_retain_mem);
-#endif
-
-static bool check_rtc_retain_mem(void)
+static bool is_retain_mem_valid(void)
 {
-    return esp_rom_crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, sizeof(rtc_retain_mem_t) - sizeof(rtc_retain_mem->crc)) == rtc_retain_mem->crc && rtc_retain_mem->crc != UINT32_MAX;
+    rtc_retain_mem_t* rtc_retain_mem = bootloader_common_get_rtc_retain_mem();
+    return esp_rom_crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, rtc_retain_mem_size()) == rtc_retain_mem->crc && rtc_retain_mem->crc != UINT32_MAX;
 }
 
 static void update_rtc_retain_mem_crc(void)
 {
-    rtc_retain_mem->crc = esp_rom_crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, sizeof(rtc_retain_mem_t) - sizeof(rtc_retain_mem->crc));
+    rtc_retain_mem_t* rtc_retain_mem = bootloader_common_get_rtc_retain_mem();
+    rtc_retain_mem->crc = esp_rom_crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, rtc_retain_mem_size());
 }
 
-void bootloader_common_reset_rtc_retain_mem(void)
+NOINLINE_ATTR void bootloader_common_reset_rtc_retain_mem(void)
 {
-    memset(rtc_retain_mem, 0, sizeof(rtc_retain_mem_t));
+    hal_memset(bootloader_common_get_rtc_retain_mem(), 0, sizeof(rtc_retain_mem_t));
 }
 
 uint16_t bootloader_common_get_rtc_retain_mem_reboot_counter(void)
 {
-    if (check_rtc_retain_mem()) {
-        return rtc_retain_mem->reboot_counter;
+    if (is_retain_mem_valid()) {
+        return bootloader_common_get_rtc_retain_mem()->reboot_counter;
     }
     return 0;
 }
 
+void bootloader_common_set_rtc_retain_mem_factory_reset_state(void)
+{
+    if (!is_retain_mem_valid()) {
+        bootloader_common_reset_rtc_retain_mem();
+    }
+    bootloader_common_get_rtc_retain_mem()->flags.factory_reset_state = true;
+    update_rtc_retain_mem_crc();
+}
+
+bool bootloader_common_get_rtc_retain_mem_factory_reset_state(void)
+{
+    rtc_retain_mem_t* rtc_retain_mem = bootloader_common_get_rtc_retain_mem();
+    if (is_retain_mem_valid()) {
+        bool factory_reset_state = rtc_retain_mem->flags.factory_reset_state;
+        if (factory_reset_state == true) {
+            rtc_retain_mem->flags.factory_reset_state = false;
+            update_rtc_retain_mem_crc();
+        }
+        return factory_reset_state;
+    }
+    return false;
+}
+
 esp_partition_pos_t* bootloader_common_get_rtc_retain_mem_partition(void)
 {
-    if (check_rtc_retain_mem()) {
-        return &rtc_retain_mem->partition;
+    if (is_retain_mem_valid()) {
+        return &bootloader_common_get_rtc_retain_mem()->partition;
     }
     return NULL;
 }
 
 void bootloader_common_update_rtc_retain_mem(esp_partition_pos_t* partition, bool reboot_counter)
 {
+    rtc_retain_mem_t* rtc_retain_mem = bootloader_common_get_rtc_retain_mem();
     if (reboot_counter) {
-        if (!check_rtc_retain_mem()) {
+        if (!is_retain_mem_valid()) {
             bootloader_common_reset_rtc_retain_mem();
         }
         if (++rtc_retain_mem->reboot_counter == 0) {
@@ -205,6 +237,20 @@ void bootloader_common_update_rtc_retain_mem(esp_partition_pos_t* partition, boo
 
 rtc_retain_mem_t* bootloader_common_get_rtc_retain_mem(void)
 {
-    return rtc_retain_mem;
+#ifdef BOOTLOADER_BUILD
+
+#if ESP_ROM_HAS_LP_ROM
+    #define RTC_RETAIN_MEM_ADDR (SOC_RTC_DRAM_LOW)
+#else
+    #define RTC_RETAIN_MEM_ADDR (SOC_RTC_DRAM_HIGH - sizeof(rtc_retain_mem_t))
+#endif //ESP_ROM_HAS_LP_ROM
+    static rtc_retain_mem_t *const s_bootloader_retain_mem = (rtc_retain_mem_t *)RTC_RETAIN_MEM_ADDR;
+    return s_bootloader_retain_mem;
+#else
+    static __attribute__((section(".bootloader_data_rtc_mem"))) rtc_retain_mem_t s_bootloader_retain_mem;
+    return &s_bootloader_retain_mem;
+#endif // !BOOTLOADER_BUILD
 }
-#endif // defined( CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP ) || defined( CONFIG_BOOTLOADER_CUSTOM_RESERVE_RTC )
+
+
+#endif // CONFIG_BOOTLOADER_RESERVE_RTC_MEM

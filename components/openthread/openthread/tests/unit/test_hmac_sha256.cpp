@@ -28,6 +28,7 @@
 
 #include <openthread/config.h>
 
+#include "common/array.hpp"
 #include "common/debug.hpp"
 #include "common/message.hpp"
 #include "crypto/hmac_sha256.hpp"
@@ -71,7 +72,7 @@ void TestSha256(void)
 
     struct TestCase
     {
-        const char *       mData; // (null-terminated string).
+        const char        *mData; // (null-terminated string).
         otCryptoSha256Hash mHash;
     };
 
@@ -84,16 +85,16 @@ void TestSha256(void)
 
     printf("TestSha256\n");
 
-    Instance *   instance = testInitInstance();
+    Instance    *instance = testInitInstance();
     MessagePool *messagePool;
-    Message *    message;
-    uint16_t     offsets[OT_ARRAY_LENGTH(kTestCases)];
+    Message     *message;
+    uint16_t     offsets[GetArrayLength(kTestCases)];
     uint8_t      index;
 
     VerifyOrQuit(instance != nullptr);
 
     messagePool = &instance->Get<MessagePool>();
-    VerifyOrQuit((message = messagePool->New(Message::kTypeIp6, 0)) != nullptr);
+    VerifyOrQuit((message = messagePool->Allocate(Message::kTypeIp6)) != nullptr);
 
     for (const TestCase &testCase : kTestCases)
     {
@@ -141,7 +142,7 @@ void TestHmacSha256(void)
     struct TestCase
     {
         otCryptoKey        mKey;
-        const void *       mData;
+        const void        *mData;
         uint16_t           mDataLength;
         otCryptoSha256Hash mHash;
     };
@@ -225,10 +226,10 @@ void TestHmacSha256(void)
         {{&kKey5[0], sizeof(kKey5), 0}, kData5, sizeof(kData5) - 1, kHash5},
     };
 
-    Instance *   instance = testInitInstance();
+    Instance    *instance = testInitInstance();
     MessagePool *messagePool;
-    Message *    message;
-    uint16_t     offsets[OT_ARRAY_LENGTH(kTestCases)];
+    Message     *message;
+    uint16_t     offsets[GetArrayLength(kTestCases)];
     uint8_t      index;
 
     printf("TestHmacSha256\n");
@@ -236,7 +237,7 @@ void TestHmacSha256(void)
     VerifyOrQuit(instance != nullptr);
 
     messagePool = &instance->Get<MessagePool>();
-    VerifyOrQuit((message = messagePool->New(Message::kTypeIp6, 0)) != nullptr);
+    VerifyOrQuit((message = messagePool->Allocate(Message::kTypeIp6)) != nullptr);
 
     for (const TestCase &testCase : kTestCases)
     {

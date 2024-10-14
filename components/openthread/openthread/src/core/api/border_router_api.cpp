@@ -38,44 +38,20 @@
 #include <openthread/border_router.h>
 
 #include "border_router/routing_manager.hpp"
-#include "common/as_core_type.hpp"
 #include "common/debug.hpp"
+#include "instance/instance.hpp"
 
 using namespace ot;
 
-#if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
-otError otBorderRoutingInit(otInstance *aInstance, uint32_t aInfraIfIndex, bool aInfraIfIsRunning)
-{
-    return AsCoreType(aInstance).Get<BorderRouter::RoutingManager>().Init(aInfraIfIndex, aInfraIfIsRunning);
-}
-
-otError otBorderRoutingSetEnabled(otInstance *aInstance, bool aEnabled)
-{
-    return AsCoreType(aInstance).Get<BorderRouter::RoutingManager>().SetEnabled(aEnabled);
-}
-
-otError otBorderRoutingGetOmrPrefix(otInstance *aInstance, otIp6Prefix *aPrefix)
-{
-    return AsCoreType(aInstance).Get<BorderRouter::RoutingManager>().GetOmrPrefix(AsCoreType(aPrefix));
-}
-
-otError otBorderRoutingGetOnLinkPrefix(otInstance *aInstance, otIp6Prefix *aPrefix)
-{
-    return AsCoreType(aInstance).Get<BorderRouter::RoutingManager>().GetOnLinkPrefix(AsCoreType(aPrefix));
-}
-
-#endif
-
 otError otBorderRouterGetNetData(otInstance *aInstance, bool aStable, uint8_t *aData, uint8_t *aDataLength)
 {
-    return AsCoreType(aInstance).Get<NetworkData::Local>().CopyNetworkData(aStable, aData, *aDataLength);
+    return AsCoreType(aInstance).Get<NetworkData::Local>().CopyNetworkData(
+        aStable ? NetworkData::kStableSubset : NetworkData::kFullSet, aData, *aDataLength);
 }
 
 otError otBorderRouterAddOnMeshPrefix(otInstance *aInstance, const otBorderRouterConfig *aConfig)
 {
     Error error = kErrorNone;
-
-    OT_ASSERT(aConfig != nullptr);
 
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
     if (aConfig->mDp)
@@ -95,8 +71,6 @@ otError otBorderRouterRemoveOnMeshPrefix(otInstance *aInstance, const otIp6Prefi
 {
     Error error = kErrorNone;
 
-    OT_ASSERT(aPrefix != nullptr);
-
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
     error = AsCoreType(aInstance).Get<BackboneRouter::Local>().RemoveDomainPrefix(AsCoreType(aPrefix));
 
@@ -109,34 +83,30 @@ otError otBorderRouterRemoveOnMeshPrefix(otInstance *aInstance, const otIp6Prefi
     return error;
 }
 
-otError otBorderRouterGetNextOnMeshPrefix(otInstance *           aInstance,
+otError otBorderRouterGetNextOnMeshPrefix(otInstance            *aInstance,
                                           otNetworkDataIterator *aIterator,
-                                          otBorderRouterConfig * aConfig)
+                                          otBorderRouterConfig  *aConfig)
 {
-    OT_ASSERT(aIterator != nullptr && aConfig != nullptr);
+    AssertPointerIsNotNull(aIterator);
 
     return AsCoreType(aInstance).Get<NetworkData::Local>().GetNextOnMeshPrefix(*aIterator, AsCoreType(aConfig));
 }
 
 otError otBorderRouterAddRoute(otInstance *aInstance, const otExternalRouteConfig *aConfig)
 {
-    OT_ASSERT(aConfig != nullptr);
-
     return AsCoreType(aInstance).Get<NetworkData::Local>().AddHasRoutePrefix(AsCoreType(aConfig));
 }
 
 otError otBorderRouterRemoveRoute(otInstance *aInstance, const otIp6Prefix *aPrefix)
 {
-    OT_ASSERT(aPrefix != nullptr);
-
     return AsCoreType(aInstance).Get<NetworkData::Local>().RemoveHasRoutePrefix(AsCoreType(aPrefix));
 }
 
-otError otBorderRouterGetNextRoute(otInstance *           aInstance,
+otError otBorderRouterGetNextRoute(otInstance            *aInstance,
                                    otNetworkDataIterator *aIterator,
                                    otExternalRouteConfig *aConfig)
 {
-    OT_ASSERT(aIterator != nullptr && aConfig != nullptr);
+    AssertPointerIsNotNull(aIterator);
 
     return AsCoreType(aInstance).Get<NetworkData::Local>().GetNextExternalRoute(*aIterator, AsCoreType(aConfig));
 }
@@ -147,5 +117,14 @@ otError otBorderRouterRegister(otInstance *aInstance)
 
     return kErrorNone;
 }
+
+#if OPENTHREAD_CONFIG_BORDER_ROUTER_SIGNAL_NETWORK_DATA_FULL
+void otBorderRouterSetNetDataFullCallback(otInstance                       *aInstance,
+                                          otBorderRouterNetDataFullCallback aCallback,
+                                          void                             *aContext)
+{
+    AsCoreType(aInstance).Get<NetworkData::Notifier>().SetNetDataFullCallback(aCallback, aContext);
+}
+#endif
 
 #endif // OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE

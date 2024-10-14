@@ -94,12 +94,12 @@ class TestSrpServerAnycastMode(thread_cert.TestCase):
         # Form the network.
 
         server.start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(server.get_state(), 'leader')
 
         client.start()
         browser.start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(client.get_state(), 'router')
         self.assertEqual(browser.get_state(), 'router')
 
@@ -147,7 +147,7 @@ class TestSrpServerAnycastMode(thread_cert.TestCase):
             # server and uses the proper address and port number.
 
             client.srp_client_enable_auto_start_mode()
-            self.simulator.go(5)
+            self.simulator.go(15)
 
             if addr_mode == 'anycast':
                 server_alocs = server.get_ip6_address(config.ADDRESS_TYPE.ALOC)
@@ -177,7 +177,8 @@ class TestSrpServerAnycastMode(thread_cert.TestCase):
 
             #---------------------------------------------------------------
             # Browse for a matching service name and verify that the registered
-            # service is successfully found.
+            # service is successfully found. Since there is only one match the
+            # server should include the service info in additional section.
 
             service_instances = browser.dns_browse(f'{SERVICE}.{DOMAIN}', server.get_mleid(), DNS_RESOLVER_PORT)
             self.assertEqual({INSTANCE}, set(service_instances.keys()))

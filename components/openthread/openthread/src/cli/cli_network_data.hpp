@@ -38,43 +38,55 @@
 
 #include <openthread/netdata.h>
 
-#include "cli/cli_output.hpp"
-#include "utils/lookup_table.hpp"
-#include "utils/parse_cmdline.hpp"
+#include "cli/cli_utils.hpp"
 
 namespace ot {
 namespace Cli {
 
 /**
- * This class implements the Network Data CLI.
+ * Implements the Network Data CLI.
  *
  */
-class NetworkData : private OutputWrapper
+class NetworkData : private Utils
 {
 public:
-    typedef Utils::CmdLineParser::Arg Arg;
+    /**
+     * This constant specifies the string size for representing Network Data prefix/route entry flags.
+     *
+     * BorderRouter (OnMeshPrefix) TLV uses `uint16_t` for its flags and ExternalRoute uses `uint8_t`, though some of
+     * the bits are not currently used and reserved for future, so 17 chars string (16 flags plus null char at end of
+     * string) covers current and future flags.
+     *
+     */
+    static constexpr uint16_t kFlagsStringSize = 17;
+
+    typedef char FlagsString[kFlagsStringSize]; ///< Flags String type (char array of `kFlagsStringSize`).
 
     /**
      * Constructor
      *
-     * @param[in]  aOutput The CLI console output context
+     * @param[in]  aInstance            The OpenThread Instance.
+     * @param[in]  aOutputImplementer   An `OutputImplementer`.
      *
      */
-    explicit NetworkData(Output &aOutput)
-        : OutputWrapper(aOutput)
-    {
-    }
+    NetworkData(otInstance *aInstance, OutputImplementer &aOutputImplementer);
 
     /**
-     * This method interprets a list of CLI arguments.
+     * Processes a CLI sub-command.
      *
-     * @param[in]  aArgs        An array of command line arguments.
+     * @param[in]  aArgs     An array of command line arguments.
+     *
+     * @retval OT_ERROR_NONE              Successfully executed the CLI command.
+     * @retval OT_ERROR_PENDING           The CLI command was successfully started but final result is pending.
+     * @retval OT_ERROR_INVALID_COMMAND   Invalid or unknown CLI command.
+     * @retval OT_ERROR_INVALID_ARGS      Invalid arguments.
+     * @retval ...                        Error during execution of the CLI command.
      *
      */
     otError Process(Arg aArgs[]);
 
     /**
-     * This method outputs the prefix config.
+     * Outputs the prefix config.
      *
      * @param[in]  aConfig  The prefix config.
      *
@@ -82,7 +94,7 @@ public:
     void OutputPrefix(const otBorderRouterConfig &aConfig);
 
     /**
-     * This method outputs the route config.
+     * Outputs the route config.
      *
      * @param[in]  aConfig  The route config.
      *
@@ -90,53 +102,51 @@ public:
     void OutputRoute(const otExternalRouteConfig &aConfig);
 
     /**
-     * This method outputs the service config.
+     * Outputs the service config.
      *
      * @param[in]  aConfig  The service config.
      *
      */
     void OutputService(const otServiceConfig &aConfig);
 
+    /**
+     * Converts the flags from a given prefix config to string.
+     *
+     * @param[in]  aConfig  The prefix config.
+     * @param[out] aString  The string to populate from @a Config flags.
+     *
+     */
+    static void PrefixFlagsToString(const otBorderRouterConfig &aConfig, FlagsString &aString);
+
+    /**
+     * Converts the flags from a given route config to string.
+     *
+     * @param[in]  aConfig  The route config.
+     * @param[out] aString  The string to populate from @a Config flags.
+     *
+     */
+    static void RouteFlagsToString(const otExternalRouteConfig &aConfig, FlagsString &aString);
+
 private:
-    struct Command
-    {
-        const char *mName;
-        otError (NetworkData::*mHandler)(Arg aArgs[]);
-    };
+    using Command = CommandEntry<NetworkData>;
 
-    otError ProcessHelp(Arg aArgs[]);
-#if OPENTHREAD_CONFIG_NETDATA_PUBLISHER_ENABLE
-    otError ProcessPublish(Arg aArgs[]);
-    otError ProcessUnpublish(Arg aArgs[]);
-#endif
-#if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE || OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
-    otError ProcessRegister(Arg aArgs[]);
-#endif
-    otError ProcessShow(Arg aArgs[]);
-    otError ProcessSteeringData(Arg aArgs[]);
+    static constexpr uint16_t kAnyRloc16 = 0xffff;
 
-    otError OutputBinary(void);
-    void    OutputPrefixes(void);
-    void    OutputRoutes(void);
-    void    OutputServices(void);
-    void    OutputPreference(signed int aPreference);
+    template <CommandId kCommandId> otError Process(Arg aArgs[]);
 
-    static constexpr Command sCommands[] = {
-        {"help", &NetworkData::ProcessHelp},
-#if OPENTHREAD_CONFIG_NETDATA_PUBLISHER_ENABLE
-        {"publish", &NetworkData::ProcessPublish},
-#endif
-#if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE || OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
-        {"register", &NetworkData::ProcessRegister},
-#endif
-        {"show", &NetworkData::ProcessShow},
-        {"steeringdata", &NetworkData::ProcessSteeringData},
-#if OPENTHREAD_CONFIG_NETDATA_PUBLISHER_ENABLE
-        {"unpublish", &NetworkData::ProcessUnpublish},
-#endif
-    };
+    otError GetNextPrefix(otNetworkDataIterator *aIterator, otBorderRouterConfig *aConfig, bool aLocal);
+    otError GetNextRoute(otNetworkDataIterator *aIterator, otExternalRouteConfig *aConfig, bool aLocal);
+    otError GetNextService(otNetworkDataIterator *aIterator, otServiceConfig *aConfig, bool aLocal);
 
-    static_assert(Utils::LookupTable::IsSorted(sCommands), "Command Table is not sorted");
+    otError OutputBinary(bool aLocal);
+    void    OutputNetworkData(bool aLocal, uint16_t aRloc16);
+
+#if OPENTHREAD_CONFIG_BORDER_ROUTER_SIGNAL_NETWORK_DATA_FULL
+    static void HandleNetdataFull(void *aContext) { static_cast<NetworkData *>(aContext)->HandleNetdataFull(); }
+    void        HandleNetdataFull(void) { mFullCallbackWasCalled = true; }
+
+    bool mFullCallbackWasCalled;
+#endif
 };
 
 } // namespace Cli

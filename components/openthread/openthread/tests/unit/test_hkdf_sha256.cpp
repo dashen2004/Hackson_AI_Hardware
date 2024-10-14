@@ -28,12 +28,15 @@
 
 #include <openthread/config.h>
 
-#include "common/debug.hpp"
-#include "crypto/hkdf_sha256.hpp"
-
 #include "test_platform.h"
 #include "test_util.h"
 #include "test_util.hpp"
+
+#include "common/array.hpp"
+#include "common/debug.hpp"
+#include "crypto/hkdf_sha256.hpp"
+
+namespace ot {
 
 struct TestVector
 {
@@ -58,7 +61,7 @@ void TestHkdfSha256(void)
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Test Case #1: RFC-5869 Appendix A.1
     const uint8_t kInKey1[]  = {0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
-                               0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b};
+                                0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b};
     const uint8_t kSalt1[]   = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c};
     const uint8_t kInfo1[]   = {0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9};
     const uint8_t kOutKey1[] = {0x3c, 0xb2, 0x5f, 0x25, 0xfa, 0xac, 0xd5, 0x7a, 0x90, 0x43, 0x4f, 0x64, 0xd0, 0x36,
@@ -125,11 +128,11 @@ void TestHkdfSha256(void)
 
     VerifyOrQuit(instance != nullptr);
 
-    for (const TestVector *test = &kTestVectors[0]; test < OT_ARRAY_END(kTestVectors); test++)
+    for (const TestVector *test = &kTestVectors[0]; test < GetArrayEnd(kTestVectors); test++)
     {
-        ot::Crypto::HkdfSha256 hkdf;
-        uint8_t                outKey[kMaxOuttKey];
-        ot::Crypto::Key        testInputKey;
+        Crypto::HkdfSha256 hkdf;
+        uint8_t            outKey[kMaxOuttKey];
+        Crypto::Key        testInputKey;
 
         printf("\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
         DumpBuffer("\nInput Key", test->mInKey, test->mInKeyLength);
@@ -149,7 +152,7 @@ void TestHkdfSha256(void)
 
         VerifyOrQuit(memcmp(outKey, test->mOutKey, test->mOutKeyLength) == 0, "HKDF-SHA-256 failed");
 
-        for (uint16_t i = test->mOutKeyLength + 1; i < sizeof(outKey); i++)
+        for (size_t i = test->mOutKeyLength + 1; i < sizeof(outKey); i++)
         {
             VerifyOrQuit(outKey[i] == kFillByte, "HKDF-SHA-256 wrote beyond output key length");
         }
@@ -158,9 +161,11 @@ void TestHkdfSha256(void)
     testFreeInstance(instance);
 }
 
+} // namespace ot
+
 int main(void)
 {
-    TestHkdfSha256();
+    ot::TestHkdfSha256();
     printf("All tests passed\n");
     return 0;
 }

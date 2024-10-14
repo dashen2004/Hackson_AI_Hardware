@@ -1,12 +1,11 @@
-/* LCD tjpgd example
+/*
+ * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: CC0-1.0
+ */
 
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include <stdio.h>
+#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_lcd_panel_io.h"
@@ -17,22 +16,22 @@
 #include "driver/gpio.h"
 #include "pretty_effect.h"
 
-// Using SPI2 in the example, as it aslo supports octal modes on some targets
+// Using SPI2 in the example, as it also supports octal modes on some targets
 #define LCD_HOST       SPI2_HOST
 // To speed up transfers, every SPI transfer sends a bunch of lines. This define specifies how many.
 // More means more memory use, but less overhead for setting up / finishing transfers. Make sure 240
 // is dividable by this.
-#define PARALLEL_LINES 16
+#define PARALLEL_LINES CONFIG_EXAMPLE_LCD_FLUSH_PARALLEL_LINES
 // The number of frames to show before rotate the graph
 #define ROTATE_FRAME   30
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// Please update the following configuration according to your LCD spec //////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#define EXAMPLE_LCD_PIXEL_CLOCK_HZ (10 * 1000 * 1000)
+#define EXAMPLE_LCD_PIXEL_CLOCK_HZ (20 * 1000 * 1000)
 #define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  0
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
-#define EXAMPLE_PIN_NUM_DATA0          23  /*!< for 1-line SPI, this also refered as MOSI */
+#define EXAMPLE_PIN_NUM_DATA0          23  /*!< for 1-line SPI, this also refereed as MOSI */
 #define EXAMPLE_PIN_NUM_PCLK           19
 #define EXAMPLE_PIN_NUM_CS             22
 #define EXAMPLE_PIN_NUM_DC             21
@@ -131,7 +130,7 @@ void app_main(void)
     esp_lcd_panel_handle_t panel_handle = NULL;
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = EXAMPLE_PIN_NUM_RST,
-        .color_space = ESP_LCD_COLOR_SPACE_BGR,
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
         .bits_per_pixel = 16,
     };
     // Initialize the LCD configuration
@@ -146,6 +145,10 @@ void app_main(void)
 
     // Initialize LCD panel
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+
+    // Turn on the screen
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
+    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));
 
     // Swap x and y axis (Different LCD screens may need different options)
     ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));

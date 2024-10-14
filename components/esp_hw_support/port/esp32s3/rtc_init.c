@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <stdint.h>
+#include <sys/param.h>
 #include "soc/soc.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -15,14 +16,18 @@
 #include "soc/extmem_reg.h"
 #include "soc/syscon_reg.h"
 #include "regi2c_ctrl.h"
-#include "regi2c_ulp.h"
-#include "soc_log.h"
+#include "soc/regi2c_lp_bias.h"
+#include "soc/regi2c_ulp.h"
+#include "soc/regi2c_dig_reg.h"
+#include "esp_hw_log.h"
 #include "esp_err.h"
 #include "esp_attr.h"
-#include "esp_efuse.h"
-#include "esp_efuse_table.h"
-#include "esp_private/spi_flash_os.h"
-
+#include "esp_private/mspi_timing_tuning.h"
+#include "hal/efuse_hal.h"
+#include "hal/efuse_ll.h"
+#ifndef BOOTLOADER_BUILD
+#include "esp_private/sar_periph_ctrl.h"
+#endif
 
 #define RTC_CNTL_MEM_FORCE_NOISO (RTC_CNTL_SLOWMEM_FORCE_NOISO | RTC_CNTL_FASTMEM_FORCE_NOISO)
 
@@ -30,9 +35,27 @@ static const char *TAG = "rtcinit";
 
 static void set_ocode_by_efuse(int calib_version);
 static void calibrate_ocode(void);
+static void rtc_set_stored_dbias(void);
+
+// Initial values are used for bootloader, and these variables will be re-assigned based on efuse values during application startup
+uint32_t g_dig_dbias_pvt_240m = 28;
+uint32_t g_rtc_dbias_pvt_240m = 28;
+uint32_t g_dig_dbias_pvt_non_240m = 27;
+uint32_t g_rtc_dbias_pvt_non_240m = 27;
 
 void rtc_init(rtc_config_t cfg)
 {
+    /**
+     * When run rtc_init, it maybe deep sleep reset. Since we power down modem in deep sleep, after wakeup
+     * from deep sleep, these fields are changed and not reset. We will access two BB regs(BBPD_CTRL and
+     * NRXPD_CTRL) in rtc_sleep_pu. If PD modem and no iso, CPU will stuck when access these two BB regs
+     * and finally triggle RTC WDT. So need to clear modem Force PD.
+     *
+     * No worry about the power consumption, Because modem Force PD will be set at the end of this function.
+     */
+    CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
+    CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
+
     REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_XPD_RTC_REG, 0);
     REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_XPD_DIG_REG, 0);
     CLEAR_PERI_REG_MASK(RTC_CNTL_ANA_CONF_REG, RTC_CNTL_PVTMON_PU);
@@ -67,31 +90,25 @@ void rtc_init(rtc_config_t cfg)
     /* Reset RTC bias to default value (needed if waking up from deep sleep) */
     REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_EXT_RTC_DREG_SLEEP, RTC_CNTL_DBIAS_1V10);
     REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_EXT_RTC_DREG, RTC_CNTL_DBIAS_1V10);
+    /* Set the wait time to the default value. */
+    REG_SET_FIELD(RTC_CNTL_TIMER2_REG, RTC_CNTL_ULPCP_TOUCH_START_WAIT, RTC_CNTL_ULPCP_TOUCH_START_WAIT_DEFAULT);
 
     if (cfg.cali_ocode) {
-        uint32_t blk1_version = 0;
-        uint32_t blk2_version = 0;
-        esp_err_t err = esp_efuse_read_field_blob(ESP_EFUSE_BLOCK1_VERSION, &blk1_version, 3);
-        if (err != ESP_OK) {
-            blk1_version = 0;
-            SOC_LOGW(TAG, "efuse read fail, set default blk1_version: %d\n", blk1_version);
-        }
-        err = esp_efuse_read_field_blob(ESP_EFUSE_BLOCK2_VERSION, &blk2_version, 4);
-        if (err != ESP_OK) {
-            blk2_version = 0;
-            SOC_LOGW(TAG, "efuse read fail, set default blk2_version: %d\n", blk2_version);
-        }
-        if (blk1_version != blk2_version) {
-            blk1_version = 0;
-            blk2_version = 0;
-            SOC_LOGW(TAG, "calibration efuse version does not match, set default version: %d\n", 0);
-        }
-        if (blk2_version == 1) {
-            set_ocode_by_efuse(blk2_version);
+        uint32_t blk_ver_major = efuse_ll_get_blk_version_major(); // IDF-5366
+        //default blk_ver_major will fallback to using the self-calibration way for OCode
+        bool ocode_efuse_cali = (blk_ver_major == 1);
+        if (ocode_efuse_cali) {
+            set_ocode_by_efuse(blk_ver_major);
         } else {
             calibrate_ocode();
         }
     }
+
+    //LDO dbias initialization
+    rtc_set_stored_dbias();
+
+    REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_EXT_RTC_DREG, g_rtc_dbias_pvt_non_240m);
+    REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_EXT_DIG_DREG, g_dig_dbias_pvt_non_240m);
 
     if (cfg.clkctl_init) {
         //clear CMMU clock force on
@@ -181,12 +198,17 @@ void rtc_init(rtc_config_t cfg)
         CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_DG_PAD_FORCE_UNHOLD);
         CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_DG_PAD_FORCE_NOISO);
     }
-    /* force power down wifi and bt power domain */
+    /* force power down modem(wifi and ble) power domain */
     SET_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
     SET_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
 
     REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
     REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
+
+#ifndef BOOTLOADER_BUILD
+    //initialise SAR related peripheral register settings
+    sar_periph_ctrl_init();
+#endif
 }
 
 rtc_vddsdio_config_t rtc_vddsdio_get_config(void)
@@ -229,10 +251,7 @@ static void set_ocode_by_efuse(int calib_version)
 {
     assert(calib_version == 1);
     // use efuse ocode.
-    uint32_t ocode;
-    esp_err_t err = esp_efuse_read_field_blob(ESP_EFUSE_OCODE, &ocode, 8);
-    assert(err == ESP_OK);
-    (void) err;
+    uint32_t ocode = efuse_ll_get_ocode();
     REGI2C_WRITE_MASK(I2C_ULP, I2C_ULP_EXT_CODE, ocode);
     REGI2C_WRITE_MASK(I2C_ULP, I2C_ULP_IR_FORCE_CODE, 1);
 }
@@ -244,7 +263,7 @@ static void set_ocode_by_efuse(int calib_version)
  */
 static void calibrate_ocode(void)
 {
-#ifndef BOOTLOADER_BUILD
+#if !defined(BOOTLOADER_BUILD) && !defined(CONFIG_APP_BUILD_TYPE_PURE_RAM_APP)
     /**
      * Background:
      * 1. Following code will switch the system clock to XTAL first, to self-calibrate the OCode.
@@ -253,8 +272,8 @@ static void calibrate_ocode(void)
      *
      * When CPU clock switches down, the delay should be cleared. Therefore here we call this function to remove the delays.
      */
-    spi_timing_change_speed_mode_cache_safe(true);
-#endif
+    mspi_timing_change_speed_mode_cache_safe(true);
+#endif // #if !defined(BOOTLOADER_BUILD) && !defined(CONFIG_APP_BUILD_TYPE_PURE_RAM_APP)
     /*
     Bandgap output voltage is not precise when calibrate o-code by hardware sometimes, so need software o-code calibration (must turn off PLL).
     Method:
@@ -264,13 +283,11 @@ static void calibrate_ocode(void)
     4. wait o-code calibration done flag(odone_flag & bg_odone_flag) or timeout;
     5. set cpu to old-config.
     */
-    rtc_slow_freq_t slow_clk_freq = rtc_clk_slow_freq_get();
-    rtc_slow_freq_t rtc_slow_freq_x32k = RTC_SLOW_FREQ_32K_XTAL;
-    rtc_slow_freq_t rtc_slow_freq_8MD256 = RTC_SLOW_FREQ_8MD256;
+    soc_rtc_slow_clk_src_t slow_clk_src = rtc_clk_slow_src_get();
     rtc_cal_sel_t cal_clk = RTC_CAL_RTC_MUX;
-    if (slow_clk_freq == (rtc_slow_freq_x32k)) {
+    if (slow_clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
         cal_clk = RTC_CAL_32K_XTAL;
-    } else if (slow_clk_freq == rtc_slow_freq_8MD256) {
+    } else if (slow_clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) {
         cal_clk  = RTC_CAL_8MD256;
     }
 
@@ -297,13 +314,104 @@ static void calibrate_ocode(void)
             break;
         }
         if (cycle1 >= timeout_cycle) {
-            SOC_LOGW(TAG, "o_code calibration fail\n");
+            ESP_HW_LOGW(TAG, "o_code calibration fail\n");
             break;
         }
     }
     rtc_clk_cpu_freq_set_config(&old_config);
-#ifndef BOOTLOADER_BUILD
+#if !defined(BOOTLOADER_BUILD) && !defined(CONFIG_APP_BUILD_TYPE_PURE_RAM_APP)
     //System clock is switched back to PLL. Here we switch to the MSPI high speed mode, add the delays back
-    spi_timing_change_speed_mode_cache_safe(false);
-#endif
+    mspi_timing_change_speed_mode_cache_safe(false);
+#endif // #if !defined(BOOTLOADER_BUILD) && !defined(CONFIG_APP_BUILD_TYPE_PURE_RAM_APP)
+}
+
+static uint32_t get_dig_dbias_by_efuse(uint8_t pvt_scheme_ver)
+{
+    assert(pvt_scheme_ver == 1);
+    return efuse_ll_get_dig_dbias_hvt();
+}
+
+static uint32_t get_rtc_dbias_by_efuse(uint8_t pvt_scheme_ver, uint32_t dig_dbias)
+{
+    assert(pvt_scheme_ver == 1);
+    uint32_t rtc_dbias = 0;
+    signed int k_rtc_ldo = efuse_ll_get_k_rtc_ldo();
+    signed int k_dig_ldo = efuse_ll_get_k_dig_ldo();
+    signed int v_rtc_bias20 = efuse_ll_get_v_rtc_dbias20();
+    signed int v_dig_bias20 = efuse_ll_get_v_dig_dbias20();
+    k_rtc_ldo =  ((k_rtc_ldo & BIT(6)) != 0)? -(k_rtc_ldo & 0x3f): (uint8_t)k_rtc_ldo;
+    k_dig_ldo =  ((k_dig_ldo & BIT(6)) != 0)? -(k_dig_ldo & 0x3f): (uint8_t)k_dig_ldo;
+    v_rtc_bias20 =  ((v_rtc_bias20 & BIT(7)) != 0)? -(v_rtc_bias20 & 0x7f): (uint8_t)v_rtc_bias20;
+    v_dig_bias20 =  ((v_dig_bias20 & BIT(7)) != 0)? -(v_dig_bias20 & 0x7f): (uint8_t)v_dig_bias20;
+
+    uint32_t v_rtc_dbias20_real_mul10000 = V_RTC_MID_MUL10000 + v_rtc_bias20 * 10000 / 500;
+    uint32_t v_dig_dbias20_real_mul10000 = V_DIG_MID_MUL10000 + v_dig_bias20 * 10000 / 500;
+    signed int k_rtc_ldo_real_mul10000 = K_RTC_MID_MUL10000 + k_rtc_ldo;
+    signed int k_dig_ldo_real_mul10000 = K_DIG_MID_MUL10000 + k_dig_ldo;
+    uint32_t v_dig_nearest_1v15_mul10000 = v_dig_dbias20_real_mul10000 + k_dig_ldo_real_mul10000 * (dig_dbias - 20);
+    for (rtc_dbias = 15; rtc_dbias < 31; rtc_dbias++) {
+        uint32_t v_rtc_nearest_1v15_mul10000 = 0;
+        v_rtc_nearest_1v15_mul10000 = v_rtc_dbias20_real_mul10000 + k_rtc_ldo_real_mul10000 * (rtc_dbias - 20);
+        if (v_rtc_nearest_1v15_mul10000 >= v_dig_nearest_1v15_mul10000 - 250) {
+            break;
+        }
+    }
+    return rtc_dbias;
+}
+
+static uint32_t get_dig1v3_dbias_by_efuse(uint8_t pvt_scheme_ver)
+{
+    assert(pvt_scheme_ver == 1);
+    signed int k_dig_ldo = efuse_ll_get_k_dig_ldo();
+    signed int v_dig_bias20 = efuse_ll_get_v_dig_dbias20();
+    k_dig_ldo =  ((k_dig_ldo & BIT(6)) != 0)? -(k_dig_ldo & 0x3f): (uint8_t)k_dig_ldo;
+    v_dig_bias20 =  ((v_dig_bias20 & BIT(7)) != 0)? -(v_dig_bias20 & 0x7f): (uint8_t)v_dig_bias20;
+
+    uint32_t v_dig_dbias20_real_mul10000 = V_DIG_MID_MUL10000 + v_dig_bias20 * 10000 / 500;
+    signed int k_dig_ldo_real_mul10000 = K_DIG_MID_MUL10000 + k_dig_ldo;
+    uint32_t dig_dbias =15;
+    for (dig_dbias = 15; dig_dbias < 31; dig_dbias++) {
+        uint32_t v_dig_nearest_1v3_mul10000 = 0;
+        v_dig_nearest_1v3_mul10000 = v_dig_dbias20_real_mul10000 + k_dig_ldo_real_mul10000 * (dig_dbias - 20);
+        if (v_dig_nearest_1v3_mul10000 >= 13000) {
+            break;
+        }
+    }
+    return dig_dbias;
+}
+
+static void rtc_set_stored_dbias(void)
+{
+    /*
+    1. a reasonable dig_dbias which by scanning pvt to make 240 CPU run successful stored in efuse;
+    2. also we store some value in efuse, include:
+        k_rtc_ldo (slope of rtc voltage & rtc_dbias);
+        k_dig_ldo (slope of digital voltage & digital_dbias);
+        v_rtc_bias20 (rtc voltage when rtc dbais is 20);
+        v_dig_bias20 (digital voltage when digital dbais is 20).
+    3. a reasonable rtc_dbias can be calculated by a certion formula.
+    4. save these values for reuse
+    */
+    uint8_t blk_minor = efuse_ll_get_blk_version_minor();
+    uint8_t blk_major = efuse_ll_get_blk_version_major();
+    uint8_t pvt_scheme_ver = 0;
+    if ( (blk_major <= 1 && blk_minor == 1) || blk_major > 1 || (blk_major == 1 && blk_minor >= 2) ) {
+        /* PVT supported after blk_ver 1.2 */
+        pvt_scheme_ver = 1;
+    }
+
+    if (pvt_scheme_ver == 1) {
+        uint32_t dig1v3_dbias = get_dig1v3_dbias_by_efuse(pvt_scheme_ver);
+        uint32_t dig_dbias = get_dig_dbias_by_efuse(pvt_scheme_ver);
+        if (dig_dbias != 0) {
+            g_dig_dbias_pvt_240m = MIN(dig1v3_dbias, dig_dbias + 3);
+            g_dig_dbias_pvt_non_240m = MIN(dig1v3_dbias, dig_dbias + 2);
+            g_rtc_dbias_pvt_240m = get_rtc_dbias_by_efuse(pvt_scheme_ver, g_dig_dbias_pvt_240m);
+            g_rtc_dbias_pvt_non_240m = get_rtc_dbias_by_efuse(pvt_scheme_ver, g_dig_dbias_pvt_non_240m);
+        } else {
+            ESP_HW_LOGD(TAG, "not burn core voltage in efuse or burn wrong voltage value in blk version: 0%d\n", pvt_scheme_ver);
+        }
+    } else {
+        ESP_HW_LOGD(TAG, "core voltage not decided in efuse, use default value.");
+    }
 }

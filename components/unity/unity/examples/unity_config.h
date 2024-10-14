@@ -176,6 +176,22 @@
 /* #define UNITY_DOUBLE_PRECISION 0.001f */
 
 
+/* *************************** MISCELLANEOUS ***********************************
+ * Miscellaneous configuration options for Unity
+ **************************************************************************** */
+
+/* Unity uses the stddef.h header included in the C standard library for the
+ * "NULL" macro. Define this in order to disable the include of stddef.h. If you
+ * do this, you have to make sure to provide your own "NULL" definition.
+ */
+/* #define UNITY_EXCLUDE_STDDEF_H */
+
+/* Define this to enable the unity formatted print macro:
+ * "TEST_PRINTF"
+ */
+/* #define UNITY_INCLUDE_PRINT_FORMATTED */
+
+
 /* *************************** TOOLSET CUSTOMIZATION ***************************
  * In addition to the options listed above, there are a number of other options
  * which will come in handy to customize Unity's behavior for your specific
@@ -207,25 +223,6 @@
 /* #define UNITY_OUTPUT_FLUSH_HEADER_DECLARATION   RS232_flush(void) */
 /* #define UNITY_OUTPUT_START()                    RS232_config(115200,1,8,0) */
 /* #define UNITY_OUTPUT_COMPLETE()                 RS232_close() */
-
-/* For some targets, Unity can make the otherwise required `setUp()` and
- * `tearDown()` functions optional. This is a nice convenience for test writers
- * since `setUp` and `tearDown` don't often actually _do_ anything. If you're
- * using gcc or clang, this option is automatically defined for you. Other
- * compilers can also support this behavior, if they support a C feature called
- * weak functions. A weak function is a function that is compiled into your
- * executable _unless_ a non-weak version of the same function is defined
- * elsewhere. If a non-weak version is found, the weak version is ignored as if
- * it never existed. If your compiler supports this feature, you can let Unity
- * know by defining `UNITY_SUPPORT_WEAK` as the function attributes that would
- * need to be applied to identify a function as weak. If your compiler lacks
- * support for weak functions, you will always need to define `setUp` and
- * `tearDown` functions (though they can be and often will be just empty). The
- * most common options for this feature are:
- */
-/* #define UNITY_SUPPORT_WEAK weak */
-/* #define UNITY_SUPPORT_WEAK __attribute__((weak)) */
-/* #define UNITY_NO_WEAK */
 
 /* Some compilers require a custom attribute to be assigned to pointers, like
  * `near` or `far`. In these cases, you can give Unity a safe default for these

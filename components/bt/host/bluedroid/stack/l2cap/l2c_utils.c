@@ -39,6 +39,10 @@
 #include "osi/allocator.h"
 #include "osi/list.h"
 
+#if BT_SDP_BQB_INCLUDED
+extern BOOLEAN l2cap_bqb_ertm_mode_included_flag;
+#endif /* BT_SDP_BQB_INCLUDED */
+
 /*******************************************************************************
 **
 ** Function         l2cu_allocate_lcb
@@ -1558,8 +1562,17 @@ tL2C_CCB *l2cu_allocate_ccb (tL2C_LCB *p_lcb, UINT16 cid)
 #if (CLASSIC_BT_INCLUDED == TRUE)
     l2c_fcr_free_timer (p_ccb);
 #endif  ///CLASSIC_BT_INCLUDED == TRUE
-    p_ccb->ertm_info.preferred_mode  = L2CAP_FCR_BASIC_MODE;        /* Default mode for channel is basic mode */
-    p_ccb->ertm_info.allowed_modes   = L2CAP_FCR_CHAN_OPT_BASIC;    /* Default mode for channel is basic mode */
+
+#if BT_SDP_BQB_INCLUDED
+    if (l2cap_bqb_ertm_mode_included_flag) {
+        p_ccb->ertm_info.preferred_mode = L2CAP_FCR_ERTM_MODE;
+        p_ccb->ertm_info.allowed_modes = L2CAP_FCR_CHAN_OPT_ERTM;
+    } else
+#endif /* BT_SDP_BQB_INCLUDED */
+    {
+        p_ccb->ertm_info.preferred_mode = L2CAP_FCR_BASIC_MODE;        /* Default mode for channel is basic mode */
+        p_ccb->ertm_info.allowed_modes = L2CAP_FCR_CHAN_OPT_BASIC|L2CAP_FCR_CHAN_OPT_ERTM;
+    }
     p_ccb->ertm_info.fcr_rx_buf_size = L2CAP_FCR_RX_BUF_SIZE;
     p_ccb->ertm_info.fcr_tx_buf_size = L2CAP_FCR_TX_BUF_SIZE;
     p_ccb->ertm_info.user_rx_buf_size = L2CAP_USER_RX_BUF_SIZE;
@@ -1676,6 +1689,12 @@ void l2cu_release_ccb (tL2C_CCB *p_ccb)
     if (!p_ccb->in_use) {
         return;
     }
+#if BLE_INCLUDED == TRUE
+    if (p_lcb->transport == BT_TRANSPORT_LE) {
+        /* Take samephore to avoid race condition */
+        l2ble_update_att_acl_pkt_num(L2CA_BUFF_FREE, NULL);
+    }
+#endif
 #if (SDP_INCLUDED == TRUE)
     if (p_rcb && (p_rcb->psm != p_rcb->real_psm)) {
         btm_sec_clr_service_by_psm(p_rcb->psm);
@@ -1927,7 +1946,7 @@ tL2C_RCB *l2cu_find_ble_rcb_by_psm (UINT16 psm)
 }
 #endif  ///BLE_INCLUDED == TRUE
 
-
+#if (L2CAP_COC_INCLUDED == TRUE)
 /*******************************************************************************
 **
 ** Function         l2cu_process_peer_cfg_req
@@ -2189,7 +2208,6 @@ void l2cu_process_our_cfg_req (tL2C_CCB *p_ccb, tL2CAP_CFG_INFO *p_cfg)
 ** Returns          void
 **
 *******************************************************************************/
-#if (CLASSIC_BT_INCLUDED == TRUE)
 void l2cu_process_our_cfg_rsp (tL2C_CCB *p_ccb, tL2CAP_CFG_INFO *p_cfg)
 {
     /* If peer wants QoS, we are allowed to change the values in a positive response */
@@ -2201,7 +2219,7 @@ void l2cu_process_our_cfg_rsp (tL2C_CCB *p_ccb, tL2CAP_CFG_INFO *p_cfg)
 
     l2c_fcr_adj_our_rsp_options (p_ccb, p_cfg);
 }
-#endif  ///CLASSIC_BT_INCLUDED == TRUE
+#endif // (L2CAP_COC_INCLUDED == TRUE)
 
 
 /*******************************************************************************
@@ -2383,7 +2401,7 @@ BOOLEAN l2cu_create_conn_after_switch (tL2C_LCB *p_lcb)
         clock_offset = (UINT16)(p_inq_info->results.clock_offset);
     } else {
         /* No info known. Use default settings */
-        page_scan_rep_mode = HCI_PAGE_SCAN_REP_MODE_R1;
+        page_scan_rep_mode = HCI_PAGE_SCAN_REP_MODE_R2;
         page_scan_mode = HCI_MANDATARY_PAGE_SCAN_MODE;
 
         clock_offset = (p_dev_rec) ? p_dev_rec->clock_offset : 0;
@@ -3613,6 +3631,9 @@ void l2cu_set_acl_hci_header (BT_HDR *p_buf, tL2C_CCB *p_ccb)
 void l2cu_check_channel_congestion (tL2C_CCB *p_ccb)
 {
     size_t q_count = fixed_queue_length(p_ccb->xmit_hold_q);
+#if (CLASSIC_BT_INCLUDED == TRUE)
+    size_t q_waiting_ack_count = fixed_queue_length(p_ccb->fcrb.waiting_for_ack_q);
+#endif
 
 #if (L2CAP_UCD_INCLUDED == TRUE)
     if ( p_ccb->local_cid == L2CAP_CONNECTIONLESS_CID ) {
@@ -3625,7 +3646,11 @@ void l2cu_check_channel_congestion (tL2C_CCB *p_ccb)
         /* If this channel was congested */
         if ( p_ccb->cong_sent ) {
             /* If the channel is not congested now, tell the app */
-            if (q_count <= (p_ccb->buff_quota / 2)) {
+            if (q_count <= (p_ccb->buff_quota / 2)
+#if (CLASSIC_BT_INCLUDED == TRUE)
+                        && (p_ccb->peer_cfg.fcr.mode == L2CAP_FCR_BASIC_MODE || q_waiting_ack_count < p_ccb->our_cfg.fcr.tx_win_sz)
+#endif
+                    ) {
                 p_ccb->cong_sent = FALSE;
                 if (p_ccb->p_rcb && p_ccb->p_rcb->api.pL2CA_CongestionStatus_Cb) {
                     L2CAP_TRACE_DEBUG ("L2CAP - Calling CongestionStatus_Cb (FALSE), CID: 0x%04x  xmit_hold_q.count: %u  buff_quota: %u",
@@ -3664,7 +3689,11 @@ void l2cu_check_channel_congestion (tL2C_CCB *p_ccb)
         } else {
             tL2C_LCB *p_lcb = p_ccb->p_lcb;
             /* If this channel was not congested but it is congested now, tell the app */
-            if (q_count > p_ccb->buff_quota || (p_lcb && (p_lcb->link_xmit_data_q) && (list_length(p_lcb->link_xmit_data_q) + q_count) > p_ccb->buff_quota)) {
+            if (q_count > p_ccb->buff_quota || (p_lcb && (p_lcb->link_xmit_data_q) && (list_length(p_lcb->link_xmit_data_q) + q_count) > p_ccb->buff_quota)
+#if (CLASSIC_BT_INCLUDED == TRUE)
+                    || (p_ccb->peer_cfg.fcr.mode != L2CAP_FCR_BASIC_MODE && q_waiting_ack_count >= p_ccb->our_cfg.fcr.tx_win_sz)
+#endif
+                    ) {
                 p_ccb->cong_sent = TRUE;
                 if (p_ccb->p_rcb && p_ccb->p_rcb->api.pL2CA_CongestionStatus_Cb) {
                     L2CAP_TRACE_DEBUG ("L2CAP - Calling CongestionStatus_Cb (TRUE),CID:0x%04x,XmitQ:%u,Quota:%u",

@@ -32,6 +32,7 @@ import logging
 import unittest
 
 import command
+import config
 import thread_cert
 
 # Test description:
@@ -74,20 +75,18 @@ class SrpServerRebootPort(thread_cert.TestCase):
 
         client.srp_server_set_enabled(False)
         client.start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(client.get_state(), 'leader')
 
         server.srp_server_set_enabled(True)
         server.start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(server.get_state(), 'router')
 
         #
-        # 1. Enable auto start mode on client and check that server is used.
+        # 1. Check auto start mode on client and check that server is used.
         #
 
-        self.assertEqual(client.srp_client_get_state(), 'Disabled')
-        client.srp_client_enable_auto_start_mode()
         self.assertEqual(client.srp_client_get_auto_start_mode(), 'Enabled')
         self.simulator.go(2)
         self.assertEqual(client.srp_client_get_state(), 'Enabled')
@@ -95,14 +94,14 @@ class SrpServerRebootPort(thread_cert.TestCase):
 
         #
         # 2. Reboot the server without any service registered. The server should
-        # listen to the same port after the reboot.
+        # switch to a new port after re-enabling.
         #
         old_port = server.get_srp_server_port()
         server.srp_server_set_enabled(False)
         self.simulator.go(5)
         server.srp_server_set_enabled(True)
         self.simulator.go(5)
-        self.assertEqual(old_port, server.get_srp_server_port())
+        self.assertNotEqual(old_port, server.get_srp_server_port())
 
         #
         # 3. Register a service
@@ -110,7 +109,7 @@ class SrpServerRebootPort(thread_cert.TestCase):
         client.srp_client_set_host_name('my-host')
         client.srp_client_set_host_address('2001::1')
         client.srp_client_add_service('my-service', '_ipps._tcp', 12345, 0, 0, ['abc', 'def=', 'xyz=XYZ'])
-        self.simulator.go(5)
+        self.simulator.go(16)
         self.check_host_and_service(server, client, '2001::1')
 
         ports = [server.get_srp_server_port()]
@@ -130,7 +129,7 @@ class SrpServerRebootPort(thread_cert.TestCase):
             # re-registered.
             #
             server.srp_server_set_enabled(True)
-            self.simulator.go(5)
+            self.simulator.go(16)
             self.assertEqual(client.srp_client_get_state(), 'Enabled')
             self.assertEqual(client.srp_client_get_server_address(), server.get_mleid())
             self.assertNotEqual(old_port, server.get_srp_server_port())

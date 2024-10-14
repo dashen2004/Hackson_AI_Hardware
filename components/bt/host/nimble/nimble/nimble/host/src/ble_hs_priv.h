@@ -29,7 +29,6 @@
 #include "ble_hs_hci_priv.h"
 #include "ble_hs_atomic_priv.h"
 #include "ble_hs_conn_priv.h"
-#include "ble_hs_atomic_priv.h"
 #include "ble_hs_mbuf_priv.h"
 #include "ble_hs_startup_priv.h"
 #include "ble_l2cap_priv.h"
@@ -43,9 +42,11 @@
 #include "ble_hs_periodic_sync_priv.h"
 #include "ble_uuid_priv.h"
 #include "host/ble_hs.h"
-#include "host/ble_monitor.h"
 #include "nimble/nimble_opt.h"
 #include "stats/stats.h"
+#if MYNEWT_VAL(BLE_GATT_CACHING)
+#include "ble_gattc_cache_priv.h"
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -96,8 +97,6 @@ extern struct os_mbuf_pool ble_hs_mbuf_pool;
 extern uint8_t ble_hs_sync_state;
 extern uint8_t ble_hs_enabled_state;
 
-extern const uint8_t ble_hs_misc_null_addr[6];
-
 extern uint16_t ble_hs_max_attrs;
 extern uint16_t ble_hs_max_services;
 extern uint16_t ble_hs_max_client_configs;
@@ -132,6 +131,7 @@ void ble_hs_timer_resched(void);
 void ble_hs_notifications_sched(void);
 struct ble_npl_eventq *ble_hs_evq_get(void);
 void ble_hs_stop_init(void);
+void ble_hs_stop_deinit(void);
 
 struct ble_mqueue {
     STAILQ_HEAD(, os_mbuf_pkthdr) head;
@@ -141,6 +141,8 @@ struct ble_mqueue {
 int ble_mqueue_init(struct ble_mqueue *mq, ble_npl_event_fn *ev_fn, void *ev_arg);
 struct os_mbuf *ble_mqueue_get(struct ble_mqueue *mq);
 int ble_mqueue_put(struct ble_mqueue *mq, struct ble_npl_eventq *evq, struct os_mbuf *om);
+
+void ble_gap_npl_sync_lost(struct ble_npl_event *ev);
 
 #if MYNEWT_VAL(BLE_HS_DEBUG)
     #define BLE_HS_DBG_ASSERT(x) assert(x)

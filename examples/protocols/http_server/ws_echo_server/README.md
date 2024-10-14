@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- | -------- | -------- |
+
 # Websocket echo server
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -6,7 +9,8 @@ This example demonstrates the HTTPD server using the WebSocket feature.
 ## How to Use Example
 
 The example starts a websocket server on a local network. You need a websocket client to interact with the server (an example test
-ws_server_example_test.py could be used as the simple websocket client).
+ws_server_example_test.py could be used as the simple websocket client). If you run ws_server_example_test.py and get
+`ModuleNotFoundError: No module named 'websocket'`, then please install `websocket` by running `python -m pip install websocket-client`.
 
 The server registers websocket handler which echoes back the received WebSocket frame. It also demonstrates
 use of asynchronous send, which is triggered on reception of a certain message.
@@ -23,7 +27,7 @@ We register the URI handler with the standard API `httpd_register_uri_handler()`
 ```c
 static const httpd_uri_t ws_uri_handler_options = {
         ... // httpd options
-        
+
         .is_websocket = true,               // Mandatory: set to `true` to handler websocket protocol
         .handle_ws_control_frames = false,  // Optional: set to `true` for the handler to receive control packets, too
         .supported_subprotocol = "chat",    // Optional: set supported subprotocol for this handler

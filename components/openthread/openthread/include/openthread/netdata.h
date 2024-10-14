@@ -35,6 +35,7 @@
 #ifndef OPENTHREAD_NETDATA_H_
 #define OPENTHREAD_NETDATA_H_
 
+#include <openthread/commissioner.h>
 #include <openthread/ip6.h>
 
 #ifdef __cplusplus
@@ -53,7 +54,7 @@ extern "C" {
 typedef uint32_t otNetworkDataIterator; ///< Used to iterate through Network Data information.
 
 /**
- * This structure represents a Border Router configuration.
+ * Represents a Border Router configuration.
  */
 typedef struct otBorderRouterConfig
 {
@@ -72,7 +73,18 @@ typedef struct otBorderRouterConfig
 } otBorderRouterConfig;
 
 /**
- * This structure represents an External Route configuration.
+ * Represents 6LoWPAN Context ID information associated with a prefix in Network Data.
+ *
+ */
+typedef struct otLowpanContextInfo
+{
+    uint8_t     mContextId;    ///< The 6LoWPAN Context ID.
+    bool        mCompressFlag; ///< The compress flag.
+    otIp6Prefix mPrefix;       ///< The associated IPv6 prefix.
+} otLowpanContextInfo;
+
+/**
+ * Represents an External Route configuration.
  *
  */
 typedef struct otExternalRouteConfig
@@ -83,6 +95,7 @@ typedef struct otExternalRouteConfig
     bool        mNat64 : 1;               ///< Whether this is a NAT64 prefix.
     bool        mStable : 1;              ///< Whether this configuration is considered Stable Network Data.
     bool        mNextHopIsThisDevice : 1; ///< Whether the next hop is this device (value ignored on config add).
+    bool        mAdvPio : 1;              ///< Whether or not BR is advertising a ULA prefix in PIO (AP flag).
 } otExternalRouteConfig;
 
 /**
@@ -100,7 +113,7 @@ typedef enum otRoutePreference
 #define OT_SERVER_DATA_MAX_SIZE 248  ///< Max size of Server Data in bytes. Theoretical limit, practically much lower.
 
 /**
- * This structure represents a Server configuration.
+ * Represents a Server configuration.
  *
  */
 typedef struct otServerConfig
@@ -112,7 +125,7 @@ typedef struct otServerConfig
 } otServerConfig;
 
 /**
- * This structure represents a Service configuration.
+ * Represents a Service configuration.
  *
  */
 typedef struct otServiceConfig
@@ -125,40 +138,74 @@ typedef struct otServiceConfig
 } otServiceConfig;
 
 /**
- * This method provides a full or stable copy of the Partition's Thread Network Data.
+ * Provide full or stable copy of the Partition's Thread Network Data.
  *
- * @param[in]     aInstance    A pointer to an OpenThread instance.
- * @param[in]     aStable      TRUE when copying the stable version, FALSE when copying the full version.
- * @param[out]    aData        A pointer to the data buffer.
- * @param[inout]  aDataLength  On entry, size of the data buffer pointed to by @p aData.
- *                             On exit, number of copied bytes.
+ * @param[in]      aInstance    A pointer to an OpenThread instance.
+ * @param[in]      aStable      TRUE when copying the stable version, FALSE when copying the full version.
+ * @param[out]     aData        A pointer to the data buffer.
+ * @param[in,out]  aDataLength  On entry, size of the data buffer pointed to by @p aData.
+ *                              On exit, number of copied bytes.
+ *
+ * @retval OT_ERROR_NONE    Successfully copied the Thread Network Data into @p aData and updated @p aDataLength.
+ * @retval OT_ERROR_NO_BUFS Not enough space in @p aData to fully copy the Thread Network Data.
  *
  */
 otError otNetDataGet(otInstance *aInstance, bool aStable, uint8_t *aData, uint8_t *aDataLength);
 
 /**
- * This function gets the next On Mesh Prefix in the partition's Network Data.
+ * Get the current length (number of bytes) of Partition's Thread Network Data.
  *
- * @param[in]     aInstance  A pointer to an OpenThread instance.
- * @param[inout]  aIterator  A pointer to the Network Data iterator context. To get the first on-mesh entry
-                             it should be set to OT_NETWORK_DATA_ITERATOR_INIT.
- * @param[out]    aConfig    A pointer to where the On Mesh Prefix information will be placed.
+ * @param[in] aInstance    A pointer to an OpenThread instance.
+ *
+ * @return The length of the Network Data.
+ *
+ */
+uint8_t otNetDataGetLength(otInstance *aInstance);
+
+/**
+ * Get the maximum observed length of the Thread Network Data since OT stack initialization or since the last call to
+ * `otNetDataResetMaxLength()`.
+ *
+ * @param[in] aInstance    A pointer to an OpenThread instance.
+ *
+ * @return The maximum length of the Network Data (high water mark for Network Data length).
+ *
+ */
+uint8_t otNetDataGetMaxLength(otInstance *aInstance);
+
+/**
+ * Reset the tracked maximum length of the Thread Network Data.
+ *
+ * @param[in] aInstance    A pointer to an OpenThread instance.
+ *
+ * @sa otNetDataGetMaxLength
+ *
+ */
+void otNetDataResetMaxLength(otInstance *aInstance);
+
+/**
+ * Get the next On Mesh Prefix in the partition's Network Data.
+ *
+ * @param[in]      aInstance  A pointer to an OpenThread instance.
+ * @param[in,out]  aIterator  A pointer to the Network Data iterator context. To get the first on-mesh entry
+                              it should be set to OT_NETWORK_DATA_ITERATOR_INIT.
+ * @param[out]     aConfig    A pointer to where the On Mesh Prefix information will be placed.
  *
  * @retval OT_ERROR_NONE       Successfully found the next On Mesh prefix.
  * @retval OT_ERROR_NOT_FOUND  No subsequent On Mesh prefix exists in the Thread Network Data.
  *
  */
-otError otNetDataGetNextOnMeshPrefix(otInstance *           aInstance,
+otError otNetDataGetNextOnMeshPrefix(otInstance            *aInstance,
                                      otNetworkDataIterator *aIterator,
-                                     otBorderRouterConfig * aConfig);
+                                     otBorderRouterConfig  *aConfig);
 
 /**
- * This function gets the next external route in the partition's Network Data.
+ * Get the next external route in the partition's Network Data.
  *
- * @param[in]     aInstance  A pointer to an OpenThread instance.
- * @param[inout]  aIterator  A pointer to the Network Data iterator context. To get the first external route entry
-                             it should be set to OT_NETWORK_DATA_ITERATOR_INIT.
- * @param[out]    aConfig    A pointer to where the External Route information will be placed.
+ * @param[in]      aInstance  A pointer to an OpenThread instance.
+ * @param[in,out]  aIterator  A pointer to the Network Data iterator context. To get the first external route entry
+                              it should be set to OT_NETWORK_DATA_ITERATOR_INIT.
+ * @param[out]     aConfig    A pointer to where the External Route information will be placed.
  *
  * @retval OT_ERROR_NONE       Successfully found the next External Route.
  * @retval OT_ERROR_NOT_FOUND  No subsequent external route entry exists in the Thread Network Data.
@@ -167,18 +214,43 @@ otError otNetDataGetNextOnMeshPrefix(otInstance *           aInstance,
 otError otNetDataGetNextRoute(otInstance *aInstance, otNetworkDataIterator *aIterator, otExternalRouteConfig *aConfig);
 
 /**
- * This function gets the next service in the partition's Network Data.
+ * Get the next service in the partition's Network Data.
  *
- * @param[in]     aInstance  A pointer to an OpenThread instance.
- * @param[inout]  aIterator  A pointer to the Network Data iterator context. To get the first service entry
-                             it should be set to OT_NETWORK_DATA_ITERATOR_INIT.
- * @param[out]    aConfig    A pointer to where the service information will be placed.
+ * @param[in]      aInstance  A pointer to an OpenThread instance.
+ * @param[in,out]  aIterator  A pointer to the Network Data iterator context. To get the first service entry
+                              it should be set to OT_NETWORK_DATA_ITERATOR_INIT.
+ * @param[out]     aConfig    A pointer to where the service information will be placed.
  *
  * @retval OT_ERROR_NONE       Successfully found the next service.
  * @retval OT_ERROR_NOT_FOUND  No subsequent service exists in the partition's Network Data.
  *
  */
 otError otNetDataGetNextService(otInstance *aInstance, otNetworkDataIterator *aIterator, otServiceConfig *aConfig);
+
+/**
+ * Get the next 6LoWPAN Context ID info in the partition's Network Data.
+ *
+ * @param[in]      aInstance     A pointer to an OpenThread instance.
+ * @param[in,out]  aIterator     A pointer to the Network Data iterator. To get the first service entry
+                                 it should be set to OT_NETWORK_DATA_ITERATOR_INIT.
+ * @param[out]     aContextInfo  A pointer to where the retrieved 6LoWPAN Context ID information will be placed.
+ *
+ * @retval OT_ERROR_NONE       Successfully found the next 6LoWPAN Context ID info.
+ * @retval OT_ERROR_NOT_FOUND  No subsequent 6LoWPAN Context info exists in the partition's Network Data.
+ *
+ */
+otError otNetDataGetNextLowpanContextInfo(otInstance            *aInstance,
+                                          otNetworkDataIterator *aIterator,
+                                          otLowpanContextInfo   *aContextInfo);
+
+/**
+ * Gets the Commissioning Dataset from the partition's Network Data.
+ *
+ * @param[in]  aInstance   A pointer to the OpenThread instance.
+ * @param[out] aDataset    A pointer to a `otCommissioningDataset` to populate.
+ *
+ */
+void otNetDataGetCommissioningDataset(otInstance *aInstance, otCommissioningDataset *aDataset);
 
 /**
  * Get the Network Data Version.
@@ -227,8 +299,21 @@ struct otJoinerDiscerner;
  * @retval OT_ERROR_NOT_FOUND     @p aDiscerner is not included in the steering data.
  *
  */
-otError otNetDataSteeringDataCheckJoinerWithDiscerner(otInstance *                    aInstance,
+otError otNetDataSteeringDataCheckJoinerWithDiscerner(otInstance                     *aInstance,
                                                       const struct otJoinerDiscerner *aDiscerner);
+
+/**
+ * Check whether a given Prefix can act as a valid OMR prefix and also the Leader's Network Data contains this prefix.
+ *
+ * @param[in]  aInstance  A pointer to an OpenThread instance.
+ * @param[in]  aPrefix    A pointer to the IPv6 prefix.
+ *
+ * @returns  Whether @p aPrefix is a valid OMR prefix and Leader's Network Data contains the OMR prefix @p aPrefix.
+ *
+ * @note This API is only available when `OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE` is used.
+ *
+ */
+bool otNetDataContainsOmrPrefix(otInstance *aInstance, const otIp6Prefix *aPrefix);
 
 /**
  * @}

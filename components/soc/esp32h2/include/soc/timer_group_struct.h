@@ -1,5 +1,5 @@
 /**
- *  SPDX-FileCopyrightText: 2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
  *
  *  SPDX-License-Identifier: Apache-2.0
  */
@@ -45,7 +45,7 @@ typedef union {
          *  cleared, the timer x time-base counter will decrement.
          */
         uint32_t tx_increase:1;
-        /** tx_en : R/W; bitpos: [31]; default: 0;
+        /** tx_en : R/W/SS/SC; bitpos: [31]; default: 0;
          *  When set, the timer x time-base counter is enabled.
          */
         uint32_t tx_en:1;
@@ -68,13 +68,13 @@ typedef union {
 } timg_txlo_reg_t;
 
 /** Type of txhi register
- *  Timer $x current value, high 22 bits
+ *  Timer x current value, high 22 bits
  */
 typedef union {
     struct {
         /** tx_hi : RO; bitpos: [21:0]; default: 0;
-         *  After writing to TIMG_T$xUPDATE_REG, the high 22 bits of the time-base counter
-         *  of timer $x can be read here.
+         *  After writing to TIMG_TxUPDATE_REG, the high 22 bits of the time-base counter
+         *  of timer x can be read here.
          */
         uint32_t tx_hi:22;
         uint32_t reserved_22:10;
@@ -83,13 +83,13 @@ typedef union {
 } timg_txhi_reg_t;
 
 /** Type of txupdate register
- *  Write to copy current timer value to TIMGn_T$x_(LO/HI)_REG
+ *  Write to copy current timer value to TIMGn_Tx_(LO/HI)_REG
  */
 typedef union {
     struct {
         uint32_t reserved_0:31;
         /** tx_update : R/W/SC; bitpos: [31]; default: 0;
-         *  After writing 0 or 1 to TIMG_T$xUPDATE_REG, the counter value is latched.
+         *  After writing 0 or 1 to TIMG_TxUPDATE_REG, the counter value is latched.
          */
         uint32_t tx_update:1;
     };
@@ -97,12 +97,12 @@ typedef union {
 } timg_txupdate_reg_t;
 
 /** Type of txalarmlo register
- *  Timer $x alarm value, low 32 bits
+ *  Timer x alarm value, low 32 bits
  */
 typedef union {
     struct {
         /** tx_alarm_lo : R/W; bitpos: [31:0]; default: 0;
-         *  Timer $x alarm trigger time-base counter value, low 32 bits.
+         *  Timer x alarm trigger time-base counter value, low 32 bits.
          */
         uint32_t tx_alarm_lo:32;
     };
@@ -110,12 +110,12 @@ typedef union {
 } timg_txalarmlo_reg_t;
 
 /** Type of txalarmhi register
- *  Timer $x alarm value, high bits
+ *  Timer x alarm value, high bits
  */
 typedef union {
     struct {
         /** tx_alarm_hi : R/W; bitpos: [21:0]; default: 0;
-         *  Timer $x alarm trigger time-base counter value, high 22 bits.
+         *  Timer x alarm trigger time-base counter value, high 22 bits.
          */
         uint32_t tx_alarm_hi:22;
         uint32_t reserved_22:10;
@@ -124,12 +124,12 @@ typedef union {
 } timg_txalarmhi_reg_t;
 
 /** Type of txloadlo register
- *  Timer $x reload value, low 32 bits
+ *  Timer x reload value, low 32 bits
  */
 typedef union {
     struct {
         /** tx_load_lo : R/W; bitpos: [31:0]; default: 0;
-         *  Low 32 bits of the value that a reload will load onto timer $x time-base
+         *  Low 32 bits of the value that a reload will load onto timer x time-base
          *  Counter.
          */
         uint32_t tx_load_lo:32;
@@ -138,12 +138,12 @@ typedef union {
 } timg_txloadlo_reg_t;
 
 /** Type of txloadhi register
- *  Timer $x reload value, high 22 bits
+ *  Timer x reload value, high 22 bits
  */
 typedef union {
     struct {
         /** tx_load_hi : R/W; bitpos: [21:0]; default: 0;
-         *  High 22 bits of the value that a reload will load onto timer $x time-base
+         *  High 22 bits of the value that a reload will load onto timer x time-base
          *  counter.
          */
         uint32_t tx_load_hi:22;
@@ -153,13 +153,13 @@ typedef union {
 } timg_txloadhi_reg_t;
 
 /** Type of txload register
- *  Write to reload timer from TIMG_T$x_(LOADLOLOADHI)_REG
+ *  Write to reload timer from TIMG_Tx_(LOADLOLOADHI)_REG
  */
 typedef union {
     struct {
         /** tx_load : WT; bitpos: [31:0]; default: 0;
          *
-         *  Write any value to trigger a timer $x time-base counter reload.
+         *  Write any value to trigger a timer x time-base counter reload.
          */
         uint32_t tx_load:32;
     };
@@ -197,7 +197,7 @@ typedef union {
          */
         uint32_t wdt_cpu_reset_length:3;
         /** wdt_use_xtal : R/W; bitpos: [21]; default: 0;
-         *  choose WDT clock:0-apb_clk; 1-xtal_clk.
+         *  choose WDT clock:0-apb_clk, 1-xtal_clk.
          */
         uint32_t wdt_use_xtal:1;
         /** wdt_conf_update_en : WT; bitpos: [22]; default: 0;
@@ -335,23 +335,23 @@ typedef union {
     struct {
         uint32_t reserved_0:12;
         /** rtc_cali_start_cycling : R/W; bitpos: [12]; default: 1;
-         *  Reserved
+         *  0: one-shot frequency calculation,1: periodic frequency calculation,
          */
         uint32_t rtc_cali_start_cycling:1;
-        /** rtc_cali_clk_sel : R/W; bitpos: [14:13]; default: 1;
+        /** rtc_cali_clk_sel : R/W; bitpos: [14:13]; default: 0;
          *  0:rtc slow clock. 1:clk_8m, 2:xtal_32k.
          */
         uint32_t rtc_cali_clk_sel:2;
         /** rtc_cali_rdy : RO; bitpos: [15]; default: 0;
-         *  Reserved
+         *  indicate one-shot frequency calculation is done.
          */
         uint32_t rtc_cali_rdy:1;
         /** rtc_cali_max : R/W; bitpos: [30:16]; default: 1;
-         *  Reserved
+         *  Configure the time to calculate RTC slow clock's frequency.
          */
         uint32_t rtc_cali_max:15;
         /** rtc_cali_start : R/W; bitpos: [31]; default: 0;
-         *  Reserved
+         *  Set this bit to start one-shot frequency calculation.
          */
         uint32_t rtc_cali_start:1;
     };
@@ -364,12 +364,13 @@ typedef union {
 typedef union {
     struct {
         /** rtc_cali_cycling_data_vld : RO; bitpos: [0]; default: 0;
-         *  Reserved
+         *  indicate periodic frequency calculation is done.
          */
         uint32_t rtc_cali_cycling_data_vld:1;
         uint32_t reserved_1:6;
         /** rtc_cali_value : RO; bitpos: [31:7]; default: 0;
-         *  Reserved
+         *  When one-shot or periodic frequency calculation is done, read this value to
+         *  calculate RTC slow clock's frequency.
          */
         uint32_t rtc_cali_value:25;
     };
@@ -480,7 +481,7 @@ typedef union {
  */
 typedef union {
     struct {
-        /** ntimgs_date : R/W; bitpos: [27:0]; default: 33579409;
+        /** ntimgs_date : R/W; bitpos: [27:0]; default: 35676274;
          *  Timer version control register
          */
         uint32_t ntimgs_date:28;
@@ -496,7 +497,11 @@ typedef union {
  */
 typedef union {
     struct {
-        uint32_t reserved_0:29;
+        uint32_t reserved_0:28;
+        /** etm_en : R/W; bitpos: [28]; default: 1;
+         *  enable timer's etm task and event
+         */
+        uint32_t etm_en:1;
         /** wdt_clk_is_active : R/W; bitpos: [29]; default: 1;
          *  enable WDT's clock
          */
@@ -514,6 +519,7 @@ typedef union {
     uint32_t val;
 } timg_regclk_reg_t;
 
+
 typedef struct {
     volatile timg_txconfig_reg_t config;
     volatile timg_txlo_reg_t lo;
@@ -526,7 +532,8 @@ typedef struct {
     volatile timg_txload_reg_t load;
 } timg_hwtimer_reg_t;
 
-typedef struct {
+
+typedef struct timg_dev_t {
     volatile timg_hwtimer_reg_t hw_timer[1];
     uint32_t reserved_024[9];
     volatile timg_wdtconfig0_reg_t wdtconfig0;

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -34,18 +34,18 @@ esp_err_t esp_secure_boot_verify_signature(uint32_t src_addr, uint32_t length)
     uint8_t verified_digest[ESP_SECURE_BOOT_DIGEST_LEN];
     const esp_secure_boot_sig_block_t *sigblock;
 
-    ESP_LOGD(TAG, "verifying signature src_addr 0x%x length 0x%x", src_addr, length);
+    ESP_LOGD(TAG, "verifying signature src_addr 0x%"PRIx32" length 0x%"PRIx32, src_addr, length);
 
     esp_err_t err = bootloader_sha256_flash_contents(src_addr, length, digest);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Digest calculation failed 0x%x, 0x%x", src_addr, length);
+        ESP_LOGE(TAG, "Digest calculation failed 0x%"PRIx32", 0x%"PRIx32, src_addr, length);
         return err;
     }
 
     // Map the signature block and verify the signature
     sigblock = (const esp_secure_boot_sig_block_t *)bootloader_mmap(src_addr + length, sizeof(esp_secure_boot_sig_block_t));
     if (sigblock == NULL) {
-        ESP_LOGE(TAG, "bootloader_mmap(0x%x, 0x%x) failed", src_addr + length, sizeof(esp_secure_boot_sig_block_t));
+        ESP_LOGE(TAG, "bootloader_mmap(0x%"PRIx32", 0x%x) failed", src_addr + length, sizeof(esp_secure_boot_sig_block_t));
         return ESP_FAIL;
     }
     err = esp_secure_boot_verify_ecdsa_signature_block(sigblock, digest, verified_digest);
@@ -70,8 +70,8 @@ esp_err_t esp_secure_boot_verify_ecdsa_signature_block(const esp_secure_boot_sig
         return ESP_FAIL;
     }
 
-    if (sig_block->version != 0) {
-        ESP_LOGE(TAG, "image has invalid signature version field 0x%08x (image without a signature?)", sig_block->version);
+    if (sig_block->version != ESP_SECURE_BOOT_SCHEME) {
+        ESP_LOGE(TAG, "image has invalid signature version field 0x%08"PRIx32" (image without a signature?)", sig_block->version);
         return ESP_FAIL;
     }
 
@@ -102,8 +102,8 @@ esp_err_t esp_secure_boot_verify_ecdsa_signature_block(const esp_secure_boot_sig
     mbedtls_ecdsa_context ecdsa_context;
     mbedtls_ecdsa_init(&ecdsa_context);
 
-    mbedtls_ecp_group_load(&ecdsa_context.grp, MBEDTLS_ECP_DP_SECP256R1);
-    size_t plen = mbedtls_mpi_size(&ecdsa_context.grp.P);
+    mbedtls_ecp_group_load(&ecdsa_context.MBEDTLS_PRIVATE(grp), MBEDTLS_ECP_DP_SECP256R1);
+    size_t plen = mbedtls_mpi_size(&ecdsa_context.MBEDTLS_PRIVATE(grp).P);
     if (keylen != 2 * plen) {
         ESP_LOGE(TAG, "Incorrect ECDSA key length %d", keylen);
         ret = ESP_FAIL;
@@ -111,11 +111,11 @@ esp_err_t esp_secure_boot_verify_ecdsa_signature_block(const esp_secure_boot_sig
     }
 
     /* Extract X and Y components from ECDSA public key */
-    MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&ecdsa_context.Q.X, signature_verification_key_start, plen));
-    MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&ecdsa_context.Q.Y, signature_verification_key_start + plen, plen));
-    MBEDTLS_MPI_CHK(mbedtls_mpi_lset(&ecdsa_context.Q.Z, 1));
+    MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&ecdsa_context.MBEDTLS_PRIVATE(Q).MBEDTLS_PRIVATE(X), signature_verification_key_start, plen));
+    MBEDTLS_MPI_CHK(mbedtls_mpi_read_binary(&ecdsa_context.MBEDTLS_PRIVATE(Q).MBEDTLS_PRIVATE(Y), signature_verification_key_start + plen, plen));
+    MBEDTLS_MPI_CHK(mbedtls_mpi_lset(&ecdsa_context.MBEDTLS_PRIVATE(Q).MBEDTLS_PRIVATE(Z), 1));
 
-    ret = mbedtls_ecdsa_verify(&ecdsa_context.grp, image_digest, ESP_SECURE_BOOT_DIGEST_LEN, &ecdsa_context.Q, &r, &s);
+    ret = mbedtls_ecdsa_verify(&ecdsa_context.MBEDTLS_PRIVATE(grp), image_digest, ESP_SECURE_BOOT_DIGEST_LEN, &ecdsa_context.MBEDTLS_PRIVATE(Q), &r, &s);
     ESP_LOGD(TAG, "Verification result %d", ret);
 
 cleanup:

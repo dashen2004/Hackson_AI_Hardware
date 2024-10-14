@@ -32,6 +32,7 @@ import unittest
 from config import ADDRESS_TYPE
 from pktverify import consts
 
+import config
 import thread_cert
 
 LEADER = 1
@@ -42,6 +43,7 @@ POLL_PERIOD = 3000  # 3s
 
 
 class LowPower_7_1_01(thread_cert.TestCase):
+    USE_MESSAGE_FACTORY = False
     TOPOLOGY = {
         LEADER: {
             'version': '1.2',
@@ -66,7 +68,7 @@ class LowPower_7_1_01(thread_cert.TestCase):
 
     def test(self):
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), 'leader')
 
         self.nodes[SED_1].set_pollperiod(POLL_PERIOD)
@@ -200,7 +202,7 @@ class LowPower_7_1_01(thread_cert.TestCase):
         pkts.filter_wpan_src64(SED_1) \
             .filter_wpan_dst64(LEADER) \
             .filter_mle_cmd(consts.MLE_LINK_METRICS_MANAGEMENT_REQUEST) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV) \
+            .filter(lambda p: consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: p.mle.tlv.link_enh_ack_flags == consts.LINK_METRICS_ENH_ACK_PROBING_REGISTER) \
             .filter(lambda p: p.mle.tlv.link_requested_type_id_flags == '0a') \
             .must_next()
@@ -229,7 +231,7 @@ class LowPower_7_1_01(thread_cert.TestCase):
         # ---- Metrics Enum = 3 (RSSI)
         pkts.filter_wpan_src64(SSED_1) \
             .filter_mle_cmd(consts.MLE_LINK_METRICS_MANAGEMENT_REQUEST) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV) \
+            .filter(lambda p: consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: p.mle.tlv.link_enh_ack_flags == consts.LINK_METRICS_ENH_ACK_PROBING_REGISTER) \
             .filter(lambda p: p.mle.tlv.link_requested_type_id_flags == '0a0b') \
             .must_next()
@@ -293,7 +295,7 @@ class LowPower_7_1_01(thread_cert.TestCase):
         pkts.filter_wpan_src64(SSED_1) \
             .filter_wpan_dst64(LEADER) \
             .filter_mle_cmd(consts.MLE_LINK_METRICS_MANAGEMENT_REQUEST) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV) \
+            .filter(lambda p: consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: p.mle.tlv.link_enh_ack_flags == consts.LINK_METRICS_ENH_ACK_PROBING_CLEAR) \
             .must_next()
 
@@ -338,7 +340,7 @@ class LowPower_7_1_01(thread_cert.TestCase):
         pkts.filter_wpan_src64(SSED_1) \
             .filter_wpan_dst64(LEADER) \
             .filter_mle_cmd(consts.MLE_LINK_METRICS_MANAGEMENT_REQUEST) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV) \
+            .filter(lambda p: consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: p.mle.tlv.link_enh_ack_flags == consts.LINK_METRICS_ENH_ACK_PROBING_REGISTER) \
             .filter(lambda p: p.mle.tlv.link_requested_type_id_flags == '090a0b') \
             .must_next()
@@ -367,7 +369,7 @@ class LowPower_7_1_01(thread_cert.TestCase):
         pkts.filter_wpan_src64(SSED_1) \
             .filter_wpan_dst64(LEADER) \
             .filter_mle_cmd(consts.MLE_LINK_METRICS_MANAGEMENT_REQUEST) \
-            .filter(lambda p: p.mle.tlv.link_sub_tlv == consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV) \
+            .filter(lambda p: consts.LM_ENHANCED_ACK_CONFIGURATION_SUB_TLV in p.mle.tlv.link_sub_tlv) \
             .filter(lambda p: p.mle.tlv.link_enh_ack_flags == consts.LINK_METRICS_ENH_ACK_PROBING_REGISTER) \
             .filter(lambda p: p.mle.tlv.link_requested_type_id_flags == '12') \
             .must_next()

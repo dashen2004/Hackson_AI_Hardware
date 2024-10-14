@@ -5,8 +5,12 @@
 #
 # This file is NOT designed (on purpose) to be used as cmake
 # subdir via add_subdirectory()
-# The intention is to provide greater flexibility to users to 
+# The intention is to provide greater flexibility to users to
 # create their own targets using the *_SRCS variables.
+
+if(NOT ${CMAKE_VERSION} VERSION_LESS "3.10.0")
+    include_guard(GLOBAL)
+endif()
 
 set(LWIP_TESTDIR ${LWIP_DIR}/test/unit)
 set(LWIP_TESTFILES
@@ -14,10 +18,12 @@ set(LWIP_TESTFILES
 	${LWIP_TESTDIR}/api/test_sockets.c
 	${LWIP_TESTDIR}/arch/sys_arch.c
 	${LWIP_TESTDIR}/core/test_def.c
+	${LWIP_TESTDIR}/core/test_dns.c
 	${LWIP_TESTDIR}/core/test_mem.c
 	${LWIP_TESTDIR}/core/test_netif.c
 	${LWIP_TESTDIR}/core/test_pbuf.c
 	${LWIP_TESTDIR}/core/test_timers.c
+	${LWIP_TESTDIR}/core/test_ip4_route.c
 	${LWIP_TESTDIR}/dhcp/test_dhcp.c
 	${LWIP_TESTDIR}/etharp/test_etharp.c
 	${LWIP_TESTDIR}/ip4/test_ip4.c
@@ -29,4 +35,6 @@ set(LWIP_TESTFILES
 	${LWIP_TESTDIR}/tcp/test_tcp_state.c
 	${LWIP_TESTDIR}/tcp/test_tcp.c
 	${LWIP_TESTDIR}/udp/test_udp.c
+	${LWIP_TESTDIR}/ppp/test_pppos.c
+	${LWIP_TESTDIR}/esp_platform_hooks.c
 )

@@ -1,15 +1,14 @@
 /*
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+ * SPDX-FileCopyrightText: 2021-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include "esp_log.h"
 #include "esp_bt_main.h"
 #include "esp_bt_device.h"
@@ -46,6 +45,7 @@ const char *c_hf_evt_str[] = {
     "DIAL_EVT",                          /*!< DIAL INCOMING EVT */
     "WBS_EVT",                           /*!< CURRENT CODEC EVT */
     "BCS_EVT",                           /*!< CODEC NEGO EVT */
+    "PKT_STAT_EVT",                      /*!< REQUEST PACKET STATUS EVT */
 };
 
 //esp_hf_connection_state_t
@@ -85,9 +85,9 @@ const char *c_volume_control_target_str[] = {
 
 // esp_hf_subscriber_service_type_t
 char *c_operator_name_str[] = {
-    "中国移动",
-    "中国联通",
-    "中国电信",
+    "China Mobile",
+    "China Unicom",
+    "China Telecom",
 };
 
 // esp_hf_subscriber_service_type_t
@@ -143,8 +143,8 @@ static uint64_t s_time_new, s_time_old;
 static esp_timer_handle_t s_periodic_timer;
 static uint64_t s_last_enter_time, s_now_enter_time;
 static uint64_t s_us_duration;
-static xSemaphoreHandle s_send_data_Semaphore = NULL;
-static xTaskHandle s_bt_app_send_data_task_handler = NULL;
+static SemaphoreHandle_t s_send_data_Semaphore = NULL;
+static TaskHandle_t s_bt_app_send_data_task_handler = NULL;
 static esp_hf_audio_state_t s_audio_code;
 
 static void print_speed(void);
@@ -213,19 +213,22 @@ static void bt_app_send_data_timer_cb(void *arg)
 static void bt_app_send_data_task(void *arg)
 {
     uint64_t frame_data_num;
-    uint32_t item_size = 0;
+    size_t item_size = 0;
     uint8_t *buf = NULL;
     for (;;) {
-        if (xSemaphoreTake(s_send_data_Semaphore, (portTickType)portMAX_DELAY)) {
+        if (xSemaphoreTake(s_send_data_Semaphore, (TickType_t)portMAX_DELAY)) {
             s_now_enter_time = esp_timer_get_time();
             s_us_duration = s_now_enter_time - s_last_enter_time;
             if(s_audio_code == ESP_HF_AUDIO_STATE_CONNECTED_MSBC) {
             // time of a frame is 7.5ms, sample is 120, data is 2 (byte/sample), so a frame is 240 byte (HF_SBC_ENC_RAW_DATA_SIZE)
-                frame_data_num = s_us_duration / (PCM_BLOCK_DURATION_US / WBS_PCM_INPUT_DATA_SIZE);
-                s_last_enter_time += frame_data_num * (PCM_BLOCK_DURATION_US / WBS_PCM_INPUT_DATA_SIZE);
+                frame_data_num = s_us_duration / PCM_BLOCK_DURATION_US * WBS_PCM_INPUT_DATA_SIZE;
+                s_last_enter_time += frame_data_num / WBS_PCM_INPUT_DATA_SIZE * PCM_BLOCK_DURATION_US;
             } else {
-                frame_data_num = s_us_duration / (PCM_BLOCK_DURATION_US / PCM_INPUT_DATA_SIZE);
-                s_last_enter_time += frame_data_num * (PCM_BLOCK_DURATION_US / PCM_INPUT_DATA_SIZE);
+                frame_data_num = s_us_duration / PCM_BLOCK_DURATION_US * PCM_INPUT_DATA_SIZE;
+                s_last_enter_time += frame_data_num / PCM_INPUT_DATA_SIZE * PCM_BLOCK_DURATION_US;
+            }
+            if (frame_data_num == 0) {
+                continue;
             }
             buf = osi_malloc(frame_data_num);
             if (!buf) {
@@ -235,18 +238,18 @@ static void bt_app_send_data_task(void *arg)
             bt_app_hf_create_audio_data(buf, frame_data_num);
             BaseType_t done = xRingbufferSend(s_m_rb, buf, frame_data_num, 0);
             if (!done) {
-                ESP_LOGE(BT_HF_TAG, "rb send fail\n");
+                ESP_LOGE(BT_HF_TAG, "rb send fail");
             }
             osi_free(buf);
             vRingbufferGetInfo(s_m_rb, NULL, NULL, NULL, NULL, &item_size);
 
             if(s_audio_code == ESP_HF_AUDIO_STATE_CONNECTED_MSBC) {
                 if(item_size >= WBS_PCM_INPUT_DATA_SIZE) {
-                    esp_hf_outgoing_data_ready();
+                    esp_hf_ag_outgoing_data_ready();
                 }
             } else {
                 if(item_size >= PCM_INPUT_DATA_SIZE) {
-                    esp_hf_outgoing_data_ready();
+                    esp_hf_ag_outgoing_data_ready();
                 }
             }
         }
@@ -273,13 +276,13 @@ void bt_app_send_data_shut_down(void)
         vTaskDelete(s_bt_app_send_data_task_handler);
         s_bt_app_send_data_task_handler = NULL;
     }
-    if (s_send_data_Semaphore) {
-        vSemaphoreDelete(s_send_data_Semaphore);
-        s_send_data_Semaphore = NULL;
-    }
     if(s_periodic_timer) {
         ESP_ERROR_CHECK(esp_timer_stop(s_periodic_timer));
         ESP_ERROR_CHECK(esp_timer_delete(s_periodic_timer));
+    }
+    if (s_send_data_Semaphore) {
+        vSemaphoreDelete(s_send_data_Semaphore);
+        s_send_data_Semaphore = NULL;
     }
     if (s_m_rb) {
         vRingbufferDelete(s_m_rb);
@@ -290,7 +293,7 @@ void bt_app_send_data_shut_down(void)
 
 void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
 {
-    if (event <= ESP_HF_BCS_RESPONSE_EVT) {
+    if (event <= ESP_HF_PKT_STAT_NUMS_GET_EVT) {
         ESP_LOGI(BT_HF_TAG, "APP HFP event: %s", c_hf_evt_str[event]);
     } else {
         ESP_LOGE(BT_HF_TAG, "APP HFP invalid event %d", event);
@@ -299,7 +302,7 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
     switch (event) {
         case ESP_HF_CONNECTION_STATE_EVT:
         {
-            ESP_LOGI(BT_HF_TAG, "--connection state %s, peer feats 0x%x, chld_feats 0x%x",
+            ESP_LOGI(BT_HF_TAG, "--connection state %s, peer feats 0x%"PRIx32", chld_feats 0x%"PRIx32,
                     c_connection_state_str[param->conn_stat.state],
                     param->conn_stat.peer_feat,
                     param->conn_stat.chld_feat);
@@ -320,7 +323,7 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
                     s_audio_code = ESP_HF_AUDIO_STATE_CONNECTED_MSBC;
                 }
                 s_time_old = esp_timer_get_time();
-                esp_bt_hf_register_data_callback(bt_app_hf_incoming_cb, bt_app_hf_outgoing_cb);
+                esp_hf_ag_register_data_callback(bt_app_hf_incoming_cb, bt_app_hf_outgoing_cb);
                 /* Begin send esco data task */
                 bt_app_send_data();
             } else if (param->audio_stat.state == ESP_HF_AUDIO_STATE_DISCONNECTED) {
@@ -346,7 +349,7 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
         case ESP_HF_UNAT_RESPONSE_EVT:
         {
             ESP_LOGI(BT_HF_TAG, "--UNKOW AT CMD: %s", param->unat_rep.unat);
-            esp_hf_unat_response(hf_peer_addr, NULL);
+            esp_hf_ag_unknown_at_send(param->unat_rep.remote_addr, NULL);
             break;
         }
 
@@ -357,7 +360,12 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
             esp_hf_call_setup_status_t call_setup_state = 2;
             esp_hf_network_state_t ntk_state = 1;
             int signal = 2;
-            esp_bt_hf_indchange_notification(hf_peer_addr,call_state,call_setup_state,ntk_state,signal);
+            int battery = 3;
+            esp_hf_ag_ciev_report(param->ind_upd.remote_addr, ESP_HF_IND_TYPE_CALL, call_state);
+            esp_hf_ag_ciev_report(param->ind_upd.remote_addr, ESP_HF_IND_TYPE_CALLSETUP, call_setup_state);
+            esp_hf_ag_ciev_report(param->ind_upd.remote_addr, ESP_HF_IND_TYPE_SERVICE, ntk_state);
+            esp_hf_ag_ciev_report(param->ind_upd.remote_addr, ESP_HF_IND_TYPE_SIGNAL, signal);
+            esp_hf_ag_ciev_report(param->ind_upd.remote_addr, ESP_HF_IND_TYPE_BATTCHG, battery);
             break;
         }
 
@@ -371,14 +379,14 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
             esp_hf_roaming_status_t roam = 0;
             int batt_lev = 3;
             esp_hf_call_held_status_t call_held_status = 0;
-            esp_bt_hf_cind_response(hf_peer_addr,call_status,call_setup_status,ntk_state,signal,roam,batt_lev,call_held_status);
+            esp_hf_ag_cind_response(param->cind_rep.remote_addr,call_status,call_setup_status,ntk_state,signal,roam,batt_lev,call_held_status);
             break;
         }
 
         case ESP_HF_COPS_RESPONSE_EVT:
         {
             const int svc_type = 1;
-            esp_bt_hf_cops_response(hf_peer_addr, c_operator_name_str[svc_type]);
+            esp_hf_ag_cops_response(param->cops_rep.remote_addr, c_operator_name_str[svc_type]);
             break;
         }
 
@@ -395,16 +403,26 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
             esp_hf_call_addr_type_t type = ESP_HF_CALL_ADDR_TYPE_UNKNOWN;
 
             ESP_LOGI(BT_HF_TAG, "--Calling Line Identification.");
-            esp_bt_hf_clcc_response(hf_peer_addr, index, dir, current_call_status, mode, mpty, number, type);
+            esp_hf_ag_clcc_response(param->clcc_rep.remote_addr, index, dir, current_call_status, mode, mpty, number, type);
+
+            //AG shall always send ok response to HF
+            //index = 0 means response ok
+            index = 0;
+            esp_hf_ag_clcc_response(param->clcc_rep.remote_addr, index, dir, current_call_status, mode, mpty, number, type);
             break;
         }
 
         case ESP_HF_CNUM_RESPONSE_EVT:
         {
             char *number = {"123456"};
-            esp_hf_subscriber_service_type_t type = 1;
-            ESP_LOGI(BT_HF_TAG, "--Current Number is %s ,Type is %s.", number, c_subscriber_service_type_str[type]);
-            esp_bt_hf_cnum_response(hf_peer_addr, number,type);
+            int number_type = 129;
+            esp_hf_subscriber_service_type_t service_type = ESP_HF_SUBSCRIBER_SERVICE_TYPE_VOICE;
+            if (service_type == ESP_HF_SUBSCRIBER_SERVICE_TYPE_VOICE || service_type == ESP_HF_SUBSCRIBER_SERVICE_TYPE_FAX) {
+                ESP_LOGI(BT_HF_TAG, "--Current Number is %s, Number Type is %d, Service Type is %s.", number, number_type, c_subscriber_service_type_str[service_type - 3]);
+            } else {
+                ESP_LOGI(BT_HF_TAG, "--Current Number is %s, Number Type is %d, Service Type is %s.", number, number_type, c_subscriber_service_type_str[0]);
+            }
+            esp_hf_ag_cnum_response(hf_peer_addr, number, number_type, service_type);
             break;
         }
 
@@ -424,7 +442,7 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
         {
             ESP_LOGI(BT_HF_TAG, "--Asnwer Incoming Call.");
             char *number = {"123456"};
-            esp_bt_hf_answer_call(hf_peer_addr,1,0,1,0,number,0);
+            esp_hf_ag_answer_call(param->ata_rep.remote_addr,1,0,1,0,number,0);
             break;
         }
 
@@ -432,18 +450,33 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
         {
             ESP_LOGI(BT_HF_TAG, "--Reject Incoming Call.");
             char *number = {"123456"};
-            esp_bt_hf_reject_call(hf_peer_addr,0,0,0,0,number,0);
+            esp_hf_ag_reject_call(param->chup_rep.remote_addr,0,0,0,0,number,0);
             break;
         }
 
         case ESP_HF_DIAL_EVT:
         {
             if (param->out_call.num_or_loc) {
-                //dia_num_or_mem
-                ESP_LOGI(BT_HF_TAG, "--Dial \"%s\".", param->out_call.num_or_loc);
-                esp_bt_hf_out_call(hf_peer_addr,1,0,1,0,param->out_call.num_or_loc,0);
+                if (param->out_call.type == ESP_HF_DIAL_NUM) {
+                    // dia_num
+                    ESP_LOGI(BT_HF_TAG, "--Dial number \"%s\".", param->out_call.num_or_loc);
+                    esp_hf_ag_out_call(param->out_call.remote_addr,1,0,1,0,param->out_call.num_or_loc,0);
+                } else if (param->out_call.type == ESP_HF_DIAL_MEM) {
+                    // dia_mem
+                    ESP_LOGI(BT_HF_TAG, "--Dial memory \"%s\".", param->out_call.num_or_loc);
+                    // AG found phone number by memory position
+                    bool num_found = true;
+                    if (num_found) {
+                        char *number = "123456";
+                        esp_hf_ag_cmee_send(param->out_call.remote_addr, ESP_HF_AT_RESPONSE_CODE_OK, ESP_HF_CME_AG_FAILURE);
+                        esp_hf_ag_out_call(param->out_call.remote_addr,1,0,1,0,number,0);
+                    } else {
+                        esp_hf_ag_cmee_send(param->out_call.remote_addr, ESP_HF_AT_RESPONSE_CODE_CME, ESP_HF_CME_MEMORY_FAILURE);
+                    }
+                }
             } else {
                 //dia_last
+                //refer to dia_mem
                 ESP_LOGI(BT_HF_TAG, "--Dial last number.");
             }
             break;
@@ -458,6 +491,11 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
         case ESP_HF_BCS_RESPONSE_EVT:
         {
             ESP_LOGI(BT_HF_TAG, "--Consequence of codec negotiation: %s",c_codec_mode_str[param->bcs_rep.mode]);
+            break;
+        }
+        case ESP_HF_PKT_STAT_NUMS_GET_EVT:
+        {
+            ESP_LOGI(BT_HF_TAG, "ESP_HF_PKT_STAT_NUMS_GET_EVT: %d.", event);
             break;
         }
 

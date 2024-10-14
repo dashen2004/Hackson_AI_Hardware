@@ -111,7 +111,7 @@ blehr_tx_hrate_stop(void)
     os_callout_stop(&blehr_tx_timer);
 }
 
-/* Reset heartrate measurment */
+/* Reset heartrate measurement */
 static void
 blehr_tx_hrate_reset(void)
 {
@@ -146,7 +146,7 @@ blehr_tx_hrate(struct os_event *ev)
 
     om = ble_hs_mbuf_from_flat(hrm, sizeof(hrm));
 
-    rc = ble_gattc_notify_custom(conn_handle, hrs_hrm_handle, om);
+    rc = ble_gatts_notify_custom(conn_handle, hrs_hrm_handle, om);
 
     assert(rc == 0);
     blehr_tx_hrate_reset();
@@ -193,9 +193,6 @@ blehr_gap_event(struct ble_gap_event *event, void *arg)
         if (event->subscribe.attr_handle == hrs_hrm_handle) {
             notify_state = event->subscribe.cur_notify;
             blehr_tx_hrate_reset();
-        } else if (event->subscribe.attr_handle != hrs_hrm_handle) {
-            notify_state = event->subscribe.cur_notify;
-            blehr_tx_hrate_stop();
         }
         break;
 

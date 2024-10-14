@@ -1,24 +1,25 @@
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- | -------- | -------- |
+
 # _LEDC Fade Example_
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
 
-This example shows how to control intensity of LEDs using ESP32's on-board hardware LED PWM Controller module.
+This example shows how to control intensity of LEDs using selected SoC's on-board hardware LED PWM Controller module.
 
 ## How to use example
 
 ### Hardware Required
 
-* A development board with ESP32 SoC (e.g., ESP32-DevKitC, ESP-WROVER-KIT, etc.)
+* A development board with any Espressif SoC (e.g., ESP32-DevKitC, ESP-WROVER-KIT, etc.)
 * A USB cable for power supply and programming
 
 Connect four LEDs to the following LEDC channels / individual GPIOs:
 
-|ledc channel|GPIO|
-|:---:|:---:|
-|channel 0|GPIO18|
-|channel 1|GPIO19|
-|channel 2|GPIO4|
-|channel 3|GPIO5|
+|                 | Channel 0 | Channel 1 | Channel 2 | Channel 3 |
+| --------------- | --------- | --------- | --------- | --------- |
+|     ESP32       | GPIO18    | GPIO19    | GPIO4     | GPIO5     |
+| All other chips | GPIO8     | GPIO9     | GPIO4     | GPIO5     |
 
 ### Configure the project
 
@@ -28,28 +29,22 @@ idf.py menuconfig
 
 ### Build and Flash
 
-* [ESP-IDF Getting Started Guide on ESP32](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html)
-* [ESP-IDF Getting Started Guide on ESP32-S2](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/get-started/index.html)
-* [ESP-IDF Getting Started Guide on ESP32-C3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/get-started/index.html)
+Build the project and flash it to the board, then run the monitor tool to view the serial output:
 
-Build the project and flash it to the board, then run monitor tool to view serial output:
-
-```
-idf.py -p PORT flash monitor
-```
+Run `idf.py -p PORT flash monitor` to build, flash and monitor the project.
 
 (To exit the serial monitor, type ``Ctrl-]``.)
 
-See the Getting Started Guide for full steps to configure and use ESP-IDF to build projects.
+See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for full steps to configure and use ESP-IDF to build projects.
 
 ## Example Output
 
-Running this example, you will see each ledc's brightness changes differently
+Running this example, you will see the four LEDs' brightness change repeatedly in the following orders
 
-* LEDC 1: Fade up / increase intensity
-* LEDC 2: Fade down / decrease intensity
-* LEDC 3: Keep a stable intensity
-* LEDC 4: LED is not on
+* 1: Fade up / increase intensity on the LEDs connecting to Channel 0/1; Fade down / decrease intensity on the LEDs connecting to Channel 2/3
+* 2: Fade down / decrease intensity on the LEDs connecting to Channel 0/1;Fade up / increase intensity on the LEDs connecting to Channel 2/3
+* 3: All LEDs keep a stable intensity
+* 4: All LEDs are off
 
 you can also see the following output log on the serial monitor:
 

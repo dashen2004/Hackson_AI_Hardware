@@ -1,8 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: 2016-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 /*=====================================================================================
  * Description:
  *   C file to define parameter storage instances
  *====================================================================================*/
-#include <stdint.h>
 #include "modbus_params.h"
 
 // Here are the user defined instances for device parameters packed by 1 byte

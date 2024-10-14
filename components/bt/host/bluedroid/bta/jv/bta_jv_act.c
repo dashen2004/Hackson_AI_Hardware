@@ -107,17 +107,23 @@ static inline void logu(const char *title, const uint8_t *p_uuid)
 }
 
 
-static tBTA_JV_PCB *bta_jv_add_rfc_port(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pcb_open);
 static tBTA_JV_STATUS bta_jv_free_set_pm_profile_cb(UINT32 jv_handle);
 static void bta_jv_pm_conn_busy(tBTA_JV_PM_CB *p_cb);
 static void bta_jv_pm_conn_idle(tBTA_JV_PM_CB *p_cb);
 static void bta_jv_pm_state_change(tBTA_JV_PM_CB *p_cb, const tBTA_JV_CONN_STATE state);
 tBTA_JV_STATUS bta_jv_set_pm_conn_state(tBTA_JV_PM_CB *p_cb, const tBTA_JV_CONN_STATE new_st);
 
+#if BT_SDP_BQB_INCLUDED
+static BOOLEAN s_sdp_bqb_add_language_attr_flag = FALSE;
+#endif /* BT_SDP_BQB_INCLUDED */
+
+#if BTA_JV_RFCOMM_INCLUDED
+static tBTA_JV_PCB *bta_jv_add_rfc_port(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pcb_open);
 static int find_rfc_pcb(void *user_data, tBTA_JV_RFC_CB **cb, tBTA_JV_PCB **pcb);
-static void bta_jv_port_mgmt_sr_cback(UINT32 code, UINT16 port_handle);
+static void bta_jv_port_mgmt_sr_cback(UINT32 code, UINT16 port_handle, void* data);
 static void bta_jv_port_event_sr_cback(UINT32 code, UINT16 port_handle);
 static int bta_jv_port_data_co_cback(UINT16 port_handle, UINT8 *buf, UINT16 len, int type);
+#endif /* BTA_JV_RFCOMM_INCLUDED */
 /*******************************************************************************
 **
 ** Function     bta_jv_alloc_sec_id
@@ -156,6 +162,7 @@ UNUSED_ATTR static int get_sec_id_used(void)
     }
     return used;
 }
+#if BTA_JV_RFCOMM_INCLUDED
 UNUSED_ATTR static int get_rfc_cb_used(void)
 {
     int i;
@@ -171,6 +178,7 @@ UNUSED_ATTR static int get_rfc_cb_used(void)
     }
     return used;
 }
+#endif /* BTA_JV_RFCOMM_INCLUDED */
 
 /*******************************************************************************
 **
@@ -191,6 +199,7 @@ static void bta_jv_free_sec_id(UINT8 *p_sec_id)
     }
 }
 
+#if BTA_JV_RFCOMM_INCLUDED
 /*******************************************************************************
 **
 ** Function     bta_jv_alloc_rfc_cb
@@ -285,17 +294,16 @@ tBTA_JV_RFC_CB *bta_jv_rfc_port_to_cb(UINT16 port_handle)
     return p_cb;
 }
 
-static tBTA_JV_STATUS bta_jv_free_rfc_cb(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pcb)
+static tBTA_JV_STATUS bta_jv_free_rfc_cb(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pcb, BOOLEAN close_server, BOOLEAN close_pending)
 {
     tBTA_JV_STATUS status = BTA_JV_SUCCESS;
     BOOLEAN remove_server = FALSE;
-    int close_pending = 0;
 
     UINT8 used = 0, i, listen = 0;
     tPORT_STATE port_state;
     UINT32 event_mask = BTA_JV_RFC_EV_MASK;
     UINT32 scn_num = (UINT32)p_cb->scn;
-    tBTA_JV evt_data;
+    tBTA_JV evt_data = {0};
 
     if (!p_cb || !p_pcb) {
         APPL_TRACE_ERROR("bta_jv_free_sr_rfc_cb, p_cb or p_pcb cannot be null");
@@ -312,11 +320,11 @@ static tBTA_JV_STATUS bta_jv_free_rfc_cb(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pc
     switch (p_pcb->state) {
     case BTA_JV_ST_CL_CLOSING:
     case BTA_JV_ST_SR_CLOSING:
-        APPL_TRACE_WARNING("bta_jv_free_sr_rfc_cb: return on closing, port state:%d, "
+        APPL_TRACE_DEBUG("bta_jv_free_sr_rfc_cb: return on closing, port state:%d, "
                            "scn:%d, p_pcb:%p, user_data:%p", p_pcb->state, p_cb->scn, p_pcb,
                            p_pcb->user_data);
         status = BTA_JV_FAILURE;
-        return status;
+        break;
     case BTA_JV_ST_CL_OPEN:
     case BTA_JV_ST_CL_OPENING:
         APPL_TRACE_DEBUG("bta_jv_free_sr_rfc_cb: state: %d, scn:%d,"
@@ -373,10 +381,8 @@ static tBTA_JV_STATUS bta_jv_free_rfc_cb(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pc
         p_pcb->handle = 0;
         p_cb->curr_sess--;
 
-        if ((p_cb->max_sess > 1) &&
-            (p_cb->scn != 0) &&
-            (p_cb->curr_sess == p_cb->max_sess - 1)) {
-
+        /* only needs a listening port when has a server */
+        if (!close_server && (p_cb->max_sess > 1) && (p_cb->scn != 0)) {
             for (i = 0; i < p_cb->max_sess; i++) {
                 if (p_cb->rfc_hdl[i] != 0) {
                     p_pcb = &bta_jv_cb.port_cb[p_cb->rfc_hdl[i] - 1];
@@ -386,8 +392,8 @@ static tBTA_JV_STATUS bta_jv_free_rfc_cb(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pc
                     used++;
                 }
             }
-            APPL_TRACE_DEBUG("%s max_sess=%d used:%d curr_sess:%d, listen:%d si:%d",
-                             __func__, p_cb->max_sess, used, p_cb->curr_sess, listen, si);
+            APPL_TRACE_DEBUG("%s max_sess=%d used:%d curr_sess:%d, listen:%d si:%d", __func__, p_cb->max_sess, used,
+                             p_cb->curr_sess, listen, si);
             if (used < p_cb->max_sess &&
                 listen == 0 &&
                 0 <= si &&
@@ -430,12 +436,11 @@ static tBTA_JV_STATUS bta_jv_free_rfc_cb(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pc
             p_cb->handle = 0;
             p_cb->curr_sess = -1;
         }
-        if (remove_server) {
-            bta_jv_free_sec_id(&p_cb->sec_id);
-        }
     }
     return status;
 }
+#endif /* BTA_JV_RFCOMM_INCLUDED */
+
 #if BTA_JV_L2CAP_INCLUDED
 /*******************************************************************************
 **
@@ -530,6 +535,7 @@ static tBTA_JV_STATUS bta_jv_free_set_pm_profile_cb(UINT32 jv_handle)
             }
 
             if (BTA_JV_RFCOMM_MASK & jv_handle) {
+#if BTA_JV_RFCOMM_INCLUDED
                 UINT32 hi = ((jv_handle & BTA_JV_RFC_HDL_MASK) & ~BTA_JV_RFCOMM_MASK) - 1;
                 UINT32 si = BTA_JV_RFC_HDL_TO_SIDX(jv_handle);
                 if (hi < BTA_JV_MAX_RFC_CONN && bta_jv_cb.rfc_cb[hi].p_cback && si
@@ -543,6 +549,7 @@ static tBTA_JV_STATUS bta_jv_free_set_pm_profile_cb(UINT32 jv_handle)
                         p_cb = &p_pcb->p_pm_cb;
                     }
                 }
+#endif /* BTA_JV_RFCOMM_INCLUDED */
             }
 #if BTA_JV_L2CAP_INCLUDED
             else {
@@ -587,18 +594,20 @@ static tBTA_JV_PM_CB *bta_jv_alloc_set_pm_profile_cb(UINT32 jv_handle, tBTA_JV_P
         if (bta_jv_cb.pm_cb[i].state == BTA_JV_PM_FREE_ST) {
             /* rfc handle bd addr retrieval requires core stack handle */
             if (bRfcHandle) {
+#if BTA_JV_RFCOMM_INCLUDED
                 // UINT32 hi = ((jv_handle & BTA_JV_RFC_HDL_MASK) & ~BTA_JV_RFCOMM_MASK) - 1;
                 // UINT32 si = BTA_JV_RFC_HDL_TO_SIDX(jv_handle);
                 for (j = 0; j < BTA_JV_MAX_RFC_CONN; j++) {
                     if (jv_handle == bta_jv_cb.port_cb[j].handle) {
                         pp_cb = &bta_jv_cb.port_cb[j].p_pm_cb;
-                        if (PORT_SUCCESS != PORT_CheckConnection(
-                                    bta_jv_cb.port_cb[j].port_handle, peer_bd_addr, NULL)) {
+                        if (PORT_SUCCESS !=
+                            PORT_CheckConnection(bta_jv_cb.port_cb[j].port_handle, FALSE, peer_bd_addr, NULL)) {
                             i = BTA_JV_PM_MAX_NUM;
                         }
                         break;
                     }
                 }
+#endif /* BTA_JV_RFCOMM_INCLUDED */
             }
 #if BTA_JV_L2CAP_INCLUDED
             else {
@@ -860,40 +869,45 @@ void bta_jv_free_scn(tBTA_JV_MSG *p_data)
     };
 
     tBTA_JV_FREE_SCN_USER_DATA *user_data = NULL;
+#if BTA_JV_RFCOMM_INCLUDED
     tBTA_JV_RFC_CB *p_cb = NULL;
     tBTA_JV_PCB *p_pcb = NULL;
+#endif /* BTA_JV_RFCOMM_INCLUDED */
 
     switch (p_data->free_channel.type) {
     case BTA_JV_CONN_TYPE_RFCOMM: {
+#if BTA_JV_RFCOMM_INCLUDED
         if (scn > 0 && scn <= BTA_JV_MAX_SCN && bta_jv_cb.scn[scn - 1]) {
             /* this scn is used by JV */
             bta_jv_cb.scn[scn - 1] = FALSE;
             BTM_FreeSCN(scn);
         }
+        if (fc->user_data) {
+            user_data = (tBTA_JV_FREE_SCN_USER_DATA *)fc->user_data;
+            evt_data.server_status = user_data->server_status;
+            if (user_data->server_status == BTA_JV_SERVER_RUNNING && find_rfc_pcb((void *)user_data->slot_id, &p_cb, &p_pcb)) {
+                /* if call bta_jv_rfcomm_stop_server successfully, find_rfc_pcb shall return false */
+                evt_data.status = BTA_JV_FAILURE;
+            }
+
+            if (fc->p_cback) {
+                fc->p_cback(BTA_JV_FREE_SCN_EVT, (tBTA_JV *)&evt_data, (void *)user_data);
+            }
+        }
+#endif /* BTA_JV_RFCOMM_INCLUDED */
         break;
     }
     case BTA_JV_CONN_TYPE_L2CAP:
         bta_jv_set_free_psm(scn);
+        if (fc->p_cback) {
+            fc->p_cback(BTA_JV_FREE_SCN_EVT, (tBTA_JV *)&evt_data, (void *)user_data);
+        }
         break;
     case BTA_JV_CONN_TYPE_L2CAP_LE:
         // TODO: Not yet implemented...
         break;
     default:
         break;
-    }
-
-    if (fc->user_data)
-    {
-        user_data = (tBTA_JV_FREE_SCN_USER_DATA *)fc->user_data;
-        evt_data.server_status = user_data->server_status;
-        if (user_data->server_status == BTA_JV_SERVER_RUNNING && find_rfc_pcb((void *)user_data->slot_id, &p_cb, &p_pcb)) {
-            /* if call bta_jv_rfcomm_stop_server successfully, find_rfc_pcb shall return false */
-            evt_data.status = BTA_JV_FAILURE;
-        }
-
-        if (fc->p_cback) {
-            fc->p_cback(BTA_JV_FREE_SCN_EVT, (tBTA_JV *)&evt_data, (void *)user_data);
-        }
     }
 }
 static inline tBT_UUID shorten_sdp_uuid(const tBT_UUID *u)
@@ -1026,6 +1040,22 @@ void bta_jv_start_discovery(tBTA_JV_MSG *p_data)
     */
 }
 
+/*******************************************************************************
+**
+** Function     sdp_bqb_add_language_attr_ctrl
+**
+** Description  Control adding of the language attribute for SDP BQB test
+**
+** Returns      void
+**
+*******************************************************************************/
+#if BT_SDP_BQB_INCLUDED
+void sdp_bqb_add_language_attr_ctrl(BOOLEAN enable)
+{
+    s_sdp_bqb_add_language_attr_flag = enable;
+}
+#endif /* BT_SDP_BQB_INCLUDED */
+
 /**
  * @brief       Adds a protocol list and service name (if provided) to an SDP record given by
  *              sdp_handle, and marks it as browseable. This is a shortcut for defining a
@@ -1076,6 +1106,19 @@ static bool create_base_record(const uint32_t sdp_handle, const char *name, cons
                    stage, channel, name, with_obex);
         return FALSE;
     }
+
+#if BT_SDP_BQB_INCLUDED
+    // SDP/SR/SA/BV-09-C,SDP/SR/SSA/BV-13-C
+    if (s_sdp_bqb_add_language_attr_flag == TRUE) {
+        stage = "language_base";
+        if (!SDP_AddLanguageBaseAttrIDList(sdp_handle, LANG_ID_CODE_ENGLISH, LANG_ID_CHAR_ENCODE_UTF8, LANGUAGE_BASE_ID)) {
+            APPL_TRACE_ERROR("create_base_record: failed to create base service "
+                    "record, stage: %s, scn: %d, name: %s, with_obex: %d",
+                    stage, channel, name, with_obex);
+            return FALSE;
+        }
+    }
+#endif /* BT_SDP_BQB_INCLUDED */
 
     // Add the name to the SDP record.
     if (name[0] != '\0') {
@@ -1204,10 +1247,15 @@ void bta_jv_delete_record(tBTA_JV_MSG *p_data)
 *******************************************************************************/
 static void bta_jv_l2cap_client_cback(UINT16 gap_handle, UINT16 event)
 {
-    tBTA_JV_L2C_CB  *p_cb = &bta_jv_cb.l2c_cb[gap_handle];
-    tBTA_JV     evt_data;
+    if (gap_handle >= BTA_JV_MAX_L2C_CONN) {
+        APPL_TRACE_WARNING("Invalid gap_handle: %u", gap_handle);
+        return;
+    }
 
-    if (gap_handle >= BTA_JV_MAX_L2C_CONN && !p_cb->p_cback) {
+    tBTA_JV_L2C_CB  *p_cb = &bta_jv_cb.l2c_cb[gap_handle];
+    tBTA_JV evt_data = {0};
+
+    if (!p_cb->p_cback) {
         return;
     }
 
@@ -1276,7 +1324,7 @@ void bta_jv_l2cap_connect(tBTA_JV_MSG *p_data)
     if (cc->has_cfg == TRUE) {
         cfg = cc->cfg;
         if (cfg.fcr_present && cfg.fcr.mode == L2CAP_FCR_ERTM_MODE) {
-            chan_mode_mask = GAP_FCR_CHAN_OPT_ERTM;
+            chan_mode_mask |= GAP_FCR_CHAN_OPT_ERTM;
         }
     }
 
@@ -1336,15 +1384,14 @@ void bta_jv_l2cap_close(tBTA_JV_MSG *p_data)
 {
     tBTA_JV_L2CAP_CLOSE  evt_data;
     tBTA_JV_API_L2CAP_CLOSE *cc = &(p_data->l2cap_close);
-    tBTA_JV_L2CAP_CBACK *p_cback = cc->p_cb->p_cback;
-    void *user_data = cc->p_cb->user_data;
+    void *user_data = cc->user_data;
 
     evt_data.handle = cc->handle;
     evt_data.status = bta_jv_free_l2c_cb(cc->p_cb);
     evt_data.async = FALSE;
 
-    if (p_cback) {
-        p_cback(BTA_JV_L2CAP_CLOSE_EVT, (tBTA_JV *)&evt_data, user_data);
+    if (cc->p_cback) {
+        cc->p_cback(BTA_JV_L2CAP_CLOSE_EVT, (tBTA_JV *)&evt_data, user_data);
     }
 }
 
@@ -1359,12 +1406,17 @@ void bta_jv_l2cap_close(tBTA_JV_MSG *p_data)
 *******************************************************************************/
 static void bta_jv_l2cap_server_cback(UINT16 gap_handle, UINT16 event)
 {
+    if (gap_handle >= BTA_JV_MAX_L2C_CONN) {
+        APPL_TRACE_WARNING("Invalid gap_handle: %u", gap_handle);
+        return;
+    }
+
     tBTA_JV_L2C_CB  *p_cb = &bta_jv_cb.l2c_cb[gap_handle];
-    tBTA_JV evt_data;
+    tBTA_JV evt_data = {0};
     tBTA_JV_L2CAP_CBACK *p_cback;
     void *user_data;
 
-    if (gap_handle >= BTA_JV_MAX_L2C_CONN && !p_cb->p_cback) {
+    if (!p_cb->p_cback) {
         return;
     }
 
@@ -1435,7 +1487,7 @@ void bta_jv_l2cap_start_server(tBTA_JV_MSG *p_data)
     if (ls->has_cfg == TRUE) {
         cfg = ls->cfg;
         if (cfg.fcr_present && cfg.fcr.mode == L2CAP_FCR_ERTM_MODE) {
-            chan_mode_mask = GAP_FCR_CHAN_OPT_ERTM;
+            chan_mode_mask |= GAP_FCR_CHAN_OPT_ERTM;
         }
     }
 
@@ -1620,6 +1672,7 @@ void bta_jv_l2cap_write_fixed(tBTA_JV_MSG *p_data)
 }
 #endif /* BTA_JV_L2CAP_INCLUDED */
 
+#if BTA_JV_RFCOMM_INCLUDED
 /*******************************************************************************
 **
 ** Function     bta_jv_port_data_co_cback
@@ -1666,14 +1719,16 @@ static int bta_jv_port_data_co_cback(UINT16 port_handle, UINT8 *buf, UINT16 len,
 ** Returns      void
 **
 *******************************************************************************/
-static void bta_jv_port_mgmt_cl_cback(UINT32 code, UINT16 port_handle)
+static void bta_jv_port_mgmt_cl_cback(UINT32 code, UINT16 port_handle, void* data)
 {
     tBTA_JV_RFC_CB  *p_cb = bta_jv_rfc_port_to_cb(port_handle);
     tBTA_JV_PCB     *p_pcb = bta_jv_rfc_port_to_pcb(port_handle);
-    tBTA_JV evt_data;
-    BD_ADDR rem_bda;
+    tBTA_JV evt_data = {0};
+    BD_ADDR rem_bda = {0};
     UINT16 lcid;
     tBTA_JV_RFCOMM_CBACK *p_cback;  /* the callback function */
+    tPORT_MGMT_CL_CALLBACK_ARG *p_mgmt_cb_arg = (tPORT_MGMT_CL_CALLBACK_ARG *)data;
+    void *user_data = NULL;
 
     APPL_TRACE_DEBUG( "bta_jv_port_mgmt_cl_cback:code:%d, port_handle%d", code, port_handle);
     if (NULL == p_cb || NULL == p_cb->p_cback) {
@@ -1683,13 +1738,16 @@ static void bta_jv_port_mgmt_cl_cback(UINT32 code, UINT16 port_handle)
     APPL_TRACE_DEBUG( "bta_jv_port_mgmt_cl_cback code=%d port_handle:%d handle:%d",
                       code, port_handle, p_cb->handle);
 
-    PORT_CheckConnection(port_handle, rem_bda, &lcid);
+    PORT_CheckConnection(port_handle, FALSE, rem_bda, &lcid);
 
     if (code == PORT_SUCCESS) {
         evt_data.rfc_open.handle = p_pcb->handle;
         evt_data.rfc_open.status = BTA_JV_SUCCESS;
         bdcpy(evt_data.rfc_open.rem_bda, rem_bda);
         p_pcb->state = BTA_JV_ST_CL_OPEN;
+        if (p_mgmt_cb_arg) {
+            evt_data.rfc_open.peer_mtu = p_mgmt_cb_arg->peer_mtu;
+        }
         p_cb->p_cback(BTA_JV_RFCOMM_OPEN_EVT, &evt_data, p_pcb->user_data);
     } else {
         evt_data.rfc_close.handle = p_pcb->handle;
@@ -1700,13 +1758,14 @@ static void bta_jv_port_mgmt_cl_cback(UINT32 code, UINT16 port_handle)
             evt_data.rfc_close.async = FALSE;
             evt_data.rfc_close.status = BTA_JV_SUCCESS;
         }
-        //p_pcb->state = BTA_JV_ST_NONE;
-        //p_pcb->cong = FALSE;
         p_cback = p_cb->p_cback;
-        p_cback(BTA_JV_RFCOMM_CLOSE_EVT, &evt_data, p_pcb->user_data);
-        //bta_jv_free_rfc_cb(p_cb, p_pcb);
-    }
+        user_data = p_pcb->user_data;
 
+        // To free up resources.
+        p_pcb->state = BTA_JV_ST_CL_CLOSING;
+        bta_jv_free_rfc_cb(p_cb, p_pcb, FALSE, FALSE);
+        p_cback(BTA_JV_RFCOMM_CLOSE_EVT, &evt_data, user_data);
+    }
 }
 
 /*******************************************************************************
@@ -1722,7 +1781,7 @@ static void bta_jv_port_event_cl_cback(UINT32 code, UINT16 port_handle)
 {
     tBTA_JV_RFC_CB  *p_cb = bta_jv_rfc_port_to_cb(port_handle);
     tBTA_JV_PCB     *p_pcb = bta_jv_rfc_port_to_pcb(port_handle);
-    tBTA_JV evt_data;
+    tBTA_JV evt_data = {0};
 
     APPL_TRACE_DEBUG( "bta_jv_port_event_cl_cback:%d", port_handle);
     if (NULL == p_cb || NULL == p_cb->p_cback) {
@@ -1747,6 +1806,22 @@ static void bta_jv_port_event_cl_cback(UINT32 code, UINT16 port_handle)
     if (code & PORT_EV_TXEMPTY) {
         bta_jv_pm_conn_idle(p_pcb->p_pm_cb);
     }
+}
+
+/*******************************************************************************
+**
+** Function     bta_jv_rfcomm_config
+**
+** Description  Configure RFCOMM
+**
+** Returns      void
+**
+*******************************************************************************/
+void bta_jv_rfcomm_config(tBTA_JV_MSG *p_data)
+{
+    APPL_TRACE_DEBUG("%s enable_l2cap_ertm:%d", __func__, p_data->rfcomm_config.enable_l2cap_ertm);
+
+    PORT_SetL2capErtm(p_data->rfcomm_config.enable_l2cap_ertm);
 }
 
 /*******************************************************************************
@@ -1863,7 +1938,6 @@ void bta_jv_rfcomm_close(tBTA_JV_MSG *p_data)
     tBTA_JV_API_RFCOMM_CLOSE *cc = &(p_data->rfcomm_close);
     tBTA_JV_RFC_CB           *p_cb = NULL;
     tBTA_JV_PCB              *p_pcb = NULL;
-    tBTA_JV                   evt_data;
     APPL_TRACE_DEBUG("%s, rfc handle:%d",__func__, cc->handle);
     if (!cc->handle) {
         APPL_TRACE_ERROR("%s, rfc handle is null", __func__);
@@ -1874,20 +1948,9 @@ void bta_jv_rfcomm_close(tBTA_JV_MSG *p_data)
     if (!find_rfc_pcb(user_data, &p_cb, &p_pcb)) {
         return;
     }
-    if(cc->p_cback) {
-        evt_data.rfc_close.status = BTA_JV_SUCCESS;
-        evt_data.rfc_close.port_status = PORT_LOCAL_CLOSED;
-        evt_data.rfc_close.handle = cc->handle;
-        evt_data.rfc_close.async = TRUE;
-        if (p_pcb && (p_pcb->state == BTA_JV_ST_SR_LISTEN ||
-                      p_pcb->state == BTA_JV_ST_SR_OPEN ||
-                      p_pcb->state == BTA_JV_ST_CL_OPEN ||
-                      p_pcb->state == BTA_JV_ST_CL_OPENING)) {
-            evt_data.rfc_close.async = FALSE;
-        }
-        cc->p_cback(BTA_JV_RFCOMM_CLOSE_EVT, (tBTA_JV *)&evt_data, user_data);
-    }
-    bta_jv_free_rfc_cb(p_cb, p_pcb);
+
+    bta_jv_free_rfc_cb(p_cb, p_pcb, FALSE, TRUE);
+
     APPL_TRACE_DEBUG("%s: sec id in use:%d, rfc_cb in use:%d",__func__,
                      get_sec_id_used(), get_rfc_cb_used());
 }
@@ -1930,39 +1993,90 @@ static UINT8 __attribute__((unused)) bta_jv_get_num_rfc_listen(tBTA_JV_RFC_CB *p
 ** Returns      void
 **
 *******************************************************************************/
-static void bta_jv_port_mgmt_sr_cback(UINT32 code, UINT16 port_handle)
+static void bta_jv_port_mgmt_sr_cback(UINT32 code, UINT16 port_handle, void *data)
 {
     tBTA_JV_PCB     *p_pcb = bta_jv_rfc_port_to_pcb(port_handle);
     tBTA_JV_RFC_CB  *p_cb = bta_jv_rfc_port_to_cb(port_handle);
-    tBTA_JV evt_data;
-    BD_ADDR rem_bda;
+    tBTA_JV evt_data = {0};
+    BD_ADDR rem_bda = {0};
     UINT16 lcid;
+    tPORT_MGMT_SR_CALLBACK_ARG *p_mgmt_cb_arg = (tPORT_MGMT_SR_CALLBACK_ARG *)data;
+    void *user_data = NULL;
+    void *new_user_data = NULL;
+    int status;
+    int failed = TRUE;
+
     // APPL_TRACE_DEBUG("bta_jv_port_mgmt_sr_cback, code:0x%x, port_handle:%d", code, (uint16_t)port_handle);
     if (NULL == p_cb || NULL == p_cb->p_cback) {
         // APPL_TRACE_ERROR("bta_jv_port_mgmt_sr_cback, p_cb:%p, p_cb->p_cback%p",
         // p_cb, p_cb ? p_cb->p_cback : NULL);
         return;
     }
-    void *user_data = p_pcb->user_data;
+    user_data = p_pcb->user_data;
     // APPL_TRACE_DEBUG( "bta_jv_port_mgmt_sr_cback code=%p port_handle:0x%x handle:0x%x, p_pcb:%p, user:%p",
     // code, port_handle, p_cb->handle, p_pcb, p_pcb->user_data);
 
-    PORT_CheckConnection(port_handle, rem_bda, &lcid);
-    int failed = TRUE;
+    if (p_mgmt_cb_arg) {
+        if ((status = PORT_CheckConnection(port_handle, p_mgmt_cb_arg->ignore_rfc_state, rem_bda, &lcid)) !=
+            PORT_SUCCESS) {
+            APPL_TRACE_WARNING("PORT_CheckConnection status:%d", status);
+        }
+    } else {
+        PORT_CheckConnection(port_handle, FALSE, rem_bda, &lcid);
+    }
+
     if (code == PORT_SUCCESS) {
+        failed = FALSE;
+        /* accept the connection defaulted */
+        if (p_mgmt_cb_arg) {
+            p_mgmt_cb_arg->accept = TRUE;
+        }
         evt_data.rfc_srv_open.handle = p_pcb->handle;
         evt_data.rfc_srv_open.status = BTA_JV_SUCCESS;
+        evt_data.rfc_srv_open.peer_mtu = p_mgmt_cb_arg->peer_mtu;
         bdcpy(evt_data.rfc_srv_open.rem_bda, rem_bda);
         tBTA_JV_PCB *p_pcb_new_listen  = bta_jv_add_rfc_port(p_cb, p_pcb);
         if (p_pcb_new_listen) {
             evt_data.rfc_srv_open.new_listen_handle = p_pcb_new_listen->handle;
-            p_pcb_new_listen->user_data = p_cb->p_cback(BTA_JV_RFCOMM_SRV_OPEN_EVT, &evt_data, user_data);
-            APPL_TRACE_DEBUG("PORT_SUCCESS: curr_sess:%d, max_sess:%d", p_cb->curr_sess, p_cb->max_sess);
-            failed = FALSE;
+            new_user_data = p_cb->p_cback(BTA_JV_RFCOMM_SRV_OPEN_EVT, &evt_data, user_data);
+            if (new_user_data) {
+                p_pcb_new_listen->user_data = new_user_data;
+                APPL_TRACE_DEBUG("PORT_SUCCESS: curr_sess:%d, max_sess:%d", p_cb->curr_sess,
+                                 p_cb->max_sess);
+            } else {
+                /**
+                 * new_user_data is NULL, which means the upper layer runs out of slot source.
+                 * Tells the caller to reject this connection.
+                 */
+                APPL_TRACE_ERROR("create new listen port, but upper layer reject connection");
+                p_pcb_new_listen->user_data = NULL;
+                p_pcb->state = BTA_JV_ST_SR_LISTEN;
+                bta_jv_free_rfc_cb(p_cb, p_pcb_new_listen, FALSE, FALSE);
+                if (p_mgmt_cb_arg) {
+                    p_mgmt_cb_arg->accept = FALSE;
+                }
+            }
         } else {
+            evt_data.rfc_srv_open.new_listen_handle = 0;
+            new_user_data = p_cb->p_cback(BTA_JV_RFCOMM_SRV_OPEN_EVT, &evt_data, user_data);
+            if (new_user_data) {
+                APPL_TRACE_DEBUG("PORT_SUCCESS: curr_sess:%d, max_sess:%d", p_cb->curr_sess,
+                                 p_cb->max_sess);
+            } else {
+                /**
+                 * new_user_data is NULL, which means the upper layer runs out of slot source.
+                 * Tells the caller to reject this connection.
+                 */
+                APPL_TRACE_ERROR("no listen port, and upper layer reject connection");
+                p_pcb->state = BTA_JV_ST_SR_LISTEN;
+                if (p_mgmt_cb_arg) {
+                    p_mgmt_cb_arg->accept = FALSE;
+                }
+            }
             APPL_TRACE_ERROR("bta_jv_add_rfc_port failed to create new listen port");
         }
     }
+
     if (failed) {
         evt_data.rfc_close.handle = p_pcb->handle;
         evt_data.rfc_close.status = BTA_JV_FAILURE;
@@ -1977,10 +2091,11 @@ static void bta_jv_port_mgmt_sr_cback(UINT32 code, UINT16 port_handle)
             evt_data.rfc_close.async = FALSE;
             evt_data.rfc_close.status = BTA_JV_SUCCESS;
         }
-        //p_pcb->state = BTA_JV_ST_NONE;
-        p_cback(BTA_JV_RFCOMM_CLOSE_EVT, &evt_data, user_data);
-        //bta_jv_free_rfc_cb(p_cb, p_pcb);
 
+        // To free up resources.
+        p_pcb->state = BTA_JV_ST_SR_CLOSING;
+        bta_jv_free_rfc_cb(p_cb, p_pcb, FALSE, FALSE);
+        p_cback(BTA_JV_RFCOMM_CLOSE_EVT, &evt_data, user_data);
         APPL_TRACE_DEBUG("PORT_CLOSED after BTA_JV_RFCOMM_CLOSE_EVT: curr_sess:%d, max_sess:%d",
                          p_cb->curr_sess, p_cb->max_sess);
     }
@@ -1999,7 +2114,7 @@ static void bta_jv_port_event_sr_cback(UINT32 code, UINT16 port_handle)
 {
     tBTA_JV_PCB     *p_pcb = bta_jv_rfc_port_to_pcb(port_handle);
     tBTA_JV_RFC_CB  *p_cb = bta_jv_rfc_port_to_cb(port_handle);
-    tBTA_JV evt_data;
+    tBTA_JV evt_data = {0};
 
     if (NULL == p_cb || NULL == p_cb->p_cback) {
         return;
@@ -2067,6 +2182,7 @@ static tBTA_JV_PCB *bta_jv_add_rfc_port(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pcb
             }
         }
 
+        p_pcb = NULL;
         APPL_TRACE_DEBUG("bta_jv_add_rfc_port max_sess=%d used:%d curr_sess:%d, listen:%d si:%d",
                          p_cb->max_sess, used, p_cb->curr_sess, listen, si);
         if (used < p_cb->max_sess && listen == 1 && si) {
@@ -2094,7 +2210,6 @@ static tBTA_JV_PCB *bta_jv_add_rfc_port(tBTA_JV_RFC_CB *p_cb, tBTA_JV_PCB *p_pcb
             }
         } else {
             /* avoid p_pcb always points to the last element of rfc_hdl */
-            p_pcb = p_pcb_open;
             APPL_TRACE_ERROR("bta_jv_add_rfc_port, cannot create new rfc listen port");
         }
     }
@@ -2214,7 +2329,7 @@ void bta_jv_rfcomm_stop_server(tBTA_JV_MSG *p_data)
     }
     APPL_TRACE_DEBUG("bta_jv_rfcomm_stop_server: p_pcb:%p, p_pcb->port_handle:%d",
                      p_pcb, p_pcb->port_handle);
-    bta_jv_free_rfc_cb(p_cb, p_pcb);
+    bta_jv_free_rfc_cb(p_cb, p_pcb, TRUE, FALSE);
     APPL_TRACE_DEBUG("bta_jv_rfcomm_stop_server: sec id in use:%d, rfc_cb in use:%d",
                      get_sec_id_used(), get_rfc_cb_used());
 }
@@ -2300,6 +2415,7 @@ void bta_jv_rfcomm_flow_control(tBTA_JV_MSG *p_data)
     tBTA_JV_PCB *p_pcb = fc->p_pcb;
     PORT_FlowControl_GiveCredit(p_pcb->port_handle, TRUE, fc->credits_given);
 }
+#endif /* BTA_JV_RFCOMM_INCLUDED */
 
 /*******************************************************************************
  **
@@ -2750,7 +2866,7 @@ static void fcchan_conn_chng_cbk(UINT16 chan, BD_ADDR bd_addr, BOOLEAN connected
 
 static void fcchan_data_cbk(UINT16 chan, BD_ADDR bd_addr, BT_HDR *p_buf)
 {
-    tBTA_JV evt_data;
+    tBTA_JV evt_data = {0};
     // tBTA_JV evt_open;
     struct fc_channel *tc;
     struct fc_client *t = NULL;
@@ -2809,7 +2925,7 @@ void bta_jv_l2cap_connect_le(tBTA_JV_MSG *p_data)
     id = t->id;
     t->init_called = FALSE;
 
-    if (L2CA_ConnectFixedChnl(t->chan, t->remote_addr, BLE_ADDR_UNKNOWN_TYPE)) {
+    if (L2CA_ConnectFixedChnl(t->chan, t->remote_addr, BLE_ADDR_UNKNOWN_TYPE, FALSE)) {
 
         evt.l2c_cl_init.status = BTA_JV_SUCCESS;
         evt.l2c_cl_init.handle = id;

@@ -144,7 +144,7 @@ class TestMulticastRegistration(thread_cert.TestCase):
                                        in_address_registration=True):
         ''' Check whether or not the addition of the multicast address on the specific node
         would trigger Child Update Request for multicast address registration via Address
-        Registraion TLV.
+        Registration TLV.
 
         Args:
             node (int) : The device id
@@ -177,7 +177,7 @@ class TestMulticastRegistration(thread_cert.TestCase):
         # 1) Bring up Leader_1_2.
         self.nodes[LEADER_1_2].start()
         WAIT_TIME = WAIT_ATTACH
-        self.simulator.go(WAIT_TIME)
+        self.simulator.go(WAIT_TIME * 2)
         self.assertEqual(self.nodes[LEADER_1_2].get_state(), 'leader')
 
         # 2) Bring up MED_1_2, which attaches to Thread 1.2 parent, only register MA with scope larger than realm local.

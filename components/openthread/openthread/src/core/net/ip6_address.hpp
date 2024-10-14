@@ -36,20 +36,24 @@
 
 #include "openthread-core-config.h"
 
-#include <stdint.h>
-
 #include <openthread/ip6.h>
 
+#include "common/as_core_type.hpp"
 #include "common/clearable.hpp"
 #include "common/encoding.hpp"
 #include "common/equatable.hpp"
+#include "common/num_utils.hpp"
+#include "common/numeric_limits.hpp"
 #include "common/string.hpp"
 #include "mac/mac_types.hpp"
-#include "net/ip4_address.hpp"
-
-using ot::Encoding::BigEndian::HostSwap16;
 
 namespace ot {
+
+namespace Ip4 {
+// Forward declaration for SynthesizeFromIp4Address
+class Address;
+} // namespace Ip4
+
 namespace Ip6 {
 
 /**
@@ -60,18 +64,18 @@ namespace Ip6 {
  */
 
 /**
- * This class represents the Network Prefix of an IPv6 address (most significant 64 bits of the address).
+ * Represents the Network Prefix of an IPv6 address (most significant 64 bits of the address).
  *
  */
 OT_TOOL_PACKED_BEGIN
 class NetworkPrefix : public otIp6NetworkPrefix, public Equatable<NetworkPrefix>, public Clearable<NetworkPrefix>
 {
 public:
-    static constexpr uint8_t kSize   = OT_IP6_PREFIX_SIZE;            ///< Size in bytes.
-    static constexpr uint8_t kLength = OT_IP6_PREFIX_SIZE * CHAR_BIT; ///< Length of Network Prefix in bits.
+    static constexpr uint8_t kSize   = OT_IP6_PREFIX_SIZE;   ///< Size in bytes.
+    static constexpr uint8_t kLength = kSize * kBitsPerByte; ///< Length of Network Prefix in bits.
 
     /**
-     * This method generates and sets the Network Prefix to a crypto-secure random Unique Local Address (ULA) based
+     * Generates and sets the Network Prefix to a crypto-secure random Unique Local Address (ULA) based
      * on the pattern `fdxx:xxxx:xxxx:` (RFC 4193).
      *
      * @retval kErrorNone     Successfully generated a random ULA Network Prefix
@@ -83,26 +87,26 @@ public:
 } OT_TOOL_PACKED_END;
 
 /**
- * This class represents an IPv6 Prefix.
+ * Represents an IPv6 Prefix.
  *
  */
 OT_TOOL_PACKED_BEGIN
 class Prefix : public otIp6Prefix, public Clearable<Prefix>, public Unequatable<Prefix>
 {
 public:
-    static constexpr uint8_t kMaxLength = OT_IP6_ADDRESS_SIZE * CHAR_BIT; ///< Max length of a prefix in bits.
-    static constexpr uint8_t kMaxSize   = OT_IP6_ADDRESS_SIZE;            ///< Max (byte) size of a prefix.
+    static constexpr uint8_t kMaxSize   = OT_IP6_ADDRESS_SIZE;     ///< Max (byte) size of a prefix.
+    static constexpr uint8_t kMaxLength = kMaxSize * kBitsPerByte; ///< Max length of a prefix in bits.
 
     static constexpr uint16_t kInfoStringSize = OT_IP6_PREFIX_STRING_SIZE; ///< Info string size (`ToString()`).
 
     /**
-     * This type defines the fixed-length `String` object returned from `ToString()`.
+     * Defines the fixed-length `String` object returned from `ToString()`.
      *
      */
     typedef String<kInfoStringSize> InfoString;
 
     /**
-     * This method gets the prefix as a pointer to a byte array.
+     * Gets the prefix as a pointer to a byte array.
      *
      * @returns A pointer to a byte array containing the Prefix.
      *
@@ -110,7 +114,15 @@ public:
     const uint8_t *GetBytes(void) const { return mPrefix.mFields.m8; }
 
     /**
-     * This method gets the prefix length (in bits).
+     * Gets the subnet ID of the prefix.
+     *
+     * @returns The 16-bit subnet ID.
+     *
+     */
+    uint16_t GetSubnetId(void) const { return BigEndian::HostSwap16(mPrefix.mFields.m16[3]); }
+
+    /**
+     * Gets the prefix length (in bits).
      *
      * @returns The prefix length (in bits).
      *
@@ -118,7 +130,7 @@ public:
     uint8_t GetLength(void) const { return mLength; }
 
     /**
-     * This method returns the size (in bytes) of the prefix.
+     * Returns the size (in bytes) of the prefix.
      *
      * @returns The size (in bytes) of the prefix array.
      *
@@ -126,7 +138,7 @@ public:
     uint8_t GetBytesSize(void) const { return SizeForLength(mLength); }
 
     /**
-     * This method sets the prefix.
+     * Sets the prefix.
      *
      * @param[in] aPrefix  A pointer to buffer containing the prefix bytes.
      * @param[in] aLength  The length or prefix in bits.
@@ -135,7 +147,7 @@ public:
     void Set(const uint8_t *aPrefix, uint8_t aLength);
 
     /**
-     * This method sets the prefix from a given Network Prefix.
+     * Sets the prefix from a given Network Prefix.
      *
      * @param[in] aNetworkPrefix    A Network Prefix.
      *
@@ -143,7 +155,15 @@ public:
     void Set(const NetworkPrefix &aNetworkPrefix) { Set(aNetworkPrefix.m8, NetworkPrefix::kLength); }
 
     /**
-     * This method set the prefix length.
+     * Sets the subnet ID of the prefix.
+     *
+     * @param[in] aSubnetId  A 16-bit subnet ID.
+     *
+     */
+    void SetSubnetId(uint16_t aSubnetId) { mPrefix.mFields.m16[3] = BigEndian::HostSwap16(aSubnetId); }
+
+    /**
+     * Set the prefix length.
      *
      * @param[in] aLength  The new prefix length (in bits).
      *
@@ -151,7 +171,13 @@ public:
     void SetLength(uint8_t aLength) { mLength = aLength; }
 
     /**
-     * This method indicates whether prefix length is valid (smaller or equal to max length).
+     * Sets the bits after the prefix length to 0.
+     *
+     */
+    void Tidy(void);
+
+    /**
+     * Indicates whether prefix length is valid (smaller or equal to max length).
      *
      * @retval TRUE   The prefix length is valid.
      * @retval FALSE  The prefix length is not valid.
@@ -160,37 +186,34 @@ public:
     bool IsValid(void) const { return (mLength <= kMaxLength); }
 
     /**
-     * This method indicates whether the prefix is a Link-Local prefix.
+     * Indicates whether the prefix is a Link-Local prefix.
      *
      * @retval TRUE   The prefix is a Link-Local prefix.
      * @retval FALSE  The prefix is not a Link-Local prefix.
      *
      */
-    bool IsLinkLocal(void) const
-    {
-        return mLength >= 10 && mPrefix.mFields.m8[0] == 0xfe && (mPrefix.mFields.m8[1] & 0xc0) == 0x80;
-    }
+    bool IsLinkLocal(void) const;
 
     /**
-     * This method indicates whether the prefix is a Multicast prefix.
+     * Indicates whether the prefix is a Multicast prefix.
      *
      * @retval TRUE   The prefix is a Multicast prefix.
      * @retval FALSE  The prefix is not a Multicast prefix.
      *
      */
-    bool IsMulticast(void) const { return mLength >= 8 && mPrefix.mFields.m8[0] == 0xff; }
+    bool IsMulticast(void) const;
 
     /**
-     * This method indicates whether the prefix is a Unique-Local prefix.
+     * Indicates whether the prefix is a Unique-Local prefix.
      *
      * @retval TRUE   The prefix is a Unique-Local prefix.
      * @retval FALSE  The prefix is not a Unique-Local prefix.
      *
      */
-    bool IsUniqueLocal(void) const { return mLength >= 7 && (mPrefix.mFields.m8[0] & 0xfe) == 0xfc; }
+    bool IsUniqueLocal(void) const;
 
     /**
-     * This method indicates whether the prefix is equal to a given prefix.
+     * Indicates whether the prefix is equal to a given prefix.
      *
      * @param[in] aPrefixBytes   A pointer to buffer containing the prefix bytes to compare with.
      * @param[in] aPrefixLength  The length of prefix (in bits) specified by @p aPrefixBytes.
@@ -202,7 +225,7 @@ public:
     bool IsEqual(const uint8_t *aPrefixBytes, uint8_t aPrefixLength) const;
 
     /**
-     * This method indicates whether the prefix contains a sub-prefix.
+     * Indicates whether the prefix contains a sub-prefix.
      *
      * @param[in] aSubPrefix  A sub-prefix.
      *
@@ -210,14 +233,10 @@ public:
      * @retval FALSE  The prefix does not contains the @p aSubPrefix.
      *
      */
-    bool ContainsPrefix(const Prefix &aSubPrefix) const
-    {
-        return (mLength >= aSubPrefix.mLength) &&
-               (MatchLength(GetBytes(), aSubPrefix.GetBytes(), aSubPrefix.GetBytesSize()) >= aSubPrefix.GetLength());
-    }
+    bool ContainsPrefix(const Prefix &aSubPrefix) const;
 
     /**
-     * This method indicates whether the prefix contains a sub-prefix (given as a `NetworkPrefix`).
+     * Indicates whether the prefix contains a sub-prefix (given as a `NetworkPrefix`).
      *
      * @param[in] aSubPrefix  A sub-prefix (as a `NetworkPrefix`).
      *
@@ -225,14 +244,10 @@ public:
      * @retval FALSE  The prefix does not contains the @p aSubPrefix.
      *
      */
-    bool ContainsPrefix(const NetworkPrefix &aSubPrefix) const
-    {
-        return (mLength >= NetworkPrefix::kLength) &&
-               (MatchLength(GetBytes(), aSubPrefix.m8, NetworkPrefix::kSize) >= NetworkPrefix::kLength);
-    }
+    bool ContainsPrefix(const NetworkPrefix &aSubPrefix) const;
 
     /**
-     * This method overloads operator `==` to evaluate whether or not two prefixes are equal.
+     * Overloads operator `==` to evaluate whether or not two prefixes are equal.
      *
      * @param[in]  aOther  The other prefix to compare with.
      *
@@ -240,17 +255,15 @@ public:
      * @retval FALSE  If the two prefixes are not equal.
      *
      */
-    bool operator==(const Prefix &aOther) const
-    {
-        return (mLength == aOther.mLength) &&
-               (MatchLength(GetBytes(), aOther.GetBytes(), GetBytesSize()) >= GetLength());
-    }
+    bool operator==(const Prefix &aOther) const;
 
     /**
-     * This method overloads operator `<` to compare two prefixes.
+     * Overloads operator `<` to compare two prefixes.
      *
-     * A prefix with shorter length is considered smaller than the one with longer length. If the prefix lengths are
-     * equal, then the prefix bytes are compared directly.
+     * If the two prefixes have the same length N, then the bytes are compared directly (as two big-endian N-bit
+     * numbers). If the two prefix have different lengths, the shorter prefix is padded by `0` bit up to the longer
+     * prefix length N before the bytes are compared (as big-endian N-bit numbers). If all bytes are equal, the prefix
+     * with shorter length is considered smaller.
      *
      * @param[in] aOther  The other prefix to compare against.
      *
@@ -261,17 +274,17 @@ public:
     bool operator<(const Prefix &aOther) const;
 
     /**
-     * This static method converts a prefix length (in bits) to size (number of bytes).
+     * Converts a prefix length (in bits) to size (number of bytes).
      *
      * @param[in] aLength   A prefix length (in bits).
      *
      * @returns The size (in bytes) of the prefix.
      *
      */
-    static uint8_t SizeForLength(uint8_t aLength) { return BitVectorBytes(aLength); }
+    static uint8_t SizeForLength(uint8_t aLength) { return BytesForBitSize(aLength); }
 
     /**
-     * This static method returns the number of IPv6 prefix bits that match.
+     * Returns the number of IPv6 prefix bits that match.
      *
      * @param[in]  aPrefixA     A pointer to a byte array containing a first prefix.
      * @param[in]  aPrefixB     A pointer to a byte array containing a second prefix.
@@ -283,18 +296,42 @@ public:
     static uint8_t MatchLength(const uint8_t *aPrefixA, const uint8_t *aPrefixB, uint8_t aMaxSize);
 
     /**
-     * This method indicates whether or not the prefix has a valid length for use as a NAT64 prefix.
+     * Indicates whether or not a given prefix length is valid for use as a NAT64 prefix.
      *
-     * A NAT64 prefix must have one of the following lengths: 32, 40, 48, 56, 64, or 96 (per RFC 6502).
+     * A NAT64 prefix must have one of the following lengths: 32, 40, 48, 56, 64, or 96 (per RFC 6052).
+     *
+     * @param[in] aLength The length of the prefix.
      *
      * @retval TRUE   If the prefix has a valid length for use as a NAT64 prefix.
      * @retval FALSE  If the prefix does not have a valid length for use as a NAT64 prefix.
      *
      */
-    bool IsValidNat64(void) const;
+    static bool IsValidNat64PrefixLength(uint8_t aLength);
 
     /**
-     * This method converts the prefix to a string.
+     * Indicates whether or not the prefix has a valid length for use as a NAT64 prefix.
+     *
+     * A NAT64 prefix must have one of the following lengths: 32, 40, 48, 56, 64, or 96 (per RFC 6052).
+     *
+     * @retval TRUE   If the prefix has a valid length for use as a NAT64 prefix.
+     * @retval FALSE  If the prefix does not have a valid length for use as a NAT64 prefix.
+     *
+     */
+    bool IsValidNat64(void) const { return IsValidNat64PrefixLength(mLength); }
+
+    /**
+     * Parses a given IPv6 prefix string and sets the prefix.
+     *
+     * @param[in]  aString         A null-terminated string, with format "<prefix>/<plen>"
+     *
+     * @retval kErrorNone          Successfully parsed the IPv6 prefix from @p aString.
+     * @retval kErrorParse         Failed to parse the IPv6 prefix from @p aString.
+     *
+     */
+    Error FromString(const char *aString);
+
+    /**
+     * Converts the prefix to a string.
      *
      * The IPv6 prefix string is formatted as "%x:%x:%x:...[::]/plen".
      *
@@ -304,25 +341,26 @@ public:
     InfoString ToString(void) const;
 
     /**
-     * This method converts the prefix to a string.
+     * Converts the prefix to a string.
      *
      * The IPv6 prefix string is formatted as "%x:%x:%x:...[::]/plen".
      *
      * If the resulting string does not fit in @p aBuffer (within its @p aSize characters), the string will be
      * truncated but the outputted string is always null-terminated.
      *
-     * @param[out] aBuffer   A pointer to a char array to output the string (MUST NOT be nullptr).
+     * @param[out] aBuffer   A pointer to a char array to output the string (MUST NOT be `nullptr`).
      * @param[in]  aSize     The size of @p aBuffer (in bytes).
      *
      */
     void ToString(char *aBuffer, uint16_t aSize) const;
 
 private:
-    void ToString(StringWriter &aWriter) const;
+    uint8_t ByteAfterTidy(uint8_t aIndex);
+    void    ToString(StringWriter &aWriter) const;
 } OT_TOOL_PACKED_END;
 
 /**
- * This class represents the Interface Identifier of an IPv6 address.
+ * Represents the Interface Identifier of an IPv6 address.
  *
  */
 OT_TOOL_PACKED_BEGIN
@@ -338,13 +376,13 @@ public:
     static constexpr uint16_t kInfoStringSize = 17; ///< Max chars for the info string (`ToString()`).
 
     /**
-     * This type defines the fixed-length `String` object returned from `ToString()`.
+     * Defines the fixed-length `String` object returned from `ToString()`.
      *
      */
     typedef String<kInfoStringSize> InfoString;
 
     /**
-     * This method indicates whether or not the Interface Identifier is unspecified.
+     * Indicates whether or not the Interface Identifier is unspecified.
      *
      * @retval true  If the Interface Identifier is unspecified.
      * @retval false If the Interface Identifier is not unspecified.
@@ -353,7 +391,7 @@ public:
     bool IsUnspecified(void) const;
 
     /**
-     * This method indicates whether or not the Interface Identifier is reserved (RFC 5453).
+     * Indicates whether or not the Interface Identifier is reserved (RFC 5453).
      *
      * @retval true  If the Interface Identifier is reserved.
      * @retval false If the Interface Identifier is not reserved.
@@ -362,7 +400,7 @@ public:
     bool IsReserved(void) const;
 
     /**
-     * This method indicates whether or not the Interface Identifier is Subnet-Router Anycast (RFC 4291).
+     * Indicates whether or not the Interface Identifier is Subnet-Router Anycast (RFC 4291).
      *
      * @retval TRUE   If the Interface Identifier is a Subnet-Router Anycast address.
      * @retval FALSE  If the Interface Identifier is not a Subnet-Router Anycast address.
@@ -371,7 +409,7 @@ public:
     bool IsSubnetRouterAnycast(void) const;
 
     /**
-     * This method indicates whether or not the Interface Identifier is Reserved Subnet Anycast (RFC 2526).
+     * Indicates whether or not the Interface Identifier is Reserved Subnet Anycast (RFC 2526).
      *
      * @retval TRUE   If the Interface Identifier is a Reserved Subnet Anycast address.
      * @retval FALSE  If the Interface Identifier is not a Reserved Subnet Anycast address.
@@ -380,13 +418,13 @@ public:
     bool IsReservedSubnetAnycast(void) const;
 
     /**
-     * This method generates and sets the Interface Identifier to a crypto-secure random byte sequence.
+     * Generates and sets the Interface Identifier to a crypto-secure random byte sequence.
      *
      */
     void GenerateRandom(void);
 
     /**
-     * This method gets the Interface Identifier as a pointer to a byte array.
+     * Gets the Interface Identifier as a pointer to a byte array.
      *
      * @returns A pointer to a byte array (of size `kSize`) containing the Interface Identifier.
      *
@@ -394,7 +432,7 @@ public:
     const uint8_t *GetBytes(void) const { return mFields.m8; }
 
     /**
-     * This method sets the Interface Identifier from a given byte array.
+     * Sets the Interface Identifier from a given byte array.
      *
      * @param[in] aBuffer    Pointer to an array containing the Interface Identifier. `kSize` bytes from the buffer
      *                       are copied to form the Interface Identifier.
@@ -403,7 +441,7 @@ public:
     void SetBytes(const uint8_t *aBuffer);
 
     /**
-     * This method sets the Interface Identifier from a given IEEE 802.15.4 Extended Address.
+     * Sets the Interface Identifier from a given IEEE 802.15.4 Extended Address.
      *
      * @param[in] aExtAddress  An Extended Address.
      *
@@ -411,7 +449,7 @@ public:
     void SetFromExtAddress(const Mac::ExtAddress &aExtAddress);
 
     /**
-     * This method converts the Interface Identifier to an IEEE 802.15.4 Extended Address.
+     * Converts the Interface Identifier to an IEEE 802.15.4 Extended Address.
      *
      * @param[out]  aExtAddress  A reference to an Extended Address where the converted address is placed.
      *
@@ -419,7 +457,7 @@ public:
     void ConvertToExtAddress(Mac::ExtAddress &aExtAddress) const;
 
     /**
-     * This method converts the Interface Identifier to an IEEE 802.15.4 MAC Address.
+     * Converts the Interface Identifier to an IEEE 802.15.4 MAC Address.
      *
      * @param[out]  aMacAddress  A reference to a MAC Address where the converted address is placed.
      *
@@ -427,7 +465,7 @@ public:
     void ConvertToMacAddress(Mac::Address &aMacAddress) const;
 
     /**
-     * This method sets the Interface Identifier to Routing/Anycast Locator pattern `0000:00ff:fe00:xxxx` with a given
+     * Sets the Interface Identifier to Routing/Anycast Locator pattern `0000:00ff:fe00:xxxx` with a given
      * locator (RLOC16 or ALOC16) value.
      *
      * @param[in]  aLocator    RLOC16 or ALOC16.
@@ -436,7 +474,7 @@ public:
     void SetToLocator(uint16_t aLocator);
 
     /**
-     * This method indicates whether or not the Interface Identifier matches the locator pattern `0000:00ff:fe00:xxxx`.
+     * Indicates whether or not the Interface Identifier matches the locator pattern `0000:00ff:fe00:xxxx`.
      *
      * @retval TRUE   If the IID matches the locator pattern.
      * @retval FALSE  If the IID does not match the locator pattern.
@@ -445,7 +483,7 @@ public:
     bool IsLocator(void) const;
 
     /**
-     * This method indicates whether or not the Interface Identifier (IID) matches a Routing Locator (RLOC).
+     * Indicates whether or not the Interface Identifier (IID) matches a Routing Locator (RLOC).
      *
      * In addition to checking that the IID matches the locator pattern (`0000:00ff:fe00:xxxx`), this method also
      * checks that the locator value is a valid RLOC16.
@@ -457,7 +495,7 @@ public:
     bool IsRoutingLocator(void) const;
 
     /**
-     * This method indicates whether or not the Interface Identifier (IID) matches an Anycast Locator (ALOC).
+     * Indicates whether or not the Interface Identifier (IID) matches an Anycast Locator (ALOC).
      *
      * In addition to checking that the IID matches the locator pattern (`0000:00ff:fe00:xxxx`), this method also
      * checks that the locator value is any valid ALOC16 (0xfc00 - 0xfcff).
@@ -469,7 +507,7 @@ public:
     bool IsAnycastLocator(void) const;
 
     /**
-     * This method indicates whether or not the Interface Identifier (IID) matches a Service Anycast Locator (ALOC).
+     * Indicates whether or not the Interface Identifier (IID) matches a Service Anycast Locator (ALOC).
      *
      * In addition to checking that the IID matches the locator pattern (`0000:00ff:fe00:xxxx`), this method also
      * checks that the locator value is a valid Service ALOC16 (0xfc10 – 0xfc2f).
@@ -481,18 +519,18 @@ public:
     bool IsAnycastServiceLocator(void) const;
 
     /**
-     * This method gets the Interface Identifier (IID) address locator fields.
+     * Gets the Interface Identifier (IID) address locator fields.
      *
-     * This method assumes the IID to match the locator pattern `0000:00ff:fe00:xxxx` (does not explicitly check this)
+     * Assumes the IID to match the locator pattern `0000:00ff:fe00:xxxx` (does not explicitly check this)
      * and returns the last `uint16` portion of the IID.
      *
      * @returns The RLOC16 or ALOC16.
      *
      */
-    uint16_t GetLocator(void) const { return HostSwap16(mFields.m16[3]); }
+    uint16_t GetLocator(void) const { return BigEndian::HostSwap16(mFields.m16[3]); }
 
     /**
-     * This method sets the Interface Identifier (IID) address locator field.
+     * Sets the Interface Identifier (IID) address locator field.
      *
      * Unlike `SetToLocator()`, this method only changes the last 2 bytes of the IID and keeps the rest of the address
      * as before.
@@ -500,10 +538,21 @@ public:
      * @param[in]  aLocator   RLOC16 or ALOC16.
      *
      */
-    void SetLocator(uint16_t aLocator) { mFields.m16[3] = HostSwap16(aLocator); }
+    void SetLocator(uint16_t aLocator) { mFields.m16[3] = BigEndian::HostSwap16(aLocator); }
 
     /**
-     * This method converts an Interface Identifier to a string.
+     * Applies a prefix to IID.
+     *
+     * If the prefix length is longer than 64 bits, the prefix bits after 64 are written into the IID. This method only
+     * changes the bits in IID up the prefix length and keeps the rest of the bits in IID as before.
+     *
+     * @param[in] aPrefix   An IPv6 prefix.
+     *
+     */
+    void ApplyPrefix(const Prefix &aPrefix);
+
+    /**
+     * Converts an Interface Identifier to a string.
      *
      * @returns An `InfoString` containing the string representation of the Interface Identifier.
      *
@@ -517,13 +566,14 @@ private:
 } OT_TOOL_PACKED_END;
 
 /**
- * This class implements an IPv6 address object.
+ * Implements an IPv6 address object.
  *
  */
 OT_TOOL_PACKED_BEGIN
 class Address : public otIp6Address, public Equatable<Address>, public Clearable<Address>
 {
     friend class Prefix;
+    friend class InterfaceIdentifier;
 
 public:
     static constexpr uint8_t kAloc16Mask = InterfaceIdentifier::kAloc16Mask; ///< The mask for ALOC16.
@@ -543,7 +593,7 @@ public:
     static constexpr uint8_t kGlobalScope         = 14; ///< Global scope
 
     /**
-     * This enumeration defines IPv6 address type filter.
+     * Defines IPv6 address type filter.
      *
      */
     enum TypeFilter : uint8_t
@@ -555,13 +605,13 @@ public:
     };
 
     /**
-     * This type defines the fixed-length `String` object returned from `ToString()`.
+     * Defines the fixed-length `String` object returned from `ToString()`.
      *
      */
     typedef String<kInfoStringSize> InfoString;
 
     /**
-     * This method gets the IPv6 address as a pointer to a byte array.
+     * Gets the IPv6 address as a pointer to a byte array.
      *
      * @returns A pointer to a byte array containing the IPv6 address.
      *
@@ -569,7 +619,7 @@ public:
     const uint8_t *GetBytes(void) const { return mFields.m8; }
 
     /**
-     * This method sets the IPv6 address from a given byte array.
+     * Sets the IPv6 address from a given byte array.
      *
      * @param[in] aBuffer    Pointer to an array containing the IPv6 address. `kSize` bytes from the buffer
      *                       are copied to form the IPv6 address.
@@ -578,7 +628,7 @@ public:
     void SetBytes(const uint8_t *aBuffer) { memcpy(mFields.m8, aBuffer, kSize); }
 
     /**
-     * This method indicates whether or not the IPv6 address is the Unspecified Address.
+     * Indicates whether or not the IPv6 address is the Unspecified Address.
      *
      * @retval TRUE   If the IPv6 address is the Unspecified Address.
      * @retval FALSE  If the IPv6 address is not the Unspecified Address.
@@ -587,7 +637,7 @@ public:
     bool IsUnspecified(void) const;
 
     /**
-     * This method indicates whether or not the IPv6 address is the Loopback Address.
+     * Indicates whether or not the IPv6 address is the Loopback Address.
      *
      * @retval TRUE   If the IPv6 address is the Loopback Address.
      * @retval FALSE  If the IPv6 address is not the Loopback Address.
@@ -596,16 +646,16 @@ public:
     bool IsLoopback(void) const;
 
     /**
-     * This method indicates whether or not the IPv6 address scope is Link-Local.
+     * Indicates whether or not the IPv6 address is a Link-Local unicast address.
      *
-     * @retval TRUE   If the IPv6 address scope is Link-Local.
-     * @retval FALSE  If the IPv6 address scope is not Link-Local.
+     * @retval TRUE   If the IPv6 address is a Link-Local unicast address.
+     * @retval FALSE  If the IPv6 address is not a Link-Local unicast address.
      *
      */
-    bool IsLinkLocal(void) const;
+    bool IsLinkLocalUnicast(void) const;
 
     /**
-     * This methods sets the IPv6 address to a Link-Local address with Interface Identifier generated from a given
+     * Sets the IPv6 address to a Link-Local address with Interface Identifier generated from a given
      * MAC Extended Address.
      *
      * @param[in]  aExtAddress  A MAC Extended Address (used to generate the IID).
@@ -614,7 +664,7 @@ public:
     void SetToLinkLocalAddress(const Mac::ExtAddress &aExtAddress);
 
     /**
-     * This methods sets the IPv6 address to a Link-Local address with a given Interface Identifier.
+     * Sets the IPv6 address to a Link-Local address with a given Interface Identifier.
      *
      * @param[in]  aIid   An Interface Identifier.
      *
@@ -622,7 +672,7 @@ public:
     void SetToLinkLocalAddress(const InterfaceIdentifier &aIid);
 
     /**
-     * This method indicates whether or not the IPv6 address is multicast address.
+     * Indicates whether or not the IPv6 address is multicast address.
      *
      * @retval TRUE   If the IPv6 address is a multicast address.
      * @retval FALSE  If the IPv6 address scope is not a multicast address.
@@ -631,7 +681,7 @@ public:
     bool IsMulticast(void) const { return mFields.m8[0] == 0xff; }
 
     /**
-     * This method indicates whether or not the IPv6 address is a link-local multicast address.
+     * Indicates whether or not the IPv6 address is a link-local multicast address.
      *
      * @retval TRUE   If the IPv6 address is a link-local multicast address.
      * @retval FALSE  If the IPv6 address scope is not a link-local multicast address.
@@ -640,7 +690,16 @@ public:
     bool IsLinkLocalMulticast(void) const;
 
     /**
-     * This method indicates whether or not the IPv6 address is a link-local all nodes multicast address (ff02::01).
+     * Indicates whether or not the IPv6 address is a link-local unicast or a link-local multicast address.
+     *
+     * @retval TRUE   If the IPv6 address is a link-local unicast or multicast address.
+     * @retval FALSE  If the IPv6 address is not a link-local unicast and not a link-local multicast address.
+     *
+     */
+    bool IsLinkLocalUnicastOrMulticast(void) const;
+
+    /**
+     * Indicates whether or not the IPv6 address is a link-local all nodes multicast address (ff02::01).
      *
      * @retval TRUE   If the IPv6 address is a link-local all nodes multicast address.
      * @retval FALSE  If the IPv6 address is not a link-local all nodes multicast address.
@@ -649,13 +708,13 @@ public:
     bool IsLinkLocalAllNodesMulticast(void) const;
 
     /**
-     * This method sets the IPv6 address to the link-local all nodes multicast address (ff02::01).
+     * Sets the IPv6 address to the link-local all nodes multicast address (ff02::01).
      *
      */
     void SetToLinkLocalAllNodesMulticast(void);
 
     /**
-     * This method indicates whether or not the IPv6 address is a link-local all routers multicast address (ff02::02).
+     * Indicates whether or not the IPv6 address is a link-local all routers multicast address (ff02::02).
      *
      * @retval TRUE   If the IPv6 address is a link-local all routers multicast address.
      * @retval FALSE  If the IPv6 address is not a link-local all routers multicast address.
@@ -664,13 +723,13 @@ public:
     bool IsLinkLocalAllRoutersMulticast(void) const;
 
     /**
-     * This method sets the IPv6 address to the link-local all routers multicast address (ff02::02).
+     * Sets the IPv6 address to the link-local all routers multicast address (ff02::02).
      *
      */
     void SetToLinkLocalAllRoutersMulticast(void);
 
     /**
-     * This method indicates whether or not the IPv6 address is a realm-local multicast address.
+     * Indicates whether or not the IPv6 address is a realm-local multicast address.
      *
      * @retval TRUE   If the IPv6 address is a realm-local multicast address.
      * @retval FALSE  If the IPv6 address scope is not a realm-local multicast address.
@@ -679,7 +738,7 @@ public:
     bool IsRealmLocalMulticast(void) const;
 
     /**
-     * This method indicates whether or not the IPv6 address is a realm-local all nodes multicast address (ff03::01).
+     * Indicates whether or not the IPv6 address is a realm-local all nodes multicast address (ff03::01).
      *
      * @retval TRUE   If the IPv6 address is a realm-local all nodes multicast address.
      * @retval FALSE  If the IPv6 address is not a realm-local all nodes multicast address.
@@ -688,13 +747,13 @@ public:
     bool IsRealmLocalAllNodesMulticast(void) const;
 
     /**
-     * This method sets the IPv6 address to the realm-local all nodes multicast address (ff03::01)
+     * Sets the IPv6 address to the realm-local all nodes multicast address (ff03::01)
      *
      */
     void SetToRealmLocalAllNodesMulticast(void);
 
     /**
-     * This method indicates whether or not the IPv6 address is a realm-local all routers multicast address (ff03::02).
+     * Indicates whether or not the IPv6 address is a realm-local all routers multicast address (ff03::02).
      *
      * @retval TRUE   If the IPv6 address is a realm-local all routers multicast address.
      * @retval FALSE  If the IPv6 address is not a realm-local all routers multicast address.
@@ -703,13 +762,13 @@ public:
     bool IsRealmLocalAllRoutersMulticast(void) const;
 
     /**
-     * This method sets the IPv6 address to the realm-local all routers multicast address (ff03::02).
+     * Sets the IPv6 address to the realm-local all routers multicast address (ff03::02).
      *
      */
     void SetToRealmLocalAllRoutersMulticast(void);
 
     /**
-     * This method indicates whether or not the IPv6 address is a realm-local all MPL forwarders address (ff03::fc).
+     * Indicates whether or not the IPv6 address is a realm-local all MPL forwarders address (ff03::fc).
      *
      * @retval TRUE   If the IPv6 address is a realm-local all MPL forwarders address.
      * @retval FALSE  If the IPv6 address is not a realm-local all MPL forwarders address.
@@ -718,13 +777,13 @@ public:
     bool IsRealmLocalAllMplForwarders(void) const;
 
     /**
-     * This method sets the the IPv6 address to the realm-local all MPL forwarders address (ff03::fc).
+     * Sets the the IPv6 address to the realm-local all MPL forwarders address (ff03::fc).
      *
      */
     void SetToRealmLocalAllMplForwarders(void);
 
     /**
-     * This method indicates whether or not the IPv6 address is multicast larger than realm local.
+     * Indicates whether or not the IPv6 address is multicast larger than realm local.
      *
      * @retval TRUE   If the IPv6 address is multicast larger than realm local.
      * @retval FALSE  If the IPv6 address is not multicast or the scope is not larger than realm local.
@@ -733,7 +792,7 @@ public:
     bool IsMulticastLargerThanRealmLocal(void) const;
 
     /**
-     * This method sets the IPv6 address to a Routing Locator (RLOC) IPv6 address with a given Network Prefix and
+     * Sets the IPv6 address to a Routing Locator (RLOC) IPv6 address with a given Network Prefix and
      * RLOC16 value.
      *
      * @param[in]  aNetworkPrefix    A Network Prefix.
@@ -746,7 +805,7 @@ public:
     }
 
     /**
-     * This method sets the IPv6 address to a Anycast Locator (ALOC) IPv6 address with a given Network Prefix and
+     * Sets the IPv6 address to a Anycast Locator (ALOC) IPv6 address with a given Network Prefix and
      * ALOC16 value.
      *
      * @param[in]  aNetworkPrefix    A Network Prefix.
@@ -759,7 +818,28 @@ public:
     }
 
     /**
-     * This method returns the Network Prefix of the IPv6 address (most significant 64 bits of the address).
+     * Indicates whether or not the IPv6 address follows the IPv4-mapped format.
+     *
+     * An IPv4-mapped IPv6 address consists of an 80-bit prefix of zeros, the next 16 bits set to  ones, and the
+     * remaining, least-significant 32 bits contain the IPv4 address, e.g., `::ffff:192.0.2.128` representing
+     * `192.0.2.128` IPv4 address.
+     *
+     * @retval TRUE   If the IPv6 address follows the IPv4-mapped format.
+     * @retval FALSE  If the IPv6 address does not follow the IPv4-mapped format.
+     *
+     */
+    bool IsIp4Mapped(void) const;
+
+    /**
+     * Sets the IPv6 address to follow the IPv4-mapped IPv6 address for a given IPv4 address.
+     *
+     * @param[in] aIp4Address  An IPv4 address.
+     *
+     */
+    void SetToIp4Mapped(const Ip4::Address &aIp4Address);
+
+    /**
+     * Returns the Network Prefix of the IPv6 address (most significant 64 bits of the address).
      *
      * @returns A reference to the Network Prefix.
      *
@@ -770,7 +850,16 @@ public:
     }
 
     /**
-     * This method indicates whether the IPv6 address matches a given prefix.
+     * Gets a prefix of the IPv6 address with a given length.
+     *
+     * @param[in]  aLength  The length of prefix in bits.
+     * @param[out] aPrefix  A reference to a prefix to output the fetched prefix.
+     *
+     */
+    void GetPrefix(uint8_t aLength, Prefix &aPrefix) const { aPrefix.Set(mFields.m8, aLength); }
+
+    /**
+     * Indicates whether the IPv6 address matches a given prefix.
      *
      * @param[in] aPrefix  An IPv6 prefix to match with.
      *
@@ -781,7 +870,7 @@ public:
     bool MatchesPrefix(const Prefix &aPrefix) const;
 
     /**
-     * This method indicates whether the IPv6 address matches a given prefix.
+     * Indicates whether the IPv6 address matches a given prefix.
      *
      * @param[in]  aPrefix         A buffer containing the prefix.
      * @param[in]  aPrefixLength   The prefix length (in bits).
@@ -793,19 +882,19 @@ public:
     bool MatchesPrefix(const uint8_t *aPrefix, uint8_t aPrefixLength) const;
 
     /**
-     * This method sets the IPv6 address prefix.
+     * Sets the IPv6 address prefix.
      *
-     * This method only changes the first @p aPrefixLength bits of the address and keeps the rest of the bits in the
+     * Only changes the first @p aPrefixLength bits of the address and keeps the rest of the bits in the
      * address as before.
      *
      * @param[in]  aPrefix         A buffer containing the prefix.
      * @param[in]  aPrefixLength   The prefix length (in bits).
      *
      */
-    void SetPrefix(const uint8_t *aPrefix, uint8_t aPrefixLength) { SetPrefix(0, aPrefix, aPrefixLength); }
+    void SetPrefix(const uint8_t *aPrefix, uint8_t aPrefixLength) { CopyBits(mFields.m8, aPrefix, aPrefixLength); }
 
     /**
-     * This method sets the IPv6 address prefix to the given Network Prefix.
+     * Sets the IPv6 address prefix to the given Network Prefix.
      *
      * @param[in]  aNetworkPrefix   A Network Prefix.
      *
@@ -813,9 +902,9 @@ public:
     void SetPrefix(const NetworkPrefix &aNetworkPrefix);
 
     /**
-     * This method sets the IPv6 address prefix.
+     * Sets the IPv6 address prefix.
      *
-     * This method only changes the initial prefix length bits of the IPv6 address and keeps the rest of the bits in
+     * Only changes the initial prefix length bits of the IPv6 address and keeps the rest of the bits in
      * the address as before.
      *
      * @param[in]  aPrefix         An IPv6 prefix.
@@ -824,7 +913,7 @@ public:
     void SetPrefix(const Prefix &aPrefix);
 
     /**
-     * This method sets the prefix content of the Prefix-Based Multicast Address.
+     * Sets the prefix content of the Prefix-Based Multicast Address.
      *
      * @param[in]  aPrefix         A buffer containing the prefix.
      * @param[in]  aPrefixLength   The prefix length (in bits).
@@ -833,7 +922,7 @@ public:
     void SetMulticastNetworkPrefix(const uint8_t *aPrefix, uint8_t aPrefixLength);
 
     /**
-     * This method sets the prefix content of Prefix-Based Multicast Address.
+     * Sets the prefix content of Prefix-Based Multicast Address.
      *
      * @param[in]  aNetworkPrefix   A reference to a Network Prefix.
      *
@@ -844,7 +933,7 @@ public:
     }
 
     /**
-     * This method sets the prefix content of Prefix-Based Multicast Address.
+     * Sets the prefix content of Prefix-Based Multicast Address.
      *
      * @param[in]  aPrefix  An IPv6 Prefix.
      *
@@ -855,7 +944,7 @@ public:
     }
 
     /**
-     * This method returns the Interface Identifier of the IPv6 address.
+     * Returns the Interface Identifier of the IPv6 address.
      *
      * @returns A reference to the Interface Identifier.
      *
@@ -866,7 +955,7 @@ public:
     }
 
     /**
-     * This method returns the Interface Identifier of the IPv6 address.
+     * Returns the Interface Identifier of the IPv6 address.
      *
      * @returns A reference to the Interface Identifier.
      *
@@ -874,7 +963,7 @@ public:
     InterfaceIdentifier &GetIid(void) { return static_cast<InterfaceIdentifier &>(mFields.mComponents.mIid); }
 
     /**
-     * This method sets the Interface Identifier.
+     * Sets the Interface Identifier.
      *
      * @param[in]  aIid  An Interface Identifier.
      *
@@ -882,7 +971,7 @@ public:
     void SetIid(const InterfaceIdentifier &aIid) { GetIid() = aIid; }
 
     /**
-     * This method returns the IPv6 address scope.
+     * Returns the IPv6 address scope.
      *
      * @returns The IPv6 address scope.
      *
@@ -890,7 +979,7 @@ public:
     uint8_t GetScope(void) const;
 
     /**
-     * This method returns the number of IPv6 prefix bits that match.
+     * Returns the number of IPv6 prefix bits that match.
      *
      * @param[in]  aOther  The IPv6 address to match against.
      *
@@ -900,7 +989,7 @@ public:
     uint8_t PrefixMatch(const Address &aOther) const;
 
     /**
-     * This method indicates whether address matches a given type filter.
+     * Indicates whether address matches a given type filter.
      *
      * @param[in] aFilter   An address type filter.
      *
@@ -911,7 +1000,7 @@ public:
     bool MatchesFilter(TypeFilter aFilter) const;
 
     /**
-     * This method sets the IPv6 address by performing NAT64 address translation from a given IPv4 address as specified
+     * Sets the IPv6 address by performing NAT64 address translation from a given IPv4 address as specified
      * in RFC 6052.
      *
      * The NAT64 @p aPrefix MUST have one of the following lengths: 32, 40, 48, 56, 64, or 96, otherwise the behavior
@@ -924,7 +1013,7 @@ public:
     void SynthesizeFromIp4Address(const Prefix &aPrefix, const Ip4::Address &aIp4Address);
 
     /**
-     * This method converts an IPv6 address string to binary.
+     * Converts an IPv6 address string to binary.
      *
      * @param[in]  aString  A pointer to the null-terminated string.
      *
@@ -935,7 +1024,7 @@ public:
     Error FromString(const char *aString);
 
     /**
-     * This method converts the IPv6 address to a string.
+     * Converts the IPv6 address to a string.
      *
      * The IPv6 address string is formatted as 16 hex values separated by ':' (i.e., "%x:%x:%x:...:%x").
      *
@@ -945,21 +1034,21 @@ public:
     InfoString ToString(void) const;
 
     /**
-     * This method convert the IPv6 address to a C string.
+     * Convert the IPv6 address to a C string.
      *
      * The IPv6 address string is formatted as 16 hex values separated by ':' (i.e., "%x:%x:%x:...:%x").
      *
      * If the resulting string does not fit in @p aBuffer (within its @p aSize characters), the string will be
      * truncated but the outputted string is always null-terminated.
      *
-     * @param[out] aBuffer   A pointer to a char array to output the string (MUST NOT be nullptr).
+     * @param[out] aBuffer   A pointer to a char array to output the string (MUST NOT be `nullptr`).
      * @param[in]  aSize     The size of @p aBuffer (in bytes).
      *
      */
     void ToString(char *aBuffer, uint16_t aSize) const;
 
     /**
-     * This method overloads operator `<` to compare two IPv6 addresses.
+     * Overloads operator `<` to compare two IPv6 addresses.
      *
      * @param[in] aOther  The other IPv6 address to compare with.
      *
@@ -970,7 +1059,9 @@ public:
     bool operator<(const Address &aOther) const { return memcmp(mFields.m8, aOther.mFields.m8, sizeof(Address)) < 0; }
 
 private:
-    void SetPrefix(uint8_t aOffset, const uint8_t *aPrefix, uint8_t aPrefixLength);
+    static constexpr uint8_t kMulticastNetworkPrefixLengthOffset = 3; // Prefix-Based Multicast Address (RFC3306)
+    static constexpr uint8_t kMulticastNetworkPrefixOffset       = 4; // Prefix-Based Multicast Address (RFC3306)
+
     void SetToLocator(const NetworkPrefix &aNetworkPrefix, uint16_t aLocator);
     void ToString(StringWriter &aWriter) const;
     void AppendHexWords(StringWriter &aWriter, uint8_t aLength) const;
@@ -981,8 +1072,10 @@ private:
     static const Address &GetRealmLocalAllRoutersMulticast(void);
     static const Address &GetRealmLocalAllMplForwarders(void);
 
-    static constexpr uint8_t kMulticastNetworkPrefixLengthOffset = 3; // Prefix-Based Multicast Address (RFC3306).
-    static constexpr uint8_t kMulticastNetworkPrefixOffset       = 4; // Prefix-Based Multicast Address (RFC3306).
+    static void CopyBits(uint8_t *aDst, const uint8_t *aSrc, uint8_t aNumBits);
+
+    Error ParseFrom(const char *aString, char aTerminatorChar);
+
 } OT_TOOL_PACKED_END;
 
 /**
@@ -991,6 +1084,12 @@ private:
  */
 
 } // namespace Ip6
+
+DefineCoreType(otIp6NetworkPrefix, Ip6::NetworkPrefix);
+DefineCoreType(otIp6Prefix, Ip6::Prefix);
+DefineCoreType(otIp6InterfaceIdentifier, Ip6::InterfaceIdentifier);
+DefineCoreType(otIp6Address, Ip6::Address);
+
 } // namespace ot
 
 #endif // IP6_ADDRESS_HPP_

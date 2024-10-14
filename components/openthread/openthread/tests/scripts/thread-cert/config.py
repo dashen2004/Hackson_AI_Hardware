@@ -44,8 +44,6 @@ import simulator
 import sniffer
 from tlvs_parsing import SubTlvsFactory
 
-# This extended address will generate the MESH_LOCAL_PREFIX
-EXTENDED_PANID = '000db80000000000'
 MESH_LOCAL_PREFIX = 'fd00:db8::/64'
 MESH_LOCAL_PREFIX_REGEX_PATTERN = '^fd00:0?db8:0{0,4}:0{0,4}'
 ROUTING_LOCATOR = '64/:0:ff:fe00:/16'
@@ -59,6 +57,7 @@ REALM_LOCAL_ALL_NODES_ADDRESS = 'ff03::1'
 REALM_LOCAL_ALL_ROUTERS_ADDRESS = 'ff03::2'
 LINK_LOCAL_ALL_NODES_ADDRESS = 'ff02::1'
 LINK_LOCAL_ALL_ROUTERS_ADDRESS = 'ff02::2'
+TMF_PORT = 61631
 
 DOMAIN_PREFIX = 'fd00:7d03:7d03:7d03::/64'
 DOMAIN_PREFIX_REGEX_PATTERN = '^fd00:7d03:7d03:7d03:'
@@ -69,6 +68,7 @@ BACKBONE_PREFIX = f'{0x9100 + PORT_OFFSET:04x}::/64'
 BACKBONE_PREFIX_REGEX_PATTERN = f'^{0x9100 + PORT_OFFSET:04x}:'
 BACKBONE_DOCKER_NETWORK_NAME = f'backbone{PORT_OFFSET}'
 BACKBONE_IFNAME = 'eth0'
+THREAD_IFNAME = 'wpan0'
 
 OTBR_DOCKER_IMAGE = os.getenv('OTBR_DOCKER_IMAGE', 'otbr-ot12-backbone-ci')
 OTBR_DOCKER_NAME_PREFIX = f'otbr_{PORT_OFFSET}_'
@@ -124,8 +124,19 @@ RSSI = {
 }
 
 SNIFFER_ID = int(os.getenv('SNIFFER_ID', 34))
-PANID = 0xface
 
+CHANNEL = 11
+CHANNEL_MASK = 0x07fff800
+EXTENDED_PANID = 'dead00beef00cafe'
+NETWORK_NAME = 'OpenThread'
+PANID = 0xface
+PSKC = 'c23a76e98f1a6483639b1ac1271e2e27'
+SECURITY_POLICY = [672, 'onrc']
+
+LEADER_STARTUP_DELAY = 12
+ROUTER_STARTUP_DELAY = 10
+ED_STARTUP_DELAY = 5
+BORDER_ROUTER_STARTUP_DELAY = 20
 MAX_NEIGHBOR_AGE = 100
 INFINITE_COST_TIMEOUT = 90
 
@@ -145,6 +156,18 @@ LEADER_NOTIFY_SED_BY_CHILD_UPDATE_REQUEST = True
 
 THREAD_VERSION_1_1 = 2
 THREAD_VERSION_1_2 = 3
+THREAD_VERSION_1_3 = 4
+
+PACKET_VERIFICATION_NONE = 0
+PACKET_VERIFICATION_DEFAULT = 1
+PACKET_VERIFICATION_TREL = 2
+
+# After leader reset it may retransmit link request 6 times with max 5.5s interval
+LEADER_RESET_DELAY = 41
+# After router reset it may retransmit link request 3 times with max 5.5s interval
+ROUTER_RESET_DELAY = 23
+MLE_MAX_CRITICAL_TRANSMISSION_COUNT = 6
+MLE_MAX_TRANSMISSION_COUNT = 3
 
 
 def create_default_network_data_prefix_sub_tlvs_factories():
@@ -315,7 +338,7 @@ def create_deafult_network_tlvs_factories():
         network_layer.TlvType.XTAL_ACCURACY:
             network_layer.XtalAccuracyFactory(),
         # Routing information are distributed in a Thread network by MLE Routing TLV
-        # which is in fact MLE Route64 TLV. Thread specificaton v1.1. - Chapter 5.20
+        # which is in fact MLE Route64 TLV. Thread specification v1.1. - Chapter 5.20
         network_layer.TlvType.MLE_ROUTING:
             create_default_mle_tlv_route64_factory(),
         network_layer.TlvType.IPv6_ADDRESSES:

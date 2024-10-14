@@ -54,12 +54,26 @@ extern "C" {
  */
 
 /**
- * This function performs a software reset on the platform, if supported.
+ * Performs a software reset on the platform, if supported.
  *
  * @param[in] aInstance  The OpenThread instance structure.
  *
  */
 void otPlatReset(otInstance *aInstance);
+
+/**
+ * Performs a hardware reset on the platform to launch bootloader mode, if supported.
+ *
+ * Used when `OPENTHREAD_CONFIG_PLATFORM_BOOTLOADER_MODE_ENABLE` is enabled.
+ *
+ * @param[in] aInstance  The OpenThread instance structure.
+ *
+ * @retval OT_ERROR_NONE         Reset to bootloader successfully.
+ * @retval OT_ERROR_BUSY         Failed due to another operation is ongoing.
+ * @retval OT_ERROR_NOT_CAPABLE  Not capable of resetting to bootloader.
+ *
+ */
+otError otPlatResetToBootloader(otInstance *aInstance);
 
 /**
  * Enumeration of possible reset reason codes.
@@ -83,7 +97,7 @@ typedef enum
 } otPlatResetReason;
 
 /**
- * This function returns the reason for the last platform reset.
+ * Returns the reason for the last platform reset.
  *
  * @param[in] aInstance  The OpenThread instance structure.
  *
@@ -91,7 +105,7 @@ typedef enum
 otPlatResetReason otPlatGetResetReason(otInstance *aInstance);
 
 /**
- * This function provides a platform specific implementation for assert.
+ * Provides a platform specific implementation for assert.
  *
  * @param[in] aFilename    The name of the file where the assert occurred.
  * @param[in] aLineNumber  The line number in the file where the assert occurred.
@@ -100,7 +114,7 @@ otPlatResetReason otPlatGetResetReason(otInstance *aInstance);
 void otPlatAssertFail(const char *aFilename, int aLineNumber);
 
 /**
- * This function performs a platform specific operation to wake the host MCU.
+ * Performs a platform specific operation to wake the host MCU.
  * This is used only for NCP configurations.
  *
  */
@@ -163,7 +177,7 @@ typedef enum
 } otPlatMcuPowerState;
 
 /**
- * This function sets the desired MCU power state.
+ * Sets the desired MCU power state.
  *
  * This is only applicable and used for NCP configuration when `OPENTHREAD_CONFIG_NCP_ENABLE_MCU_POWER_STATE_CONTROL`
  * is enabled.
@@ -178,7 +192,7 @@ typedef enum
 otError otPlatSetMcuPowerState(otInstance *aInstance, otPlatMcuPowerState aState);
 
 /**
- * This function gets the current desired MCU power state.
+ * Gets the current desired MCU power state.
  *
  * This is only applicable and used for NCP configuration when `OPENTHREAD_CONFIG_NCP_ENABLE_MCU_POWER_STATE_CONTROL`
  * is enabled.
@@ -192,6 +206,16 @@ otError otPlatSetMcuPowerState(otInstance *aInstance, otPlatMcuPowerState aState
  *
  */
 otPlatMcuPowerState otPlatGetMcuPowerState(otInstance *aInstance);
+
+/**
+ * Logs a crash dump using OpenThread logging APIs
+ *
+ * @note This API is an optional logging platform API. It's up to the platform layer to implement it.
+ *
+ * @retval OT_ERROR_NONE            Crash dump was logged successfully
+ * @retval OT_ERROR_NOT_CAPABLE     Platform is not capable of logging a crash dump
+ */
+otError otPlatLogCrashDump(void);
 
 /**
  * @}

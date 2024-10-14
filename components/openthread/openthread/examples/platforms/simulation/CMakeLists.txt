@@ -45,8 +45,8 @@ if(OT_SIMULATION_MAX_NETWORK_SIZE)
     target_compile_definitions(ot-simulation-config INTERFACE "OPENTHREAD_SIMULATION_MAX_NETWORK_SIZE=${OT_SIMULATION_MAX_NETWORK_SIZE}")
 endif()
 
-if(NOT OT_CONFIG)
-    set(OT_CONFIG "openthread-core-simulation-config.h" PARENT_SCOPE)
+if(NOT OT_PLATFORM_CONFIG)
+    set(OT_PLATFORM_CONFIG "openthread-core-simulation-config.h" PARENT_SCOPE)
 endif()
 
 list(APPEND OT_PLATFORM_DEFINES
@@ -59,14 +59,21 @@ set(OT_PLATFORM_DEFINES ${OT_PLATFORM_DEFINES} PARENT_SCOPE)
 
 add_library(openthread-simulation
     alarm.c
+    ble.c
     crypto.c
     diag.c
+    dns.c
+    dnssd.c
+    dso_transport.c
     entropy.c
     flash.c
     infra_if.c
     logging.c
+    mdns_socket.c
     misc.c
+    multipan.c
     radio.c
+    simul_utils.c
     spi-stubs.c
     system.c
     trel.c
@@ -101,7 +108,7 @@ target_include_directories(openthread-simulation PRIVATE
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set(CPACK_PACKAGE_NAME "openthread-simulation")
     set(CPACK_GENERATOR "DEB")
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "OpenThread Authors <openthread-users@googlegroups.com")
-    set(CPACK_PACKAGE_CONTACT "OpenThread Authors <openthread-users@googlegroups.com")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "OpenThread Authors (https://github.com/openthread/openthread)")
+    set(CPACK_PACKAGE_CONTACT "OpenThread Authors (https://github.com/openthread/openthread)")
     include(CPack)
 endif()

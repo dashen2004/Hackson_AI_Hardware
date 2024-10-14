@@ -103,7 +103,7 @@ typedef struct {
 /* btc_spp_args_t */
 typedef union {
     // BTC_HH_CONNECT_EVT
-    struct connect_arg {
+    struct hh_connect_arg {
         BD_ADDR bd_addr;
     } connect;
 
@@ -181,6 +181,8 @@ void btc_hh_call_handler(btc_msg_t *msg);
 void btc_hh_cb_handler(btc_msg_t *msg);
 
 void btc_hh_arg_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src);
+
+void btc_hh_cb_arg_deep_free(btc_msg_t *msg);
 
 bool btc_hh_add_added_dev(BD_ADDR bd_addr, uint16_t attr_mask);
 

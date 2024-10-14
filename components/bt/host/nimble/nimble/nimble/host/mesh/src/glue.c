@@ -22,6 +22,7 @@
 
 #include "mesh/glue.h"
 #include "adv.h"
+#include "../src/ble_hs_conn_priv.h"
 #ifndef MYNEWT
 #include "nimble/nimble_port.h"
 #endif
@@ -30,7 +31,7 @@
 #include "base64/base64.h"
 #endif
 
-extern u8_t g_mesh_addr_type;
+extern uint8_t g_mesh_addr_type;
 
 #if MYNEWT_VAL(BLE_EXT_ADV)
 /* Store configuration for different bearers */
@@ -39,20 +40,28 @@ extern u8_t g_mesh_addr_type;
 static struct ble_gap_adv_params ble_adv_cur_conf[2];
 #endif
 
+#ifndef min
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef max
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
 const char *
 bt_hex(const void *buf, size_t len)
 {
     static const char hex[] = "0123456789abcdef";
     static char hexbufs[4][137];
-    static u8_t curbuf;
-    const u8_t *b = buf;
+    static uint8_t curbuf;
+    const uint8_t *b = buf;
     char *str;
     int i;
 
     str = hexbufs[curbuf++];
     curbuf %= ARRAY_SIZE(hexbufs);
 
-    len = min(len, (sizeof(hexbufs[0]) - 1) / 2);
+    len = MIN(len, (sizeof(hexbufs[0]) - 1) / 2);
 
     for (i = 0; i < len; i++) {
         str[i * 2] = hex[b[i] >> 4];
@@ -104,6 +113,10 @@ net_buf_unref(struct os_mbuf *om)
     }
 
     adv = BT_MESH_ADV(om);
+    if (adv->started && adv->cb && adv->cb->end) {
+    	adv->cb->end(0, adv->cb_data);
+    }
+
     if (--adv->ref_cnt > 0) {
         return;
     }
@@ -111,6 +124,13 @@ net_buf_unref(struct os_mbuf *om)
 free:
     os_mbuf_free_chain(om);
 }
+
+void net_buf_simple_clone(const struct os_mbuf *original,
+	struct os_mbuf *clone)
+{
+	memcpy(clone, original, sizeof(struct os_mbuf));
+}
+
 
 #if MYNEWT_VAL(BLE_CRYPTO_STACK_MBEDTLS)
 int
@@ -163,6 +183,20 @@ net_buf_simple_pull_le16(struct os_mbuf *om)
     os_mbuf_adj(om, sizeof(val));
 
     return val;
+}
+
+uint32_t
+net_buf_simple_pull_le24(struct os_mbuf *om)
+{
+	uint32_t val;
+	struct os_mbuf *old = om;
+
+	om = os_mbuf_pullup(om, 3);
+	assert(om == old);
+	val = get_le24(om->om_data);
+	os_mbuf_adj(om, 3);
+
+	return val;
 }
 
 uint16_t
@@ -238,6 +272,14 @@ net_buf_simple_add_be16(struct os_mbuf *om, uint16_t val)
 }
 
 void
+net_buf_simple_add_le24(struct os_mbuf *om, uint32_t val)
+{
+    val = htole32(val);
+    os_mbuf_append(om, &val, 3);
+    ASSERT_NOT_CHAIN(om);
+}
+
+void
 net_buf_simple_add_be32(struct os_mbuf *om, uint32_t val)
 {
     val = htobe32(val);
@@ -288,6 +330,22 @@ net_buf_simple_push_be16(struct os_mbuf *om, uint16_t val)
 
     if (om->om_pkthdr_len) {
         OS_MBUF_PKTHDR(om)->omp_len += 2;
+    }
+    ASSERT_NOT_CHAIN(om);
+}
+
+void
+net_buf_simple_push_be24(struct os_mbuf *om, uint32_t val)
+{
+    uint8_t headroom = om->om_data - &om->om_databuf[om->om_pkthdr_len];
+
+    assert(headroom >= 3);
+    om->om_data -= 3;
+    put_be24(om->om_data, val);
+    om->om_len += 3;
+
+    if (om->om_pkthdr_len) {
+        OS_MBUF_PKTHDR(om)->omp_len += 3;
     }
     ASSERT_NOT_CHAIN(om);
 }
@@ -356,7 +414,7 @@ k_fifo_is_empty(struct ble_npl_eventq *q)
     return ble_npl_eventq_is_empty(q);
 }
 
-void * net_buf_get(struct ble_npl_eventq *fifo, s32_t t)
+void * net_buf_get(struct ble_npl_eventq *fifo, int32_t t)
 {
     struct ble_npl_event *ev = ble_npl_eventq_get(fifo, 0);
 
@@ -398,7 +456,7 @@ k_work_init(struct ble_npl_callout *work, ble_npl_event_fn handler)
 }
 
 void
-k_delayed_work_init(struct k_delayed_work *w, ble_npl_event_fn *f)
+k_work_init_delayable(struct k_work_delayable *w, ble_npl_event_fn *f)
 {
 #ifndef MYNEWT
     ble_npl_callout_init(&w->work, nimble_port_get_dflt_eventq(), f, NULL);
@@ -407,21 +465,38 @@ k_delayed_work_init(struct k_delayed_work *w, ble_npl_event_fn *f)
 #endif
 }
 
+bool
+k_work_delayable_is_pending(struct k_work_delayable *w)
+{
+    return ble_npl_callout_is_active(&w->work);
+}
+
 void
-k_delayed_work_cancel(struct k_delayed_work *w)
+k_work_cancel_delayable(struct k_work_delayable *w)
 {
     ble_npl_callout_stop(&w->work);
 }
 
 void
-k_delayed_work_submit(struct k_delayed_work *w, uint32_t ms)
+k_work_schedule(struct k_work_delayable *w, uint32_t ms)
 {
-    uint32_t ticks;
+	uint32_t ticks;
 
-    if (ble_npl_time_ms_to_ticks(ms, &ticks) != 0) {
-        assert(0);
-    }
-    ble_npl_callout_reset(&w->work, ticks);
+	if (ble_npl_time_ms_to_ticks(ms, &ticks) != 0) {
+		assert(0);
+	}
+	ble_npl_callout_reset(&w->work, ticks);
+}
+
+void
+k_work_reschedule(struct k_work_delayable *w, uint32_t ms)
+{
+	uint32_t ticks;
+
+	if (ble_npl_time_ms_to_ticks(ms, &ticks) != 0) {
+		assert(0);
+	}
+	ble_npl_callout_reset(&w->work, ticks);
 }
 
 void
@@ -437,13 +512,13 @@ k_work_add_arg(struct ble_npl_callout *w, void *arg)
 }
 
 void
-k_delayed_work_add_arg(struct k_delayed_work *w, void *arg)
+k_work_add_arg_delayable(struct k_work_delayable *w, void *arg)
 {
     k_work_add_arg(&w->work, arg);
 }
 
-uint32_t
-k_delayed_work_remaining_get (struct k_delayed_work *w)
+ble_npl_time_t
+k_work_delayable_remaining_get (struct k_work_delayable *w)
 {
     int sr;
     ble_npl_time_t t;
@@ -454,7 +529,13 @@ k_delayed_work_remaining_get (struct k_delayed_work *w)
 
     OS_EXIT_CRITICAL(sr);
 
-    return ble_npl_time_ticks_to_ms32(t);
+    return t;
+}
+
+uint32_t
+k_ticks_to_ms_floor32(ble_npl_time_t ticks)
+{
+    return ble_npl_time_ticks_to_ms32(ticks);
 }
 
 int64_t k_uptime_get(void)
@@ -463,9 +544,20 @@ int64_t k_uptime_get(void)
     return ble_npl_time_ticks_to_ms32(ble_npl_time_get());
 }
 
-u32_t k_uptime_get_32(void)
+uint32_t k_uptime_get_32(void)
 {
     return k_uptime_get();
+}
+
+int64_t k_uptime_delta(int64_t *reftime)
+{
+	int64_t uptime, delta;
+
+	uptime = k_uptime_get();
+	delta = uptime - *reftime;
+	*reftime = uptime;
+
+	return delta;
 }
 
 void k_sleep(int32_t duration)
@@ -482,7 +574,7 @@ static uint8_t priv[32];
 static bool has_pub = false;
 
 int
-bt_dh_key_gen(const u8_t remote_pk[64], bt_dh_key_cb_t cb)
+bt_dh_key_gen(const uint8_t remote_pk[64], bt_dh_key_cb_t cb)
 {
     uint8_t dh[32];
 
@@ -493,6 +585,33 @@ bt_dh_key_gen(const u8_t remote_pk[64], bt_dh_key_cb_t cb)
 
     cb(dh);
     return 0;
+}
+
+void
+bt_conn_get_info(struct ble_hs_conn *conn,
+		 struct ble_gap_conn_desc *desc)
+{
+	struct ble_hs_conn_addrs addrs;
+
+	ble_hs_conn_addrs(conn, &addrs);
+
+	desc->our_id_addr = addrs.our_id_addr;
+	desc->peer_id_addr = addrs.peer_id_addr;
+	desc->our_ota_addr = addrs.our_ota_addr;
+	desc->peer_ota_addr = addrs.peer_ota_addr;
+
+	desc->conn_handle = conn->bhc_handle;
+	desc->conn_itvl = conn->bhc_itvl;
+	desc->conn_latency = conn->bhc_latency;
+	desc->supervision_timeout = conn->bhc_supervision_timeout;
+	desc->master_clock_accuracy = conn->bhc_master_clock_accuracy;
+	desc->sec_state = conn->bhc_sec_state;
+
+	if (conn->bhc_flags & BLE_HS_CONN_F_MASTER) {
+		desc->role = BLE_GAP_ROLE_MASTER;
+	} else {
+		desc->role = BLE_GAP_ROLE_SLAVE;
+	}
 }
 
 int
@@ -533,7 +652,7 @@ bt_pub_key_get(void)
 }
 
 static int
-set_ad(const struct bt_data *ad, size_t ad_len, u8_t *buf, u8_t *buf_len)
+set_ad(const struct bt_data *ad, size_t ad_len, uint8_t *buf, uint8_t *buf_len)
 {
     int i;
 
@@ -698,24 +817,6 @@ error:
 
     return err;
 }
-
-int bt_le_adv_stop(bool proxy)
-{
-#if MYNEWT_VAL(BLE_MESH_PROXY)
-    int rc;
-
-    if (proxy) {
-        rc = ble_gap_ext_adv_stop(BT_MESH_ADV_GATT_INST);
-    } else {
-        rc = ble_gap_ext_adv_stop(BT_MESH_ADV_INST);
-    }
-
-    return rc;
-#else
-    return ble_gap_ext_adv_stop(BT_MESH_ADV_INST);
-#endif
-}
-
 #else
 
 int
@@ -762,13 +863,12 @@ bt_le_adv_start(const struct ble_gap_adv_params *param,
 
     return 0;
 }
-
-int bt_le_adv_stop(bool proxy)
-{
-	return ble_gap_adv_stop();
-}
-
 #endif
+
+int bt_le_adv_stop()
+{
+    return ble_gap_adv_stop();
+}
 
 #if MYNEWT_VAL(BLE_MESH_PROXY)
 int bt_mesh_proxy_svcs_register(void);
@@ -869,6 +969,53 @@ void net_buf_slist_merge_slist(struct net_buf_slist_t *list,
 	}
 }
 
+/** Memory slab methods */
+extern void  k_mem_slab_free(struct k_mem_slab *slab, void **mem)
+{
+    **(char ***)mem = slab->free_list;
+    slab->free_list = *(char **)mem;
+    slab->num_used--;
+}
+
+extern int k_mem_slab_alloc(struct k_mem_slab *slab, void **mem)
+{
+	int result;
+
+	if (slab->free_list != NULL) {
+		/* take a free block */
+		*mem = slab->free_list;
+		slab->free_list = *(char **)(slab->free_list);
+		slab->num_used++;
+		result = 0;
+	} else {
+		*mem = NULL;
+		result = -ENOMEM;
+	}
+	return result;
+}
+
+int create_free_list(struct k_mem_slab *slab)
+{
+	uint32_t j;
+	char *p;
+
+    /* blocks must be word aligned */
+    if(((slab->block_size | (uintptr_t)slab->buffer) &
+				(sizeof(void *) - 1)) != 0) {
+		return -EINVAL;
+	}
+
+	slab->free_list = NULL;
+	p = slab->buffer;
+
+	for (j = 0U; j < slab->num_blocks; j++) {
+		*(char **)p = slab->free_list;
+		slab->free_list = p;
+		p += slab->block_size;
+	}
+	return 0;
+}
+
 #if MYNEWT_VAL(BLE_MESH_SETTINGS)
 
 int settings_bytes_from_str(char *val_str, void *vp, int *len)
@@ -890,4 +1037,3 @@ char *settings_str_from_bytes(const void *vp, int vp_len,
 }
 
 #endif /* MYNEWT_VAL(BLE_MESH_SETTINGS) */
-

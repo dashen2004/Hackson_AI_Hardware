@@ -1,17 +1,8 @@
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-#ifndef BOOTLOADER_BUILD
+/*
+ * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -33,24 +24,34 @@
  * - Most other malloc caps only fit in one region anyway.
  *
  */
-const soc_memory_type_desc_t soc_memory_types[] = {
-    // Type 0: DRAM
-    { "DRAM", { MALLOC_CAP_8BIT | MALLOC_CAP_DEFAULT, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA | MALLOC_CAP_32BIT, 0 }, false, false},
-    // Type 1: DRAM used for startup stacks
-    { "STACK/DRAM", { MALLOC_CAP_8BIT | MALLOC_CAP_DEFAULT,  MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA | MALLOC_CAP_32BIT, MALLOC_CAP_RETENTION }, false, true},
-    // Type 2: DRAM which has an alias on the I-port
-    { "D/IRAM", { 0, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT, MALLOC_CAP_32BIT | MALLOC_CAP_EXEC }, true, false},
-    // Type 3: IRAM
-    { "IRAM", { MALLOC_CAP_EXEC | MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL, 0, 0 }, false, false},
-    // Type 4: RTCRAM
-    { "RTCRAM", { MALLOC_CAP_8BIT|MALLOC_CAP_DEFAULT, MALLOC_CAP_INTERNAL|MALLOC_CAP_32BIT, MALLOC_CAP_RTCRAM }, false, false},
+
+/* Index of memory in `soc_memory_types[]` */
+enum {
+    SOC_MEMORY_TYPE_RAM            = 0,
+    SOC_MEMORY_TYPE_RETENTION_RAM  = 1,
+    SOC_MEMORY_TYPE_RTCRAM         = 2,
+    SOC_MEMORY_TYPE_NUM,
 };
 
+/* COMMON_CAPS is the set of attributes common to all types of memory on this chip */
 #ifdef CONFIG_ESP_SYSTEM_MEMPROT_FEATURE
-#define SOC_MEMORY_TYPE_DEFAULT 0
+#define ESP32C3_MEM_COMMON_CAPS (MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT | MALLOC_CAP_8BIT)
 #else
-#define SOC_MEMORY_TYPE_DEFAULT 2
+#define ESP32C3_MEM_COMMON_CAPS (MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT | MALLOC_CAP_8BIT | MALLOC_CAP_EXEC)
 #endif
+
+/**
+ * Defined the attributes and allocation priority of each memory on the chip,
+ * The heap allocator will traverse all types of memory types in column High Priority Matching and match the specified caps at first,
+ * if no memory caps matched or the allocation is failed, it will go to columns Medium Priorty Matching and Low Priority Matching
+ * in turn to continue matching.
+ */
+const soc_memory_type_desc_t soc_memory_types[SOC_MEMORY_TYPE_NUM] = {
+    /*                                   Mem Type Name   | High Priority Matching                  | Medium Priorty Matching                 | Low Priority Matching */
+    [SOC_MEMORY_TYPE_RAM]           = { "RAM",           { ESP32C3_MEM_COMMON_CAPS | MALLOC_CAP_DMA, 0 ,                                       0}},
+    [SOC_MEMORY_TYPE_RETENTION_RAM] = { "Retention RAM", { MALLOC_CAP_RETENTION,                     ESP32C3_MEM_COMMON_CAPS | MALLOC_CAP_DMA, 0}},
+    [SOC_MEMORY_TYPE_RTCRAM]        = { "RTCRAM",        { MALLOC_CAP_RTCRAM,                        0,                                        ESP32C3_MEM_COMMON_CAPS }},
+};
 
 const size_t soc_memory_type_count = sizeof(soc_memory_types) / sizeof(soc_memory_type_desc_t);
 
@@ -61,12 +62,19 @@ const size_t soc_memory_type_count = sizeof(soc_memory_types) / sizeof(soc_memor
  *       this list should always be sorted from low to high by start address.
  *
  */
+
+/**
+ * Register the shared buffer area of the last memory block into the heap during heap initialization
+ */
+#define APP_USABLE_DRAM_END           (SOC_ROM_STACK_START - SOC_ROM_STACK_SIZE)
+
 const soc_memory_region_t soc_memory_regions[] = {
-    { 0x3FC80000, 0x20000, SOC_MEMORY_TYPE_DEFAULT, 0x40380000}, //Block 4,  can be remapped to ROM, can be used as trace memory
-    { 0x3FCA0000, 0x20000, SOC_MEMORY_TYPE_DEFAULT, 0x403A0000}, //Block 5,  can be remapped to ROM, can be used as trace memory
-    { 0x3FCC0000, 0x20000, 1, 0x403C0000}, //Block 9,  can be used as trace memory
+    { 0x3FC80000,           0x20000,                                   SOC_MEMORY_TYPE_RAM,             0x40380000, false}, //D/IRAM level1, can be used as trace memory
+    { 0x3FCA0000,           0x20000,                                   SOC_MEMORY_TYPE_RAM,             0x403A0000, false}, //D/IRAM level2, can be used as trace memory
+    { 0x3FCC0000,           (APP_USABLE_DRAM_END-0x3FCC0000),          SOC_MEMORY_TYPE_RETENTION_RAM,   0x403C0000, false}, //D/IRAM level3, backup dma accessible, can be used as trace memory
+    { APP_USABLE_DRAM_END,  (SOC_DIRAM_DRAM_HIGH-APP_USABLE_DRAM_END), SOC_MEMORY_TYPE_RETENTION_RAM,   MAP_DRAM_TO_IRAM(APP_USABLE_DRAM_END), true}, //D/IRAM level3, backup dma accessible, can be used as trace memory (ROM reserved area)
 #ifdef CONFIG_ESP_SYSTEM_ALLOW_RTC_FAST_MEM_AS_HEAP
-    { 0x50000000, 0x2000,  4, 0}, //Fast RTC memory
+    { 0x50000000,           0x2000,                                    SOC_MEMORY_TYPE_RTCRAM,          0, false}, //Fast RTC memory
 #endif
 };
 
@@ -74,6 +82,7 @@ const size_t soc_memory_region_count = sizeof(soc_memory_regions) / sizeof(soc_m
 
 
 extern int _data_start, _heap_start, _iram_start, _iram_end, _rtc_force_slow_end;
+extern int _rtc_reserved_start, _rtc_reserved_end;
 
 /**
  * Reserved memory regions.
@@ -96,4 +105,4 @@ SOC_RESERVE_MEMORY_REGION((intptr_t)&_iram_start - I_D_OFFSET, (intptr_t)&_iram_
 SOC_RESERVE_MEMORY_REGION(SOC_RTC_DRAM_LOW, (intptr_t)&_rtc_force_slow_end, rtcram_data);
 #endif
 
-#endif // BOOTLOADER_BUILD
+SOC_RESERVE_MEMORY_REGION((intptr_t)&_rtc_reserved_start, (intptr_t)&_rtc_reserved_end, rtc_reserved_data);

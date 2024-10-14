@@ -33,8 +33,6 @@
 
 #include "aes_ccm.hpp"
 
-#include <limits.h>
-
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
 #include "common/encoding.hpp"
@@ -248,6 +246,21 @@ void AesCcm::Payload(void *aPlainText, void *aCipherText, uint32_t aLength, Mode
     }
 }
 
+#if !OPENTHREAD_RADIO
+void AesCcm::Payload(Message &aMessage, uint16_t aOffset, uint16_t aLength, Mode aMode)
+{
+    Message::MutableChunk chunk;
+
+    aMessage.GetFirstChunk(aOffset, aLength, chunk);
+
+    while (chunk.GetLength() > 0)
+    {
+        Payload(chunk.GetBytes(), chunk.GetBytes(), chunk.GetLength(), aMode);
+        aMessage.GetNextChunk(aLength, chunk);
+    }
+}
+#endif
+
 void AesCcm::Finalize(void *aTag)
 {
     uint8_t *tagBytes = reinterpret_cast<uint8_t *>(aTag);
@@ -265,12 +278,12 @@ void AesCcm::Finalize(void *aTag)
 void AesCcm::GenerateNonce(const Mac::ExtAddress &aAddress,
                            uint32_t               aFrameCounter,
                            uint8_t                aSecurityLevel,
-                           uint8_t *              aNonce)
+                           uint8_t               *aNonce)
 {
     memcpy(aNonce, aAddress.m8, sizeof(Mac::ExtAddress));
     aNonce += sizeof(Mac::ExtAddress);
 
-    Encoding::BigEndian::WriteUint32(aFrameCounter, aNonce);
+    BigEndian::WriteUint32(aFrameCounter, aNonce);
     aNonce += sizeof(uint32_t);
 
     aNonce[0] = aSecurityLevel;

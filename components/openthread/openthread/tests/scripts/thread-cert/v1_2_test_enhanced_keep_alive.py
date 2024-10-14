@@ -30,6 +30,7 @@
 import unittest
 
 import thread_cert
+import config
 import mle
 
 LEADER = 1
@@ -61,7 +62,7 @@ class SED_EnhancedKeepAlive(thread_cert.TestCase):
         self.nodes[SED_1].set_pollperiod(USER_POLL_PERIOD * 1000)
 
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), 'leader')
 
         self.nodes[SED_1].start()
@@ -87,7 +88,7 @@ class SED_EnhancedKeepAlive(thread_cert.TestCase):
         msg.assertMleMessageContainsTlv(mle.Challenge)
         msg.assertMleMessageContainsTlv(mle.ScanMask)
         msg.assertMleMessageContainsTlv(mle.Version)
-        self.assertEqual(msg.get_mle_message_tlv(mle.Version).version, 3)
+        self.assertGreaterEqual(msg.get_mle_message_tlv(mle.Version).version, config.THREAD_VERSION_1_2)
 
         scan_mask_tlv = msg.get_mle_message_tlv(mle.ScanMask)
         self.assertEqual(1, scan_mask_tlv.router)
@@ -105,7 +106,7 @@ class SED_EnhancedKeepAlive(thread_cert.TestCase):
         msg.assertMleMessageContainsTlv(mle.LinkMargin)
         msg.assertMleMessageContainsTlv(mle.Connectivity)
         msg.assertMleMessageContainsTlv(mle.Version)
-        self.assertEqual(msg.get_mle_message_tlv(mle.Version).version, 3)
+        self.assertGreaterEqual(msg.get_mle_message_tlv(mle.Version).version, config.THREAD_VERSION_1_2)
 
         # 4 - SED_1 receives the MLE Parent Response and sends a Child ID Request
         msg = sed_messages.next_mle_message(mle.CommandType.CHILD_ID_REQUEST)
@@ -117,7 +118,7 @@ class SED_EnhancedKeepAlive(thread_cert.TestCase):
         msg.assertMleMessageContainsTlv(mle.Timeout)
         msg.assertMleMessageContainsTlv(mle.Version)
         msg.assertMleMessageContainsTlv(mle.TlvRequest)
-        self.assertEqual(msg.get_mle_message_tlv(mle.Version).version, 3)
+        self.assertGreaterEqual(msg.get_mle_message_tlv(mle.Version).version, config.THREAD_VERSION_1_2)
 
         # 5 - Leader responds with a Child ID Response
         msg = leader_messages.next_mle_message(mle.CommandType.CHILD_ID_RESPONSE)
@@ -133,19 +134,19 @@ class SED_EnhancedKeepAlive(thread_cert.TestCase):
         self.assertTrue(self.nodes[SED_1].ping(leader_aloc, timeout=USER_POLL_PERIOD * 2))
 
         # 6 - Timeout Child
-        self.nodes[LEADER].enable_allowlist()
-        self.nodes[SED_1].enable_allowlist()
-        self.nodes[SED_1].set_pollperiod(CHILD_TIMEOUT * 1000 * 2)
+        self.nodes[SED_1].set_pollperiod(CHILD_TIMEOUT * 1000 * 4)
         self.simulator.go(CHILD_TIMEOUT + 1)
         self.assertEqual(self.nodes[SED_1].get_state(), 'child')
-        self.nodes[SED_1].set_pollperiod(USER_POLL_PERIOD * 1000)
-        self.nodes[LEADER].disable_allowlist()
-        self.nodes[SED_1].disable_allowlist()
         self.assertFalse(self.nodes[SED_1].ping(leader_aloc, timeout=USER_POLL_PERIOD * 2))
         self.flush_all()
 
+        self.nodes[SED_1].stop()
+        self.nodes[SED_1].set_pollperiod(USER_POLL_PERIOD * 1000)
+        self.nodes[SED_1].start()
+
         # 7 - Wait SED_1 to re-attach
         self.simulator.go(240)
+        self.assertEqual(self.nodes[SED_1].get_state(), 'child')
         leader_messages = self.simulator.get_messages_sent_by(LEADER)
         msg = leader_messages.next_mle_message(mle.CommandType.CHILD_ID_RESPONSE)
         msg.assertSentToNode(self.nodes[SED_1])
@@ -159,20 +160,12 @@ class SED_EnhancedKeepAlive(thread_cert.TestCase):
         self.flush_all()
 
         # 8 - Verify enhanced keep-alive works
-        self.nodes[LEADER].enable_allowlist()
-        self.nodes[SED_1].enable_allowlist()
-        self.nodes[SED_1].set_pollperiod(CHILD_TIMEOUT * 1000 * 2)
+        self.nodes[SED_1].set_pollperiod(CHILD_TIMEOUT * 1000 * 4)
         self.simulator.go(CHILD_TIMEOUT // 2)
         self.assertEqual(self.nodes[SED_1].get_state(), 'child')
-        self.nodes[LEADER].disable_allowlist()
-        self.nodes[SED_1].disable_allowlist()
         non_exist_addr = leader_aloc.replace('fc00', 'fc12')
         self.assertFalse(self.nodes[SED_1].ping(non_exist_addr))
-        self.nodes[LEADER].enable_allowlist()
-        self.nodes[SED_1].enable_allowlist()
         self.simulator.go(CHILD_TIMEOUT // 2)
-        self.nodes[LEADER].disable_allowlist()
-        self.nodes[SED_1].disable_allowlist()
         self.nodes[SED_1].set_pollperiod(USER_POLL_PERIOD * 1000)
         self.assertTrue(self.nodes[SED_1].ping(leader_aloc, timeout=USER_POLL_PERIOD * 2))
 

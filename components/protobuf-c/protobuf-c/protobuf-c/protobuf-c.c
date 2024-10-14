@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015, Dave Benson and the protobuf-c authors.
+ * Copyright (c) 2008-2022, Dave Benson and the protobuf-c authors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -84,7 +84,9 @@
 # define PROTOBUF_C_UNPACK_ERROR(...)
 #endif
 
+#if !defined(_WIN32) || !defined(PROTOBUF_C_USE_SHARED_LIB)
 const char protobuf_c_empty_string[] = "";
+#endif
 
 /**
  * Internal `ProtobufCMessage` manipulation macro.
@@ -148,12 +150,14 @@ protobuf_c_version_number(void)
 static void *
 system_alloc(void *allocator_data, size_t size)
 {
+	(void)allocator_data;
 	return malloc(size);
 }
 
 static void
 system_free(void *allocator_data, void *data)
 {
+	(void)allocator_data;
 	free(data);
 }
 
@@ -312,10 +316,8 @@ int32_size(int32_t v)
 static inline uint32_t
 zigzag32(int32_t v)
 {
-	if (v < 0)
-		return (-(uint32_t)v) * 2 - 1;
-	else
-		return (uint32_t)(v) * 2;
+	// Note:  Using unsigned types prevents undefined behavior
+	return ((uint32_t)v << 1) ^ -((uint32_t)v >> 31);
 }
 
 /**
@@ -377,10 +379,8 @@ uint64_size(uint64_t v)
 static inline uint64_t
 zigzag64(int64_t v)
 {
-	if (v < 0)
-		return (-(uint64_t)v) * 2 - 1;
-	else
-		return (uint64_t)(v) * 2;
+	// Note:  Using unsigned types prevents undefined behavior
+	return ((uint64_t)v << 1) ^ -((uint64_t)v >> 63);
 }
 
 /**
@@ -800,7 +800,8 @@ uint32_pack(uint32_t value, uint8_t *out)
 }
 
 /**
- * Pack a signed 32-bit integer and return the number of bytes written.
+ * Pack a signed 32-bit integer and return the number of bytes written,
+ * passed as unsigned to avoid implementation-specific behavior.
  * Negative numbers are encoded as two's complement 64-bit integers.
  *
  * \param value
@@ -811,14 +812,14 @@ uint32_pack(uint32_t value, uint8_t *out)
  *      Number of bytes written to `out`.
  */
 static inline size_t
-int32_pack(int32_t value, uint8_t *out)
+int32_pack(uint32_t value, uint8_t *out)
 {
-	if (value < 0) {
+	if ((int32_t)value < 0) {
 		out[0] = value | 0x80;
 		out[1] = (value >> 7) | 0x80;
 		out[2] = (value >> 14) | 0x80;
 		out[3] = (value >> 21) | 0x80;
-		out[4] = (value >> 28) | 0x80;
+		out[4] = (value >> 28) | 0xf0;
 		out[5] = out[6] = out[7] = out[8] = 0xff;
 		out[9] = 0x01;
 		return 10;
@@ -1620,22 +1621,19 @@ required_field_pack_to_buffer(const ProtobufCFieldDescriptor *field,
 		break;
 	}
 	case PROTOBUF_C_TYPE_MESSAGE: {
-		uint8_t simple_buffer_scratch[256];
-		size_t sublen;
 		const ProtobufCMessage *msg = *(ProtobufCMessage * const *) member;
-		ProtobufCBufferSimple simple_buffer =
-			PROTOBUF_C_BUFFER_SIMPLE_INIT(simple_buffer_scratch);
-
+		
 		scratch[0] |= PROTOBUF_C_WIRE_TYPE_LENGTH_PREFIXED;
-		if (msg == NULL)
-			sublen = 0;
-		else
-			sublen = protobuf_c_message_pack_to_buffer(msg, &simple_buffer.base);
-		rv += uint32_pack(sublen, scratch + rv);
-		buffer->append(buffer, rv, scratch);
-		buffer->append(buffer, sublen, simple_buffer.data);
-		rv += sublen;
-		PROTOBUF_C_BUFFER_SIMPLE_CLEAR(&simple_buffer);
+		if (msg == NULL) {
+			rv += uint32_pack(0, scratch + rv);
+			buffer->append(buffer, rv, scratch);
+		} else {
+			size_t sublen = protobuf_c_message_get_packed_size(msg);
+			rv += uint32_pack(sublen, scratch + rv);
+			buffer->append(buffer, rv, scratch);
+			protobuf_c_message_pack_to_buffer(msg, buffer);
+			rv += sublen;
+		}
 		break;
 	}
 	default:
@@ -2065,12 +2063,17 @@ static size_t
 parse_tag_and_wiretype(size_t len,
 		       const uint8_t *data,
 		       uint32_t *tag_out,
-		       ProtobufCWireType *wiretype_out)
+		       uint8_t *wiretype_out)
 {
 	unsigned max_rv = len > 5 ? 5 : len;
 	uint32_t tag = (data[0] & 0x7f) >> 3;
 	unsigned shift = 4;
 	unsigned rv;
+
+	/* 0 is not a valid tag value */
+	if ((data[0] & 0xf8) == 0) {
+		return 0;
+	}
 
 	*wiretype_out = data[0] & 7;
 	if ((data[0] & 0x80) == 0) {
@@ -2092,9 +2095,9 @@ parse_tag_and_wiretype(size_t len,
 
 /* sizeof(ScannedMember) must be <= (1UL<<BOUND_SIZEOF_SCANNED_MEMBER_LOG2) */
 #define BOUND_SIZEOF_SCANNED_MEMBER_LOG2 5
-typedef struct _ScannedMember ScannedMember;
+typedef struct ScannedMember ScannedMember;
 /** Field as it's being read. */
-struct _ScannedMember {
+struct ScannedMember {
 	uint32_t tag;              /**< Field tag. */
 	uint8_t wire_type;         /**< Field type. */
 	uint8_t length_prefix_len; /**< Prefix length. */
@@ -2103,18 +2106,18 @@ struct _ScannedMember {
 	const uint8_t *data;       /**< Pointer to field data. */
 };
 
-static inline uint32_t
+static inline size_t
 scan_length_prefixed_data(size_t len, const uint8_t *data,
 			  size_t *prefix_len_out)
 {
 	unsigned hdr_max = len < 5 ? len : 5;
 	unsigned hdr_len;
-	uint32_t val = 0;
+	size_t val = 0;
 	unsigned i;
 	unsigned shift = 0;
 
 	for (i = 0; i < hdr_max; i++) {
-		val |= (data[i] & 0x7f) << shift;
+		val |= ((size_t)data[i] & 0x7f) << shift;
 		shift += 7;
 		if ((data[i] & 0x80) == 0)
 			break;
@@ -2125,8 +2128,17 @@ scan_length_prefixed_data(size_t len, const uint8_t *data,
 	}
 	hdr_len = i + 1;
 	*prefix_len_out = hdr_len;
+	if (val > INT_MAX) {
+		// Protobuf messages should always be less than 2 GiB in size.
+		// We also want to return early here so that hdr_len + val does
+		// not overflow on 32-bit systems.
+		PROTOBUF_C_UNPACK_ERROR("length prefix of %lu is too large",
+			(unsigned long int)val);
+		return 0;
+	}
 	if (hdr_len + val > len) {
-		PROTOBUF_C_UNPACK_ERROR("data too short after length-prefix of %u", val);
+		PROTOBUF_C_UNPACK_ERROR("data too short after length-prefix of %lu",
+			(unsigned long int)val);
 		return 0;
 	}
 	return hdr_len + val;
@@ -2239,6 +2251,8 @@ merge_messages(ProtobufCMessage *earlier_msg,
 							latter_msg->descriptor
 							->field_ranges,
 							*earlier_case_p);
+					if (field_index < 0)
+						return FALSE;
 					field = latter_msg->descriptor->fields +
 						field_index;
 				} else {
@@ -2409,10 +2423,8 @@ parse_int32(unsigned len, const uint8_t *data)
 static inline int32_t
 unzigzag32(uint32_t v)
 {
-	if (v & 1)
-		return -(v >> 1) - 1;
-	else
-		return v >> 1;
+	// Note:  Using unsigned types prevents undefined behavior
+	return (int32_t)((v >> 1) ^ -(v & 1));
 }
 
 static inline uint32_t
@@ -2453,10 +2465,8 @@ parse_uint64(unsigned len, const uint8_t *data)
 static inline int64_t
 unzigzag64(uint64_t v)
 {
-	if (v & 1)
-		return -(v >> 1) - 1;
-	else
-		return v >> 1;
+	// Note:  Using unsigned types prevents undefined behavior
+	return (int64_t)((v >> 1) ^ -(v & 1));
 }
 
 static inline uint64_t
@@ -2490,7 +2500,7 @@ parse_required_member(ScannedMember *scanned_member,
 {
 	unsigned len = scanned_member->len;
 	const uint8_t *data = scanned_member->data;
-	ProtobufCWireType wire_type = scanned_member->wire_type;
+	uint8_t wire_type = scanned_member->wire_type;
 
 	switch (scanned_member->field->type) {
 	case PROTOBUF_C_TYPE_ENUM:
@@ -2571,7 +2581,7 @@ parse_required_member(ScannedMember *scanned_member,
 		{
 			do_free(allocator, bd->data);
 		}
-		if (len - pref_len > 0) {
+		if (len > pref_len) {
 			bd->data = do_alloc(allocator, len - pref_len);
 			if (bd->data == NULL)
 				return FALSE;
@@ -2593,10 +2603,13 @@ parse_required_member(ScannedMember *scanned_member,
 			return FALSE;
 
 		def_mess = scanned_member->field->default_value;
-		subm = protobuf_c_message_unpack(scanned_member->field->descriptor,
-						 allocator,
-						 len - pref_len,
-						 data + pref_len);
+		if (len >= pref_len)
+			subm = protobuf_c_message_unpack(scanned_member->field->descriptor,
+							 allocator,
+							 len - pref_len,
+							 data + pref_len);
+		else
+			subm = NULL;
 
 		if (maybe_clear &&
 		    *pmessage != NULL &&
@@ -2627,14 +2640,17 @@ parse_oneof_member (ScannedMember *scanned_member,
 
 	/* If we have already parsed a member of this oneof, free it. */
 	if (*oneof_case != 0) {
+		const ProtobufCFieldDescriptor *old_field;
+		size_t el_size;
 		/* lookup field */
 		int field_index =
 			int_range_lookup(message->descriptor->n_field_ranges,
 					 message->descriptor->field_ranges,
 					 *oneof_case);
-		const ProtobufCFieldDescriptor *old_field =
-			message->descriptor->fields + field_index;
-		size_t el_size = sizeof_elt_in_repeated_array(old_field->type);
+		if (field_index < 0)
+			return FALSE;
+		old_field = message->descriptor->fields + field_index;
+		el_size = sizeof_elt_in_repeated_array(old_field->type);
 
 		switch (old_field->type) {
 	        case PROTOBUF_C_TYPE_STRING: {
@@ -2736,7 +2752,9 @@ parse_packed_repeated_member(ScannedMember *scanned_member,
 	const uint8_t *at = scanned_member->data + scanned_member->length_prefix_len;
 	size_t rem = scanned_member->len - scanned_member->length_prefix_len;
 	size_t count = 0;
+#if defined(WORDS_BIGENDIAN)
 	unsigned i;
+#endif
 
 	switch (field->type) {
 	case PROTOBUF_C_TYPE_SFIXED32:
@@ -2829,13 +2847,15 @@ parse_packed_repeated_member(ScannedMember *scanned_member,
 		}
 		break;
 	case PROTOBUF_C_TYPE_BOOL:
-		count = rem;
-		for (i = 0; i < count; i++) {
-			if (at[i] > 1) {
+		while (rem > 0) {
+			unsigned s = scan_varint(rem, at);
+			if (s == 0) {
 				PROTOBUF_C_UNPACK_ERROR("bad packed-repeated boolean value");
 				return FALSE;
 			}
-			((protobuf_c_boolean *) array)[i] = at[i];
+			((protobuf_c_boolean *) array)[count++] = parse_boolean(s, at);
+			at += s;
+			rem -= s;
 		}
 		break;
 	default:
@@ -3069,7 +3089,7 @@ protobuf_c_message_unpack(const ProtobufCMessageDescriptor *desc,
 
 	while (rem > 0) {
 		uint32_t tag;
-		ProtobufCWireType wire_type;
+		uint8_t wire_type;
 		size_t used = parse_tag_and_wiretype(rem, at, &tag, &wire_type);
 		const ProtobufCFieldDescriptor *field;
 		ScannedMember tmp;
@@ -3211,6 +3231,9 @@ protobuf_c_message_unpack(const ProtobufCMessageDescriptor *desc,
 	/* allocate space for repeated fields, also check that all required fields have been set */
 	for (f = 0; f < desc->n_fields; f++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + f;
+		if (field == NULL) {
+			continue;
+		}
 		if (field->label == PROTOBUF_C_LABEL_REPEATED) {
 			size_t siz =
 			    sizeof_elt_in_repeated_array(field->type);
@@ -3410,6 +3433,13 @@ protobuf_c_message_check(const ProtobufCMessage *message)
 		ProtobufCType type = f->type;
 		ProtobufCLabel label = f->label;
 		void *field = STRUCT_MEMBER_P (message, f->offset);
+
+		if (f->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) {
+			const uint32_t *oneof_case = STRUCT_MEMBER_P (message, f->quantifier_offset);
+			if (f->id != *oneof_case) {
+				continue; //Do not check if it is an unpopulated oneof member.
+			}
+		}
 
 		if (label == PROTOBUF_C_LABEL_REPEATED) {
 			size_t *quantity = STRUCT_MEMBER_P (message, f->quantifier_offset);

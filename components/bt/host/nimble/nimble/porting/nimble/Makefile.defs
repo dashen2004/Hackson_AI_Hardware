@@ -19,7 +19,10 @@ ifeq (,$(NIMBLE_ROOT))
 $(error NIMBLE_ROOT shall be defined)
 endif
 
-NIMBLE_CFLAGS :=
+# For now this is required as there are places in NimBLE
+# assumingthat pointer is 4 bytes long.
+NIMBLE_CFLAGS := -m32
+NIMBLE_LDFLAGS := -m32
 
 NIMBLE_INCLUDE := \
 	$(NIMBLE_ROOT)/nimble/include \
@@ -30,10 +33,12 @@ NIMBLE_INCLUDE := \
 	$(NIMBLE_ROOT)/nimble/host/services/gap/include \
 	$(NIMBLE_ROOT)/nimble/host/services/gatt/include \
 	$(NIMBLE_ROOT)/nimble/host/services/ias/include \
+	$(NIMBLE_ROOT)/nimble/host/services/dis/include \
 	$(NIMBLE_ROOT)/nimble/host/services/lls/include \
 	$(NIMBLE_ROOT)/nimble/host/services/tps/include \
 	$(NIMBLE_ROOT)/nimble/host/store/ram/include \
 	$(NIMBLE_ROOT)/nimble/host/util/include \
+	$(NIMBLE_ROOT)/nimble/transport/include \
 	$(NIMBLE_ROOT)/porting/nimble/include \
 	$(NULL)
 
@@ -46,10 +51,12 @@ NIMBLE_SRC := \
 	$(filter-out $(NIMBLE_IGNORE), $(wildcard $(NIMBLE_ROOT)/nimble/host/services/bas/src/*.c)) \
 	$(filter-out $(NIMBLE_IGNORE), $(wildcard $(NIMBLE_ROOT)/nimble/host/services/gap/src/*.c)) \
 	$(filter-out $(NIMBLE_IGNORE), $(wildcard $(NIMBLE_ROOT)/nimble/host/services/gatt/src/*.c)) \
+	$(filter-out $(NIMBLE_IGNORE), $(wildcard $(NIMBLE_ROOT)/nimble/host/services/dis/src/*.c)) \
 	$(filter-out $(NIMBLE_IGNORE), $(wildcard $(NIMBLE_ROOT)/nimble/host/services/ias/src/*.c)) \
 	$(filter-out $(NIMBLE_IGNORE), $(wildcard $(NIMBLE_ROOT)/nimble/host/services/lls/src/*.c)) \
 	$(filter-out $(NIMBLE_IGNORE), $(wildcard $(NIMBLE_ROOT)/nimble/host/services/tps/src/*.c)) \
 	$(filter-out $(NIMBLE_IGNORE), $(wildcard $(NIMBLE_ROOT)/nimble/host/store/ram/src/*.c)) \
+	$(filter-out $(NIMBLE_IGNORE), $(wildcard $(NIMBLE_ROOT)/nimble/transport/src/*.c)) \
 	$(NULL)
 
 ifneq (,$(NIMBLE_CFG_CONTROLLER))

@@ -64,15 +64,25 @@
 
 set -euo pipefail
 
-readonly OT_BUILD_JOBS=$(getconf _NPROCESSORS_ONLN)
-readonly OT_EXCLUDE_DIRS=(third_party doc/site)
+OT_BUILD_JOBS=$(getconf _NPROCESSORS_ONLN)
+readonly OT_BUILD_JOBS
 
-readonly OT_CLANG_SOURCES=('*.c' '*.cc' '*.cpp' '*.h' '*.hpp')
-readonly OT_MARKDOWN_SOURCES=('*.md')
-readonly OT_PYTHON_SOURCES=('*.py')
+OT_EXCLUDE_DIRS=(third_party doc/site)
+readonly OT_EXCLUDE_DIRS
 
-readonly OT_CLANG_TIDY_FIX_DIRS=('examples' 'include' 'src' 'tests')
-readonly OT_CLANG_TIDY_BUILD_OPTS=(
+OT_CLANG_SOURCES=('*.c' '*.cc' '*.cpp' '*.h' '*.hpp')
+readonly OT_CLANG_SOURCES
+
+OT_MARKDOWN_SOURCES=('*.md')
+readonly OT_MARKDOWN_SOURCES
+
+OT_PYTHON_SOURCES=('*.py')
+readonly OT_PYTHON_SOURCES
+
+OT_CLANG_TIDY_FIX_DIRS=('examples' 'include' 'src' 'tests')
+readonly OT_CLANG_TIDY_FIX_DIRS
+
+OT_CLANG_TIDY_BUILD_OPTS=(
     '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON'
     '-DOT_ANYCAST_LOCATOR=ON'
     '-DOT_APP_RCP=OFF'
@@ -82,9 +92,11 @@ readonly OT_CLANG_TIDY_BUILD_OPTS=(
     '-DOT_BACKBONE_ROUTER=ON'
     '-DOT_BORDER_AGENT=ON'
     '-DOT_BORDER_ROUTER=ON'
+    '-DOT_BORDER_ROUTING=ON'
+    '-DOT_BORDER_ROUTING_DHCP6_PD=ON'
     '-DOT_CHANNEL_MANAGER=ON'
+    '-DOT_CHANNEL_MANAGER_CSL=ON'
     '-DOT_CHANNEL_MONITOR=ON'
-    '-DOT_CHILD_SUPERVISION=ON'
     '-DOT_COAP=ON'
     '-DOT_COAP_BLOCK=ON'
     '-DOT_COAP_OBSERVE=ON'
@@ -96,6 +108,9 @@ readonly OT_CLANG_TIDY_BUILD_OPTS=(
     '-DOT_DHCP6_SERVER=ON'
     '-DOT_DIAGNOSTIC=ON'
     '-DOT_DNS_CLIENT=ON'
+    '-DOT_DNS_DSO=ON'
+    '-DOT_DNS_UPSTREAM_QUERY=ON'
+    "-DOT_DNSSD_DISCOVERY_PROXY=ON"
     '-DOT_DNSSD_SERVER=ON'
     '-DOT_DUA=ON'
     '-DOT_MLR=ON'
@@ -104,47 +119,32 @@ readonly OT_CLANG_TIDY_BUILD_OPTS=(
     '-DOT_IP6_FRAGM=ON'
     '-DOT_JAM_DETECTION=ON'
     '-DOT_JOINER=ON'
-    '-DOT_LEGACY=ON'
     '-DOT_LINK_RAW=ON'
     '-DOT_LINK_METRICS_INITIATOR=ON'
     '-DOT_LINK_METRICS_SUBJECT=ON'
     '-DOT_MAC_FILTER=ON'
-    '-DOT_MTD_NETDIAG=ON'
+    '-DOT_MDNS=ON'
+    '-DOT_MESH_DIAG=ON'
+    '-DOT_NAT64_BORDER_ROUTING=ON'
+    '-DOT_NAT64_TRANSLATOR=ON'
     '-DOT_NETDATA_PUBLISHER=ON'
+    '-DOT_NETDIAG_CLIENT=ON'
     '-DOT_PING_SENDER=ON'
     '-DOT_REFERENCE_DEVICE=ON'
     '-DOT_SERVICE=ON'
     '-DOT_SLAAC=ON'
     '-DOT_SNTP_CLIENT=ON'
+    '-DOT_SRP_ADV_PROXY=ON'
     '-DOT_SRP_CLIENT=ON'
     '-DOT_SRP_SERVER=ON'
-    '-DOT_THREAD_VERSION=1.2'
+    '-DOT_THREAD_VERSION=1.3'
     '-DOT_TREL=ON'
     '-DOT_COVERAGE=ON'
     '-DOT_LOG_LEVEL_DYNAMIC=ON'
     '-DOT_COMPILE_WARNING_AS_ERROR=ON'
     '-DOT_UPTIME=ON'
 )
-
-readonly OT_CLANG_TIDY_CHECKS="\
--*,\
-google-explicit-constructor,\
-google-readability-casting,\
-misc-unused-using-decls,\
-modernize-use-bool-literals,\
-modernize-use-equals-default,\
-modernize-use-equals-delete,\
-modernize-use-nullptr,\
-readability-avoid-const-params-in-decls,\
-readability-else-after-return,\
-readability-inconsistent-declaration-parameter-name,\
-readability-make-member-function-const,\
-readability-redundant-member-init,\
-readability-simplify-boolean-expr,\
-readability-static-accessed-through-instance,\
-"
-
-#performance-for-range-copy\
+readonly OT_CLANG_TIDY_BUILD_OPTS
 
 do_clang_format()
 {
@@ -174,8 +174,8 @@ do_clang_tidy_fix()
 
     (mkdir -p ./build/cmake-tidy \
         && cd ./build/cmake-tidy \
-        && THREAD_VERSION=1.2 cmake "${OT_CLANG_TIDY_BUILD_OPTS[@]}" ../.. \
-        && ../../script/clang-tidy -header-filter='.*' -checks="${OT_CLANG_TIDY_CHECKS}" -j"$OT_BUILD_JOBS" "${OT_CLANG_TIDY_FIX_DIRS[@]}" -fix)
+        && THREAD_VERSION=1.3 cmake "${OT_CLANG_TIDY_BUILD_OPTS[@]}" ../.. \
+        && ../../script/clang-tidy -j"$OT_BUILD_JOBS" "${OT_CLANG_TIDY_FIX_DIRS[@]}" -fix)
 }
 
 do_clang_tidy_check()
@@ -184,19 +184,10 @@ do_clang_tidy_check()
     echo -e '     check c/c++ (clang-tidy)'
     echo -e '========================================'
 
-    (
-        mkdir -p ./build/cmake-tidy \
-            && cd ./build/cmake-tidy \
-            && THREAD_VERSION=1.2 cmake "${OT_CLANG_TIDY_BUILD_OPTS[@]}" ../.. \
-            && ../../script/clang-tidy -header-filter='.*' -checks="${OT_CLANG_TIDY_CHECKS}" -j"$OT_BUILD_JOBS" "${OT_CLANG_TIDY_FIX_DIRS[@]}" \
-            | grep -v -E "third_party" >output.txt
-        if grep -q "warning: \|error: " output.txt; then
-            echo "You must pass the clang tidy checks before submitting a pull request"
-            echo ""
-            grep --color -E 'warning: |error: ' -A 5 output.txt
-            exit 1
-        fi
-    )
+    (mkdir -p ./build/cmake-tidy \
+        && cd ./build/cmake-tidy \
+        && THREAD_VERSION=1.3 cmake "${OT_CLANG_TIDY_BUILD_OPTS[@]}" ../.. \
+        && ../../script/clang-tidy -j"$OT_BUILD_JOBS" "${OT_CLANG_TIDY_FIX_DIRS[@]}")
 }
 
 do_markdown_format()

@@ -36,8 +36,12 @@
 
 #include "openthread-core-config.h"
 
+#if OPENTHREAD_CONFIG_SRP_CLIENT_BUFFERS_ENABLE
+
 #include <openthread/srp_client_buffers.h>
 
+#include "common/array.hpp"
+#include "common/as_core_type.hpp"
 #include "common/clearable.hpp"
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
@@ -47,14 +51,12 @@
 namespace ot {
 namespace Utils {
 
-#if OPENTHREAD_CONFIG_SRP_CLIENT_BUFFERS_ENABLE
-
 #if !OPENTHREAD_CONFIG_SRP_CLIENT_ENABLE
 #error "OPENTHREAD_CONFIG_SRP_CLIENT_BUFFERS_ENABLE requires OPENTHREAD_CONFIG_SRP_CLIENT_ENABLE feature."
 #endif
 
 /**
- * This class represents the SRP client buffers and service pool.
+ * Represents the SRP client buffers and service pool.
  *
  */
 class SrpClientBuffers : public InstanceLocator, private NonCopyable
@@ -103,7 +105,7 @@ public:
     static constexpr uint16_t kTxtBufferSize = OPENTHREAD_CONFIG_SRP_CLIENT_BUFFERS_TXT_BUFFER_SIZE;
 
     /**
-     * This class represents a SRP client service entry from the pool.
+     * Represents a SRP client service entry from the pool.
      *
      */
     class ServiceEntry : public otSrpClientBuffersServiceEntry, public Clearable<ServiceEntry>
@@ -113,7 +115,7 @@ public:
 
     public:
         /**
-         * This method gets the string buffer for the service name from the service entry.
+         * Gets the string buffer for the service name from the service entry.
          *
          * @param[out] aSize    Reference to a variable to return the size (number of bytes) of the string buffer.
          *
@@ -127,7 +129,7 @@ public:
         }
 
         /**
-         * This method gets the string buffer for the instance name from the service entry.
+         * Gets the string buffer for the instance name from the service entry.
          *
          * @param[out] aSize    Reference to a variable to return the size (number of bytes) of the string buffer.
          *
@@ -141,7 +143,7 @@ public:
         }
 
         /**
-         * This method gets the buffer for the TXT value from the service entry.
+         * Gets the buffer for the TXT value from the service entry.
          *
          * @param[out] aSize    Reference to a variable to return the size (number of bytes) of the buffer.
          *
@@ -155,7 +157,7 @@ public:
         }
 
         /**
-         * This method gets the array for service subtype labels from the service entry.
+         * Gets the array for service subtype labels from the service entry.
          *
          * @param[out] aArrayLength    Reference to a variable to return the array length.
          *
@@ -164,12 +166,12 @@ public:
          */
         const char **GetSubTypeLabelsArray(uint16_t &aArrayLength)
         {
-            aArrayLength = OT_ARRAY_LENGTH(mSubTypeLabels);
+            aArrayLength = GetArrayLength(mSubTypeLabels);
             return mSubTypeLabels;
         }
 
     private:
-        ServiceEntry *      GetNext(void) { return reinterpret_cast<ServiceEntry *>(mService.mNext); }
+        ServiceEntry       *GetNext(void) { return reinterpret_cast<ServiceEntry *>(mService.mNext); }
         const ServiceEntry *GetNext(void) const { return reinterpret_cast<const ServiceEntry *>(mService.mNext); }
         void SetNext(ServiceEntry *aEntry) { mService.mNext = reinterpret_cast<Srp::Client::Service *>(aEntry); }
 
@@ -180,7 +182,7 @@ public:
     };
 
     /**
-     * This constructor initializes the `SrpClientBuffers` object.
+     * Initializes the `SrpClientBuffers` object.
      *
      * @param[in]  aInstance  A reference to the OpenThread instance.
      *
@@ -188,7 +190,7 @@ public:
     explicit SrpClientBuffers(Instance &aInstance);
 
     /**
-     * This method gets the string buffer to use for SRP client host name.
+     * Gets the string buffer to use for SRP client host name.
      *
      * @param[out] aSize      Reference to a variable to return the size (number of bytes) of the string buffer.
      *
@@ -202,7 +204,7 @@ public:
     }
 
     /**
-     * This method gets the array of IPv6 address entries to use as SRP client host address list.
+     * Gets the array of IPv6 address entries to use as SRP client host address list.
      *
      * @param[out] aArrayLength  Reference to a variable to return the array length (number of IPv6 address entries in
      * *                         the array).
@@ -212,12 +214,12 @@ public:
      */
     Ip6::Address *GetHostAddressesArray(uint8_t &aArrayLength)
     {
-        aArrayLength = OT_ARRAY_LENGTH(mHostAddresses);
+        aArrayLength = static_cast<uint8_t>(GetArrayLength(mHostAddresses));
         return &mHostAddresses[0];
     }
 
     /**
-     * This method allocates a new service entry from the pool.
+     * Allocates a new service entry from the pool.
      *
      * The returned service entry instance will be initialized as follows:
      *
@@ -238,7 +240,7 @@ public:
     ServiceEntry *AllocateService(void);
 
     /**
-     * This method frees a previously allocated service entry.
+     * Frees a previously allocated service entry.
      *
      * The @p aService MUST be previously allocated using `AllocateService()` and not yet freed. Otherwise the behavior
      * of this method is undefined.
@@ -249,7 +251,7 @@ public:
     void FreeService(ServiceEntry &aServiceEntry) { mServicePool.Free(aServiceEntry); }
 
     /**
-     * This method frees all previously allocated service entries.
+     * Frees all previously allocated service entries.
      *
      */
     void FreeAllServices(void) { mServicePool.FreeAll(); }
@@ -260,9 +262,12 @@ private:
     Pool<ServiceEntry, kMaxServices> mServicePool;
 };
 
-#endif // OPENTHREAD_CONFIG_SRP_CLIENT_BUFFERS_ENABLE
-
 } // namespace Utils
+
+DefineCoreType(otSrpClientBuffersServiceEntry, Utils::SrpClientBuffers::ServiceEntry);
+
 } // namespace ot
+
+#endif // OPENTHREAD_CONFIG_SRP_CLIENT_BUFFERS_ENABLE
 
 #endif // SRP_CLIENT_BUFFERS_HPP_

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,15 +9,17 @@
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/dport_reg.h"
-#include "soc/efuse_periph.h"
 #include "soc/gpio_reg.h"
 #include "soc/spi_mem_reg.h"
 #include "soc/extmem_reg.h"
-#include "regi2c_ulp.h"
+#include "soc/regi2c_ulp.h"
+#include "hal/efuse_hal.h"
+#include "hal/efuse_ll.h"
 #include "regi2c_ctrl.h"
-#include "soc_log.h"
-#include "esp_efuse.h"
-#include "esp_efuse_table.h"
+#include "esp_hw_log.h"
+#ifndef BOOTLOADER_BUILD
+#include "esp_private/sar_periph_ctrl.h"
+#endif
 
 __attribute__((unused)) static const char *TAG = "rtc_init";
 
@@ -26,6 +28,17 @@ static void calibrate_ocode(void);
 
 void rtc_init(rtc_config_t cfg)
 {
+    /**
+     * When run rtc_init, it maybe deep sleep reset. Since we power down modem in deep sleep, after wakeup
+     * from deep sleep, these fields are changed and not reset. We will access two BB regs(BBPD_CTRL and
+     * NRXPD_CTRL) in rtc_sleep_pu. If PD modem and no iso, CPU will stuck when access these two BB regs
+     * and finally triggle RTC WDT. So need to clear modem Force PD.
+     *
+     * No worry about the power consumption, Because modem Force PD will be set at the end of this function.
+     */
+    CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
+    CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
+
     CLEAR_PERI_REG_MASK(RTC_CNTL_ANA_CONF_REG, RTC_CNTL_PVTMON_PU);
     REG_SET_FIELD(RTC_CNTL_TIMER1_REG, RTC_CNTL_PLL_BUF_WAIT, cfg.pll_wait);
     REG_SET_FIELD(RTC_CNTL_TIMER1_REG, RTC_CNTL_CK8M_WAIT, cfg.ck8m_wait);
@@ -34,7 +47,7 @@ void rtc_init(rtc_config_t cfg)
     // set shortest possible sleep time limit
     REG_SET_FIELD(RTC_CNTL_TIMER5_REG, RTC_CNTL_MIN_SLP_VAL, RTC_CNTL_MIN_SLP_VAL_MIN);
 
-    /* This power domian removed
+    /* This power domain removed
     * set rom&ram timer
     * REG_SET_FIELD(RTC_CNTL_TIMER3_REG, RTC_CNTL_ROM_RAM_POWERUP_TIMER, ROM_RAM_POWERUP_CYCLES);
     * REG_SET_FIELD(RTC_CNTL_TIMER3_REG, RTC_CNTL_ROM_RAM_WAIT_TIMER, ROM_RAM_WAIT_CYCLES);
@@ -59,7 +72,7 @@ void rtc_init(rtc_config_t cfg)
     /* Reset RTC bias to default value (needed if waking up from deep sleep) */
     REG_SET_FIELD(RTC_CNTL_REG, RTC_CNTL_DBIAS_WAK, RTC_CNTL_DBIAS_1V10);
     REG_SET_FIELD(RTC_CNTL_REG, RTC_CNTL_DBIAS_SLP, RTC_CNTL_DBIAS_1V10);
-    /* Recover default wait cycle for touch or COCPU after wakeup from deep sleep. */
+    /* Set the wait time to the default value. */
     REG_SET_FIELD(RTC_CNTL_TIMER2_REG, RTC_CNTL_ULPCP_TOUCH_START_WAIT, RTC_CNTL_ULPCP_TOUCH_START_WAIT_DEFAULT);
 
     if (cfg.clkctl_init) {
@@ -151,8 +164,7 @@ void rtc_init(rtc_config_t cfg)
 
 #if !CONFIG_IDF_ENV_FPGA
     if (cfg.cali_ocode) {
-        uint32_t rtc_calib_version = 0;
-        esp_efuse_read_field_blob(ESP_EFUSE_BLOCK2_VERSION, &rtc_calib_version, 32);
+        uint32_t rtc_calib_version = efuse_ll_get_blk_version_minor(); // IDF-5366
         if (rtc_calib_version == 2) {
             set_ocode_by_efuse(rtc_calib_version);
         } else {
@@ -163,6 +175,11 @@ void rtc_init(rtc_config_t cfg)
 
     REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
     REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
+
+#ifndef BOOTLOADER_BUILD
+    //initialise SAR related peripheral register settings
+    sar_periph_ctrl_init();
+#endif
 }
 
 rtc_vddsdio_config_t rtc_vddsdio_get_config(void)
@@ -182,18 +199,12 @@ rtc_vddsdio_config_t rtc_vddsdio_get_config(void)
         result.force = 0;
     }
 #if 0 // ToDo: re-enable the commented codes
-    uint32_t efuse_reg = REG_READ(EFUSE_RD_REPEAT_DATA1_REG);
-    if (efuse_reg & EFUSE_SDIO_FORCE) {
-        // Get configuration from EFUSE
-        result.enable = (efuse_reg & EFUSE_SDIO_XPD_M) >> EFUSE_SDIO_XPD_S;
-        result.tieh = (efuse_reg & EFUSE_SDIO_TIEH_M) >> EFUSE_SDIO_TIEH_S;
-
-        result.drefm = (efuse_reg & EFUSE_SDIO_DREFM_M) >> EFUSE_SDIO_DREFM_S;
-        result.drefl = (efuse_reg & EFUSE_SDIO_DREFL_M) >> EFUSE_SDIO_DREFL_S;
-
-        efuse_reg = REG_READ(EFUSE_RD_REPEAT_DATA0_REG);
-        result.drefh = (efuse_reg & EFUSE_SDIO_DREFH_M) >> EFUSE_SDIO_DREFH_S;
-
+    if (efuse_ll_get_sdio_force()) {
+        result.enable = efuse_ll_get_sdio_xpd();
+        result.tieh = efuse_ll_get_sdio_tieh();
+        result.drefm = efuse_ll_get_sdio_drefm();
+        result.drefl = efuse_ll_get_sdio_drefl();
+        result.drefh = efuse_ll_get_sdio_drefh();
         return result;
     }
 #endif
@@ -220,13 +231,7 @@ void rtc_vddsdio_set_config(rtc_vddsdio_config_t config)
 static void set_ocode_by_efuse(int calib_version)
 {
     assert(calib_version == 2);
-    // use efuse ocode.
-    uint32_t ocode1 = 0;
-    uint32_t ocode2 = 0;
-    uint32_t ocode;
-    esp_efuse_read_block(2, &ocode1, 16*8, 4);
-    esp_efuse_read_block(2, &ocode2, 18*8, 3);
-    ocode = (ocode2 << 4) + ocode1;
+    uint32_t ocode = efuse_ll_get_ocode();
     if (ocode >> 6) {
         ocode = 93 - (ocode ^ (1 << 6));
     } else {
@@ -236,6 +241,9 @@ static void set_ocode_by_efuse(int calib_version)
     REGI2C_WRITE_MASK(I2C_ULP, I2C_ULP_IR_FORCE_CODE, 1);
 }
 
+/**
+ * TODO IDF-4141, this seems influence flash,
+ */
 static void calibrate_ocode(void)
 {
     /*
@@ -247,13 +255,11 @@ static void calibrate_ocode(void)
     4. wait o-code calibration done flag(odone_flag & bg_odone_flag) or timeout;
     5. set cpu to old-config.
     */
-    rtc_slow_freq_t slow_clk_freq = rtc_clk_slow_freq_get();
-    rtc_slow_freq_t rtc_slow_freq_x32k = RTC_SLOW_FREQ_32K_XTAL;
-    rtc_slow_freq_t rtc_slow_freq_8MD256 = RTC_SLOW_FREQ_8MD256;
+    soc_rtc_slow_clk_src_t slow_clk_src = rtc_clk_slow_src_get();
     rtc_cal_sel_t cal_clk = RTC_CAL_RTC_MUX;
-    if (slow_clk_freq == (rtc_slow_freq_x32k)) {
+    if (slow_clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
         cal_clk = RTC_CAL_32K_XTAL;
-    } else if (slow_clk_freq == rtc_slow_freq_8MD256) {
+    } else if (slow_clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) {
         cal_clk  = RTC_CAL_8MD256;
     }
 
@@ -279,7 +285,7 @@ static void calibrate_ocode(void)
         if (odone_flag && bg_odone_flag)
             break;
         if (cycle1 >= timeout_cycle) {
-            SOC_LOGW(TAG, "o_code calibration fail");
+            ESP_HW_LOGW(TAG, "o_code calibration fail");
             break;
         }
     }

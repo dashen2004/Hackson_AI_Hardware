@@ -38,10 +38,13 @@
 
 #include <openthread/netdata.h>
 
+#include "common/array.hpp"
+#include "common/as_core_type.hpp"
 #include "common/clearable.hpp"
 #include "common/data.hpp"
 #include "common/debug.hpp"
 #include "common/equatable.hpp"
+#include "common/preference.hpp"
 #include "net/ip6_address.hpp"
 
 namespace ot {
@@ -66,9 +69,20 @@ class HasRouteTlv;
 class HasRouteEntry;
 class ServiceTlv;
 class ServerTlv;
+class ContextTlv;
 
 /**
- * This enumeration type represents the route preference values as a signed integer (per RFC-4191).
+ * Represents the Network Data type.
+ *
+ */
+enum Type : uint8_t
+{
+    kFullSet,      ///< Full Network Data set.
+    kStableSubset, ///< Stable Network Data subset.
+};
+
+/**
+ * Type represents the route preference values as a signed integer (per RFC-4191).
  *
  */
 enum RoutePreference : int8_t
@@ -78,8 +92,56 @@ enum RoutePreference : int8_t
     kRoutePreferenceHigh   = OT_ROUTE_PREFERENCE_HIGH, ///< High route preference.
 };
 
+static_assert(kRoutePreferenceHigh == Preference::kHigh, "kRoutePreferenceHigh is not valid");
+static_assert(kRoutePreferenceMedium == Preference::kMedium, "kRoutePreferenceMedium is not valid");
+static_assert(kRoutePreferenceLow == Preference::kLow, "kRoutePreferenceLow is not valid");
+
 /**
- * This function indicates whether a given `int8_t` preference value is a valid route preference (i.e., one of the
+ * Represents the border router RLOC role filter used when searching for border routers in the Network
+ * Data.
+ *
+ */
+enum RoleFilter : uint8_t
+{
+    kAnyRole,        ///< Include devices in any role.
+    kRouterRoleOnly, ///< Include devices that act as Thread router.
+    kChildRoleOnly,  ///< Include devices that act as Thread child (end-device).
+};
+
+/**
+ * Represents the entry filter used when searching for RLOC16 of border routers or servers in the Network Data.
+ *
+ * Regarding `kBrProvidingExternalIpConn`, a border router is considered to provide external IP connectivity if at
+ * least one of the below conditions hold:
+ *
+ * - It has added at least one external route entry.
+ * - It has added at least one prefix entry with default-route and on-mesh flags set.
+ * - It has added at least one domain prefix (domain and on-mesh flags set).
+ *
+ */
+enum BorderRouterFilter : uint8_t
+{
+    kAnyBrOrServer,             ///< Include any border router or server entry.
+    kBrProvidingExternalIpConn, ///< Include border routers providing external IP connectivity.
+};
+
+/**
+ * Maximum length of `Rlocs` array containing RLOC16 of all border routers and servers in the Network Data.
+ *
+ * This limit is derived from the maximum Network Data size (254 bytes) and the minimum size of an external route entry
+ * (3 bytes including the RLOC16 and flags) as `ceil(254/3) = 85`.
+ *
+ */
+static constexpr uint8_t kMaxRlocs = 85;
+
+/**
+ * An array containing RLOC16 of all border routers and server in the Network Data.
+ *
+ */
+typedef Array<uint16_t, kMaxRlocs> Rlocs;
+
+/**
+ * Indicates whether a given `int8_t` preference value is a valid route preference (i.e., one of the
  * values from `RoutePreference` enumeration).
  *
  * @param[in] aPref  The signed route preference value.
@@ -88,13 +150,10 @@ enum RoutePreference : int8_t
  * @retval FALSE  if @p aPref is not valid
  *
  */
-inline bool IsRoutePreferenceValid(int8_t aPref)
-{
-    return (aPref == kRoutePreferenceLow) || (aPref == kRoutePreferenceMedium) || (aPref == kRoutePreferenceHigh);
-}
+inline bool IsRoutePreferenceValid(int8_t aPref) { return Preference::IsValid(aPref); }
 
 /**
- * This function coverts a route preference to a 2-bit unsigned value.
+ * Coverts a route preference to a 2-bit unsigned value.
  *
  * The @p aPref MUST be valid (value from `RoutePreference` enumeration), or the behavior is undefined.
  *
@@ -103,19 +162,10 @@ inline bool IsRoutePreferenceValid(int8_t aPref)
  * @returns The 2-bit unsigned value representing @p aPref.
  *
  */
-inline uint8_t RoutePreferenceToValue(int8_t aPref)
-{
-    constexpr uint8_t kHigh   = 1; // 01
-    constexpr uint8_t kMedium = 0; // 00
-    constexpr uint8_t kLow    = 3; // 11
-
-    OT_ASSERT(IsRoutePreferenceValid(aPref));
-
-    return (aPref == 0) ? kMedium : ((aPref > 0) ? kHigh : kLow);
-}
+inline uint8_t RoutePreferenceToValue(int8_t aPref) { return Preference::To2BitUint(aPref); }
 
 /**
- * This function coverts a 2-bit unsigned value to a route preference.
+ * Coverts a 2-bit unsigned value to a route preference.
  *
  * @param[in] aValue   The 2-bit unsigned value to convert from. Note that only the first two bits of @p aValue
  *                     are used and the rest of bits are ignored.
@@ -125,20 +175,21 @@ inline uint8_t RoutePreferenceToValue(int8_t aPref)
  */
 inline RoutePreference RoutePreferenceFromValue(uint8_t aValue)
 {
-    constexpr uint8_t kMask = 3; // First two bits.
-
-    static const RoutePreference kRoutePreferences[] = {
-        /* 0 (00)  -> */ kRoutePreferenceMedium,
-        /* 1 (01)  -> */ kRoutePreferenceHigh,
-        /* 2 (10)  -> */ kRoutePreferenceMedium, // Per RFC-4191, the reserved value (10) MUST be treated as (00)
-        /* 3 (11)  -> */ kRoutePreferenceLow,
-    };
-
-    return kRoutePreferences[aValue & kMask];
+    return static_cast<RoutePreference>(Preference::From2BitUint(aValue));
 }
 
 /**
- * This class represents an On-mesh Prefix (Border Router) configuration.
+ * Converts a router preference to a human-readable string.
+ *
+ * @param[in] aPreference  The preference to convert
+ *
+ * @returns The string representation of @p aPreference.
+ *
+ */
+inline const char *RoutePreferenceToString(RoutePreference aPreference) { return Preference::ToString(aPreference); }
+
+/**
+ * Represents an On-mesh Prefix (Border Router) configuration.
  *
  */
 class OnMeshPrefixConfig : public otBorderRouterConfig,
@@ -146,29 +197,38 @@ class OnMeshPrefixConfig : public otBorderRouterConfig,
                            public Equatable<OnMeshPrefixConfig>
 {
     friend class NetworkData;
+    friend class Leader;
     friend class Local;
     friend class Publisher;
 
 public:
     /**
-     * This method gets the prefix.
+     * Gets the prefix.
      *
      * @return The prefix.
      *
      */
-    const Ip6::Prefix &GetPrefix(void) const { return static_cast<const Ip6::Prefix &>(mPrefix); }
+    const Ip6::Prefix &GetPrefix(void) const { return AsCoreType(&mPrefix); }
 
     /**
-     * This method gets the prefix.
+     * Gets the prefix.
      *
      * @return The prefix.
      *
      */
-    Ip6::Prefix &GetPrefix(void) { return static_cast<Ip6::Prefix &>(mPrefix); }
+    Ip6::Prefix &GetPrefix(void) { return AsCoreType(&mPrefix); }
+
+    /**
+     * Gets the preference.
+     *
+     * @return The preference.
+     *
+     */
+    RoutePreference GetPreference(void) const { return RoutePreferenceFromValue(RoutePreferenceToValue(mPreference)); }
 
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
     /**
-     * This method indicates whether or not the prefix configuration is valid.
+     * Indicates whether or not the prefix configuration is valid.
      *
      * @param[in] aInstance   A reference to the OpenThread instance.
      *
@@ -183,14 +243,14 @@ private:
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
     uint16_t ConvertToTlvFlags(void) const;
 #endif
-    void SetFrom(const PrefixTlv &        aPrefixTlv,
-                 const BorderRouterTlv &  aBorderRouterTlv,
+    void SetFrom(const PrefixTlv         &aPrefixTlv,
+                 const BorderRouterTlv   &aBorderRouterTlv,
                  const BorderRouterEntry &aBorderRouterEntry);
     void SetFromTlvFlags(uint16_t aFlags);
 };
 
 /**
- * This class represents an External Route configuration.
+ * Represents an External Route configuration.
  *
  */
 class ExternalRouteConfig : public otExternalRouteConfig,
@@ -203,23 +263,23 @@ class ExternalRouteConfig : public otExternalRouteConfig,
 
 public:
     /**
-     * This method gets the prefix.
+     * Gets the prefix.
      *
      * @return The prefix.
      *
      */
-    const Ip6::Prefix &GetPrefix(void) const { return static_cast<const Ip6::Prefix &>(mPrefix); }
+    const Ip6::Prefix &GetPrefix(void) const { return AsCoreType(&mPrefix); }
 
     /**
-     * This method gets the prefix.
+     * Gets the prefix.
      *
      * @return The prefix.
      *
      */
-    Ip6::Prefix &GetPrefix(void) { return static_cast<Ip6::Prefix &>(mPrefix); }
+    Ip6::Prefix &GetPrefix(void) { return AsCoreType(&mPrefix); }
 
     /**
-     * This method sets the prefix.
+     * Sets the prefix.
      *
      * @param[in]  aPrefix  The prefix to set to.
      *
@@ -228,7 +288,7 @@ public:
 
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
     /**
-     * This method indicates whether or not the external route configuration is valid.
+     * Indicates whether or not the external route configuration is valid.
      *
      * @param[in] aInstance   A reference to the OpenThread instance.
      *
@@ -243,15 +303,37 @@ private:
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
     uint8_t ConvertToTlvFlags(void) const;
 #endif
-    void SetFrom(Instance &           aInstance,
-                 const PrefixTlv &    aPrefixTlv,
-                 const HasRouteTlv &  aHasRouteTlv,
+    void SetFrom(Instance            &aInstance,
+                 const PrefixTlv     &aPrefixTlv,
+                 const HasRouteTlv   &aHasRouteTlv,
                  const HasRouteEntry &aHasRouteEntry);
     void SetFromTlvFlags(uint8_t aFlags);
 };
 
 /**
- * This class represents a Service Data.
+ * Represents 6LoWPAN Context ID information associated with a prefix in Network Data.
+ *
+ */
+class LowpanContextInfo : public otLowpanContextInfo, public Clearable<LowpanContextInfo>
+{
+    friend class NetworkData;
+
+public:
+    /**
+     * Gets the prefix.
+     *
+     * @return The prefix.
+     *
+     */
+    const Ip6::Prefix &GetPrefix(void) const { return AsCoreType(&mPrefix); }
+
+private:
+    Ip6::Prefix &GetPrefix(void) { return AsCoreType(&mPrefix); }
+    void         SetFrom(const PrefixTlv &aPrefixTlv, const ContextTlv &aContextTlv);
+};
+
+/**
+ * Represents a Service Data.
  *
  */
 class ServiceData : public Data<kWithUint8Length>
@@ -259,7 +341,7 @@ class ServiceData : public Data<kWithUint8Length>
 };
 
 /**
- * This class represents a Server Data.
+ * Represents a Server Data.
  *
  */
 class ServerData : public Data<kWithUint8Length>
@@ -267,7 +349,7 @@ class ServerData : public Data<kWithUint8Length>
 };
 
 /**
- * This type represents a Service configuration.
+ * Represents a Service configuration.
  *
  */
 class ServiceConfig : public otServiceConfig, public Clearable<ServiceConfig>, public Unequatable<ServiceConfig>
@@ -276,7 +358,7 @@ class ServiceConfig : public otServiceConfig, public Clearable<ServiceConfig>, p
 
 public:
     /**
-     * This class represents a Server configuration.
+     * Represents a Server configuration.
      *
      */
     class ServerConfig : public otServerConfig, public Unequatable<ServerConfig>
@@ -285,7 +367,7 @@ public:
 
     public:
         /**
-         * This method gets the Server Data.
+         * Gets the Server Data.
          *
          * @param[out] aServerData   A reference to a`ServerData` to return the data.
          *
@@ -293,7 +375,7 @@ public:
         void GetServerData(ServerData &aServerData) const { aServerData.Init(mServerData, mServerDataLength); }
 
         /**
-         * This method overloads operator `==` to evaluate whether or not two `ServerConfig` instances are equal.
+         * Overloads operator `==` to evaluate whether or not two `ServerConfig` instances are equal.
          *
          * @param[in]  aOther  The other `ServerConfig` instance to compare with.
          *
@@ -308,7 +390,7 @@ public:
     };
 
     /**
-     * This method gets the Service Data.
+     * Gets the Service Data.
      *
      * @param[out] aServiceData   A reference to a `ServiceData` to return the data.
      *
@@ -316,7 +398,7 @@ public:
     void GetServiceData(ServiceData &aServiceData) const { aServiceData.Init(mServiceData, mServiceDataLength); }
 
     /**
-     * This method gets the Server configuration.
+     * Gets the Server configuration.
      *
      * @returns The Server configuration.
      *
@@ -324,7 +406,7 @@ public:
     const ServerConfig &GetServerConfig(void) const { return static_cast<const ServerConfig &>(mServerConfig); }
 
     /**
-     * This method gets the Server configuration.
+     * Gets the Server configuration.
      *
      * @returns The Server configuration.
      *
@@ -332,7 +414,7 @@ public:
     ServerConfig &GetServerConfig(void) { return static_cast<ServerConfig &>(mServerConfig); }
 
     /**
-     * This method overloads operator `==` to evaluate whether or not two `ServiceConfig` instances are equal.
+     * Overloads operator `==` to evaluate whether or not two `ServiceConfig` instances are equal.
      *
      * @param[in]  aOther  The other `ServiceConfig` instance to compare with.
      *
@@ -347,6 +429,12 @@ private:
 };
 
 } // namespace NetworkData
+
+DefineCoreType(otBorderRouterConfig, NetworkData::OnMeshPrefixConfig);
+DefineCoreType(otExternalRouteConfig, NetworkData::ExternalRouteConfig);
+DefineCoreType(otLowpanContextInfo, NetworkData::LowpanContextInfo);
+DefineCoreType(otServiceConfig, NetworkData::ServiceConfig);
+DefineCoreType(otServerConfig, NetworkData::ServiceConfig::ServerConfig);
 
 /**
  * @}

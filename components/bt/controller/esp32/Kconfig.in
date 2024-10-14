@@ -67,7 +67,7 @@ config BTDM_CTRL_BR_EDR_SCO_DATA_PATH_EFF
     default 0
 
 menuconfig BTDM_CTRL_PCM_ROLE_EDGE_CONFIG
-    bool "PCM Signal Config (Role and Polar)"
+    bool "PCM Signal Configurations: Role, Polar and Channel Mode(Stereo/Mono)"
     depends on BTDM_CTRL_BR_EDR_SCO_DATA_PATH_PCM
     default y
 
@@ -95,6 +95,37 @@ choice BTDM_CTRL_PCM_POLAR
         bool "Rising Edge"
 endchoice
 
+choice BTDM_CTRL_PCM_FSYNCSHP
+    prompt "Channel Mode(Stereo/Mono)"
+    depends on BTDM_CTRL_PCM_ROLE_EDGE_CONFIG
+    default BTDM_CTRL_PCM_FSYNCSHP_STEREO_MODE
+    help
+        PCM frame synchronization signal shape can be configured as Stereo Mode or Mono Mode.
+        (There are detailed instructions under the path examples/bluetooth/bluedroid/classic_bt/hfp_ag/README.md)
+
+    config BTDM_CTRL_PCM_FSYNCSHP_STEREO_MODE
+        bool "Stereo Mode"
+        help
+            Stereo Mode(Dual channel): FSYNC and DOUT signals both change simultaneously on the edge of CLK.
+            The FSYNC signal continues until the end of the current channel-data transmission.
+            (There is a waveform graph under the path examples/bluetooth/bluedroid/classic_bt/hfp_ag/image)
+
+    config BTDM_CTRL_PCM_FSYNCSHP_MONO_MODE_LF
+        bool "Mono Mode 1"
+        help
+            Mono Mode 1(Single channel): FSYNC signal starts to change a CLK clock cycle earlier than the DOUT signal.
+            The FSYNC signal continues for one extra CLK clock cycle.
+            (There is a waveform graph under the path examples/bluetooth/bluedroid/classic_bt/hfp_ag/image)
+
+    config BTDM_CTRL_PCM_FSYNCSHP_MONO_MODE_FF
+        bool "Mono Mode 2"
+        help
+            Mono Mode 2(Single channel): FSYNC and DOUT signals both change simultaneously on the edge of CLK.
+            The FSYNC signal continues for one extra CLK clock cycle.
+            (There is a waveform graph under the path examples/bluetooth/bluedroid/classic_bt/hfp_ag/image)
+
+endchoice
+
 config BTDM_CTRL_PCM_ROLE_EFF
     int
     default 0 if BTDM_CTRL_PCM_ROLE_MASTER
@@ -105,6 +136,13 @@ config BTDM_CTRL_PCM_POLAR_EFF
     int
     default 0 if BTDM_CTRL_PCM_POLAR_FALLING_EDGE
     default 1 if BTDM_CTRL_PCM_POLAR_RISING_EDGE
+    default 0
+
+config BTDM_CTRL_PCM_FSYNCSHP_EFF
+    int
+    default 0 if BTDM_CTRL_PCM_FSYNCSHP_STEREO_MODE
+    default 1 if BTDM_CTRL_PCM_FSYNCSHP_MONO_MODE_LF
+    default 2 if BTDM_CTRL_PCM_FSYNCSHP_MONO_MODE_FF
     default 0
 
 config BTDM_CTRL_AUTO_LATENCY
@@ -172,7 +210,7 @@ config BTDM_CTRL_PINNED_TO_CORE
 choice BTDM_CTRL_HCI_MODE_CHOICE
     prompt "HCI mode"
     help
-        Speicify HCI mode as VHCI or UART(H4)
+        Specify HCI mode as VHCI or UART(H4)
 
     config BTDM_CTRL_HCI_MODE_VHCI
         bool "VHCI"
@@ -204,6 +242,11 @@ menu "HCI UART(H4) Options"
         default 921600
         help
             UART Baudrate for HCI. Please use standard baudrate.
+
+    config BTDM_CTRL_HCI_UART_FLOW_CTRL_EN
+        bool "Enable UART flow control"
+        depends on BTDM_CTRL_HCI_MODE_UART_H4
+        default y
 
 endmenu
 
@@ -258,7 +301,7 @@ menu "MODEM SLEEP Options"
 
         config BTDM_CTRL_LPCLK_SEL_EXT_32K_XTAL
             bool "External 32kHz crystal"
-            depends on ESP32_RTC_CLK_SRC_EXT_CRYS
+            depends on RTC_CLK_SRC_EXT_CRYS
             help
                 External 32kHz crystal has a nominal frequency of 32.768kHz and provides good frequency
                 stability. If used as Bluetooth low power clock, External 32kHz can support Bluetooth
@@ -348,10 +391,26 @@ config BTDM_SCAN_DUPL_CACHE_SIZE
     int "Maximum number of devices in scan duplicate filter"
     depends on BTDM_BLE_SCAN_DUPL
     range 10 1000
-    default 200
+    default 100
     help
         Maximum number of devices which can be recorded in scan duplicate filter.
-        When the maximum amount of device in the filter is reached, the cache will be refreshed.
+        When the maximum amount of device in the filter is reached, the oldest device will be refreshed.
+
+config BTDM_SCAN_DUPL_CACHE_REFRESH_PERIOD
+    int "Duplicate scan list refresh period (seconds)"
+    depends on BTDM_BLE_SCAN_DUPL
+    range 0 1000
+    default 0
+    help
+        If the period value is non-zero, the controller will periodically clear the device information
+        stored in the scan duuplicate filter. If it is 0, the scan duuplicate filter will not be cleared
+        until the scanning is disabled. Duplicate advertisements for this period should not be sent to the
+        Host in advertising report events.
+        There are two scenarios where the ADV packet will be repeatedly reported:
+        1. The duplicate scan cache is full, the controller will delete the oldest device information and
+        add new device information.
+        2. When the refresh period is up, the controller will clear all device information and start filtering
+        again.
 
 config BTDM_BLE_MESH_SCAN_DUPL_EN
     bool "Special duplicate scan mechanism for BLE Mesh scan"
@@ -364,7 +423,7 @@ config BTDM_MESH_DUPL_SCAN_CACHE_SIZE
     int "Maximum number of Mesh adv packets in scan duplicate filter"
     depends on BTDM_BLE_MESH_SCAN_DUPL_EN
     range 10 1000
-    default 200
+    default 100
     help
         Maximum number of adv packets which can be recorded in duplicate scan cache for BLE Mesh.
         When the maximum amount of device in the filter is reached, the cache will be refreshed.
@@ -376,6 +435,14 @@ config BTDM_CTRL_FULL_SCAN_SUPPORTED
     help
         The full scan function is mainly used to provide BLE scan performance.
         This is required for scenes with high scan performance requirements, such as BLE Mesh scenes.
+
+config BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
+    bool "Disable active scan backoff"
+    default n
+    help
+        Disable active scan backoff. The bluetooth spec requires that scanners should run a backoff procedure to
+        minimize collision of scan request PDUs from nultiple scanners. If scan backoff is disabled, in active
+        scanning, scan request PDU will be sent every time when HW receives scannable ADV PDU.
 
 config BTDM_BLE_ADV_REPORT_FLOW_CTRL_SUPP
     bool "BLE adv report flow control supported"

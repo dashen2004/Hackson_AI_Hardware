@@ -1,34 +1,10 @@
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #ifndef _SOC_RTC_CNTL_REG_H_
 #define _SOC_RTC_CNTL_REG_H_
-
-/* The value that needs to be written to RTC_CNTL_WDT_WKEY to write-enable the wdt registers */
-#define RTC_CNTL_WDT_WKEY_VALUE 0x50D83AA1
-/* The value that needs to be written to RTC_CNTL_SWD_WPROTECT_REG to write-enable the wdt registers */
-#define RTC_CNTL_SWD_WKEY_VALUE 0x8F1D312A
-
-/* Possible values for RTC_CNTL_WDT_CPU_RESET_LENGTH and RTC_CNTL_WDT_SYS_RESET_LENGTH */
-#define RTC_WDT_RESET_LENGTH_100_NS    0
-#define RTC_WDT_RESET_LENGTH_200_NS    1
-#define RTC_WDT_RESET_LENGTH_300_NS    2
-#define RTC_WDT_RESET_LENGTH_400_NS    3
-#define RTC_WDT_RESET_LENGTH_500_NS    4
-#define RTC_WDT_RESET_LENGTH_800_NS    5
-#define RTC_WDT_RESET_LENGTH_1600_NS   6
-#define RTC_WDT_RESET_LENGTH_3200_NS   7
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -308,7 +284,6 @@ extern "C" {
 #define RTC_CNTL_CK8M_WAIT_M  ((RTC_CNTL_CK8M_WAIT_V)<<(RTC_CNTL_CK8M_WAIT_S))
 #define RTC_CNTL_CK8M_WAIT_V  0xFF
 #define RTC_CNTL_CK8M_WAIT_S  6
-#define RTC_CNTL_CK8M_WAIT_DEFAULT  20
 /* RTC_CNTL_CPU_STALL_WAIT : R/W ;bitpos:[5:1] ;default: 5'd1 ; */
 /*description: CPU stall wait cycles in fast_clk_rtc*/
 #define RTC_CNTL_CPU_STALL_WAIT  0x0000001F
@@ -389,7 +364,6 @@ extern "C" {
 #define RTC_CNTL_MIN_SLP_VAL_M  ((RTC_CNTL_MIN_SLP_VAL_V)<<(RTC_CNTL_MIN_SLP_VAL_S))
 #define RTC_CNTL_MIN_SLP_VAL_V  0xFF
 #define RTC_CNTL_MIN_SLP_VAL_S  8
-#define RTC_CNTL_MIN_SLP_VAL_MIN 2
 
 #define RTC_CNTL_TIMER6_REG          (DR_REG_RTCCNTL_BASE + 0x0030)
 /* RTC_CNTL_DG_PERI_POWERUP_TIMER : R/W ;bitpos:[31:25] ;default: 7'h5 ; */
@@ -1001,7 +975,7 @@ extern "C" {
 #define RTC_CNTL_ANA_CLK_RTC_SEL_V  0x3
 #define RTC_CNTL_ANA_CLK_RTC_SEL_S  30
 /* RTC_CNTL_FAST_CLK_RTC_SEL : R/W ;bitpos:[29] ;default: 1'b0 ; */
-/*description: fast_clk_rtc sel. 0: XTAL div 4*/
+/*description: fast_clk_rtc sel. 0: XTAL div 2*/
 #define RTC_CNTL_FAST_CLK_RTC_SEL  (BIT(29))
 #define RTC_CNTL_FAST_CLK_RTC_SEL_M  (BIT(29))
 #define RTC_CNTL_FAST_CLK_RTC_SEL_V  0x1
@@ -2363,7 +2337,7 @@ extern "C" {
 #define RTC_CNTL_FIB_SEL_S  0
 
 #define RTC_CNTL_FIB_GLITCH_RST BIT(0)
-#define RTC_CNTL_FIB_BOR_RST BIT(1)
+#define RTC_CNTL_FIB_BOD_RST BIT(1)
 #define RTC_CNTL_FIB_SUPER_WDT_RST BIT(2)
 
 #define RTC_CNTL_GPIO_WAKEUP_REG          (DR_REG_RTCCNTL_BASE + 0x0110)

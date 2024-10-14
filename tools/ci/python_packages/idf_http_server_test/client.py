@@ -1,39 +1,25 @@
 #!/usr/bin/env python
 #
-# Copyright 2018 Espressif Systems (Shanghai) PTE LTD
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from __future__ import print_function, unicode_literals
+# SPDX-FileCopyrightText: 2018-2022 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import errno
 import http.client
-from builtins import str
-
-from tiny_test_fw import Utility
+import logging
 
 
 def verbose_print(verbosity, *args):
     if (verbosity):
-        Utility.console_log(''.join(str(elems) for elems in args))
+        logging.info(''.join(str(elems) for elems in args))
 
 
 def test_val(text, expected, received):
     if expected != received:
-        Utility.console_log(' Fail!')
-        Utility.console_log('  [reason] ' + text + ':')
-        Utility.console_log('        expected: ' + str(expected))
-        Utility.console_log('        received: ' + str(received))
+        logging.info(' Fail!')
+        logging.info('  [reason] {} :'.format(text))
+        logging.info('        expected: {}'.format(expected))
+        logging.info('        received: {}'.format(received))
         return False
     return True
 
@@ -158,6 +144,11 @@ def test_put_handler(ip, port, verbosity=False):
         except http.client.HTTPException:
             # Catch socket error as we tried to communicate with an already closed socket
             pass
+        except IOError as err:
+            if err.errno == errno.EPIPE:
+                # Sometimes Broken Pipe error is returned
+                # when sending data to a closed socket
+                pass
 
     except http.client.HTTPException:
         verbose_print(verbosity, 'Socket closed by server')
@@ -206,7 +197,7 @@ def test_put_handler(ip, port, verbosity=False):
             raise AssertionError
 
         verbose_print(verbosity, 'Response on GET /invalid : ' + resp_data)
-        if not test_val('Response mismatch', 'This URI does not exist', resp_data):
+        if not test_val('Response mismatch', 'Nothing matches the given URI', resp_data):
             raise AssertionError
 
     except http.client.HTTPException:
@@ -264,4 +255,4 @@ if __name__ == '__main__':
         test_put_handler(ip, port, True) and
         test_post_handler(ip, port, msg, True)
     ):
-        Utility.console_log('Failed!')
+        logging.info('Failed!')

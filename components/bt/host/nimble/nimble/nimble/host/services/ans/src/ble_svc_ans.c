@@ -390,7 +390,7 @@ ble_svc_ans_new_alert_notify(uint8_t cat_id, const char * info_str)
             memcpy(&ble_svc_ans_new_alert_val[2], info_str, info_str_len);
         }
     }
-    return ble_gattc_notify(ble_svc_ans_conn_handle,
+    return ble_gatts_notify(ble_svc_ans_conn_handle,
                             ble_svc_ans_new_alert_val_handle);
 }
 
@@ -407,7 +407,7 @@ ble_svc_ans_unr_alert_notify(uint8_t cat_id)
 {
     ble_svc_ans_unr_alert_stat[0] = cat_id;
     ble_svc_ans_unr_alert_stat[1] = ble_svc_ans_unr_alert_cnt[cat_id];
-    return ble_gattc_notify(ble_svc_ans_conn_handle,
+    return ble_gatts_notify(ble_svc_ans_conn_handle,
                             ble_svc_ans_unr_alert_val_handle);
 }
 
@@ -457,6 +457,7 @@ ble_svc_ans_init(void)
 
     rc = ble_gatts_add_svcs(ble_svc_ans_defs);
     SYSINIT_PANIC_ASSERT(rc == 0);
+    (void)rc;
 
     ble_svc_ans_new_alert_cat = MYNEWT_VAL(BLE_SVC_ANS_NEW_ALERT_CAT);
     ble_svc_ans_unr_alert_cat = MYNEWT_VAL(BLE_SVC_ANS_UNR_ALERT_CAT);

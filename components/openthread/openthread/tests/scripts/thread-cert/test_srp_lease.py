@@ -31,6 +31,7 @@ import ipaddress
 import unittest
 
 import command
+import config
 import thread_cert
 
 # Test description:
@@ -78,22 +79,22 @@ class SrpRegisterSingleService(thread_cert.TestCase):
         server.srp_server_set_enabled(True)
         server.srp_server_set_lease_range(LEASE, LEASE, KEY_LEASE, KEY_LEASE)
         server.start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(server.get_state(), 'leader')
         self.simulator.go(5)
 
-        client.srp_server_set_enabled(False)
         client.start()
-        self.simulator.go(10)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(client.get_state(), 'router')
 
         #
         # 1. Register a single service and verify that it works.
         #
 
+        self.assertEqual(client.srp_client_get_auto_start_mode(), 'Enabled')
+
         client.srp_client_set_host_name('my-host')
         client.srp_client_set_host_address('2001::1')
-        client.srp_client_start(server.get_addrs()[0], client.get_srp_server_port())
         client.srp_client_add_service('my-service', '_ipps._tcp', 12345)
         self.simulator.go(2)
 
@@ -112,8 +113,8 @@ class SrpRegisterSingleService(thread_cert.TestCase):
         self.assertEqual(server.srp_server_get_service('my-service', '_ipps._tcp')['deleted'], 'true')
 
         # Start the client again, the same service should be successfully registered.
-        client.srp_client_start(server.get_addrs()[0], client.get_srp_server_port())
-        self.simulator.go(2)
+        client.srp_client_enable_auto_start_mode()
+        self.simulator.go(15)
 
         self.check_host_and_service(server, client)
 
@@ -130,13 +131,13 @@ class SrpRegisterSingleService(thread_cert.TestCase):
         self.assertEqual(len(server.srp_server_get_services()), 0)
 
         # Start the client again, the same service should be successfully registered.
-        client.srp_client_start(server.get_addrs()[0], client.get_srp_server_port())
-        self.simulator.go(2)
+        client.srp_client_enable_auto_start_mode()
+        self.simulator.go(15)
 
         self.check_host_and_service(server, client)
 
         #
-        # 4. Clear the first service, shorten the lease time and register a second service.
+        # 4. Clear the first service, lengthen the lease time and register a second service.
         #    Verify that the lease time of the first service is not affected by new SRP
         #    registrations.
         #
@@ -155,7 +156,7 @@ class SrpRegisterSingleService(thread_cert.TestCase):
         self.assertEqual(len(server.srp_server_get_hosts()), 1)
 
         #
-        # 5. Clear the second service, lengthen the lease time and register a third service.
+        # 5. Clear the second service, shorten the lease time and register a third service.
         #    Verify that the lease time of the second service is not affected by new SRP
         #    registrations.
         #
@@ -172,6 +173,19 @@ class SrpRegisterSingleService(thread_cert.TestCase):
         self.simulator.go(KEY_LEASE - LEASE + 2)
         self.assertEqual(len(server.srp_server_get_services()), 2)
         self.assertEqual(len(server.srp_server_get_hosts()), 1)
+
+        #
+        # 6. Clear the third service. The host and services should expire in lease time.
+        #    Verify that the second service and the third service are removed when their host
+        #    expires.
+        #
+        client.srp_client_clear_service('my-service3', '_ipps._tcp')
+        self.simulator.go(LEASE + 2)
+        self.assertEqual(len(server.srp_server_get_services()), 2)
+        self.assertEqual(server.srp_server_get_service('my-service2', '_ipps._tcp')['deleted'], 'true')
+        self.assertEqual(server.srp_server_get_service('my-service3', '_ipps._tcp')['deleted'], 'true')
+        self.assertEqual(len(server.srp_server_get_hosts()), 1)
+        self.assertEqual(server.srp_server_get_host('my-host')['deleted'], 'true')
 
     def check_host_and_service(self, server, client):
         """Check that we have properly registered host and service instance.

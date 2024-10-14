@@ -36,6 +36,16 @@
 #define CONFIG_SRP_SERVER_H_
 
 /**
+ * @addtogroup config-srp-server
+ *
+ * @brief
+ *   This module includes configuration variables for the SRP Server.
+ *
+ * @{
+ *
+ */
+
+/**
  * @def OPENTHREAD_CONFIG_SRP_SERVER_ENABLE
  *
  * Define to 1 to enable SRP Server support.
@@ -46,7 +56,7 @@
 #endif
 
 /**
- * @def OPENTHREAD_CONFIG_SRP_SERVER_DEFAULT_ADDDRESS_MODE
+ * @def OPENTHREAD_CONFIG_SRP_SERVER_DEFAULT_ADDRESS_MODE
  *
  * Specifies the default address mode used by the SRP server.
  *
@@ -56,8 +66,8 @@
  * The value of this configuration should be from `otSrpServerAddressMode` enumeration.
  *
  */
-#ifndef OPENTHREAD_CONFIG_SRP_SERVER_DEFAULT_ADDDRESS_MODE
-#define OPENTHREAD_CONFIG_SRP_SERVER_DEFAULT_ADDDRESS_MODE OT_SRP_SERVER_ADDRESS_MODE_UNICAST
+#ifndef OPENTHREAD_CONFIG_SRP_SERVER_DEFAULT_ADDRESS_MODE
+#define OPENTHREAD_CONFIG_SRP_SERVER_DEFAULT_ADDRESS_MODE OT_SRP_SERVER_ADDRESS_MODE_UNICAST
 #endif
 
 /**
@@ -110,13 +120,18 @@
 #endif
 
 /**
- * @def OPENTHREAD_CONFIG_SRP_SERVER_MAX_ADDRESSES_NUM
+ * @def OPENTHREAD_CONFIG_SRP_SERVER_ADVERTISING_PROXY_ENABLE
  *
- * Specifies the maximum number of addresses the SRP server can handle for a host.
+ * Define to 1 to enable Advertising Proxy for SRP Sever.
  *
  */
-#ifndef OPENTHREAD_CONFIG_SRP_SERVER_MAX_ADDRESSES_NUM
-#define OPENTHREAD_CONFIG_SRP_SERVER_MAX_ADDRESSES_NUM 2
+#ifndef OPENTHREAD_CONFIG_SRP_SERVER_ADVERTISING_PROXY_ENABLE
+#define OPENTHREAD_CONFIG_SRP_SERVER_ADVERTISING_PROXY_ENABLE 0
 #endif
+
+/**
+ * @}
+ *
+ */
 
 #endif // CONFIG_SRP_SERVER_H_

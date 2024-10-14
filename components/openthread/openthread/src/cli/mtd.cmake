@@ -30,7 +30,9 @@ add_library(openthread-cli-mtd)
 
 target_compile_definitions(openthread-cli-mtd
     PRIVATE
+        OPENTHREAD_FTD=0
         OPENTHREAD_MTD=1
+        OPENTHREAD_RADIO=0
 )
 
 target_compile_options(openthread-cli-mtd PRIVATE
@@ -46,5 +48,10 @@ target_link_libraries(openthread-cli-mtd
         openthread-mtd
     PRIVATE
         ${OT_MBEDTLS}
+        ot-config-mtd
         ot-config
 )
+
+if(OT_CLI_VENDOR_TARGET)
+    target_link_libraries(openthread-cli-mtd PRIVATE ${OT_CLI_VENDOR_TARGET})
+endif()

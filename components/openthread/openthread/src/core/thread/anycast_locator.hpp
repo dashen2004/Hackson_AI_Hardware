@@ -38,15 +38,16 @@
 
 #if OPENTHREAD_CONFIG_TMF_ANYCAST_LOCATOR_ENABLE
 
-#include "coap/coap.hpp"
+#include "common/callback.hpp"
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
 #include "net/ip6_address.hpp"
+#include "thread/tmf.hpp"
 
 namespace ot {
 
 /**
- * This class implements Anycast Locator functionality which allows caller to determine the mesh local EID and RLOC16
+ * Implements Anycast Locator functionality which allows caller to determine the mesh local EID and RLOC16
  * of the closest destination of an anycast address (if any).
  *
  * The closest destination is determined based on the current routing table and path costs within the Thread mesh.
@@ -54,15 +55,17 @@ namespace ot {
  */
 class AnycastLocator : public InstanceLocator, private NonCopyable
 {
+    friend class Tmf::Agent;
+
 public:
     /**
-     * This function pointer type defines the callback to notify the outcome of a request.
+     * Pointer type defines the callback to notify the outcome of a request.
      *
      */
-    typedef otThreadAnycastLocatorCallback Callback;
+    typedef otThreadAnycastLocatorCallback LocatorCallback;
 
     /**
-     * This constructor initializes the `AnycastLocator` object.
+     * Initializes the `AnycastLocator` object.
      *
      * @param[in]  aInstance  A reference to the OpenThread instance.
      *
@@ -70,7 +73,7 @@ public:
     explicit AnycastLocator(Instance &aInstance);
 
     /**
-     * This method requests the closest destination of a given anycast address to be located.
+     * Requests the closest destination of a given anycast address to be located.
      *
      * If a previous `Locate()` request is ongoing, a subsequent call to this method will cancel and replace the
      * earlier request.
@@ -84,32 +87,29 @@ public:
      * @retval kErrorInvalidArgs  The @p aAnycastAddress is not a valid anycast address or @p aCallback is `nullptr`.
      *
      */
-    Error Locate(const Ip6::Address &aAnycastAddress, Callback aCallback, void *aContext);
+    Error Locate(const Ip6::Address &aAnycastAddress, LocatorCallback aCallback, void *aContext);
 
     /**
-     * This method indicates whether an earlier request is in progress.
+     * Indicates whether an earlier request is in progress.
      *
      * @returns TRUE if an earlier request is in progress, FALSE otherwise.
      *
      */
-    bool IsInProgress(void) const { return (mCallback != nullptr); }
+    bool IsInProgress(void) const { return mCallback.IsSet(); }
 
 private:
     static void HandleResponse(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo, Error aError);
 
     void HandleResponse(Coap::Message *aMessage, const Ip6::MessageInfo *aMessageInfo, Error aError);
 
-#if OPENTHREAD_CONFIG_TMF_ANYCAST_LOCATOR_SEND_RESPONSE
-    static void HandleAnycastLocate(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo);
-    void        HandleAnycastLocate(const Coap::Message &aRequest, const Ip6::MessageInfo &aMessageInfo);
-#endif
+    template <Uri kUri> void HandleTmf(Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
 
-    Callback mCallback;
-    void *   mContext;
-#if OPENTHREAD_CONFIG_TMF_ANYCAST_LOCATOR_SEND_RESPONSE
-    Coap::Resource mAnycastLocate;
-#endif
+    Callback<LocatorCallback> mCallback;
 };
+
+#if OPENTHREAD_CONFIG_TMF_ANYCAST_LOCATOR_SEND_RESPONSE
+DeclareTmfHandler(AnycastLocator, kUriAnycastLocate);
+#endif
 
 } // namespace ot
 

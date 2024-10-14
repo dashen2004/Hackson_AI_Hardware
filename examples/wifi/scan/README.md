@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- |
+
 # Wi-Fi Scan Example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -15,12 +18,13 @@ Before project configuration and build, be sure to set the correct chip target u
 
 ### Configure the project
 
-Open the project configuration menu (`idf.py menuconfig`). 
+Open the project configuration menu (`idf.py menuconfig`).
 
 In the `Example Configuration` menu:
 
 * Set the Example configuration.
-    * Use `Max size of scan list` to set the maximum nunber of access points in the list.
+    * Use `Max size of scan list` to set the maximum number of access points in the list.
+    * Use 'Scan Channel list' to list specific channels you wish to scan. For eg. 1,6,9,11. By Default all channels will be scanned.
 
 ### Build and Flash
 
@@ -44,7 +48,7 @@ As you run the example, you will see the following log:
 I (443) wifi:wifi firmware version: 6bff005
 I (443) wifi:wifi certification version: v7.0
 I (443) wifi:config NVS flash: enabled
-I (443) wifi:config nano formating: disabled
+I (443) wifi:config nano formatting: disabled
 I (453) wifi:Init data frame dynamic rx buffer num: 32
 I (453) wifi:Init management frame dynamic rx buffer num: 32
 I (463) wifi:Init management short buffer num: 32

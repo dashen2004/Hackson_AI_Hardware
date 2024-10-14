@@ -33,8 +33,9 @@
 #include <openthread/instance.h>
 #include <openthread/platform/time.h>
 
+#include "common/as_core_type.hpp"
 #include "common/code_utils.hpp"
-#include "common/instance.hpp"
+#include "instance/instance.hpp"
 #include "radio/radio.hpp"
 
 using namespace ot;
@@ -46,7 +47,7 @@ using namespace ot;
 
 extern "C" void otPlatRadioReceiveDone(otInstance *aInstance, otRadioFrame *aFrame, otError aError)
 {
-    Instance &    instance = *static_cast<Instance *>(aInstance);
+    Instance     &instance = AsCoreType(aInstance);
     Mac::RxFrame *rxFrame  = static_cast<Mac::RxFrame *>(aFrame);
 
     VerifyOrExit(instance.IsInitialized());
@@ -66,7 +67,7 @@ exit:
 
 extern "C" void otPlatRadioTxStarted(otInstance *aInstance, otRadioFrame *aFrame)
 {
-    Instance &    instance = *static_cast<Instance *>(aInstance);
+    Instance     &instance = AsCoreType(aInstance);
     Mac::TxFrame &txFrame  = *static_cast<Mac::TxFrame *>(aFrame);
 
     VerifyOrExit(instance.IsInitialized());
@@ -83,7 +84,7 @@ exit:
 
 extern "C" void otPlatRadioTxDone(otInstance *aInstance, otRadioFrame *aFrame, otRadioFrame *aAckFrame, otError aError)
 {
-    Instance &    instance = *static_cast<Instance *>(aInstance);
+    Instance     &instance = AsCoreType(aInstance);
     Mac::TxFrame &txFrame  = *static_cast<Mac::TxFrame *>(aFrame);
     Mac::RxFrame *ackFrame = static_cast<Mac::RxFrame *>(aAckFrame);
 
@@ -106,7 +107,7 @@ exit:
 
 extern "C" void otPlatRadioEnergyScanDone(otInstance *aInstance, int8_t aEnergyScanMaxRssi)
 {
-    Instance &instance = *static_cast<Instance *>(aInstance);
+    Instance &instance = AsCoreType(aInstance);
 
     VerifyOrExit(instance.IsInitialized());
     instance.Get<Radio::Callbacks>().HandleEnergyScanDone(aEnergyScanMaxRssi);
@@ -118,8 +119,7 @@ exit:
 #if OPENTHREAD_CONFIG_DIAG_ENABLE
 extern "C" void otPlatDiagRadioReceiveDone(otInstance *aInstance, otRadioFrame *aFrame, otError aError)
 {
-    Instance &    instance = *static_cast<Instance *>(aInstance);
-    Mac::RxFrame *rxFrame  = static_cast<Mac::RxFrame *>(aFrame);
+    Mac::RxFrame *rxFrame = static_cast<Mac::RxFrame *>(aFrame);
 
 #if OPENTHREAD_CONFIG_MULTI_RADIO
     if (rxFrame != nullptr)
@@ -128,48 +128,35 @@ extern "C" void otPlatDiagRadioReceiveDone(otInstance *aInstance, otRadioFrame *
     }
 #endif
 
-    instance.Get<Radio::Callbacks>().HandleDiagsReceiveDone(rxFrame, aError);
+    AsCoreType(aInstance).Get<Radio::Callbacks>().HandleDiagsReceiveDone(rxFrame, aError);
 }
 
 extern "C" void otPlatDiagRadioTransmitDone(otInstance *aInstance, otRadioFrame *aFrame, otError aError)
 {
-    Instance &    instance = *static_cast<Instance *>(aInstance);
-    Mac::TxFrame &txFrame  = *static_cast<Mac::TxFrame *>(aFrame);
+    Mac::TxFrame &txFrame = *static_cast<Mac::TxFrame *>(aFrame);
 
 #if OPENTHREAD_CONFIG_MULTI_RADIO
     txFrame.SetRadioType(Mac::kRadioTypeIeee802154);
 #endif
 
-    instance.Get<Radio::Callbacks>().HandleDiagsTransmitDone(txFrame, aError);
+    AsCoreType(aInstance).Get<Radio::Callbacks>().HandleDiagsTransmitDone(txFrame, aError);
 }
 #endif
 
 #else // #if OPENTHREAD_CONFIG_RADIO_LINK_IEEE_802_15_4_ENABLE
 
-extern "C" void otPlatRadioReceiveDone(otInstance *, otRadioFrame *, otError)
-{
-}
+extern "C" void otPlatRadioReceiveDone(otInstance *, otRadioFrame *, otError) {}
 
-extern "C" void otPlatRadioTxStarted(otInstance *, otRadioFrame *)
-{
-}
+extern "C" void otPlatRadioTxStarted(otInstance *, otRadioFrame *) {}
 
-extern "C" void otPlatRadioTxDone(otInstance *, otRadioFrame *, otRadioFrame *, otError)
-{
-}
+extern "C" void otPlatRadioTxDone(otInstance *, otRadioFrame *, otRadioFrame *, otError) {}
 
-extern "C" void otPlatRadioEnergyScanDone(otInstance *, int8_t)
-{
-}
+extern "C" void otPlatRadioEnergyScanDone(otInstance *, int8_t) {}
 
 #if OPENTHREAD_CONFIG_DIAG_ENABLE
-extern "C" void otPlatDiagRadioReceiveDone(otInstance *, otRadioFrame *, otError)
-{
-}
+extern "C" void otPlatDiagRadioReceiveDone(otInstance *, otRadioFrame *, otError) {}
 
-extern "C" void otPlatDiagRadioTransmitDone(otInstance *, otRadioFrame *, otError)
-{
-}
+extern "C" void otPlatDiagRadioTransmitDone(otInstance *, otRadioFrame *, otError) {}
 #endif
 
 #endif // // #if OPENTHREAD_CONFIG_RADIO_LINK_IEEE_802_15_4_ENABLE
@@ -202,7 +189,7 @@ OT_TOOL_WEAK otRadioState otPlatRadioGetState(otInstance *aInstance)
     return OT_RADIO_STATE_INVALID;
 }
 
-OT_TOOL_WEAK void otPlatRadioSetMacKey(otInstance *            aInstance,
+OT_TOOL_WEAK void otPlatRadioSetMacKey(otInstance             *aInstance,
                                        uint8_t                 aKeyIdMode,
                                        uint8_t                 aKeyId,
                                        const otMacKeyMaterial *aPrevKey,
@@ -225,10 +212,29 @@ OT_TOOL_WEAK void otPlatRadioSetMacFrameCounter(otInstance *aInstance, uint32_t 
     OT_UNUSED_VARIABLE(aMacFrameCounter);
 }
 
-OT_TOOL_WEAK uint64_t otPlatTimeGet(void)
+OT_TOOL_WEAK void otPlatRadioSetMacFrameCounterIfLarger(otInstance *aInstance, uint32_t aMacFrameCounter)
 {
-    return UINT64_MAX;
+    // Radio platforms that support `OT_RADIO_CAPS_TRANSMIT_SEC` should
+    // provide this radio platform function.
+    //
+    // This function helps address an edge-case where OT stack may not
+    // yet know the latest frame counter values used by radio platform
+    // (e.g., due to enhanced acks processed by radio platform directly
+    // or due to delay between RCP and host) and then setting the value
+    // from OT stack may cause the counter value on radio to move back
+    // (OT stack will set the counter after appending it in
+    // `LinkFrameCounterTlv` on all radios when multi-radio links
+    // feature is enabled).
+    //
+    // The weak implementation here is intended as a solution to ensure
+    // temporary compatibility with radio platforms that may not yet
+    // implement it. If this weak implementation is used, the edge-case
+    // above may still happen.
+
+    otPlatRadioSetMacFrameCounter(aInstance, aMacFrameCounter);
 }
+
+OT_TOOL_WEAK uint64_t otPlatTimeGet(void) { return UINT64_MAX; }
 
 OT_TOOL_WEAK uint64_t otPlatRadioGetNow(otInstance *aInstance)
 {
@@ -244,18 +250,25 @@ OT_TOOL_WEAK uint32_t otPlatRadioGetBusSpeed(otInstance *aInstance)
     return 0;
 }
 
+#if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
+OT_TOOL_WEAK otError otPlatRadioResetCsl(otInstance *aInstance)
+{
+    return otPlatRadioEnableCsl(aInstance, 0, Mac::kShortAddrInvalid, nullptr);
+}
+#endif
+
 OT_TOOL_WEAK uint8_t otPlatRadioGetCslAccuracy(otInstance *aInstance)
 {
     OT_UNUSED_VARIABLE(aInstance);
 
-    return UINT8_MAX;
+    return NumericLimits<uint8_t>::kMax;
 }
 
-OT_TOOL_WEAK uint8_t otPlatRadioGetCslClockUncertainty(otInstance *aInstance)
+OT_TOOL_WEAK uint8_t otPlatRadioGetCslUncertainty(otInstance *aInstance)
 {
     OT_UNUSED_VARIABLE(aInstance);
 
-    return OPENTHREAD_CONFIG_PLATFORM_CSL_UNCERT;
+    return NumericLimits<uint8_t>::kMax;
 }
 
 OT_TOOL_WEAK otError otPlatRadioGetFemLnaGain(otInstance *aInstance, int8_t *aGain)
@@ -307,4 +320,10 @@ OT_TOOL_WEAK otError otPlatRadioReceiveAt(otInstance *aInstance, uint8_t aChanne
     OT_UNUSED_VARIABLE(aDuration);
 
     return kErrorNotImplemented;
+}
+
+OT_TOOL_WEAK void otPlatRadioSetRxOnWhenIdle(otInstance *aInstance, bool aEnable)
+{
+    OT_UNUSED_VARIABLE(aInstance);
+    OT_UNUSED_VARIABLE(aEnable);
 }

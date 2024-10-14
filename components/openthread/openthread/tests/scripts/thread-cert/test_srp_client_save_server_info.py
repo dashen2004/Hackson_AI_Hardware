@@ -31,6 +31,7 @@ import ipaddress
 import unittest
 
 import command
+import config
 import thread_cert
 
 # Test description:
@@ -47,7 +48,7 @@ SERVER1 = 2
 SERVER2 = 3
 SERVER3 = 4
 
-WAIT_TIME = 5
+WAIT_TIME = 16
 MAX_ITER = 5
 
 
@@ -87,7 +88,7 @@ class SrpAutoStartMode(thread_cert.TestCase):
         # Start the server & client devices.
 
         client.start()
-        self.simulator.go(WAIT_TIME)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(client.get_state(), 'leader')
 
         for node in [server1, server2, server3]:
@@ -104,8 +105,6 @@ class SrpAutoStartMode(thread_cert.TestCase):
         client.srp_client_set_host_address('2001::1')
         client.srp_client_add_service('my-service', '_ipps._tcp', 12345)
 
-        self.assertEqual(client.srp_client_get_state(), 'Disabled')
-        client.srp_client_enable_auto_start_mode()
         self.assertEqual(client.srp_client_get_auto_start_mode(), 'Enabled')
         self.simulator.go(WAIT_TIME)
 

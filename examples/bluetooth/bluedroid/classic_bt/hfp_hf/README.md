@@ -1,9 +1,11 @@
 | Supported Targets | ESP32 |
 | ----------------- | ----- |
 
-# Hands-Free Unit
+# Hands-Free Client
 
-This example is to show how to use the APIs of Hands-Free (HF) Unit Component and the effects of them by providing a set of commands. You can use this example to communicate with an Audio Gateway (AG) device (e.g. a smart phone). This example uses UART for user commands.
+This example is to show how to use the APIs of Hands-Free Client Component and the effects of them by providing a set of commands. You can use this example to communicate with a device that implements Hands-Free Audio Gateway (HF-AG) (e.g. a smartphone).
+
+This demo sends back the audio data back to the HFP AG device, so you can hear your own voice when you link this demo with your HFP-AG device.
 
 ## How to use example
 
@@ -13,16 +15,70 @@ This example is designed to run on commonly available ESP32 development board, e
 
 ### Configure the project
 
-```
+Open the project configuration menu:
+
+```bash
 idf.py menuconfig
 ```
 
-ESP32 supports two types of audio data path: PCM() and HCI(Host-Controller Interface) but the default sdkconfig of this example does not config the data path in a specific way. You should config the data path you want:
+### Special Configurations for HFP
 
-- PCM : When using PCM, audio data stream is mapped to GPIO pins and you should link these GPIO pins to a speaker via I2S port. And you should choose PCM in `menuconfig` path: `Component config --> Bluetooth controller --> BR/EDR Sync(SCO/eSCO) default data path --> PCM`and also `Component config --> Bluetooth --> Bluedroid Options -->Hands Free/Handset Profile --> audio(SCO) data path --> PCM`.
-- HCI : When using HCI, audio data stream will be transport to HF unit app via HCI. And you should choose HCI in `menuconfig` path: `Component config -->Bluetooth controller -->BR/EDR Sync(SCO/eSCO) default data path --> HCI` and also `Component config --> Bluetooth --> Bluedroid Options -->Hands Free/Handset Profile --> audio(SCO) data path --> HCI`.
+#### Data Path
 
-**Note: Wide Band Speech is disabled by default, if you want to use it please select it in menuconfig path: `Component config --> Bluetooth --> Bluedroid Options --> Wide Band Speech`.**
+ESP32 HFP supports two types of audio datapath: PCM and HCI.
+
+The default configuration is `PCM`, if you want to use `vHCI` you should configure the data path before building and downloading the binary.
+
+- `PCM`: To use PCM, audio stream is directed from Bluetooth controller to the specific GPIO pins you set in the demo, and you should link these GPIO pins to a speaker via I2S port. The audio data will not go through the `Bluedroid`. In menuconfig, you should choose PCM in `menuconfig`:
+
+    `Component config --> Bluetooth controller --> BR/EDR Sync(SCO/eSCO) default data path --> PCM`
+
+    and also
+
+    `Component config --> Bluetooth --> Bluedroid Options --> Hands Free/Handset Profile --> audio(SCO) data path --> PCM`.
+
+- `vHCI`: To use vHCI, audio data stream will be directed from Bluetooth Controller through vHCI on ESP32 and go through the Bluedroid to the Application layer. In menuconfig, you should choose vHCI in `menuconfig`:
+
+    `Component config --> Bluetooth controller --> BR/EDR Sync(SCO/eSCO) default data path --> HCI`
+
+    and also
+
+    `Component config --> Bluetooth --> Bluedroid Options --> Hands Free/Handset Profile --> audio(SCO) data path --> HCI`.
+
+#### PCM Signal Configurations
+
+PCM Signal supports three configurations in menuconfig: PCM Role, PCM Polar and Channel Mode(Stereo/Mono).
+
+- PCM Role: PCM role can be configured as PCM master or PCM slave. The default configuration is `Master`, you can change the PCM role in `menuconfig` path:
+    `Component config --> Bluetooth --> Controller Options --> PCM Signal Configurations --> PCM Signal Configurations: Role, Polar and Channel Mode(Stereo/Mono) --> PCM Role`
+
+- PCM Polar: PCM polarity can be configured as Falling Edge or Rising Edge. The default configuration is `Falling Edge`, you can change the PCM polar in `menuconfig` path:
+    `Component config --> Bluetooth --> Controller Options --> PCM Signal Configurations --> PCM Signal Configurations: Role, Polar and Channel Mode(Stereo/Mono) --> PCM Polar`
+
+- Channel Mode(Stereo/Mono): PCM frame synchronization signal can be configured as Stereo mode or Mono mode, where the Mono mode can be configured in two different forms(Mono mode 1 and Mono mode 2). As is shown in the figure   ![Stereo/Mono](../hfp_ag/image/Channel_Mode_Stereo_Mono.png)
+
+  - Stereo Mode(Dual channel): FSYNC and DOUT signals both change simultaneously on the edge of CLK. The FSYNC signal continues until the end of the current channel-data transmission.
+  - Mono Mode 1(Single channel): FSYNC signal starts to change a CLK clock cycle earlier than the DOUT signal, which means that the FSYNC signal takes effect a clock cycle earlier than the first bit of the current channel-data transmission. The FSYNC signal continues for one extra CLK clock cycle.
+  - Mono Mode 2(Single channel): FSYNC and DOUT signals both change simultaneously on the edge of CLK. The FSYNC signal continues for one extra CLK clock cycle.
+
+- The default configuration is `Stereo Mode`, you can change the PCM Channel mode in `menuconfig` path:
+    `Component config --> Bluetooth --> Controller Options --> PCM Signal Configurations --> PCM Signal Configurations: Role, Polar and Channel Mode(Stereo/Mono) --> Channel Mode(Stereo/Mono)`
+
+### Codec Choice
+
+ESP32 supports two types of codec for HFP audio data: `CVSD` and `mSBC`.
+
+`CVSD` is the default setting and is also the widely used codec for voice audio. But, `mSBC` is designed to have a better voice quality through `HFP`. To select which one is in use, we provide `Wide Band Speech` item in the `menuconfig` path:
+
+`Component config --> Bluetooth --> Bluedroid Options --> Wide Band Speech`.
+
+Switching on the `Wide Band Speech` means that the preferred codec is `mSBC`, but which one is actually being used also depends on the `Data Path` configuration.
+
+- If you choose `PCM` for datapath, you can only use `CVSD` and hardware is responsible for the codec job. In the meanwhile, you cannot use `mSBC` by switching `Wide Band Speech` on, because the `mSBC` is implemented in the Bluedroid (Bluetooth Host Stack) by software.
+
+- If you choose `vHCI` for datapath with `Wide Band Speech` on, codec job is done in the Bluedroid and mSBC is being used.
+
+- If you choose `vHCI` for datapath with `Wide Band Speech` off, hardware is responsible for the codec job and `CVSD` is in use.
 
 ### Build and Flash
 
@@ -40,7 +96,7 @@ See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/l
 
 ## Example Output
 
-When you run this example, the explain prints the following at the very begining:
+When you run this example, the explain prints the following at the very beginning:
 
 ```
 Type 'help' to get the list of commands.
@@ -130,7 +186,7 @@ I (133262) BT_HF: --audio state disconnected
 - Reject an incoming call
 - Disable the voice recognition
 
-#### Choise of Codec
+#### Choice of Codec
 
 ESP32 supports both CVSD and mSBC codec. HF Unit and AG device determine which codec to use by exchanging features during service level connection. The choice of codec also depends on the your configuration in `menuconfig`.
 
@@ -231,7 +287,7 @@ I (293172) BT_HF: APP HFP event: AT_RESPONSE
 I (293172) BT_HF: --AT response event, code 0, cme 0
 E (293702) BT_BTM: btm_sco_connected, handle 181
 I (293702) BT_HF: APP HFP event: AUDIO_STATE_EVT
-I (293702) BT_HF: --audio state connecte
+I (293702) BT_HF: --audio state connected
 ```
 
 #### Query Current Operator Name
@@ -295,6 +351,5 @@ Due to the complexity of HFP, this example has more source files than other blue
 - The example will respond to user command through UART console. Please go to `console_uart.c`  for the configuration details.
 - For voice interface, ESP32 has provided PCM input/output signals which can be mapped to GPIO pins. So, please go to `gpio_pcm_config.c` for the configuration details.
 - If you want to update the command table, please refer to `app_hf_msg_set.c`.
-- If you want to update the command parse rules, please refer to `app_hf_msg_prs.c`.
 - If you want to update the responses of HF Unit or want to update the log, please refer to `bt_app_hf.c`.
 - Task configuration part is in `bt_app_core.c`.

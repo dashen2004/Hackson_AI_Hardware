@@ -23,7 +23,7 @@ $(document).ready(function() {
 
     (Where 'idf_target' path element are optional depending on if the project has multiple target support)
     */
-    let project_base_url = DOCUMENTATION_OPTIONS.URL_ROOT + "../..";
+    let project_base_url = DOCUMENTATION_OPTIONS.URL_ROOT + "../../..";
     if (DOCUMENTATION_OPTIONS.IDF_TARGETS) {
         project_base_url += "/..";
     }
@@ -38,17 +38,44 @@ $(document).ready(function() {
         return result + "/";
     };
 
-    old_ver_list = "";
+    function getReleaseNotesUrl(v){
+        if (v.name.indexOf("release") !== 0) {
+            let releaseNotesUrl = "https://github.com/espressif/esp-idf/releases/tag/" + v.name;
+            return releaseNotesUrl;
+        }
+    }
+
+    old_ver_table = "";
+    old_ver_table_row = "<tr>"
+    let row_items = 0;
+    const ITEMS_PER_ROW = 3;
 
     for (let i = 0; i < versions.length; i++) {
         let v = versions[i];
         let url = getVersionUrl(v);
+        let releaseNotesUrl = getReleaseNotesUrl(v);
 
         if (v.old) {
-            old_ver_list += "<li><a href=\"" + url + "\">" + v.name + "</li>";
+            if (releaseNotesUrl){
+                old_ver_table_row += "<td><a href=\"" + url + "\">" + v.name + "&nbsp;-&nbsp;<a href=\"" + releaseNotesUrl + "\">Release Notes</a></td>";
+            } else {
+                old_ver_table_row += "<td><a href=\"" + url + "\">" + v.name + "</td>";
+            }
+
+            row_items++;
+
+            if (row_items === ITEMS_PER_ROW) {
+                old_ver_table_row += "</tr>";
+                old_ver_table += old_ver_table_row;
+
+                /* Prepare a new row */
+                old_ver_table_row = "<tr>"
+                row_items = 0
+            }
         }
-
     }
+    old_ver_table_row += "</tr>";
+    old_ver_table += old_ver_table_row;
 
-    $( "#version_list" ).append(old_ver_list);
+    $( "#version_table" ).append(old_ver_table);
 });

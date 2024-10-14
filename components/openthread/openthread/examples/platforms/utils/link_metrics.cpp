@@ -49,7 +49,7 @@ class LinkMetricsDataInfo : public LinkedListEntry<LinkMetricsDataInfo>, public 
 
 public:
     /**
-     * Construtor.
+     * Constructor.
      *
      */
     LinkMetricsDataInfo(void) { Clear(); };
@@ -71,7 +71,7 @@ public:
     }
 
     /**
-     * This method gets Link Metrics data stored in this object.
+     * Gets Link Metrics data stored in this object.
      *
      * TODO: Currently the order of Link Metircs data is fixed. Will update it to follow the order specified in TLV.
      *
@@ -114,7 +114,7 @@ public:
     }
 
     /**
-     * This method gets the length of Link Metrics Data.
+     * Gets the length of Link Metrics Data.
      *
      * @returns  The number of bytes for the data.
      *
@@ -126,7 +126,7 @@ public:
     }
 
     /**
-     * This method gets the metrics configured for the Enhanced-ACK Based Probing.
+     * Gets the metrics configured for the Enhanced-ACK Based Probing.
      *
      * @returns  The metrics configured.
      *
@@ -134,7 +134,7 @@ public:
     otLinkMetrics GetLinkMetrics(void) const { return mLinkMetrics; }
 
 private:
-    uint8_t GetLinkMargin(int8_t aRssi) const { return LinkQualityInfo::ConvertRssToLinkMargin(sNoiseFloor, aRssi); }
+    uint8_t GetLinkMargin(int8_t aRssi) const { return ComputeLinkMargin(sNoiseFloor, aRssi); }
 
     bool Matches(const otShortAddress &aShortAddress) const { return mShortAddress == aShortAddress; };
 
@@ -153,7 +153,7 @@ private:
 
 enum
 {
-    kMaxEnhAckProbingInitiator = 10,
+    kMaxEnhAckProbingInitiator = OPENTHREAD_CONFIG_MLE_LINK_METRICS_MAX_SERIES_SUPPORTED,
 };
 
 typedef Pool<LinkMetricsDataInfo, kMaxEnhAckProbingInitiator> LinkMetricsDataInfoPool;
@@ -180,6 +180,7 @@ static inline bool IsLinkMetricsClear(otLinkMetrics aLinkMetrics)
 void otLinkMetricsInit(int8_t aNoiseFloor)
 {
     sNoiseFloor = aNoiseFloor;
+    otLinkMetricsResetEnhAckProbing();
 }
 
 otError otLinkMetricsConfigureEnhAckProbing(otShortAddress      aShortAddress,
@@ -259,5 +260,11 @@ uint8_t otLinkMetricsEnhAckGetDataLen(const otMacAddress *aMacAddress)
 
 exit:
     return len;
+}
+
+void otLinkMetricsResetEnhAckProbing(void)
+{
+    GetLinkMetricsDataInfoActiveList().Clear();
+    GetLinkMetricsDataInfoPool().FreeAll();
 }
 #endif // OPENTHREAD_CONFIG_MLE_LINK_METRICS_INITIATOR_ENABLE || OPENTHREAD_CONFIG_MLE_LINK_METRICS_SUBJECT_ENABLE

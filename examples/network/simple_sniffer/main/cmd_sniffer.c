@@ -143,7 +143,7 @@ static void wifi_sniffer_cb(void *recv_buf, wifi_promiscuous_pkt_type_t type)
     /* For now, the sniffer only dumps the length of the MISC type frame */
     if (type != WIFI_PKT_MISC && !sniffer->rx_ctrl.rx_state) {
         packet_info.length -= SNIFFER_PAYLOAD_FCS_LEN;
-        queue_packet(recv_buf, &packet_info);
+        queue_packet(sniffer->payload, &packet_info);
     }
 }
 
@@ -373,11 +373,11 @@ static int do_sniffer_cmd(int argc, char **argv)
                 snf_rt.interf = SNIFFER_INTF_ETH;
                 snf_rt.interf_num = eth_intf_num;
             } else {
-                ESP_LOGE(SNIFFER_TAG, "unsupported interface %s", sniffer_args.interface->sval[0]);
+                ESP_LOGE(SNIFFER_TAG, "interface %s not found", sniffer_args.interface->sval[0]);
                 return 1;
             }
         } else {
-            ESP_LOGE(SNIFFER_TAG, "unsupported interface %s", sniffer_args.interface->sval[0]);
+            ESP_LOGE(SNIFFER_TAG, "interface %s not found", sniffer_args.interface->sval[0]);
             return 1;
         }
     } else {
@@ -430,7 +430,7 @@ static int do_sniffer_cmd(int argc, char **argv)
     snf_rt.packets_to_sniff = -1;
     if (sniffer_args.number->count) {
         snf_rt.packets_to_sniff = sniffer_args.number->ival[0];
-        ESP_LOGI(SNIFFER_TAG, "%d packages will be captured", snf_rt.packets_to_sniff);
+        ESP_LOGI(SNIFFER_TAG, "%" PRIi32 " packages will be captured", snf_rt.packets_to_sniff);
     }
 
     /* start sniffer */

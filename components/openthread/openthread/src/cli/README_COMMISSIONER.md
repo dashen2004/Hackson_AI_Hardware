@@ -1,5 +1,9 @@
 # OpenThread CLI - Commissioner
 
+## Overview
+
+The Commissioner is an entity that can add new Thread devices securely to a Thread network. It also can manage a Thread network by changing network configuration parameters ([Operational Datasets](README_DATASET.md)) or sending specific management/diagnostic commands to selected Thread devices. Before a Commissioner can do its tasks, it has to petition to the Leader to get permission to become the Commissioner.
+
 ## Quick Start
 
 See [README_COMMISSIONING.md](README_COMMISSIONING.md).
@@ -11,6 +15,7 @@ See [README_COMMISSIONING.md](README_COMMISSIONING.md).
 - [energy](#energy)
 - [joiner add](#joiner-add)
 - [joiner remove](#joiner-remove)
+- [joiner table](#joiner-table)
 - [mgmtget](#mgmtget)
 - [mgmtset](#mgmtset)
 - [panid](#panid)
@@ -120,6 +125,22 @@ Done
 Done
 ```
 
+### joiner table
+
+Usage: `commissioner joiner table`
+
+List all Joiner entries.
+
+```bash
+> commissioner joiner table
+| ID                    | PSKd                             | Expiration |
++-----------------------+----------------------------------+------------+
+|                     * |                           J01NME |      81015 |
+|      d45e64fa83f81cf7 |                           J01NME |     101204 |
+| 0x0000000000000abc/12 |                           J01NME |     114360 |
+Done
+```
+
 ### mgmtget
 
 Usage: `commissioner mgmtget [locator] [sessionid] [steeringdata] [joinerudpport] [-x <TLV Types>]`
@@ -180,6 +201,27 @@ Get current commissioner session id.
 ```bash
 > commissioner sessionid
 0
+Done
+```
+
+### id
+
+Usage: `commissioner id`
+
+Get the commissioner id.
+
+```bash
+> commissioner id
+OpenThread Commissioner
+Done
+```
+
+### id \<name\>
+
+Set the commissioner id.
+
+```bash
+> commissioner id "Custom Commissioner Id"
 Done
 ```
 

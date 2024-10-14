@@ -4,7 +4,7 @@
 #   [Released under MIT License. Please refer to license.txt for details]
 # ==========================================
 
-require "#{File.expand_path(File.dirname(__FILE__))}/colour_prompt"
+require_relative 'colour_prompt'
 
 $colour_output = true
 
@@ -12,7 +12,7 @@ def report(message)
   if !$colour_output
     $stdout.puts(message)
   else
-    message = message.join('\n') if message.class == Array
+    message = message.join('\n') if message.instance_of?(Array)
     message.each_line do |line|
       line.chomp!
       colour = case line

@@ -38,15 +38,17 @@
 #include "coap/coap_message.hpp"
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
+#include "instance/instance.hpp"
 #include "meshcop/meshcop.hpp"
 #include "meshcop/meshcop_tlvs.hpp"
 #include "thread/thread_netif.hpp"
 #include "thread/uri_paths.hpp"
 
 namespace ot {
+
+RegisterLogModule("MeshCoP");
 
 AnnounceBeginClient::AnnounceBeginClient(Instance &aInstance)
     : InstanceLocator(aInstance)
@@ -58,34 +60,29 @@ Error AnnounceBeginClient::SendRequest(uint32_t            aChannelMask,
                                        uint16_t            aPeriod,
                                        const Ip6::Address &aAddress)
 {
-    Error                   error = kErrorNone;
-    MeshCoP::ChannelMaskTlv channelMask;
-    Ip6::MessageInfo        messageInfo;
-    Coap::Message *         message = nullptr;
+    Error            error = kErrorNone;
+    Tmf::MessageInfo messageInfo(GetInstance());
+    Coap::Message   *message = nullptr;
 
     VerifyOrExit(Get<MeshCoP::Commissioner>().IsActive(), error = kErrorInvalidState);
-    VerifyOrExit((message = MeshCoP::NewMeshCoPMessage(Get<Tmf::Agent>())) != nullptr, error = kErrorNoBufs);
+    VerifyOrExit((message = Get<Tmf::Agent>().NewPriorityMessage()) != nullptr, error = kErrorNoBufs);
 
-    SuccessOrExit(error = message->InitAsPost(aAddress, UriPath::kAnnounceBegin));
+    SuccessOrExit(error = message->InitAsPost(aAddress, kUriAnnounceBegin));
     SuccessOrExit(error = message->SetPayloadMarker());
 
     SuccessOrExit(
         error = Tlv::Append<MeshCoP::CommissionerSessionIdTlv>(*message, Get<MeshCoP::Commissioner>().GetSessionId()));
 
-    channelMask.Init();
-    channelMask.SetChannelMask(aChannelMask);
-    SuccessOrExit(error = channelMask.AppendTo(*message));
+    SuccessOrExit(error = MeshCoP::ChannelMaskTlv::AppendTo(*message, aChannelMask));
 
     SuccessOrExit(error = Tlv::Append<MeshCoP::CountTlv>(*message, aCount));
     SuccessOrExit(error = Tlv::Append<MeshCoP::PeriodTlv>(*message, aPeriod));
 
-    messageInfo.SetSockAddr(Get<Mle::MleRouter>().GetMeshLocal16());
-    messageInfo.SetPeerAddr(aAddress);
-    messageInfo.SetPeerPort(Tmf::kUdpPort);
+    messageInfo.SetSockAddrToRlocPeerAddrTo(aAddress);
 
     SuccessOrExit(error = Get<Tmf::Agent>().SendMessage(*message, messageInfo));
 
-    otLogInfoMeshCoP("sent announce begin query");
+    LogInfo("Sent %s", UriToString<kUriAnnounceBegin>());
 
 exit:
     FreeMessageOnError(message, error);

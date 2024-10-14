@@ -1,16 +1,8 @@
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /*******************************************************************************
  * NOTICE
@@ -40,15 +32,8 @@ extern "C" {
 #define gpspi_flash_ll_get_hw(host_id)  ( ((host_id)==SPI2_HOST) ? &GPSPI2 : ({abort();(spi_dev_t*)0;}) )
 #define gpspi_flash_ll_hw_get_id(dev)   ( ((dev) == (void*)&GPSPI2) ? SPI2_HOST : -1 )
 
-typedef typeof(GPSPI2.clock) gpspi_flash_ll_clock_reg_t;
-
-//Supported clock register values
-#define GPSPI_FLASH_LL_CLKREG_VAL_5MHZ   ((gpspi_flash_ll_clock_reg_t){.val=0x0000F1CF})   ///< Clock set to 5 MHz
-#define GPSPI_FLASH_LL_CLKREG_VAL_10MHZ  ((gpspi_flash_ll_clock_reg_t){.val=0x000070C7})   ///< Clock set to 10 MHz
-#define GPSPI_FLASH_LL_CLKREG_VAL_20MHZ  ((gpspi_flash_ll_clock_reg_t){.val=0x00003043})   ///< Clock set to 20 MHz
-#define GPSPI_FLASH_LL_CLKREG_VAL_26MHZ  ((gpspi_flash_ll_clock_reg_t){.val=0x00002002})   ///< Clock set to 26 MHz
-#define GPSPI_FLASH_LL_CLKREG_VAL_40MHZ  ((gpspi_flash_ll_clock_reg_t){.val=0x00001001})   ///< Clock set to 40 MHz
-#define GPSPI_FLASH_LL_CLKREG_VAL_80MHZ  ((gpspi_flash_ll_clock_reg_t){.val=0x80000000})   ///< Clock set to 80 MHz
+typedef typeof(GPSPI2.clock.val) gpspi_flash_ll_clock_reg_t;
+#define GPSPI_FLASH_LL_PERIPHERAL_FREQUENCY_MHZ  (80)
 
 /*------------------------------------------------------------------------------
  * Control
@@ -68,9 +53,9 @@ static inline void gpspi_flash_ll_reset(spi_dev_t *dev)
     dev->clk_gate.mst_clk_sel = 1;
 
     dev->dma_conf.val = 0;
-    dev->dma_conf.tx_seg_trans_clr_en = 1;
-    dev->dma_conf.rx_seg_trans_clr_en = 1;
-    dev->dma_conf.dma_seg_trans_en = 0;
+    dev->dma_conf.slv_tx_seg_trans_clr_en = 1;
+    dev->dma_conf.slv_rx_seg_trans_clr_en = 1;
+    dev->dma_conf.dma_slv_seg_trans_en = 0;
 }
 
 /**
@@ -102,7 +87,7 @@ static inline void gpspi_flash_ll_get_buffer_data(spi_dev_t *dev, void *buffer, 
         int copy_len = read_len;
         for (int i = 0; i < (read_len + 3) / 4; i++) {
             int word_len = MIN(sizeof(uint32_t), copy_len);
-            uint32_t word = dev->data_buf[i];
+            uint32_t word = dev->data_buf[i].buf0;
             memcpy(buffer, &word, word_len);
             buffer = (void *)((intptr_t)buffer + word_len);
             copy_len -= word_len;
@@ -118,7 +103,7 @@ static inline void gpspi_flash_ll_get_buffer_data(spi_dev_t *dev, void *buffer, 
  */
 static inline void gpspi_flash_ll_write_word(spi_dev_t *dev, uint32_t word)
 {
-    dev->data_buf[0] = word;
+    dev->data_buf[0].buf0 = word;
 }
 
 /**
@@ -136,7 +121,7 @@ static inline void gpspi_flash_ll_set_buffer_data(spi_dev_t *dev, const void *bu
         uint32_t word = 0;
         uint32_t word_len = MIN(length, sizeof(word));
         memcpy(&word, buffer, word_len);
-        dev->data_buf[i] = word;
+        dev->data_buf[i].buf0 = word;
         length -= word_len;
         buffer = (void *)((intptr_t)buffer + word_len);
     }
@@ -147,12 +132,23 @@ static inline void gpspi_flash_ll_set_buffer_data(spi_dev_t *dev, const void *bu
  * should be configured before this is called.
  *
  * @param dev Beginning address of the peripheral registers.
+ * @param pe_ops Is page program/erase operation or not. (not used in gpspi)
  */
-static inline void gpspi_flash_ll_user_start(spi_dev_t *dev)
+static inline void gpspi_flash_ll_user_start(spi_dev_t *dev,  bool pe_ops)
 {
     dev->cmd.update = 1;
     while (dev->cmd.update);
     dev->cmd.usr = 1;
+}
+
+/**
+ * In user mode, it is set to indicate that program/erase operation will be triggered.
+ *
+ * @param dev Beginning address of the peripheral registers.
+ */
+static inline void gpspi_flash_ll_set_pe_bit(spi_dev_t *dev)
+{
+    // Not supported on GPSPI
 }
 
 /**
@@ -185,12 +181,12 @@ static inline bool gpspi_flash_ll_host_idle(const spi_dev_t *dev)
 static inline void gpspi_flash_ll_read_phase(spi_dev_t *dev)
 {
     typeof (dev->user) user = {
-        .usr_command = 1,
         .usr_mosi = 0,
         .usr_miso = 1,
         .usr_addr = 1,
+        .usr_command = 1,
     };
-    dev->user = user;
+    dev->user.val = user.val;
 }
 /*------------------------------------------------------------------------------
  * Configs
@@ -215,8 +211,10 @@ static inline void gpspi_flash_ll_set_cs_pin(spi_dev_t *dev, int pin)
  */
 static inline void gpspi_flash_ll_set_read_mode(spi_dev_t *dev, esp_flash_io_mode_t read_mode)
 {
-    typeof (dev->ctrl) ctrl = dev->ctrl;
-    typeof (dev->user) user = dev->user;
+    typeof (dev->ctrl) ctrl;
+    ctrl.val = dev->ctrl.val;
+    typeof (dev->user) user;
+    user.val = dev->user.val;
 
     ctrl.val &= ~(SPI_FCMD_QUAD_M | SPI_FADDR_QUAD_M | SPI_FREAD_QUAD_M | SPI_FCMD_DUAL_M | SPI_FADDR_DUAL_M | SPI_FREAD_DUAL_M);
     user.val &= ~(SPI_FWRITE_QUAD_M | SPI_FWRITE_DUAL_M);
@@ -248,8 +246,8 @@ static inline void gpspi_flash_ll_set_read_mode(spi_dev_t *dev, esp_flash_io_mod
         abort();
     }
 
-    dev->ctrl = ctrl;
-    dev->user = user;
+    dev->ctrl.val = ctrl.val;
+    dev->user.val = user.val;
 }
 
 /**
@@ -260,7 +258,7 @@ static inline void gpspi_flash_ll_set_read_mode(spi_dev_t *dev, esp_flash_io_mod
  */
 static inline void gpspi_flash_ll_set_clock(spi_dev_t *dev, gpspi_flash_ll_clock_reg_t *clock_val)
 {
-    dev->clock = *clock_val;
+    dev->clock.val = *clock_val;
 }
 
 /**
@@ -306,7 +304,7 @@ static inline void gpspi_flash_ll_set_command(spi_dev_t *dev, uint8_t command, u
         .usr_command_value = command,
         .usr_command_bitlen = (bitlen - 1),
     };
-    dev->user2 = user2;
+    dev->user2.val = user2.val;
 }
 
 /**
@@ -342,7 +340,7 @@ static inline void gpspi_flash_ll_set_usr_address(spi_dev_t *dev, uint32_t addr,
 {
     // The blank region should be all ones
     uint32_t padding_ones = (bitlen == 32? 0 : UINT32_MAX >> bitlen);
-    dev->addr = (addr << (32 - bitlen)) | padding_ones;
+    dev->addr.val = (addr << (32 - bitlen)) | padding_ones;
 }
 
 /**
@@ -353,7 +351,7 @@ static inline void gpspi_flash_ll_set_usr_address(spi_dev_t *dev, uint32_t addr,
  */
 static inline void gpspi_flash_ll_set_address(spi_dev_t *dev, uint32_t addr)
 {
-    dev->addr = addr;
+    dev->addr.val = addr;
 }
 
 /**
@@ -398,6 +396,25 @@ static inline void gpspi_flash_ll_set_cs_setup(spi_dev_t *dev, uint32_t cs_setup
 {
     dev->user.cs_setup = (cs_setup_time > 0 ? 1 : 0);
     dev->user1.cs_setup_time = cs_setup_time - 1;
+}
+
+/**
+ * Calculate spi_flash clock frequency division parameters for register.
+ *
+ * @param clkdiv frequency division factor
+ *
+ * @return Register setting for the given clock division factor.
+ */
+static inline uint32_t gpspi_flash_ll_calculate_clock_reg(uint8_t clkdiv)
+{
+    uint32_t div_parameter;
+    // See comments of `clock` in `spi_struct.h`
+    if (clkdiv == 1) {
+        div_parameter = (1 << 31);
+    } else {
+        div_parameter = ((clkdiv - 1) | (((clkdiv/2 - 1) & 0xff) << 6 ) | (((clkdiv - 1) & 0xff) << 12));
+    }
+    return div_parameter;
 }
 
 #ifdef __cplusplus

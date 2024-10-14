@@ -175,7 +175,7 @@ void port_start_close (tPORT *p_port)
     if ((p_mcb == NULL) || (p_port->rfc.state == RFC_STATE_CLOSED)) {
         /* Call management callback function before calling port_release_port() to clear tPort */
         if (p_port->p_mgmt_callback) {
-            p_port->p_mgmt_callback (PORT_CLOSED, p_port->inx);
+            p_port->p_mgmt_callback (PORT_CLOSED, p_port->inx, NULL);
         }
 
         port_release_port (p_port);
@@ -230,7 +230,7 @@ void PORT_StartCnf (tRFC_MCB *p_mcb, UINT16 result)
                 }
 
                 if (p_port->p_mgmt_callback) {
-                    p_port->p_mgmt_callback (PORT_START_FAILED, p_port->inx);
+                    p_port->p_mgmt_callback (PORT_START_FAILED, p_port->inx, NULL);
                 }
 
                 port_release_port (p_port);
@@ -427,6 +427,12 @@ void PORT_ParNegCnf (tRFC_MCB *p_mcb, UINT8 dlci, UINT16 mtu, UINT8 cl, UINT8 k)
 void PORT_DlcEstablishInd (tRFC_MCB *p_mcb, UINT8 dlci, UINT16 mtu)
 {
     tPORT *p_port = port_find_mcb_dlci_port (p_mcb, dlci);
+    tPORT_MGMT_CL_CALLBACK_ARG cl_mgmt_cb_arg = {0};
+    tPORT_MGMT_SR_CALLBACK_ARG sr_mgmt_cb_arg = {
+        .accept = TRUE,
+        .ignore_rfc_state = FALSE,
+        .peer_mtu = 0,
+    };
 
     RFCOMM_TRACE_DEBUG ("PORT_DlcEstablishInd p_mcb:%p, dlci:%d mtu:%di, p_port:%p", p_mcb, dlci, mtu, p_port);
     RFCOMM_TRACE_DEBUG ("PORT_DlcEstablishInd p_mcb addr:%02x:%02x:%02x:%02x:%02x:%02x",
@@ -451,7 +457,7 @@ void PORT_DlcEstablishInd (tRFC_MCB *p_mcb, UINT8 dlci, UINT16 mtu)
     /* If there was an inactivity timer running for MCB stop it */
     rfc_timer_stop (p_mcb);
 
-    RFCOMM_DlcEstablishRsp (p_mcb, dlci, p_port->mtu, RFCOMM_SUCCESS);
+    // RFCOMM_DlcEstablishRsp (p_mcb, dlci, p_port->mtu, RFCOMM_SUCCESS);
 
     /* This is the server side.  If application wants to know when connection */
     /* is established, thats the place */
@@ -460,9 +466,28 @@ void PORT_DlcEstablishInd (tRFC_MCB *p_mcb, UINT8 dlci, UINT16 mtu)
     }
 
     if (p_port->p_mgmt_callback) {
-        p_port->p_mgmt_callback (PORT_SUCCESS, p_port->inx);
+        if (p_port->is_server) {
+            sr_mgmt_cb_arg.peer_mtu = p_port->peer_mtu;
+            /**
+             * @note
+             * 1. The manage callback function may change the value of accept in mgmt_cb_arg.
+             * 2. Use mgmt_cb_arg.ignore_rfc_state to work around the issue caused by sending
+             * RFCOMM establish response after the manage callback function.
+             */
+            sr_mgmt_cb_arg.ignore_rfc_state = TRUE;
+            p_port->p_mgmt_callback (PORT_SUCCESS, p_port->inx, &sr_mgmt_cb_arg);
+
+            if (!sr_mgmt_cb_arg.accept) {
+                RFCOMM_DlcEstablishRsp(p_mcb, dlci, 0, RFCOMM_LOW_RESOURCES);
+                return;
+            }
+        } else {
+            cl_mgmt_cb_arg.peer_mtu = p_port->peer_mtu;
+            p_port->p_mgmt_callback (PORT_SUCCESS, p_port->inx, &cl_mgmt_cb_arg);
+        }
     }
 
+    RFCOMM_DlcEstablishRsp(p_mcb, dlci, p_port->mtu, RFCOMM_SUCCESS);
     p_port->state = PORT_STATE_OPENED;
 }
 
@@ -480,6 +505,8 @@ void PORT_DlcEstablishInd (tRFC_MCB *p_mcb, UINT8 dlci, UINT16 mtu)
 void PORT_DlcEstablishCnf (tRFC_MCB *p_mcb, UINT8 dlci, UINT16 mtu, UINT16 result)
 {
     tPORT  *p_port = port_find_mcb_dlci_port (p_mcb, dlci);
+    tPORT_MGMT_SR_CALLBACK_ARG sr_mgmt_cb_arg = {0};
+    tPORT_MGMT_CL_CALLBACK_ARG cl_mgmt_cb_arg = {0};
 
     RFCOMM_TRACE_EVENT ("PORT_DlcEstablishCnf dlci:%d mtu:%d result:%d", dlci, mtu, result);
 
@@ -506,7 +533,13 @@ void PORT_DlcEstablishCnf (tRFC_MCB *p_mcb, UINT8 dlci, UINT16 mtu, UINT16 resul
     }
 
     if (p_port->p_mgmt_callback) {
-        p_port->p_mgmt_callback (PORT_SUCCESS, p_port->inx);
+        if (p_port->is_server) {
+            sr_mgmt_cb_arg.peer_mtu = p_port->peer_mtu;
+            p_port->p_mgmt_callback (PORT_SUCCESS, p_port->inx, &sr_mgmt_cb_arg);
+        } else {
+            cl_mgmt_cb_arg.peer_mtu = p_port->peer_mtu;
+            p_port->p_mgmt_callback (PORT_SUCCESS, p_port->inx, &cl_mgmt_cb_arg);
+        }
     }
 
     p_port->state = PORT_STATE_OPENED;
@@ -1063,14 +1096,15 @@ void port_rfc_closed (tPORT *p_port, UINT8 res)
         p_port->p_callback (events, p_port->inx);
     }
 
-    if (p_port->p_mgmt_callback) {
-        p_port->p_mgmt_callback (res, p_port->inx);
+    if (p_port->p_mgmt_callback && !(p_port->state == PORT_STATE_CLOSED && p_port->is_server)) {
+        p_port->p_mgmt_callback(res, p_port->inx, NULL);
     }
 
     p_port->rfc.state = RFC_STATE_CLOSED;
 
-    RFCOMM_TRACE_WARNING ("%s RFCOMM connection in state %d closed: %s (res: %d)",
-                          __func__, p_port->state, PORT_GetResultString(res), res);
+    RFCOMM_TRACE_WARNING("%s RFCOMM connection in server:%d state %d closed: %s (res: %d)",
+                         __func__, p_port->is_server, p_port->state, PORT_GetResultString(res),
+                         res);
 
     port_release_port (p_port);
 }

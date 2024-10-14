@@ -34,6 +34,8 @@
 #include <openthread/coap.h>
 
 #include "coap/coap_message.hpp"
+#include "common/as_core_type.hpp"
+#include "common/callback.hpp"
 #include "common/debug.hpp"
 #include "common/linked_list.hpp"
 #include "common/locator.hpp"
@@ -43,6 +45,7 @@
 #include "net/ip6.hpp"
 #include "net/netif.hpp"
 #include "net/udp6.hpp"
+#include "thread/uri_paths.hpp"
 
 /**
  * @file
@@ -61,7 +64,7 @@ namespace Coap {
  */
 
 /**
- * This type represents a function pointer which is called when a CoAP response is received or on the request timeout.
+ * Represents a function pointer which is called when a CoAP response is received or on the request timeout.
  *
  * Please see otCoapResponseHandler for details.
  *
@@ -69,7 +72,7 @@ namespace Coap {
 typedef otCoapResponseHandler ResponseHandler;
 
 /**
- * This type represents a function pointer which is called when a CoAP request associated with a given URI path is
+ * Represents a function pointer which is called when a CoAP request associated with a given URI path is
  * received.
  *
  * Please see otCoapRequestHandler for details.
@@ -78,7 +81,7 @@ typedef otCoapResponseHandler ResponseHandler;
 typedef otCoapRequestHandler RequestHandler;
 
 /**
- * This structure represents the CoAP transmission parameters.
+ * Represents the CoAP transmission parameters.
  *
  */
 class TxParameters : public otCoapTxParameters
@@ -88,14 +91,14 @@ class TxParameters : public otCoapTxParameters
 
 public:
     /**
-     * This static method coverts a pointer to `otCoapTxParameters` to `Coap::TxParamters`
+     * Coverts a pointer to `otCoapTxParameters` to `Coap::TxParamters`
      *
-     * If the pointer is nullptr, the default parameters are used instead.
+     * If the pointer is `nullptr`, the default parameters are used instead.
      *
      * @param[in] aTxParameters   A pointer to tx parameter.
      *
-     * @returns A reference to corresponding `TxParamters` if  @p aTxParameters is not nullptr, otherwise the default tx
-     * parameters.
+     * @returns A reference to corresponding `TxParamters` if  @p aTxParameters is not `nullptr`, otherwise the default
+     *          tx parameters.
      *
      */
     static const TxParameters &From(const otCoapTxParameters *aTxParameters)
@@ -104,7 +107,7 @@ public:
     }
 
     /**
-     * This method validates whether the CoAP transmission parameters are valid.
+     * Validates whether the CoAP transmission parameters are valid.
      *
      * @returns Whether the parameters are valid.
      *
@@ -112,7 +115,7 @@ public:
     bool IsValid(void) const;
 
     /**
-     * This static method returns default CoAP tx parameters.
+     * Returns default CoAP tx parameters.
      *
      * @returns The default tx parameters.
      *
@@ -135,7 +138,7 @@ private:
 };
 
 /**
- * This class implements CoAP resource handling.
+ * Implements CoAP resource handling.
  *
  */
 class Resource : public otCoapResource, public LinkedListEntry<Resource>
@@ -144,22 +147,27 @@ class Resource : public otCoapResource, public LinkedListEntry<Resource>
 
 public:
     /**
-     * This constructor initializes the resource.
+     * Initializes the resource.
      *
      * @param[in]  aUriPath  A pointer to a null-terminated string for the URI path.
      * @param[in]  aHandler  A function pointer that is called when receiving a CoAP message for @p aUriPath.
      * @param[in]  aContext  A pointer to arbitrary context information.
+     *
      */
-    Resource(const char *aUriPath, RequestHandler aHandler, void *aContext)
-    {
-        mUriPath = aUriPath;
-        mHandler = aHandler;
-        mContext = aContext;
-        mNext    = nullptr;
-    }
+    Resource(const char *aUriPath, RequestHandler aHandler, void *aContext);
 
     /**
-     * This method returns a pointer to the URI path.
+     * Initializes the resource.
+     *
+     * @param[in]  aUri      A Thread URI.
+     * @param[in]  aHandler  A function pointer that is called when receiving a CoAP message for the URI.
+     * @param[in]  aContext  A pointer to arbitrary context information.
+     *
+     */
+    Resource(Uri aUri, RequestHandler aHandler, void *aContext);
+
+    /**
+     * Returns a pointer to the URI path.
      *
      * @returns A pointer to the URI path.
      *
@@ -175,7 +183,7 @@ protected:
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
 /**
- * This class implements CoAP block-wise resource handling.
+ * Implements CoAP block-wise resource handling.
  *
  */
 class ResourceBlockWise : public otCoapBlockwiseResource
@@ -184,7 +192,7 @@ class ResourceBlockWise : public otCoapBlockwiseResource
 
 public:
     /**
-     * This constructor initializes the resource.
+     * Initializes the resource.
      *
      * @param[in]  aUriPath         A pointer to a NULL-terminated string for the Uri-Path.
      * @param[in]  aHandler         A function pointer that is called when receiving a CoAP message for @p aUriPath.
@@ -194,9 +202,9 @@ public:
      * @param[in]  aTransmitHook    A function pointer that is called when transmitting a CoAP block message from @p
      *                              aUriPath.
      */
-    ResourceBlockWise(const char *                aUriPath,
+    ResourceBlockWise(const char                 *aUriPath,
                       otCoapRequestHandler        aHandler,
-                      void *                      aContext,
+                      void                       *aContext,
                       otCoapBlockwiseReceiveHook  aReceiveHook,
                       otCoapBlockwiseTransmitHook aTransmitHook)
     {
@@ -223,9 +231,9 @@ public:
     }
 
     /**
-     * This method gets the next entry in the linked list.
+     * Gets the next entry in the linked list.
      *
-     * @returns A pointer to the next entry in the linked list or nullptr if at the end of the list.
+     * @returns A pointer to the next entry in the linked list or `nullptr` if at the end of the list.
      *
      */
     const ResourceBlockWise *GetNext(void) const
@@ -234,9 +242,9 @@ public:
     }
 
     /**
-     * This method gets the next entry in the linked list.
+     * Gets the next entry in the linked list.
      *
-     * @returns A pointer to the next entry in the linked list or nullptr if at the end of the list.
+     * @returns A pointer to the next entry in the linked list or `nullptr` if at the end of the list.
      *
      */
     ResourceBlockWise *GetNext(void)
@@ -245,7 +253,7 @@ public:
     }
 
     /**
-     * This method sets the next pointer on the entry.
+     * Sets the next pointer on the entry.
      *
      * @param[in] aNext  A pointer to the next entry.
      *
@@ -253,7 +261,7 @@ public:
     void SetNext(ResourceBlockWise *aNext) { static_cast<ResourceBlockWise *>(this)->mNext = aNext; }
 
     /**
-     * This method returns a pointer to the URI path.
+     * Returns a pointer to the URI path.
      *
      * @returns A pointer to the URI path.
      *
@@ -269,7 +277,7 @@ protected:
 #endif
 
 /**
- * This class caches CoAP responses to implement message deduplication.
+ * Caches CoAP responses to implement message deduplication.
  *
  */
 class ResponsesQueue
@@ -284,7 +292,7 @@ public:
     explicit ResponsesQueue(Instance &aInstance);
 
     /**
-     * This method adds a given response to the cache.
+     * Adds a given response to the cache.
      *
      * If matching response (the same Message ID, source endpoint address and port) exists in the cache given
      * response is not added.
@@ -299,13 +307,13 @@ public:
     void EnqueueResponse(Message &aMessage, const Ip6::MessageInfo &aMessageInfo, const TxParameters &aTxParameters);
 
     /**
-     * This method removes all responses from the cache.
+     * Removes all responses from the cache.
      *
      */
     void DequeueAllResponses(void);
 
     /**
-     * This method gets a copy of CoAP response from the cache that matches a given Message ID and source endpoint.
+     * Gets a copy of CoAP response from the cache that matches a given Message ID and source endpoint.
      *
      * @param[in]  aRequest      The CoAP message containing Message ID.
      * @param[in]  aMessageInfo  The message info containing source endpoint address and port.
@@ -319,7 +327,7 @@ public:
     Error GetMatchedResponseCopy(const Message &aRequest, const Ip6::MessageInfo &aMessageInfo, Message **aResponse);
 
     /**
-     * This method gets a reference to the cached CoAP responses queue.
+     * Gets a reference to the cached CoAP responses queue.
      *
      * @returns  A reference to the cached CoAP responses queue.
      *
@@ -350,7 +358,7 @@ private:
 };
 
 /**
- * This class implements the CoAP client and server.
+ * Implements the CoAP client and server.
  *
  */
 class CoapBase : public InstanceLocator, private NonCopyable
@@ -363,7 +371,7 @@ public:
 #endif
 
     /**
-     * This function pointer is called before CoAP server processing a CoAP message.
+     * Pointer is called before CoAP server processing a CoAP message.
      *
      * @param[in]   aMessage        A reference to the message.
      @ @param[in]   aMessageInfo    A reference to the message info associated with @p aMessage.
@@ -377,13 +385,13 @@ public:
     typedef Error (*Interceptor)(const Message &aMessage, const Ip6::MessageInfo &aMessageInfo, void *aContext);
 
     /**
-     * This method clears requests and responses used by this CoAP agent.
+     * Clears requests and responses used by this CoAP agent.
      *
      */
     void ClearRequestsAndResponses(void);
 
     /**
-     * This method clears requests with specified source address used by this CoAP agent.
+     * Clears requests with specified source address used by this CoAP agent.
      *
      * @param[in]  aAddress A reference to the specified address.
      *
@@ -393,7 +401,7 @@ public:
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
 
     /**
-     * This method adds a block-wise resource to the CoAP server.
+     * Adds a block-wise resource to the CoAP server.
      *
      * @param[in]  aResource  A reference to the resource.
      *
@@ -401,7 +409,7 @@ public:
     void AddBlockWiseResource(ResourceBlockWise &aResource);
 
     /**
-     * This method removes a block-wise resource from the CoAP server.
+     * Removes a block-wise resource from the CoAP server.
      *
      * @param[in]  aResource  A reference to the resource.
      *
@@ -410,7 +418,7 @@ public:
 #endif
 
     /**
-     * This method adds a resource to the CoAP server.
+     * Adds a resource to the CoAP server.
      *
      * @param[in]  aResource  A reference to the resource.
      *
@@ -418,49 +426,143 @@ public:
     void AddResource(Resource &aResource);
 
     /**
-     * This method removes a resource from the CoAP server.
+     * Removes a resource from the CoAP server.
      *
      * @param[in]  aResource  A reference to the resource.
      *
      */
     void RemoveResource(Resource &aResource);
 
-    /* This method sets the default handler for unhandled CoAP requests.
+    /* Sets the default handler for unhandled CoAP requests.
      *
      * @param[in]  aHandler   A function pointer that shall be called when an unhandled request arrives.
-     * @param[in]  aContext   A pointer to arbitrary context information. May be nullptr if not used.
+     * @param[in]  aContext   A pointer to arbitrary context information. May be `nullptr` if not used.
      *
      */
-    void SetDefaultHandler(RequestHandler aHandler, void *aContext);
+    void SetDefaultHandler(RequestHandler aHandler, void *aContext) { mDefaultHandler.Set(aHandler, aContext); }
 
     /**
-     * This method creates a new message with a CoAP header.
+     * Allocates a new message with a CoAP header.
      *
      * @param[in]  aSettings  The message settings.
      *
-     * @returns A pointer to the message or nullptr if failed to allocate message.
+     * @returns A pointer to the message or `nullptr` if failed to allocate message.
      *
      */
-    Message *NewMessage(const Message::Settings &aSettings = Message::Settings::GetDefault());
+    Message *NewMessage(const Message::Settings &aSettings);
 
     /**
-     * This method creates a new message with a CoAP header that has Network Control priority level.
+     * Allocates a new message with a CoAP header with default settings.
      *
-     * @returns A pointer to the message or nullptr if failed to allocate message.
+     * @returns A pointer to the message or `nullptr` if failed to allocate message.
      *
      */
-    Message *NewPriorityMessage(void)
-    {
-        return NewMessage(Message::Settings(Message::kWithLinkSecurity, Message::kPriorityNet));
-    }
+    Message *NewMessage(void);
+
+    /**
+     * Allocates a new message with a CoAP header that has Network Control priority level.
+     *
+     * @returns A pointer to the message or `nullptr` if failed to allocate message.
+     *
+     */
+    Message *NewPriorityMessage(void);
+
+    /**
+     * Allocates and initializes a new CoAP Confirmable Post message with Network Control priority level.
+     *
+     * The CoAP header is initialized as `kTypeConfirmable` and `kCodePost` with a given URI path and a randomly
+     * generated token (of default length). This method also sets the payload marker (`SetPayloadMarker()` on message.
+     * Even if message has no payload, calling `SetPayloadMarker()` is harmless, since `SendMessage()` will check and
+     * remove the payload marker when there is no payload.
+     *
+     * @param[in] aUri      The URI.
+     *
+     * @returns A pointer to the message or `nullptr` if failed to allocate message.
+     *
+     */
+    Message *NewPriorityConfirmablePostMessage(Uri aUri);
+
+    /**
+     * Allocates and initializes a new CoAP Confirmable Post message with normal priority level.
+     *
+     * The CoAP header is initialized as `kTypeConfirmable` and `kCodePost` with a given URI and a randomly
+     * generated token (of default length). This method also sets the payload marker (calling `SetPayloadMarker()`).
+     * Even if message has no payload, calling `SetPayloadMarker()` is harmless, since `SendMessage()` will check and
+     * remove the payload marker when there is no payload.
+     *
+     * @param[in] aUri      The URI.
+     *
+     * @returns A pointer to the message or `nullptr` if failed to allocate message.
+     *
+     */
+    Message *NewConfirmablePostMessage(Uri aUri);
+
+    /**
+     * Allocates and initializes a new CoAP Non-confirmable Post message with Network Control priority
+     * level.
+     *
+     * The CoAP header is initialized as `kTypeNonConfirmable` and `kCodePost` with a given URI and a randomly
+     * generated token (of default length). This method also sets the payload marker (calling `SetPayloadMarker()`).
+     * Even if message has no payload, calling `SetPayloadMarker()` is harmless, since `SendMessage()` will check and
+     * remove the payload marker when there is no payload.
+     *
+     * @param[in] aUri      The URI.
+     *
+     * @returns A pointer to the message or `nullptr` if failed to allocate message.
+     *
+     */
+    Message *NewPriorityNonConfirmablePostMessage(Uri aUri);
+
+    /**
+     * Allocates and initializes a new CoAP Non-confirmable Post message with normal priority level.
+     *
+     * The CoAP header is initialized as `kTypeNonConfirmable` and `kCodePost` with a given URI and a randomly
+     * generated token (of default length). This method also sets the payload marker (calling `SetPayloadMarker()`).
+     * Even if message has no payload, calling `SetPayloadMarker()` is harmless, since `SendMessage()` will check and
+     * remove the payload marker when there is no payload.
+     *
+     * @param[in] aUri      The URI.
+     *
+     * @returns A pointer to the message or `nullptr` if failed to allocate message.
+     *
+     */
+    Message *NewNonConfirmablePostMessage(Uri aUri);
+
+    /**
+     * Allocates and initializes a new CoAP response message with Network Control priority level for a
+     * given request message.
+     *
+     * The CoAP header is initialized as `kTypeAck` with `kCodeChanged`. The token and message ID is copied from
+     * @p aRequest. This method also sets the payload marker (calling `SetPayloadMarker()`). Even if message has
+     * no payload, calling `SetPayloadMarker()` is harmless, since `SendMessage()` will check and remove the payload
+     * marker when there is no payload.
+     *
+     * @returns A pointer to the message or `nullptr` if failed to allocate message.
+     *
+     */
+    Message *NewPriorityResponseMessage(const Message &aRequest);
+
+    /**
+     * Allocates and initializes a new CoAP response message with regular priority level for a given
+     * request message.
+     *
+     * The CoAP header is initialized as `kTypeAck` with `kCodeChanged`. The token and message ID is copied from
+     * @p aRequest. This method also sets the payload marker (calling `SetPayloadMarker()`). Even if message has
+     * no payload, calling `SetPayloadMarker()` is harmless, since `SendMessage()` will check and remove the payload
+     * marker when there is no payload.
+     *
+     * @returns A pointer to the message or `nullptr` if failed to allocate message.
+     *
+     */
+    Message *NewResponseMessage(const Message &aRequest);
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
     /**
-     * This method sends a CoAP message block-wise with custom transmission parameters.
+     * Sends a CoAP message block-wise with custom transmission parameters.
      *
      * If a response for a request is expected, respective function and context information should be provided.
      * If no response is expected, these arguments should be NULL pointers.
-     * If Message Id was not set in the header (equal to 0), this function will assign unique Message Id to the message.
+     * If Message ID was not set in the header (equal to 0), this method will assign unique Message ID to the message.
      *
      * @param[in]  aMessage      A reference to the message to send.
      * @param[in]  aMessageInfo  A reference to the message info associated with @p aMessage.
@@ -474,21 +576,21 @@ public:
      * @retval kErrorNoBufs   Failed to allocate retransmission data.
      *
      */
-    Error SendMessage(Message &                   aMessage,
-                      const Ip6::MessageInfo &    aMessageInfo,
-                      const TxParameters &        aTxParameters,
+    Error SendMessage(Message                    &aMessage,
+                      const Ip6::MessageInfo     &aMessageInfo,
+                      const TxParameters         &aTxParameters,
                       otCoapResponseHandler       aHandler      = nullptr,
-                      void *                      aContext      = nullptr,
+                      void                       *aContext      = nullptr,
                       otCoapBlockwiseTransmitHook aTransmitHook = nullptr,
                       otCoapBlockwiseReceiveHook  aReceiveHook  = nullptr);
 #else  // OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
 
     /**
-     * This method sends a CoAP message with custom transmission parameters.
+     * Sends a CoAP message with custom transmission parameters.
      *
      * If a response for a request is expected, respective function and context information should be provided.
-     * If no response is expected, these arguments should be nullptr pointers.
-     * If Message Id was not set in the header (equal to 0), this function will assign unique Message Id to the message.
+     * If no response is expected, these arguments should be `nullptr` pointers.
+     * If Message ID was not set in the header (equal to 0), this method will assign unique Message ID to the message.
      *
      * @param[in]  aMessage      A reference to the message to send.
      * @param[in]  aMessageInfo  A reference to the message info associated with @p aMessage.
@@ -500,19 +602,31 @@ public:
      * @retval kErrorNoBufs  Insufficient buffers available to send the CoAP message.
      *
      */
-    Error SendMessage(Message &               aMessage,
+    Error SendMessage(Message                &aMessage,
                       const Ip6::MessageInfo &aMessageInfo,
-                      const TxParameters &    aTxParameters,
-                      ResponseHandler         aHandler = nullptr,
-                      void *                  aContext = nullptr);
+                      const TxParameters     &aTxParameters,
+                      ResponseHandler         aHandler,
+                      void                   *aContext);
 #endif // OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
 
     /**
-     * This method sends a CoAP message with default transmission parameters.
+     * Sends a CoAP message with custom transmission parameters.
      *
-     * If a response for a request is expected, respective function and context information should be provided.
-     * If no response is expected, these arguments should be nullptr pointers.
-     * If Message Id was not set in the header (equal to 0), this function will assign unique Message Id to the message.
+     * If Message ID was not set in the header (equal to 0), this method will assign unique Message ID to the message.
+     *
+     * @param[in]  aMessage      A reference to the message to send.
+     * @param[in]  aMessageInfo  A reference to the message info associated with @p aMessage.
+     * @param[in]  aTxParameters A reference to transmission parameters for this message.
+     *
+     * @retval kErrorNone    Successfully sent CoAP message.
+     * @retval kErrorNoBufs  Insufficient buffers available to send the CoAP message.
+     *
+     */
+    Error SendMessage(Message &aMessage, const Ip6::MessageInfo &aMessageInfo, const TxParameters &aTxParameters);
+    /**
+     * Sends a CoAP message with default transmission parameters.
+     *
+     * If Message ID was not set in the header (equal to 0), this method will assign unique Message ID to the message.
      *
      * @param[in]  aMessage      A reference to the message to send.
      * @param[in]  aMessageInfo  A reference to the message info associated with @p aMessage.
@@ -523,13 +637,27 @@ public:
      * @retval kErrorNoBufs  Insufficient buffers available to send the CoAP response.
      *
      */
-    Error SendMessage(Message &               aMessage,
+    Error SendMessage(Message                &aMessage,
                       const Ip6::MessageInfo &aMessageInfo,
-                      ResponseHandler         aHandler = nullptr,
-                      void *                  aContext = nullptr);
+                      ResponseHandler         aHandler,
+                      void                   *aContext);
 
     /**
-     * This method sends a CoAP reset message.
+     * Sends a CoAP message with default transmission parameters.
+     *
+     * If Message ID was not set in the header (equal to 0), this method will assign unique Message ID to the message.
+     *
+     * @param[in]  aMessage      A reference to the message to send.
+     * @param[in]  aMessageInfo  A reference to the message info associated with @p aMessage.
+     *
+     * @retval kErrorNone    Successfully sent CoAP message.
+     * @retval kErrorNoBufs  Insufficient buffers available to send the CoAP response.
+     *
+     */
+    Error SendMessage(Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
+
+    /**
+     * Sends a CoAP reset message.
      *
      * @param[in]  aRequest        A reference to the CoAP Message that was used in CoAP request.
      * @param[in]  aMessageInfo    The message info corresponding to the CoAP request.
@@ -542,7 +670,7 @@ public:
     Error SendReset(Message &aRequest, const Ip6::MessageInfo &aMessageInfo);
 
     /**
-     * This method sends header-only CoAP response message.
+     * Sends header-only CoAP response message.
      *
      * @param[in]  aCode           The CoAP code of this response.
      * @param[in]  aRequest        A reference to the CoAP Message that was used in CoAP request.
@@ -556,7 +684,7 @@ public:
     Error SendHeaderResponse(Message::Code aCode, const Message &aRequest, const Ip6::MessageInfo &aMessageInfo);
 
     /**
-     * This method sends a CoAP ACK empty message which is used in Separate Response for confirmable requests.
+     * Sends a CoAP ACK empty message which is used in Separate Response for confirmable requests.
      *
      * @param[in]  aRequest        A reference to the CoAP Message that was used in CoAP request.
      * @param[in]  aMessageInfo    The message info corresponding to the CoAP request.
@@ -569,7 +697,7 @@ public:
     Error SendAck(const Message &aRequest, const Ip6::MessageInfo &aMessageInfo);
 
     /**
-     * This method sends a CoAP ACK message on which a dummy CoAP response is piggybacked.
+     * Sends a CoAP ACK message on which a dummy CoAP response is piggybacked.
      *
      * @param[in]  aRequest        A reference to the CoAP Message that was used in CoAP request.
      * @param[in]  aMessageInfo    The message info corresponding to the CoAP request.
@@ -580,10 +708,23 @@ public:
      * @retval kErrorInvalidArgs   The @p aRequest header is not of confirmable type.
      *
      */
-    Error SendEmptyAck(const Message &aRequest, const Ip6::MessageInfo &aMessageInfo, Code aCode = kCodeChanged);
+    Error SendEmptyAck(const Message &aRequest, const Ip6::MessageInfo &aMessageInfo, Code aCode);
 
     /**
-     * This method sends a header-only CoAP message to indicate no resource matched for the request.
+     * Sends a CoAP ACK message on which a dummy CoAP response is piggybacked.
+     *
+     * @param[in]  aRequest        A reference to the CoAP Message that was used in CoAP request.
+     * @param[in]  aMessageInfo    The message info corresponding to the CoAP request.
+     *
+     * @retval kErrorNone          Successfully enqueued the CoAP response message.
+     * @retval kErrorNoBufs        Insufficient buffers available to send the CoAP response.
+     * @retval kErrorInvalidArgs   The @p aRequest header is not of confirmable type.
+     *
+     */
+    Error SendEmptyAck(const Message &aRequest, const Ip6::MessageInfo &aMessageInfo);
+
+    /**
+     * Sends a header-only CoAP message to indicate no resource matched for the request.
      *
      * @param[in]  aRequest        A reference to the CoAP Message that was used in CoAP request.
      * @param[in]  aMessageInfo    The message info corresponding to the CoAP request.
@@ -596,7 +737,7 @@ public:
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
     /**
-     * This method sends a header-only CoAP message to indicate not all blocks have been sent or
+     * Sends a header-only CoAP message to indicate not all blocks have been sent or
      * were sent out of order.
      *
      * @param[in]  aRequest        A reference to the CoAP Message that was used in CoAP request.
@@ -613,7 +754,7 @@ public:
 #endif
 
     /**
-     * This method aborts CoAP transactions associated with given handler and context.
+     * Aborts CoAP transactions associated with given handler and context.
      *
      * The associated response handler will be called with kErrorAbort.
      *
@@ -627,16 +768,16 @@ public:
     Error AbortTransaction(ResponseHandler aHandler, void *aContext);
 
     /**
-     * This method sets interceptor to be called before processing a CoAP packet.
+     * Sets interceptor to be called before processing a CoAP packet.
      *
      * @param[in]   aInterceptor    A pointer to the interceptor.
      * @param[in]   aContext        A pointer to arbitrary context information.
      *
      */
-    void SetInterceptor(Interceptor aInterceptor, void *aContext);
+    void SetInterceptor(Interceptor aInterceptor, void *aContext) { mInterceptor.Set(aInterceptor, aContext); }
 
     /**
-     * This method returns a reference to the request message list.
+     * Returns a reference to the request message list.
      *
      * @returns A reference to the request message list.
      *
@@ -644,7 +785,7 @@ public:
     const MessageQueue &GetRequestMessages(void) const { return mPendingRequests; }
 
     /**
-     * This method returns a reference to the cached response list.
+     * Returns a reference to the cached response list.
      *
      * @returns A reference to the cached response list.
      *
@@ -653,7 +794,27 @@ public:
 
 protected:
     /**
-     * This function pointer is called to send a CoAP message.
+     * Defines function pointer to handle a CoAP resource.
+     *
+     * When processing a received request, this handler is called first with the URI path before checking the list of
+     * added `Resource` entries to match against the URI path.
+     *
+     * @param[in] aCoapBase     A reference the CoAP agent.
+     * @param[in] aUriPath      The URI Path string.
+     * @param[in] aMessage      The received message.
+     * @param[in] aMessageInfo  The message info associated with @p aMessage.
+     *
+     * @retval TRUE   Indicates that the URI path was known and the message was processed by the handler.
+     * @retval FALSE  Indicates that URI path was not known and the message was not processed by the handler.
+     *
+     */
+    typedef bool (*ResourceHandler)(CoapBase               &aCoapBase,
+                                    const char             *aUriPath,
+                                    Message                &aMessage,
+                                    const Ip6::MessageInfo &aMessageInfo);
+
+    /**
+     * Pointer is called to send a CoAP message.
      *
      * @param[in]  aCoapBase     A reference to the CoAP agent.
      * @param[in]  aMessage      A reference to the message to send.
@@ -666,7 +827,7 @@ protected:
     typedef Error (*Sender)(CoapBase &aCoapBase, ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
 
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      * @param[in]  aInstance        A reference to the OpenThread instance.
      * @param[in]  aSender          A function pointer to send CoAP message, which SHOULD be a static
@@ -676,13 +837,21 @@ protected:
     CoapBase(Instance &aInstance, Sender aSender);
 
     /**
-     * This method receives a CoAP message.
+     * Receives a CoAP message.
      *
      * @param[in]  aMessage      A reference to the received message.
      * @param[in]  aMessageInfo  A reference to the message info associated with @p aMessage.
      *
      */
     void Receive(ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
+
+    /**
+     * Sets the resource handler function.
+     *
+     * @param[in] aHandler   The resource handler function pointer.
+     *
+     */
+    void SetResourceHandler(ResourceHandler aHandler) { mResourceHandler = aHandler; }
 
 private:
     struct Metadata
@@ -695,7 +864,7 @@ private:
         Ip6::Address    mDestinationAddress;       // IPv6 address of the message destination.
         uint16_t        mDestinationPort;          // UDP port of the message destination.
         ResponseHandler mResponseHandler;          // A function pointer that is called on response reception.
-        void *          mResponseContext;          // A pointer to arbitrary context information.
+        void           *mResponseContext;          // A pointer to arbitrary context information.
         TimeMilli       mNextTimerShot;            // Time when the timer should shoot for this message.
         uint32_t        mRetransmissionTimeout;    // Delay that is applied to next retransmission.
         uint8_t         mRetransmissionsRemaining; // Number of retransmissions remaining.
@@ -717,6 +886,9 @@ private:
 #endif
     };
 
+    Message *InitMessage(Message *aMessage, Type aType, Uri aUri);
+    Message *InitResponse(Message *aMessage, const Message &aResponse);
+
     static void HandleRetransmissionTimer(Timer &aTimer);
     void        HandleRetransmissionTimer(void);
 
@@ -724,9 +896,9 @@ private:
     Message *CopyAndEnqueueMessage(const Message &aMessage, uint16_t aCopyLength, const Metadata &aMetadata);
     void     DequeueMessage(Message &aMessage);
     Message *FindRelatedRequest(const Message &aResponse, const Ip6::MessageInfo &aMessageInfo, Metadata &aMetadata);
-    void     FinalizeCoapTransaction(Message &               aRequest,
-                                     const Metadata &        aMetadata,
-                                     Message *               aResponse,
+    void     FinalizeCoapTransaction(Message                &aRequest,
+                                     const Metadata         &aMetadata,
+                                     Message                *aResponse,
                                      const Ip6::MessageInfo *aMessageInfo,
                                      Error                   aResult);
 
@@ -736,29 +908,29 @@ private:
 
     Error PrepareNextBlockRequest(Message::BlockType aType,
                                   bool               aMoreBlocks,
-                                  Message &          aRequestOld,
-                                  Message &          aRequest,
-                                  Message &          aMessage);
-    Error ProcessBlock1Request(Message &                aMessage,
-                               const Ip6::MessageInfo & aMessageInfo,
+                                  Message           &aRequestOld,
+                                  Message           &aRequest,
+                                  Message           &aMessage);
+    Error ProcessBlock1Request(Message                 &aMessage,
+                               const Ip6::MessageInfo  &aMessageInfo,
                                const ResourceBlockWise &aResource,
                                uint32_t                 aTotalLength);
-    Error ProcessBlock2Request(Message &                aMessage,
-                               const Ip6::MessageInfo & aMessageInfo,
+    Error ProcessBlock2Request(Message                 &aMessage,
+                               const Ip6::MessageInfo  &aMessageInfo,
                                const ResourceBlockWise &aResource);
 #endif
     void ProcessReceivedRequest(Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
     void ProcessReceivedResponse(Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
-    Error SendNextBlock1Request(Message &               aRequest,
-                                Message &               aMessage,
+    Error SendNextBlock1Request(Message                &aRequest,
+                                Message                &aMessage,
                                 const Ip6::MessageInfo &aMessageInfo,
-                                const Metadata &        aCoapMetadata);
-    Error SendNextBlock2Request(Message &               aRequest,
-                                Message &               aMessage,
+                                const Metadata         &aCoapMetadata);
+    Error SendNextBlock2Request(Message                &aRequest,
+                                Message                &aMessage,
                                 const Ip6::MessageInfo &aMessageInfo,
-                                const Metadata &        aCoapMetadata,
+                                const Metadata         &aCoapMetadata,
                                 uint32_t                aTotalLength,
                                 bool                    aBeginBlock1Transfer);
 #endif
@@ -773,30 +945,30 @@ private:
 
     LinkedList<Resource> mResources;
 
-    void *         mContext;
-    Interceptor    mInterceptor;
-    ResponsesQueue mResponsesQueue;
+    Callback<Interceptor> mInterceptor;
+    ResponsesQueue        mResponsesQueue;
 
-    RequestHandler mDefaultHandler;
-    void *         mDefaultHandlerContext;
+    Callback<RequestHandler> mDefaultHandler;
+
+    ResourceHandler mResourceHandler;
 
     const Sender mSender;
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
     LinkedList<ResourceBlockWise> mBlockWiseResources;
-    Message *                     mLastResponse;
+    Message                      *mLastResponse;
 #endif
 };
 
 /**
- * This class implements the CoAP client and server.
+ * Implements the CoAP client and server.
  *
  */
 class Coap : public CoapBase
 {
 public:
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      * @param[in] aInstance      A reference to the OpenThread instance.
      *
@@ -804,7 +976,7 @@ public:
     explicit Coap(Instance &aInstance);
 
     /**
-     * This method starts the CoAP service.
+     * Starts the CoAP service.
      *
      * @param[in]  aPort             The local UDP port to bind to.
      * @param[in]  aNetifIdentifier  The network interface identifier to bind.
@@ -813,10 +985,10 @@ public:
      * @retval kErrorFailed  Failed to start CoAP agent.
      *
      */
-    Error Start(uint16_t aPort, otNetifIdentifier aNetifIdentifier = OT_NETIF_UNSPECIFIED);
+    Error Start(uint16_t aPort, Ip6::NetifIdentifier aNetifIdentifier = Ip6::kNetifUnspecified);
 
     /**
-     * This method stops the CoAP service.
+     * Stops the CoAP service.
      *
      * @retval kErrorNone    Successfully stopped the CoAP service.
      * @retval kErrorFailed  Failed to stop CoAP agent.
@@ -825,15 +997,25 @@ public:
     Error Stop(void);
 
 protected:
-    Ip6::Udp::Socket mSocket;
+    void HandleUdpReceive(ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
+
+    using CoapSocket = Ip6::Udp::SocketIn<Coap, &Coap::HandleUdpReceive>;
+
+    CoapSocket mSocket;
 
 private:
     static Error Send(CoapBase &aCoapBase, ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
-    static void  HandleUdpReceive(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo);
     Error        Send(ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
 };
 
 } // namespace Coap
+
+DefineCoreType(otCoapTxParameters, Coap::TxParameters);
+DefineCoreType(otCoapResource, Coap::Resource);
+#if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
+DefineCoreType(otCoapBlockwiseResource, Coap::ResourceBlockWise);
+#endif
+
 } // namespace ot
 
 #endif // COAP_HPP_

@@ -25,7 +25,7 @@ Network Key: 7fcbae4153cc2955c28440c15d4d4219
 Network Name: OpenThread-f7af
 PAN ID: 0xf7af
 PSKc: b658e40f174e3a11be149b302ef07a0f
-Security Policy: 672, onrcb
+Security Policy: 672, onrc
 Done
 > dataset commit active
 Done
@@ -98,7 +98,7 @@ Routes:
 Services:
 44970 5d c002 s 8400
 Done
-srp client start fded:5114:8263:1fe1:68bc:ec03:c1ad:9325 49154
+> srp client start fded:5114:8263:1fe1:68bc:ec03:c1ad:9325 49154
 Done
 ```
 
@@ -131,7 +131,10 @@ my-service._ipps._tcp.default.service.arpa.
     port: 12345
     priority: 0
     weight: 0
-    TXT: 00
+    ttl: 7200
+    lease: 7200
+    key-lease: 1209600
+    TXT: []
     host: my-host.default.service.arpa.
     addresses: [fded:5114:8263:1fe1:44f9:cc06:4a2d:534]
 Done

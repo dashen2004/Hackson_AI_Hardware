@@ -27,6 +27,11 @@
  */
 
 #include <assert.h>
+#ifdef __linux__
+#include <signal.h>
+#include <sys/prctl.h>
+#endif
+
 #include <openthread-core-config.h>
 #include <openthread/config.h>
 
@@ -36,60 +41,49 @@
 
 #include "openthread-system.h"
 
+#include "lib/platform/reset_util.h"
+
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE
+#if OPENTHREAD_CONFIG_MULTIPLE_STATIC_INSTANCE_ENABLE == 0
+#error "Support for multiple OpenThread static instance is disabled."
+#endif
+#define ENDPOINT_CT OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_NUM
+#else
+#define ENDPOINT_CT 1
+#endif /* OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE */
+
 /**
- * This function initializes the NCP app.
+ * Initializes the NCP app.
  *
  * @param[in]  aInstance  The OpenThread instance structure.
  *
  */
 extern void otAppNcpInit(otInstance *aInstance);
-
-#if OPENTHREAD_EXAMPLES_SIMULATION
-#include <setjmp.h>
-#include <unistd.h>
-
-jmp_buf gResetJump;
-
-void __gcov_flush();
-#endif
-
-#ifndef OPENTHREAD_ENABLE_COVERAGE
-#define OPENTHREAD_ENABLE_COVERAGE 0
-#endif
+extern void otAppNcpInitMulti(otInstance **aInstances, uint8_t count);
 
 #if OPENTHREAD_CONFIG_HEAP_EXTERNAL_ENABLE
-void *otPlatCAlloc(size_t aNum, size_t aSize)
-{
-    return calloc(aNum, aSize);
-}
+OT_TOOL_WEAK void *otPlatCAlloc(size_t aNum, size_t aSize) { return calloc(aNum, aSize); }
 
-void otPlatFree(void *aPtr)
-{
-    free(aPtr);
-}
+OT_TOOL_WEAK void otPlatFree(void *aPtr) { free(aPtr); }
 #endif
 
-void otTaskletsSignalPending(otInstance *aInstance)
-{
-    OT_UNUSED_VARIABLE(aInstance);
-}
+void otTaskletsSignalPending(otInstance *aInstance) { OT_UNUSED_VARIABLE(aInstance); }
 
 int main(int argc, char *argv[])
 {
     otInstance *instance;
 
-#if OPENTHREAD_EXAMPLES_SIMULATION
-    if (setjmp(gResetJump))
-    {
-        alarm(0);
-#if OPENTHREAD_ENABLE_COVERAGE
-        __gcov_flush();
-#endif
-        execvp(argv[0], argv);
-    }
+    OT_SETUP_RESET_JUMP(argv);
+
+#ifdef __linux__
+    // Ensure we terminate this process if the
+    // parent process dies.
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
 #endif
 
-#if OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE
+    otInstance *instances[ENDPOINT_CT] = {NULL};
+#elif OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
     size_t   otInstanceBufferLength = 0;
     uint8_t *otInstanceBuffer       = NULL;
 #endif
@@ -98,7 +92,16 @@ pseudo_reset:
 
     otSysInit(argc, argv);
 
-#if OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE
+    for (int i = 0; i < ENDPOINT_CT; i++)
+    {
+        instances[i] = otInstanceInitMultiple(i);
+
+        assert(instances[i]);
+    }
+    instance = instances[0];
+#elif OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
+
     // Call to query the buffer size
     (void)otInstanceInit(NULL, &otInstanceBufferLength);
 
@@ -113,7 +116,11 @@ pseudo_reset:
 #endif
     assert(instance);
 
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE
+    otAppNcpInitMulti(instances, ENDPOINT_CT);
+#else
     otAppNcpInit(instance);
+#endif
 
     while (!otSysPseudoResetWasRequested())
     {
@@ -122,7 +129,7 @@ pseudo_reset:
     }
 
     otInstanceFinalize(instance);
-#if OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
+#if OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE && !OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE
     free(otInstanceBuffer);
 #endif
 

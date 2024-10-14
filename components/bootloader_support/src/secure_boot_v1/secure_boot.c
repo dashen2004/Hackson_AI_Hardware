@@ -11,6 +11,7 @@
 #include "esp_log.h"
 
 #include "esp32/rom/cache.h"
+#include "esp32/rom/secure_boot.h"
 
 #include "soc/rtc_periph.h"
 #include "bootloader_utility.h"
@@ -62,7 +63,7 @@ static bool secure_boot_generate(uint32_t image_len){
     /* generate digest from image contents */
     image = bootloader_mmap(ESP_BOOTLOADER_OFFSET, image_len);
     if (!image) {
-        ESP_LOGE(TAG, "bootloader_mmap(0x1000, 0x%x) failed", image_len);
+        ESP_LOGE(TAG, "bootloader_mmap(0x1000, 0x%" PRIx32 ") failed", image_len);
         return false;
     }
     for (size_t i = 0; i < image_len; i+= sizeof(digest.iv)) {

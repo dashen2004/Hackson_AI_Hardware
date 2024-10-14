@@ -34,20 +34,8 @@ typedef struct {
     UINT8   ble_min_key_size;
     UINT8   ble_accept_auth_enable;
     UINT8   oob_support;
-    UINT8   ble_appl_enc_key_size;
 #endif
 
 } tBTE_APPL_CFG;
 
 extern tBTE_APPL_CFG bte_appl_cfg;
-
-
-typedef struct {
-#if ((CLASSIC_BT_INCLUDED == TRUE) && (BT_SSP_INCLUDED == TRUE))
-    UINT8   bt_auth_req;
-    UINT8   bt_io_cap;
-    UINT8   *bt_oob_auth_data;
-#endif
-} tBTE_BT_APPL_CFG;
-
-extern tBTE_BT_APPL_CFG bte_bt_appl_cfg;

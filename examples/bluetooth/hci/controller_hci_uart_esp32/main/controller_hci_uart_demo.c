@@ -1,7 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2021 Espressif Systems (Shanghai) CO LTD
  *
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
 
 #include <stdio.h>
@@ -10,7 +10,7 @@
 #include "esp_bt.h"
 #include "soc/uhci_periph.h"
 #include "driver/uart.h"
-#include "driver/periph_ctrl.h"
+#include "esp_private/periph_ctrl.h" // for enabling UHCI module, remove it after UHCI driver is released
 #include "esp_log.h"
 
 static const char *tag = "CONTROLLER_UART_HCI";
@@ -25,7 +25,7 @@ static void uart_gpio_reset(void)
     periph_module_enable(PERIPH_UHCI0_MODULE);
 
 #ifdef CONFIG_BTDM_CTRL_HCI_UART_NO
-    ESP_LOGI(tag, "HCI UART%d Pin select: TX 5, RX 18, CTS 23, RTS 19", CONFIG_BTDM_CTRL_HCI_UART_NO);
+    ESP_LOGI(tag, "HCI UART%d Pin select: TX 5, RX 18, CTS 23, RTS 19 Baudrate:%d", CONFIG_BTDM_CTRL_HCI_UART_NO, CONFIG_BTDM_CTRL_HCI_UART_BAUDRATE);
 
     uart_set_pin(CONFIG_BTDM_CTRL_HCI_UART_NO, 5, 18, 19, 23);
 #endif

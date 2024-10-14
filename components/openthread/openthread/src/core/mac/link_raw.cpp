@@ -40,14 +40,16 @@
 #include <openthread/platform/diag.h>
 
 #include "common/debug.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
 #include "common/random.hpp"
+#include "instance/instance.hpp"
 #include "mac/mac_frame.hpp"
 
 namespace ot {
 namespace Mac {
+
+RegisterLogModule("LinkRaw");
 
 LinkRaw::LinkRaw(Instance &aInstance)
     : InstanceLocator(aInstance)
@@ -84,7 +86,7 @@ Error LinkRaw::SetReceiveDone(otLinkRawReceiveDone aCallback)
     Error error  = kErrorNone;
     bool  enable = aCallback != nullptr;
 
-    otLogDebgMac("LinkRaw::Enabled(%s)", (enable ? "true" : "false"));
+    LogDebg("Enabled(%s)", (enable ? "true" : "false"));
 
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
     VerifyOrExit(!Get<ThreadNetif>().IsUp(), error = kErrorInvalidState);
@@ -179,8 +181,7 @@ exit:
 
 void LinkRaw::InvokeReceiveDone(RxFrame *aFrame, Error aError)
 {
-    otLogDebgMac("LinkRaw::ReceiveDone(%d bytes), error:%s", (aFrame != nullptr) ? aFrame->mLength : 0,
-                 ErrorToString(aError));
+    LogDebg("ReceiveDone(%d bytes), error:%s", (aFrame != nullptr) ? aFrame->mLength : 0, ErrorToString(aError));
 
     if (mReceiveDoneCallback && (aError == kErrorNone))
     {
@@ -203,7 +204,7 @@ exit:
 
 void LinkRaw::InvokeTransmitDone(TxFrame &aFrame, RxFrame *aAckFrame, Error aError)
 {
-    otLogDebgMac("LinkRaw::TransmitDone(%d bytes), error:%s", aFrame.mLength, ErrorToString(aError));
+    LogDebg("TransmitDone(%d bytes), error:%s", aFrame.mLength, ErrorToString(aError));
 
     if (mTransmitDoneCallback)
     {
@@ -257,12 +258,12 @@ exit:
     return error;
 }
 
-Error LinkRaw::SetMacFrameCounter(uint32_t aMacFrameCounter)
+Error LinkRaw::SetMacFrameCounter(uint32_t aFrameCounter, bool aSetIfLarger)
 {
     Error error = kErrorNone;
 
     VerifyOrExit(IsEnabled(), error = kErrorInvalidState);
-    mSubMac.SetFrameCounter(aMacFrameCounter);
+    mSubMac.SetFrameCounter(aFrameCounter, aSetIfLarger);
 
 exit:
     return error;
@@ -270,21 +271,16 @@ exit:
 
 // LCOV_EXCL_START
 
-#if (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_MAC == 1)
+#if OT_SHOULD_LOG_AT(OT_LOG_LEVEL_INFO)
 
-void LinkRaw::RecordFrameTransmitStatus(const TxFrame &aFrame,
-                                        const RxFrame *aAckFrame,
-                                        Error          aError,
-                                        uint8_t        aRetryCount,
-                                        bool           aWillRetx)
+void LinkRaw::RecordFrameTransmitStatus(const TxFrame &aFrame, Error aError, uint8_t aRetryCount, bool aWillRetx)
 {
-    OT_UNUSED_VARIABLE(aAckFrame);
     OT_UNUSED_VARIABLE(aWillRetx);
 
     if (aError != kErrorNone)
     {
-        otLogInfoMac("Frame tx failed, error:%s, retries:%d/%d, %s", ErrorToString(aError), aRetryCount,
-                     aFrame.GetMaxFrameRetries(), aFrame.ToInfoString().AsCString());
+        LogInfo("Frame tx failed, error:%s, retries:%d/%d, %s", ErrorToString(aError), aRetryCount,
+                aFrame.GetMaxFrameRetries(), aFrame.ToInfoString().AsCString());
     }
 }
 

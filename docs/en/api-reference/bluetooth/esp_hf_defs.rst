@@ -1,12 +1,5 @@
-HFP DEFINES
+HFP Defines
 ===========
-
-Overview
---------
-
-`Instructions`_
-
-.. _Instructions: ../template.html
 
 API Reference
 -------------

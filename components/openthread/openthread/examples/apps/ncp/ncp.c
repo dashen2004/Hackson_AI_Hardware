@@ -37,15 +37,9 @@
 #if !OPENTHREAD_CONFIG_NCP_SPI_ENABLE
 #include "utils/uart.h"
 
-void otPlatUartReceived(const uint8_t *aBuf, uint16_t aBufLength)
-{
-    otNcpHdlcReceive(aBuf, aBufLength);
-}
+void otPlatUartReceived(const uint8_t *aBuf, uint16_t aBufLength) { otNcpHdlcReceive(aBuf, aBufLength); }
 
-void otPlatUartSendDone(void)
-{
-    otNcpHdlcSendDone();
-}
+void otPlatUartSendDone(void) { otNcpHdlcSendDone(); }
 #endif
 
 #if !OPENTHREAD_ENABLE_NCP_VENDOR_HOOK
@@ -67,4 +61,17 @@ void otAppNcpInit(otInstance *aInstance)
     otNcpHdlcInit(aInstance, NcpSend);
 #endif
 }
+
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE
+void otAppNcpInitMulti(otInstance **aInstances, uint8_t aCount)
+{
+#if OPENTHREAD_CONFIG_NCP_SPI_ENABLE
+#error Multipan support not implemented for SPI
+#else
+    IgnoreError(otPlatUartEnable());
+
+    otNcpHdlcInitMulti(aInstances, aCount, NcpSend);
+#endif
+}
+#endif
 #endif // !OPENTHREAD_ENABLE_NCP_VENDOR_HOOK

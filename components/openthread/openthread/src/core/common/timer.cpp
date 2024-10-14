@@ -33,13 +33,32 @@
 
 #include "timer.hpp"
 
+#include "common/as_core_type.hpp"
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "instance/instance.hpp"
 
 namespace ot {
+
+//---------------------------------------------------------------------------------------------------------------------
+// `NextFireTime`
+
+NextFireTime::NextFireTime(void)
+    : NextFireTime(TimerMilli::GetNow())
+{
+}
+
+NextFireTime::NextFireTime(Time aNow)
+    : mNow(aNow)
+    , mNextTime(aNow.GetDistantFuture())
+{
+}
+
+void NextFireTime::UpdateIfEarlier(Time aTime) { mNextTime = Min(mNextTime, Max(mNow, aTime)); }
+
+//---------------------------------------------------------------------------------------------------------------------
+// `Timer`
 
 const Timer::Scheduler::AlarmApi TimerMilli::Scheduler::sAlarmMilliApi = {
     &otPlatAlarmMilliStartAt,
@@ -77,10 +96,10 @@ bool Timer::DoesFireBefore(const Timer &aSecondTimer, Time aNow) const
     return retval;
 }
 
-void TimerMilli::Start(uint32_t aDelay)
-{
-    StartAt(GetNow(), aDelay);
-}
+//---------------------------------------------------------------------------------------------------------------------
+// `TimerMilli`
+
+void TimerMilli::Start(uint32_t aDelay) { StartAt(GetNow(), aDelay); }
 
 void TimerMilli::StartAt(TimeMilli aStartTime, uint32_t aDelay)
 {
@@ -94,6 +113,18 @@ void TimerMilli::FireAt(TimeMilli aFireTime)
     Get<Scheduler>().Add(*this);
 }
 
+void TimerMilli::FireAt(const NextFireTime &aNextFireTime)
+{
+    if (aNextFireTime.IsSet())
+    {
+        FireAt(aNextFireTime.GetNextTime());
+    }
+    else
+    {
+        Stop();
+    }
+}
+
 void TimerMilli::FireAtIfEarlier(TimeMilli aFireTime)
 {
     if (!IsRunning() || (mFireTime > aFireTime))
@@ -102,15 +133,20 @@ void TimerMilli::FireAtIfEarlier(TimeMilli aFireTime)
     }
 }
 
-void TimerMilli::Stop(void)
+void TimerMilli::FireAtIfEarlier(const NextFireTime &aNextFireTime)
 {
-    Get<Scheduler>().Remove(*this);
+    if (aNextFireTime.IsSet())
+    {
+        FireAtIfEarlier(aNextFireTime.GetNextTime());
+    }
 }
 
-void TimerMilli::RemoveAll(Instance &aInstance)
-{
-    aInstance.Get<Scheduler>().RemoveAll();
-}
+void TimerMilli::Stop(void) { Get<Scheduler>().Remove(*this); }
+
+void TimerMilli::RemoveAll(Instance &aInstance) { aInstance.Get<Scheduler>().RemoveAll(); }
+
+//---------------------------------------------------------------------------------------------------------------------
+// `Timer::Scheduler`
 
 void Timer::Scheduler::Add(Timer &aTimer, const AlarmApi &aAlarmApi)
 {
@@ -168,7 +204,7 @@ void Timer::Scheduler::SetAlarm(const AlarmApi &aAlarmApi)
     }
     else
     {
-        Timer *  timer = mTimerList.GetHead();
+        Timer   *timer = mTimerList.GetHead();
         Time     now(aAlarmApi.AlarmGetNow());
         uint32_t remaining;
 
@@ -214,14 +250,15 @@ void Timer::Scheduler::RemoveAll(const AlarmApi &aAlarmApi)
 
 extern "C" void otPlatAlarmMilliFired(otInstance *aInstance)
 {
-    Instance *instance = static_cast<Instance *>(aInstance);
-
     VerifyOrExit(otInstanceIsInitialized(aInstance));
-    instance->Get<TimerMilli::Scheduler>().ProcessTimers();
+    AsCoreType(aInstance).Get<TimerMilli::Scheduler>().ProcessTimers();
 
 exit:
     return;
 }
+
+//---------------------------------------------------------------------------------------------------------------------
+// `TimerMicro`
 
 #if OPENTHREAD_CONFIG_PLATFORM_USEC_TIMER_ENABLE
 const Timer::Scheduler::AlarmApi TimerMicro::Scheduler::sAlarmMicroApi = {
@@ -230,10 +267,7 @@ const Timer::Scheduler::AlarmApi TimerMicro::Scheduler::sAlarmMicroApi = {
     &otPlatAlarmMicroGetNow,
 };
 
-void TimerMicro::Start(uint32_t aDelay)
-{
-    StartAt(GetNow(), aDelay);
-}
+void TimerMicro::Start(uint32_t aDelay) { StartAt(GetNow(), aDelay); }
 
 void TimerMicro::StartAt(TimeMicro aStartTime, uint32_t aDelay)
 {
@@ -247,22 +281,14 @@ void TimerMicro::FireAt(TimeMicro aFireTime)
     Get<Scheduler>().Add(*this);
 }
 
-void TimerMicro::Stop(void)
-{
-    Get<Scheduler>().Remove(*this);
-}
+void TimerMicro::Stop(void) { Get<Scheduler>().Remove(*this); }
 
-void TimerMicro::RemoveAll(Instance &aInstance)
-{
-    aInstance.Get<Scheduler>().RemoveAll();
-}
+void TimerMicro::RemoveAll(Instance &aInstance) { aInstance.Get<Scheduler>().RemoveAll(); }
 
 extern "C" void otPlatAlarmMicroFired(otInstance *aInstance)
 {
-    Instance *instance = static_cast<Instance *>(aInstance);
-
     VerifyOrExit(otInstanceIsInitialized(aInstance));
-    instance->Get<TimerMicro::Scheduler>().ProcessTimers();
+    AsCoreType(aInstance).Get<TimerMicro::Scheduler>().ProcessTimers();
 
 exit:
     return;

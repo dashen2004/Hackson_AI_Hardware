@@ -1,11 +1,8 @@
-/* TWAI Network Slave Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/*
+ * SPDX-FileCopyrightText: 2010-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: CC0-1.0
+ */
 
 /*
  * The following example demonstrates a slave node in a TWAI network. The slave
@@ -66,13 +63,46 @@ typedef enum {
 static const twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(TX_GPIO_NUM, RX_GPIO_NUM, TWAI_MODE_NORMAL);
 static const twai_timing_config_t t_config = TWAI_TIMING_CONFIG_25KBITS();
 static const twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
-static const twai_message_t ping_resp = {.identifier = ID_SLAVE_PING_RESP, .data_length_code = 0,
-                                        .data = {0, 0 , 0 , 0 ,0 ,0 ,0 ,0}};
-static const twai_message_t stop_resp = {.identifier = ID_SLAVE_STOP_RESP, .data_length_code = 0,
-                                        .data = {0, 0 , 0 , 0 ,0 ,0 ,0 ,0}};
-//Data bytes of data message will be initialized in the transmit task
-static twai_message_t data_message = {.identifier = ID_SLAVE_DATA, .data_length_code = 4,
-                                     .data = {0, 0 , 0 , 0 ,0 ,0 ,0 ,0}};
+
+static const twai_message_t ping_resp = {
+    // Message type and format settings
+    .extd = 0,              // Standard Format message (11-bit ID)
+    .rtr = 0,               // Send a data frame
+    .ss = 0,                // Not single shot
+    .self = 0,              // Not a self reception request
+    .dlc_non_comp = 0,      // DLC is less than 8
+    // Message ID and payload
+    .identifier = ID_SLAVE_PING_RESP,
+    .data_length_code = 0,
+    .data = {0},
+};
+
+static const twai_message_t stop_resp = {
+    // Message type and format settings
+    .extd = 0,              // Standard Format message (11-bit ID)
+    .rtr = 0,               // Send a data frame
+    .ss = 0,                // Not single shot
+    .self = 0,              // Not a self reception request
+    .dlc_non_comp = 0,      // DLC is less than 8
+    // Message ID and payload
+    .identifier = ID_SLAVE_STOP_RESP,
+    .data_length_code = 0,
+    .data = {0},
+};
+
+// Data bytes of data message will be initialized in the transmit task
+static twai_message_t data_message = {
+    // Message type and format settings
+    .extd = 0,              // Standard Format message (11-bit ID)
+    .rtr = 0,               // Send a data frame
+    .ss = 0,                // Not single shot
+    .self = 0,              // Not a self reception request
+    .dlc_non_comp = 0,      // DLC is less than 8
+    // Message ID and payload
+    .identifier = ID_SLAVE_DATA,
+    .data_length_code = 4,
+    .data = {1, 2, 3, 4},
+};
 
 static QueueHandle_t tx_task_queue;
 static QueueHandle_t rx_task_queue;
@@ -146,7 +176,7 @@ static void twai_transmit_task(void *arg)
                     data_message.data[i] = (sensor_data >> (i * 8)) & 0xFF;
                 }
                 twai_transmit(&data_message, portMAX_DELAY);
-                ESP_LOGI(EXAMPLE_TAG, "Transmitted data value %d", sensor_data);
+                ESP_LOGI(EXAMPLE_TAG, "Transmitted data value %"PRIu32, sensor_data);
                 vTaskDelay(pdMS_TO_TICKS(DATA_PERIOD_MS));
                 if (xSemaphoreTake(stop_data_sem, 0) == pdTRUE) {
                     break;
@@ -233,13 +263,12 @@ void app_main(void)
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-
     //Create semaphores and tasks
     tx_task_queue = xQueueCreate(1, sizeof(tx_task_action_t));
     rx_task_queue = xQueueCreate(1, sizeof(rx_task_action_t));
     ctrl_task_sem = xSemaphoreCreateBinary();
-    stop_data_sem  = xSemaphoreCreateBinary();;
-    done_sem  = xSemaphoreCreateBinary();;
+    stop_data_sem  = xSemaphoreCreateBinary();
+    done_sem  = xSemaphoreCreateBinary();
     xTaskCreatePinnedToCore(twai_receive_task, "TWAI_rx", 4096, NULL, RX_TASK_PRIO, NULL, tskNO_AFFINITY);
     xTaskCreatePinnedToCore(twai_transmit_task, "TWAI_tx", 4096, NULL, TX_TASK_PRIO, NULL, tskNO_AFFINITY);
     xTaskCreatePinnedToCore(twai_control_task, "TWAI_ctrl", 4096, NULL, CTRL_TSK_PRIO, NULL, tskNO_AFFINITY);

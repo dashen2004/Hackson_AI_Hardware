@@ -36,17 +36,20 @@
 
 #if OPENTHREAD_CONFIG_NETDATA_PUBLISHER_ENABLE
 
+#include "common/array.hpp"
 #include "common/code_utils.hpp"
 #include "common/const_cast.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
 #include "common/random.hpp"
+#include "instance/instance.hpp"
 #include "thread/network_data_local.hpp"
 #include "thread/network_data_service.hpp"
 
 namespace ot {
 namespace NetworkData {
+
+RegisterLogModule("NetDataPublshr");
 
 //---------------------------------------------------------------------------------------------------------------------
 // Publisher
@@ -56,17 +59,13 @@ Publisher::Publisher(Instance &aInstance)
 #if OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
     , mDnsSrpServiceEntry(aInstance)
 #endif
-#if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
-    , mPrefixCallback(nullptr)
-    , mPrefixCallbackContext(nullptr)
-#endif
-    , mTimer(aInstance, Publisher::HandleTimer)
+    , mTimer(aInstance)
 {
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
     // Since the `PrefixEntry` type is used in an array,
     // we cannot use a constructor with an argument (e.g.,
-    // we cannot use `InstacneLocator`) so we use
-    // `IntanceLocatorInit`  and `Init()` the entries one
+    // we cannot use `InstanceLocator`) so we use
+    // `InstanceLocatorInit`  and `Init()` the entries one
     // by one.
 
     for (PrefixEntry &entry : mPrefixEntries)
@@ -78,37 +77,42 @@ Publisher::Publisher(Instance &aInstance)
 
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
 
-void Publisher::SetPrefixCallback(PrefixCallback aCallback, void *aContext)
+Error Publisher::PublishOnMeshPrefix(const OnMeshPrefixConfig &aConfig, Requester aRequester)
 {
-    mPrefixCallback        = aCallback;
-    mPrefixCallbackContext = aContext;
-}
-
-Error Publisher::PublishOnMeshPrefix(const OnMeshPrefixConfig &aConfig)
-{
-    Error        error;
+    Error        error = kErrorNone;
     PrefixEntry *entry;
 
     VerifyOrExit(aConfig.IsValid(GetInstance()), error = kErrorInvalidArgs);
     VerifyOrExit(aConfig.mStable, error = kErrorInvalidArgs);
 
-    SuccessOrExit(error = AllocatePrefixEntry(aConfig.GetPrefix(), entry));
-    entry->Publish(aConfig);
+    entry = FindOrAllocatePrefixEntry(aConfig.GetPrefix(), aRequester);
+    VerifyOrExit(entry != nullptr, error = kErrorNoBufs);
+
+    entry->Publish(aConfig, aRequester);
 
 exit:
     return error;
 }
 
-Error Publisher::PublishExternalRoute(const ExternalRouteConfig &aConfig)
+Error Publisher::PublishExternalRoute(const ExternalRouteConfig &aConfig, Requester aRequester)
 {
-    Error        error;
+    return ReplacePublishedExternalRoute(aConfig.GetPrefix(), aConfig, aRequester);
+}
+
+Error Publisher::ReplacePublishedExternalRoute(const Ip6::Prefix         &aPrefix,
+                                               const ExternalRouteConfig &aConfig,
+                                               Requester                  aRequester)
+{
+    Error        error = kErrorNone;
     PrefixEntry *entry;
 
     VerifyOrExit(aConfig.IsValid(GetInstance()), error = kErrorInvalidArgs);
     VerifyOrExit(aConfig.mStable, error = kErrorInvalidArgs);
 
-    SuccessOrExit(error = AllocatePrefixEntry(aConfig.GetPrefix(), entry));
-    entry->Publish(aConfig);
+    entry = FindOrAllocatePrefixEntry(aPrefix, aRequester);
+    VerifyOrExit(entry != nullptr, error = kErrorNoBufs);
+
+    entry->Publish(aConfig, aRequester);
 
 exit:
     return error;
@@ -142,23 +146,50 @@ exit:
     return error;
 }
 
-Error Publisher::AllocatePrefixEntry(const Ip6::Prefix &aPrefix, PrefixEntry *&aEntry)
+Publisher::PrefixEntry *Publisher::FindOrAllocatePrefixEntry(const Ip6::Prefix &aPrefix, Requester aRequester)
 {
-    Error error = kErrorNoBufs;
+    // Returns a matching prefix entry if found, otherwise tries
+    // to allocate a new entry.
 
-    VerifyOrExit(FindMatchingPrefixEntry(aPrefix) == nullptr, error = kErrorAlready);
+    PrefixEntry *prefixEntry = nullptr;
+    uint16_t     numEntries  = 0;
+    uint8_t      maxEntries  = 0;
 
     for (PrefixEntry &entry : mPrefixEntries)
     {
-        if (!entry.IsInUse())
+        if (entry.IsInUse())
         {
-            aEntry = &entry;
-            ExitNow(error = kErrorNone);
+            if (entry.GetRequester() == aRequester)
+            {
+                numEntries++;
+            }
+
+            if (entry.Matches(aPrefix))
+            {
+                prefixEntry = &entry;
+                ExitNow();
+            }
+        }
+        else if (prefixEntry == nullptr)
+        {
+            prefixEntry = &entry;
         }
     }
 
+    switch (aRequester)
+    {
+    case kFromUser:
+        maxEntries = kMaxUserPrefixEntries;
+        break;
+    case kFromRoutingManager:
+        maxEntries = kMaxRoutingManagerPrefixEntries;
+        break;
+    }
+
+    VerifyOrExit(numEntries < maxEntries, prefixEntry = nullptr);
+
 exit:
-    return error;
+    return prefixEntry;
 }
 
 Publisher::PrefixEntry *Publisher::FindMatchingPrefixEntry(const Ip6::Prefix &aPrefix)
@@ -184,30 +215,20 @@ const Publisher::PrefixEntry *Publisher::FindMatchingPrefixEntry(const Ip6::Pref
 
 bool Publisher::IsAPrefixEntry(const Entry &aEntry) const
 {
-    return (&mPrefixEntries[0] <= &aEntry) && (&aEntry < OT_ARRAY_END(mPrefixEntries));
+    return (&mPrefixEntries[0] <= &aEntry) && (&aEntry < GetArrayEnd(mPrefixEntries));
 }
 
 void Publisher::NotifyPrefixEntryChange(Event aEvent, const Ip6::Prefix &aPrefix) const
 {
-    if (mPrefixCallback != nullptr)
-    {
-        mPrefixCallback(static_cast<otNetDataPublisherEvent>(aEvent), &aPrefix, mPrefixCallbackContext);
-    }
+    mPrefixCallback.InvokeIfSet(static_cast<otNetDataPublisherEvent>(aEvent), &aPrefix);
 }
 
 #endif // OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
 
 void Publisher::HandleNotifierEvents(Events aEvents)
 {
-    OT_UNUSED_VARIABLE(aEvents);
-
-    bool registerWithLeader = false;
-
 #if OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
-    if (mDnsSrpServiceEntry.HandleNotifierEvents(aEvents))
-    {
-        registerWithLeader = true;
-    }
+    mDnsSrpServiceEntry.HandleNotifierEvents(aEvents);
 #endif
 
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
@@ -216,43 +237,20 @@ void Publisher::HandleNotifierEvents(Events aEvents)
         entry.HandleNotifierEvents(aEvents);
     }
 #endif
-
-    if (registerWithLeader)
-    {
-        Get<Notifier>().HandleServerDataUpdated();
-    }
-}
-
-void Publisher::HandleTimer(Timer &aTimer)
-{
-    aTimer.Get<Publisher>().HandleTimer();
 }
 
 void Publisher::HandleTimer(void)
 {
-    bool registerWithLeader = false;
-
 #if OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
-    if (mDnsSrpServiceEntry.HandleTimer())
-    {
-        registerWithLeader = true;
-    }
+    mDnsSrpServiceEntry.HandleTimer();
 #endif
 
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
     for (PrefixEntry &entry : mPrefixEntries)
     {
-        if (entry.HandleTimer())
-        {
-            registerWithLeader = true;
-        }
+        entry.HandleTimer();
     }
 #endif
-
-    if (registerWithLeader)
-    {
-        Get<Notifier>().HandleServerDataUpdated();
-    }
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -262,8 +260,8 @@ void Publisher::Entry::SetState(State aState)
 {
     VerifyOrExit(mState != aState);
 
-    otLogInfoNetData("Publisher: %s - State: %s -> %s", ToString(/* aIncludeState */ false).AsCString(),
-                     StateToString(mState), StateToString(aState));
+    LogInfo("%s - State: %s -> %s", ToString(/* aIncludeState */ false).AsCString(), StateToString(mState),
+            StateToString(aState));
     mState = aState;
 
 exit:
@@ -277,7 +275,7 @@ bool Publisher::Entry::IsPreferred(uint16_t aRloc16) const
     // router over an entry from an end-device (e.g., a REED). If both
     // are the same type, then the one with smaller RLOC16 is preferred.
 
-    bool isOtherRouter = Mle::Mle::IsActiveRouter(aRloc16);
+    bool isOtherRouter = Mle::IsRouterRloc16(aRloc16);
 
     return (Get<Mle::Mle>().IsRouterOrLeader() == isOtherRouter) ? (aRloc16 < Get<Mle::Mle>().GetRloc16())
                                                                  : isOtherRouter;
@@ -290,8 +288,8 @@ void Publisher::Entry::UpdateState(uint8_t aNumEntries, uint8_t aNumPreferredEnt
     // entries we aim to have in the Network Data to decide whether or
     // not to take any action (add or remove our entry).
 
-    otLogInfoNetData("Publisher: %s in netdata - total:%d, preferred:%d, desired:%d", ToString().AsCString(),
-                     aNumEntries, aNumPreferredEntries, aDesiredNumEntries);
+    LogInfo("%s in netdata - total:%d, preferred:%d, desired:%d", ToString().AsCString(), aNumEntries,
+            aNumPreferredEntries, aDesiredNumEntries);
 
     switch (GetState())
     {
@@ -339,7 +337,7 @@ void Publisher::Entry::UpdateState(uint8_t aNumEntries, uint8_t aNumPreferredEnt
 
             if (aNumPreferredEntries < aDesiredNumEntries)
             {
-                mUpdateTime += kExtraDelayToRemovePeferred;
+                mUpdateTime += kExtraDelayToRemovePreferred;
             }
 
             SetState(kRemoving);
@@ -361,22 +359,25 @@ void Publisher::Entry::UpdateState(uint8_t aNumEntries, uint8_t aNumPreferredEnt
     }
 }
 
-bool Publisher::Entry::HandleTimer(void)
+void Publisher::Entry::HandleTimer(void)
 {
-    bool registerWithLeader = false;
-
     // Timer is used to delay adding/removing the entry. If we have
     // reached `mUpdateTime` add or remove the entry. Otherwise,
     // restart the timer (note that timer can be shared between
-    // different published entries). This method returns a `bool`
-    // indicating whether or not anything in local Network Data got
-    // changed so to notify the leader and register the changes.
+    // different published entries).
 
     VerifyOrExit((GetState() == kAdding) || (GetState() == kRemoving));
 
     if (mUpdateTime <= TimerMilli::GetNow())
     {
-        registerWithLeader = (GetState() == kAdding) ? Add() : Remove(/* aNextState */ kToAdd);
+        if (GetState() == kAdding)
+        {
+            Add();
+        }
+        else
+        {
+            Remove(/* aNextState */ kToAdd);
+        }
     }
     else
     {
@@ -384,55 +385,41 @@ bool Publisher::Entry::HandleTimer(void)
     }
 
 exit:
-    return registerWithLeader;
+    return;
 }
 
-bool Publisher::Entry::Add(void)
+void Publisher::Entry::Add(void)
 {
-    bool registerWithLeader = false;
-
 #if OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
     if (Get<Publisher>().IsADnsSrpServiceEntry(*this))
     {
-        registerWithLeader = static_cast<DnsSrpServiceEntry *>(this)->Add();
-        ExitNow();
+        static_cast<DnsSrpServiceEntry *>(this)->Add();
     }
 #endif
 
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
     if (Get<Publisher>().IsAPrefixEntry(*this))
     {
-        registerWithLeader = static_cast<PrefixEntry *>(this)->Add();
-        ExitNow();
+        static_cast<PrefixEntry *>(this)->Add();
     }
 #endif
-
-exit:
-    return registerWithLeader;
 }
 
-bool Publisher::Entry::Remove(State aNextState)
+void Publisher::Entry::Remove(State aNextState)
 {
-    bool registerWithLeader = false;
-
 #if OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
     if (Get<Publisher>().IsADnsSrpServiceEntry(*this))
     {
-        registerWithLeader = static_cast<DnsSrpServiceEntry *>(this)->Remove(aNextState);
-        ExitNow();
+        static_cast<DnsSrpServiceEntry *>(this)->Remove(aNextState);
     }
 #endif
 
 #if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
     if (Get<Publisher>().IsAPrefixEntry(*this))
     {
-        registerWithLeader = static_cast<PrefixEntry *>(this)->Remove(aNextState);
-        ExitNow();
+        static_cast<PrefixEntry *>(this)->Remove(aNextState);
     }
 #endif
-
-exit:
-    return registerWithLeader;
 }
 
 Publisher::Entry::InfoString Publisher::Entry::ToString(bool aIncludeState) const
@@ -463,7 +450,7 @@ Publisher::Entry::InfoString Publisher::Entry::ToString(bool aIncludeState) cons
             break;
         }
 
-        string.Append(prefixEntry.mPrefix.ToString().AsCString());
+        string.Append("%s", prefixEntry.mPrefix.ToString().AsCString());
         ExitNow();
     }
 #endif
@@ -479,7 +466,7 @@ exit:
 
 void Publisher::Entry::LogUpdateTime(void) const
 {
-    otLogInfoNetData("Publisher: %s - update in %u msec", ToString().AsCString(), mUpdateTime - TimerMilli::GetNow());
+    LogInfo("%s - update in %lu msec", ToString().AsCString(), ToUlong(mUpdateTime - TimerMilli::GetNow()));
 }
 
 const char *Publisher::Entry::StateToString(State aState)
@@ -506,51 +493,37 @@ const char *Publisher::Entry::StateToString(State aState)
 //---------------------------------------------------------------------------------------------------------------------
 // Publisher::DnsSrpServiceEntry
 
-Publisher::DnsSrpServiceEntry::DnsSrpServiceEntry(Instance &aInstance)
-    : mCallback(nullptr)
-    , mCallbackContext(nullptr)
-{
-    Init(aInstance);
-}
-
-void Publisher::DnsSrpServiceEntry::SetCallback(DnsSrpServiceCallback aCallback, void *aContext)
-{
-    mCallback        = aCallback;
-    mCallbackContext = aContext;
-}
+Publisher::DnsSrpServiceEntry::DnsSrpServiceEntry(Instance &aInstance) { Init(aInstance); }
 
 void Publisher::DnsSrpServiceEntry::PublishAnycast(uint8_t aSequenceNumber)
 {
-    otLogInfoNetData("Publisher: Publishing DNS/SRP service anycast (seq-num:%d)", aSequenceNumber);
+    LogInfo("Publishing DNS/SRP service anycast (seq-num:%d)", aSequenceNumber);
     Publish(Info::InfoAnycast(aSequenceNumber));
 }
 
 void Publisher::DnsSrpServiceEntry::PublishUnicast(const Ip6::Address &aAddress, uint16_t aPort)
 {
-    otLogInfoNetData("Publisher: Publishing DNS/SRP service unicast (%s, port:%d)", aAddress.ToString().AsCString(),
-                     aPort);
+    LogInfo("Publishing DNS/SRP service unicast (%s, port:%d)", aAddress.ToString().AsCString(), aPort);
     Publish(Info::InfoUnicast(kTypeUnicast, aAddress, aPort));
 }
 
 void Publisher::DnsSrpServiceEntry::PublishUnicast(uint16_t aPort)
 {
-    otLogInfoNetData("Publisher: Publishing DNS/SRP service unicast (ml-eid, port:%d)", aPort);
-    Publish(Info::InfoUnicast(kTypeUnicastMeshLocalEid, Get<Mle::Mle>().GetMeshLocal64(), aPort));
+    LogInfo("Publishing DNS/SRP service unicast (ml-eid, port:%d)", aPort);
+    Publish(Info::InfoUnicast(kTypeUnicastMeshLocalEid, Get<Mle::Mle>().GetMeshLocalEid(), aPort));
 }
 
 void Publisher::DnsSrpServiceEntry::Publish(const Info &aInfo)
 {
-    bool registerWithLeader = false;
-
     if (GetState() != kNoEntry)
     {
         if (aInfo == mInfo)
         {
-            otLogInfoNetData("Publisher: %s is already being published", ToString().AsCString());
+            LogInfo("%s is already being published", ToString().AsCString());
             ExitNow();
         }
 
-        registerWithLeader = Remove(/* aNextState */ kNoEntry);
+        Remove(/* aNextState */ kNoEntry);
     }
 
     mInfo = aInfo;
@@ -558,36 +531,22 @@ void Publisher::DnsSrpServiceEntry::Publish(const Info &aInfo)
 
     Process();
 
-    if (registerWithLeader)
-    {
-        Get<Notifier>().HandleServerDataUpdated();
-    }
-
 exit:
     return;
 }
 
 void Publisher::DnsSrpServiceEntry::Unpublish(void)
 {
-    bool registerWithLeader;
+    LogInfo("Unpublishing DNS/SRP service");
 
-    otLogInfoNetData("Publisher: Unpublishing DNS/SRP service");
-
-    registerWithLeader = Remove(/* aNextState */ kNoEntry);
-
-    if (registerWithLeader)
-    {
-        Get<Notifier>().HandleServerDataUpdated();
-    }
+    Remove(/* aNextState */ kNoEntry);
 }
 
-bool Publisher::DnsSrpServiceEntry::HandleNotifierEvents(Events aEvents)
+void Publisher::DnsSrpServiceEntry::HandleNotifierEvents(Events aEvents)
 {
-    bool registerWithLeader = false;
-
     if ((GetType() == kTypeUnicastMeshLocalEid) && aEvents.Contains(kEventThreadMeshLocalAddrChanged))
     {
-        mInfo.SetAddress(Get<Mle::Mle>().GetMeshLocal64());
+        mInfo.SetAddress(Get<Mle::Mle>().GetMeshLocalEid());
 
         if (GetState() == kAdded)
         {
@@ -597,7 +556,7 @@ bool Publisher::DnsSrpServiceEntry::HandleNotifierEvents(Events aEvents)
 
             Remove(/* aNextState */ kAdding);
             Add();
-            registerWithLeader = true;
+            Get<Notifier>().HandleServerDataUpdated();
         }
     }
 
@@ -605,15 +564,11 @@ bool Publisher::DnsSrpServiceEntry::HandleNotifierEvents(Events aEvents)
     {
         Process();
     }
-
-    return registerWithLeader;
 }
 
-bool Publisher::DnsSrpServiceEntry::Add(void)
+void Publisher::DnsSrpServiceEntry::Add(void)
 {
     // Adds the service entry to the network data.
-
-    bool registerWithLeader = false;
 
     switch (GetType())
     {
@@ -633,19 +588,17 @@ bool Publisher::DnsSrpServiceEntry::Add(void)
         break;
     }
 
-    registerWithLeader = true;
+    Get<Notifier>().HandleServerDataUpdated();
     SetState(kAdded);
     Notify(kEventEntryAdded);
 
 exit:
-    return registerWithLeader;
+    return;
 }
 
-bool Publisher::DnsSrpServiceEntry::Remove(State aNextState)
+void Publisher::DnsSrpServiceEntry::Remove(State aNextState)
 {
     // Removes the service entry from network data (if it was added).
-
-    bool registerWithLeader = false;
 
     VerifyOrExit((GetState() == kAdded) || (GetState() == kRemoving));
 
@@ -666,12 +619,11 @@ bool Publisher::DnsSrpServiceEntry::Remove(State aNextState)
         break;
     }
 
-    registerWithLeader = true;
+    Get<Notifier>().HandleServerDataUpdated();
     Notify(kEventEntryRemoved);
 
 exit:
     SetState(aNextState);
-    return registerWithLeader;
 }
 
 void Publisher::DnsSrpServiceEntry::Notify(Event aEvent) const
@@ -680,10 +632,7 @@ void Publisher::DnsSrpServiceEntry::Notify(Event aEvent) const
     Get<Srp::Server>().HandleNetDataPublisherEvent(aEvent);
 #endif
 
-    if (mCallback != nullptr)
-    {
-        mCallback(static_cast<otNetDataPublisherEvent>(aEvent), mCallbackContext);
-    }
+    mCallback.InvokeIfSet(static_cast<otNetDataPublisherEvent>(aEvent));
 }
 
 void Publisher::DnsSrpServiceEntry::Process(void)
@@ -709,10 +658,30 @@ void Publisher::DnsSrpServiceEntry::Process(void)
         desiredNumEntries = kDesiredNumAnycast;
         break;
 
-    case kTypeUnicast:
     case kTypeUnicastMeshLocalEid:
-        CountUnicastEntries(numEntries, numPreferredEntries);
+    {
+        Service::DnsSrpAnycast::Info anycastInfo;
+        bool                         hasServiceDataEntry;
+
+        CountServerDataUnicastEntries(numEntries, numPreferredEntries, hasServiceDataEntry);
         desiredNumEntries = kDesiredNumUnicast;
+
+        if (hasServiceDataEntry || (Get<Service::Manager>().FindPreferredDnsSrpAnycastInfo(anycastInfo) == kErrorNone))
+        {
+            // If there is any service data unicast entry or anycast
+            // entry, we set the desired number of server data
+            // unicast entries to zero to remove any such previously
+            // added unicast entry.
+
+            desiredNumEntries = 0;
+        }
+
+        break;
+    }
+
+    case kTypeUnicast:
+        desiredNumEntries = kDesiredNumUnicast;
+        CountServiceDataUnicastEntries(numEntries, numPreferredEntries);
         break;
     }
 
@@ -730,7 +699,7 @@ void Publisher::DnsSrpServiceEntry::CountAnycastEntries(uint8_t &aNumEntries, ui
     // smaller RLCO16.
 
     Service::DnsSrpAnycast::ServiceData serviceData(mInfo.GetSequenceNumber());
-    const ServiceTlv *                  serviceTlv = nullptr;
+    const ServiceTlv                   *serviceTlv = nullptr;
     ServiceData                         data;
 
     data.Init(&serviceData, serviceData.GetLength());
@@ -753,9 +722,53 @@ void Publisher::DnsSrpServiceEntry::CountAnycastEntries(uint8_t &aNumEntries, ui
     }
 }
 
-void Publisher::DnsSrpServiceEntry::CountUnicastEntries(uint8_t &aNumEntries, uint8_t &aNumPreferredEntries) const
+void Publisher::DnsSrpServiceEntry::CountServerDataUnicastEntries(uint8_t &aNumEntries,
+                                                                  uint8_t &aNumPreferredEntries,
+                                                                  bool    &aHasServiceDataEntry) const
 {
-    // Count the number of "DNS/SRP Unicast" service entries in
+    // Count the number of server data DNS/SRP unicast entries in the
+    // Network Data. Also determine whether there is any service data
+    // DNS/SRP unicast entry (update `aHasServiceDataEntry`).
+
+    const ServiceTlv *serviceTlv = nullptr;
+    ServiceData       data;
+
+    aHasServiceDataEntry = false;
+
+    data.InitFrom(Service::DnsSrpUnicast::kServiceData);
+
+    while ((serviceTlv = Get<Leader>().FindNextThreadService(serviceTlv, data, NetworkData::kServicePrefixMatch)) !=
+           nullptr)
+    {
+        TlvIterator      subTlvIterator(*serviceTlv);
+        const ServerTlv *serverSubTlv;
+
+        if (serviceTlv->GetServiceDataLength() >= sizeof(Service::DnsSrpUnicast::ServiceData))
+        {
+            aHasServiceDataEntry = true;
+        }
+
+        while (((serverSubTlv = subTlvIterator.Iterate<ServerTlv>())) != nullptr)
+        {
+            if (serverSubTlv->GetServerDataLength() < sizeof(Service::DnsSrpUnicast::ServerData))
+            {
+                continue;
+            }
+
+            aNumEntries++;
+
+            if (IsPreferred(serverSubTlv->GetServer16()))
+            {
+                aNumPreferredEntries++;
+            }
+        }
+    }
+}
+
+void Publisher::DnsSrpServiceEntry::CountServiceDataUnicastEntries(uint8_t &aNumEntries,
+                                                                   uint8_t &aNumPreferredEntries) const
+{
+    // Count the number of service data DNS/SRP unicast entries in
     // the Network Data.
 
     const ServiceTlv *serviceTlv = nullptr;
@@ -769,45 +782,18 @@ void Publisher::DnsSrpServiceEntry::CountUnicastEntries(uint8_t &aNumEntries, ui
         TlvIterator      subTlvIterator(*serviceTlv);
         const ServerTlv *serverSubTlv;
 
+        if (serviceTlv->GetServiceDataLength() < sizeof(Service::DnsSrpUnicast::ServiceData))
+        {
+            continue;
+        }
+
         while (((serverSubTlv = subTlvIterator.Iterate<ServerTlv>())) != nullptr)
         {
-            if (serviceTlv->GetServiceDataLength() >= sizeof(Service::DnsSrpUnicast::ServiceData))
+            aNumEntries++;
+
+            if (IsPreferred(serverSubTlv->GetServer16()))
             {
-                aNumEntries++;
-
-                // Generally, we prefer entries where the SRP/DNS server
-                // address/port info is included in the service TLV data
-                // over the ones where the info is included in the
-                // server TLV data (i.e., we prefer infra-provided
-                // SRP/DNS entry over a BR local one using ML-EID). If
-                // our entry itself uses the service TLV data, then we
-                // prefer based on the associated RLOC16.
-
-                if (GetType() == kTypeUnicast)
-                {
-                    if (IsPreferred(serverSubTlv->GetServer16()))
-                    {
-                        aNumPreferredEntries++;
-                    }
-                }
-                else
-                {
-                    aNumPreferredEntries++;
-                }
-            }
-
-            if (serverSubTlv->GetServerDataLength() >= sizeof(Service::DnsSrpUnicast::ServerData))
-            {
-                aNumEntries++;
-
-                // If our entry also uses the server TLV data (with
-                // ML-EID address), then the we prefer based on the
-                // associated RLOC16.
-
-                if ((GetType() == kTypeUnicastMeshLocalEid) && IsPreferred(serverSubTlv->GetServer16()))
-                {
-                    aNumPreferredEntries++;
-                }
+                aNumPreferredEntries++;
             }
         }
     }
@@ -836,47 +822,73 @@ Publisher::DnsSrpServiceEntry::Info::Info(Type aType, uint16_t aPortOrSeqNumber,
 
 #endif // OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
 
+#if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
+
 //---------------------------------------------------------------------------------------------------------------------
 // Publisher::PrefixEntry
 
-void Publisher::PrefixEntry::Publish(const OnMeshPrefixConfig &aConfig)
+void Publisher::PrefixEntry::Publish(const OnMeshPrefixConfig &aConfig, Requester aRequester)
 {
-    otLogInfoNetData("Publisher: Publishing OnMeshPrefix %s", aConfig.GetPrefix().ToString().AsCString());
+    LogInfo("Publishing OnMeshPrefix %s", aConfig.GetPrefix().ToString().AsCString());
 
-    mType   = kTypeOnMeshPrefix;
-    mPrefix = aConfig.GetPrefix();
-    mFlags  = aConfig.ConvertToTlvFlags();
-
-    SetState(kToAdd);
-
-    Process();
+    Publish(aConfig.GetPrefix(), aConfig.ConvertToTlvFlags(), kTypeOnMeshPrefix, aRequester);
 }
 
-void Publisher::PrefixEntry::Publish(const ExternalRouteConfig &aConfig)
+void Publisher::PrefixEntry::Publish(const ExternalRouteConfig &aConfig, Requester aRequester)
 {
-    otLogInfoNetData("Publisher: Publishing ExternalRoute %s", aConfig.GetPrefix().ToString().AsCString());
+    LogInfo("Publishing ExternalRoute %s", aConfig.GetPrefix().ToString().AsCString());
 
-    mType   = kTypeExternalRoute;
-    mPrefix = aConfig.GetPrefix();
-    mFlags  = aConfig.ConvertToTlvFlags();
+    Publish(aConfig.GetPrefix(), aConfig.ConvertToTlvFlags(), kTypeExternalRoute, aRequester);
+}
+
+void Publisher::PrefixEntry::Publish(const Ip6::Prefix &aPrefix,
+                                     uint16_t           aNewFlags,
+                                     Type               aNewType,
+                                     Requester          aRequester)
+{
+    mRequester = aRequester;
+
+    if (GetState() != kNoEntry)
+    {
+        // If this is an existing entry, check if there is a change in
+        // type, flags, or the prefix itself. If not, everything is
+        // as before. If something is different, first, remove the
+        // old entry from Network Data if it was added. Then, re-add
+        // the new prefix/flags (replacing the old entry). This
+        // ensures the changes are immediately reflected in the
+        // Network Data.
+
+        State oldState = GetState();
+
+        VerifyOrExit((mType != aNewType) || (mFlags != aNewFlags) || (mPrefix != aPrefix));
+
+        Remove(/* aNextState */ kNoEntry);
+
+        if ((mType == aNewType) && ((oldState == kAdded) || (oldState == kRemoving)))
+        {
+            mPrefix = aPrefix;
+            mFlags  = aNewFlags;
+            Add();
+        }
+    }
+
+    VerifyOrExit(GetState() == kNoEntry);
+
+    mType   = aNewType;
+    mPrefix = aPrefix;
+    mFlags  = aNewFlags;
 
     SetState(kToAdd);
 
+exit:
     Process();
 }
 
 void Publisher::PrefixEntry::Unpublish(void)
 {
-    bool registerWithLeader = false;
+    LogInfo("Unpublishing %s", mPrefix.ToString().AsCString());
 
-    otLogInfoNetData("Publisher: Unpublishing %s", mPrefix.ToString().AsCString());
-
-    registerWithLeader = Remove(/* aNextState */ kNoEntry);
-
-    if (registerWithLeader)
-    {
-        Get<Notifier>().HandleServerDataUpdated();
-    }
+    Remove(/* aNextState */ kNoEntry);
 }
 
 void Publisher::PrefixEntry::HandleNotifierEvents(Events aEvents)
@@ -887,11 +899,9 @@ void Publisher::PrefixEntry::HandleNotifierEvents(Events aEvents)
     }
 }
 
-bool Publisher::PrefixEntry::Add(void)
+void Publisher::PrefixEntry::Add(void)
 {
     // Adds the prefix entry to the network data.
-
-    bool registerWithLeader = false;
 
     switch (mType)
     {
@@ -904,12 +914,12 @@ bool Publisher::PrefixEntry::Add(void)
         break;
     }
 
-    registerWithLeader = true;
+    Get<Notifier>().HandleServerDataUpdated();
     SetState(kAdded);
     Get<Publisher>().NotifyPrefixEntryChange(kEventEntryAdded, mPrefix);
 
 exit:
-    return registerWithLeader;
+    return;
 }
 
 Error Publisher::PrefixEntry::AddOnMeshPrefix(void)
@@ -934,11 +944,9 @@ Error Publisher::PrefixEntry::AddExternalRoute(void)
     return Get<Local>().AddHasRoutePrefix(config);
 }
 
-bool Publisher::PrefixEntry::Remove(State aNextState)
+void Publisher::PrefixEntry::Remove(State aNextState)
 {
     // Remove the prefix entry from the network data.
-
-    bool registerWithLeader = false;
 
     VerifyOrExit((GetState() == kAdded) || (GetState() == kRemoving));
 
@@ -953,12 +961,11 @@ bool Publisher::PrefixEntry::Remove(State aNextState)
         break;
     }
 
-    registerWithLeader = true;
+    Get<Notifier>().HandleServerDataUpdated();
     Get<Publisher>().NotifyPrefixEntryChange(kEventEntryRemoved, mPrefix);
 
 exit:
     SetState(aNextState);
-    return registerWithLeader;
 }
 
 void Publisher::PrefixEntry::Process(void)
@@ -997,7 +1004,7 @@ exit:
 
 void Publisher::PrefixEntry::CountOnMeshPrefixEntries(uint8_t &aNumEntries, uint8_t &aNumPreferredEntries) const
 {
-    const PrefixTlv *      prefixTlv;
+    const PrefixTlv       *prefixTlv;
     const BorderRouterTlv *brSubTlv;
     int8_t                 preference             = BorderRouterEntry::PreferenceFromFlags(mFlags);
     uint16_t               flagsWithoutPreference = BorderRouterEntry::FlagsWithoutPreference(mFlags);
@@ -1044,7 +1051,7 @@ exit:
 
 void Publisher::PrefixEntry::CountExternalRouteEntries(uint8_t &aNumEntries, uint8_t &aNumPreferredEntries) const
 {
-    const PrefixTlv *  prefixTlv;
+    const PrefixTlv   *prefixTlv;
     const HasRouteTlv *hrSubTlv;
     int8_t             preference             = HasRouteEntry::PreferenceFromFlags(static_cast<uint8_t>(mFlags));
     uint8_t            flagsWithoutPreference = HasRouteEntry::FlagsWithoutPreference(static_cast<uint8_t>(mFlags));
@@ -1088,6 +1095,8 @@ void Publisher::PrefixEntry::CountExternalRouteEntries(uint8_t &aNumEntries, uin
 exit:
     return;
 }
+
+#endif // OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
 
 } // namespace NetworkData
 } // namespace ot

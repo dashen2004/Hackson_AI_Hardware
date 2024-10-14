@@ -24,6 +24,8 @@
 
 static uint8_t ble_hs_id_pub[6];
 static uint8_t ble_hs_id_rnd[6];
+static const uint8_t ble_hs_misc_null_addr[6];
+
 
 bool
 ble_hs_is_rpa(uint8_t *addr, uint8_t addr_type)
@@ -219,8 +221,6 @@ ble_hs_id_addr(uint8_t id_addr_type, const uint8_t **out_id_addr,
 {
     const uint8_t *id_addr;
     int nrpa;
-
-    BLE_HS_DBG_ASSERT(ble_hs_locked_by_cur_task());
 
     switch (id_addr_type) {
     case BLE_ADDR_PUBLIC:

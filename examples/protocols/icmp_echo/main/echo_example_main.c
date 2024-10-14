@@ -31,7 +31,7 @@ static void cmd_ping_on_ping_success(esp_ping_handle_t hdl, void *args)
     esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
     esp_ping_get_profile(hdl, ESP_PING_PROF_SIZE, &recv_len, sizeof(recv_len));
     esp_ping_get_profile(hdl, ESP_PING_PROF_TIMEGAP, &elapsed_time, sizeof(elapsed_time));
-    printf("%d bytes from %s icmp_seq=%d ttl=%d time=%d ms\n",
+    printf("%" PRIu32 " bytes from %s icmp_seq=%" PRIu16 " ttl=%" PRIu16 " time=%" PRIu32 " ms\n",
            recv_len, ipaddr_ntoa((ip_addr_t*)&target_addr), seqno, ttl, elapsed_time);
 }
 
@@ -50,17 +50,24 @@ static void cmd_ping_on_ping_end(esp_ping_handle_t hdl, void *args)
     uint32_t transmitted;
     uint32_t received;
     uint32_t total_time_ms;
+    uint32_t loss;
+
     esp_ping_get_profile(hdl, ESP_PING_PROF_REQUEST, &transmitted, sizeof(transmitted));
     esp_ping_get_profile(hdl, ESP_PING_PROF_REPLY, &received, sizeof(received));
     esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
     esp_ping_get_profile(hdl, ESP_PING_PROF_DURATION, &total_time_ms, sizeof(total_time_ms));
-    uint32_t loss = (uint32_t)((1 - ((float)received) / transmitted) * 100);
+
+    if (transmitted > 0) {
+        loss = (uint32_t)((1 - ((float)received) / transmitted) * 100);
+    } else {
+        loss = 0;
+    }
     if (IP_IS_V4(&target_addr)) {
         printf("\n--- %s ping statistics ---\n", inet_ntoa(*ip_2_ip4(&target_addr)));
     } else {
         printf("\n--- %s ping statistics ---\n", inet6_ntoa(*ip_2_ip6(&target_addr)));
     }
-    printf("%d packets transmitted, %d received, %d%% packet loss, time %dms\n",
+    printf("%" PRIu32 " packets transmitted, %" PRIu32 " received, %" PRIu32 "%% packet loss, time %" PRIu32 "ms\n",
            transmitted, received, loss, total_time_ms);
     // delete the ping sessions, so that we clean up all resources and can create a new ping session
     // we don't have to call delete function in the callback, instead we can call delete function from other tasks
@@ -73,6 +80,7 @@ static struct {
     struct arg_int *data_size;
     struct arg_int *count;
     struct arg_int *tos;
+    struct arg_int *ttl;
     struct arg_str *host;
     struct arg_end *end;
 } ping_args;
@@ -107,6 +115,10 @@ static int do_ping_cmd(int argc, char **argv)
         config.tos = (uint32_t)(ping_args.tos->ival[0]);
     }
 
+    if (ping_args.ttl->count > 0) {
+        config.ttl = (uint32_t)(ping_args.ttl->ival[0]);
+    }
+
     // parse IP address
     struct sockaddr_in6 sock_addr6;
     ip_addr_t target_addr;
@@ -137,10 +149,10 @@ static int do_ping_cmd(int argc, char **argv)
 
     /* set callback functions */
     esp_ping_callbacks_t cbs = {
+        .cb_args = NULL,
         .on_ping_success = cmd_ping_on_ping_success,
         .on_ping_timeout = cmd_ping_on_ping_timeout,
-        .on_ping_end = cmd_ping_on_ping_end,
-        .cb_args = NULL
+        .on_ping_end = cmd_ping_on_ping_end
     };
     esp_ping_handle_t ping;
     esp_ping_new_session(&config, &cbs, &ping);
@@ -156,6 +168,7 @@ static void register_ping(void)
     ping_args.data_size = arg_int0("s", "size", "<n>", "Specify the number of data bytes to be sent");
     ping_args.count = arg_int0("c", "count", "<n>", "Stop after sending count packets");
     ping_args.tos = arg_int0("Q", "tos", "<n>", "Set Type of Service related bits in IP datagrams");
+    ping_args.ttl = arg_int0("T", "ttl", "<n>", "Set Time to Live related bits in IP datagrams");
     ping_args.host = arg_str1(NULL, NULL, "<host>", "Host address");
     ping_args.end = arg_end(1);
     const esp_console_cmd_t ping_cmd = {
@@ -193,8 +206,6 @@ void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    /* wait for active network connection */
-    ESP_ERROR_CHECK(example_connect());
 
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     // install console REPL environment
@@ -207,6 +218,19 @@ void app_main(void)
 #elif CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
     esp_console_dev_usb_serial_jtag_config_t usbjtag_config = ESP_CONSOLE_DEV_USB_SERIAL_JTAG_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_console_new_repl_usb_serial_jtag(&usbjtag_config, &repl_config, &repl));
+#endif
+
+    /* Use either WiFi console commands or menuconfig options to connect to WiFi/Ethernet
+     *
+     * Please disable `Provide wifi connect commands` in `Example Connection Configuration`
+     * to connect immediately using configured interface and settings (WiFi/Ethernet).
+     */
+#if defined(CONFIG_EXAMPLE_PROVIDE_WIFI_CONSOLE_CMD)
+    /* register wifi connect commands */
+    example_register_wifi_connect_commands();
+#elif defined(CONFIG_EXAMPLE_CONNECT_WIFI) || defined(CONFIG_EXAMPLE_CONNECT_ETHERNET)
+    /* automatic connection per menuconfig */
+    ESP_ERROR_CHECK(example_connect());
 #endif
 
     /* register command `ping` */

@@ -20,7 +20,6 @@
 #include "testutil/testutil.h"
 #include "nimble/ble.h"
 #include "nimble/hci_common.h"
-#include "transport/ram/ble_hci_ram.h"
 #include "ble_hs_test_util.h"
 
 #define BLE_HCI_EVENT_CMD_COMPLETE_HDR_LEN  (5)
@@ -250,6 +249,19 @@ static const struct ble_hs_test_util_hci_ack hci_startup_seq[] = {
          BLE_HCI_OGF_INFO_PARAMS, BLE_HCI_OCF_IP_RD_LOCAL_VER),
         .evt_params = { 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
         .evt_params_len = 8,
+    },
+    {
+        .opcode = ble_hs_hci_util_opcode_join(
+         BLE_HCI_OGF_INFO_PARAMS, BLE_HCI_OCF_IP_RD_LOC_SUPP_CMD),
+        .evt_params = { 0x20, 0x00, 0x80, 0x00, 0x00, 0xc0, 0x00, 0x00,
+                        0x00, 0x00, 0xe0, 0x00, 0x00, 0x00, 0x28, 0x22,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00,
+                        0x00, 0xf7, 0xff, 0xff, 0x7f, 0x00, 0x00, 0x00,
+                        0x00, 0xf0, 0xf9, 0xff, 0xff, 0xff, 0xff, 0x07,
+                        0xe0, 0x63, 0xe0, 0x04, 0x02, 0x00, 0x03, 0x00,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+        .evt_params_len = 64
     },
     {
         .opcode = ble_hs_hci_util_opcode_join(
@@ -522,14 +534,13 @@ ble_hs_test_util_hci_rx_evt(uint8_t *evt)
     totlen = BLE_HCI_EVENT_HDR_LEN + evt[1];
     TEST_ASSERT_FATAL(totlen <= UINT8_MAX + BLE_HCI_EVENT_HDR_LEN);
 
-    evbuf = ble_hci_trans_buf_alloc(
-        BLE_HCI_TRANS_BUF_EVT_LO);
+    evbuf = ble_transport_alloc_evt(1);
     TEST_ASSERT_FATAL(evbuf != NULL);
 
     memcpy(evbuf, evt, totlen);
 
     if (os_started()) {
-        rc = ble_hci_trans_ll_evt_tx(evbuf);
+        rc = ble_transport_to_hs_evt(evbuf);
     } else {
         rc = ble_hs_hci_evt_process((void *)evbuf);
     }

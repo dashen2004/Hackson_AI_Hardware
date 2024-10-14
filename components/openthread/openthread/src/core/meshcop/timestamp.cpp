@@ -33,38 +33,89 @@
 
 #include "timestamp.hpp"
 
+#include "common/code_utils.hpp"
+#include "common/num_utils.hpp"
+#include "common/numeric_limits.hpp"
+
 namespace ot {
 namespace MeshCoP {
 
-int Timestamp::Compare(const Timestamp &aCompare) const
+void Timestamp::ConvertTo(Info &aInfo) const
 {
-    uint64_t thisSeconds    = GetSeconds();
-    uint64_t compareSeconds = aCompare.GetSeconds();
-    uint16_t thisTicks      = GetTicks();
-    uint16_t compareTicks   = aCompare.GetTicks();
-    int      rval;
+    aInfo.mSeconds       = GetSeconds();
+    aInfo.mTicks         = GetTicks();
+    aInfo.mAuthoritative = GetAuthoritative();
+}
 
-    if (compareSeconds > thisSeconds)
-    {
-        rval = 1;
-    }
-    else if (compareSeconds < thisSeconds)
-    {
-        rval = -1;
-    }
-    else if (compareTicks > thisTicks)
-    {
-        rval = 1;
-    }
-    else if (compareTicks < thisTicks)
-    {
-        rval = -1;
-    }
-    else
-    {
-        rval = 0;
-    }
+void Timestamp::SetFrom(const Info &aInfo)
+{
+    SetSeconds(aInfo.mSeconds);
+    SetTicks(aInfo.mTicks);
+    SetAuthoritative(aInfo.mAuthoritative);
+}
 
+void Timestamp::SetToInvalid(void)
+{
+    mSeconds16        = NumericLimits<uint16_t>::kMax;
+    mSeconds32        = NumericLimits<uint32_t>::kMax;
+    mTicksAndAuthFlag = NumericLimits<uint16_t>::kMax;
+}
+
+bool Timestamp::IsValid(void) const
+{
+    return (mSeconds16 != NumericLimits<uint16_t>::kMax) || (mSeconds32 != NumericLimits<uint32_t>::kMax) ||
+           (mTicksAndAuthFlag != NumericLimits<uint16_t>::kMax);
+}
+
+void Timestamp::SetToOrphanAnnounce(void)
+{
+    mSeconds16 = 0;
+    mSeconds32 = 0;
+    SetTicksAndAuthFlag(kAuthoritativeFlag);
+}
+
+bool Timestamp::IsOrphanAnnounce(void) const
+{
+    return (mSeconds16 == 0) && (mSeconds32 == 0) && (GetTicksAndAuthFlag() == kAuthoritativeFlag);
+}
+
+uint64_t Timestamp::GetSeconds(void) const
+{
+    return (static_cast<uint64_t>(BigEndian::HostSwap16(mSeconds16)) << 32) + BigEndian::HostSwap32(mSeconds32);
+}
+
+void Timestamp::SetSeconds(uint64_t aSeconds)
+{
+    mSeconds16 = BigEndian::HostSwap16(static_cast<uint16_t>(aSeconds >> 32));
+    mSeconds32 = BigEndian::HostSwap32(static_cast<uint32_t>(aSeconds & 0xffffffff));
+}
+
+void Timestamp::SetTicks(uint16_t aTicks)
+{
+    SetTicksAndAuthFlag((GetTicksAndAuthFlag() & ~kTicksMask) | ((aTicks << kTicksOffset) & kTicksMask));
+}
+
+void Timestamp::SetAuthoritative(bool aAuthoritative)
+{
+    SetTicksAndAuthFlag((GetTicksAndAuthFlag() & kTicksMask) | (aAuthoritative ? kAuthoritativeFlag : 0));
+}
+
+int Timestamp::Compare(const Timestamp &aFirst, const Timestamp &aSecond)
+{
+    int rval;
+
+    rval = ThreeWayCompare(aFirst.IsValid(), aSecond.IsValid());
+    VerifyOrExit(rval == 0);
+
+    rval = ThreeWayCompare(aFirst.GetSeconds(), aSecond.GetSeconds());
+    VerifyOrExit(rval == 0);
+
+    rval = ThreeWayCompare(aFirst.GetTicks(), aSecond.GetTicks());
+    VerifyOrExit(rval == 0);
+
+    rval = ThreeWayCompare(aFirst.GetAuthoritative(), aSecond.GetAuthoritative());
+
+exit:
     return rval;
 }
 
@@ -72,10 +123,11 @@ void Timestamp::AdvanceRandomTicks(void)
 {
     uint16_t ticks = GetTicks();
 
-    ticks += Random::NonCrypto::GetUint32InRange(1, kMaxRandomTicks);
+    ticks += Random::NonCrypto::GetUint32InRange(1, kMaxTicks + 1);
 
-    if (ticks & (kTicksMask >> kTicksOffset))
+    if (ticks > kMaxTicks)
     {
+        ticks -= (kMaxTicks + 1);
         SetSeconds(GetSeconds() + 1);
     }
 

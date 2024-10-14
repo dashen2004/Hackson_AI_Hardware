@@ -7,6 +7,8 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+#include "sdkconfig.h"
+#include <inttypes.h>
 #include "esp_sysview_trace.h"
 #include "esp_heap_trace.h"
 #include "esp_log.h"
@@ -49,15 +51,15 @@ static void alloc_task(void *p)
         return;
     }
     snprintf(task_name, sizeof(task_name), "free%d", task_args->idx);
-    xTaskCreatePinnedToCore(free_task, task_name, 2500, queue, 5, NULL, portNUM_PROCESSORS-1);
+    xTaskCreatePinnedToCore(free_task, task_name, 2500, queue, 5, NULL, CONFIG_FREERTOS_NUMBER_OF_CORES-1);
 
     // here GDB will stop at brekpoint and execute OpenOCD command to start tracing
-    for(int i = 1; i < 100; i++) {
+    for(int i = 1; i < 10; i++) {
         uint32_t sz = 2*i*(task_args->idx + 1);
         void *p = malloc(sz/2);
         // WARNING: the previous allocated memory is intentionally not deallocated in order to cause memory leak!
         p = malloc(sz);
-        ESP_LOGI(TAG, "Task[%p]: allocated %d bytes @ %p", xTaskGetCurrentTaskHandle(), sz, p);
+        ESP_LOGI(TAG, "Task[%p]: allocated %"PRIu32" bytes @ %p", xTaskGetCurrentTaskHandle(), sz, p);
         if (xQueueSend(queue, ( void * )&p, portMAX_DELAY) != pdPASS) {
             ESP_LOGE(TAG, "Failed to send to queue!");
         }
@@ -96,7 +98,7 @@ void app_main(void)
     for (int i = 0; i < num_allocers; i++) {
         ESP_LOGI(TAG, "Wait notify %d", i);
         uint32_t val = ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
-        ESP_LOGI(TAG, "Got notify val %d", val);
+        ESP_LOGI(TAG, "Got notify val %"PRIu32, val);
     }
     // here GDB will stop at brekpoint and execute OpenOCD command to stop tracing
     heap_trace_stop();

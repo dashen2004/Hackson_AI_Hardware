@@ -106,11 +106,6 @@ extern "C" {
  * Set by the netif driver in its init function. */
 #define NETIF_FLAG_MLD6         0x40U
 
-#if ESP_GRATUITOUS_ARP
-/** If set, the netif will send gratuitous ARP periodically */
-#define NETIF_FLAG_GARP         0x80U
-#endif
-
 /**
  * @}
  */
@@ -123,6 +118,9 @@ enum lwip_internal_netif_client_data_index
 #endif
 #if LWIP_AUTOIP
    LWIP_NETIF_CLIENT_DATA_INDEX_AUTOIP,
+#endif
+#if LWIP_ACD
+   LWIP_NETIF_CLIENT_DATA_INDEX_ACD,
 #endif
 #if LWIP_IGMP
    LWIP_NETIF_CLIENT_DATA_INDEX_IGMP,
@@ -250,19 +248,20 @@ typedef u8_t netif_addr_idx_t;
 #define NETIF_ADDR_IDX_MAX 0x7F
 #endif
 
+#if LWIP_NETIF_HWADDRHINT || LWIP_VLAN_PCP
+ #define LWIP_NETIF_USE_HINTS              1
+ struct netif_hint {
 #if LWIP_NETIF_HWADDRHINT
-#define LWIP_NETIF_USE_HINTS              1
-struct netif_hint {
-  netif_addr_idx_t addr_hint;
-};
-#else /* LWIP_NETIF_HWADDRHINT */
-#define LWIP_NETIF_USE_HINTS              0
-#endif /* LWIP_NETIF_HWADDRHINT */
-
-#if ESP_DHCP
-/*add DHCP event processing by LiuHan*/
-typedef void (*dhcp_event_fn)(void);
+   u8_t addr_hint;
 #endif
+#if LWIP_VLAN_PCP
+  /** VLAN hader is set if this is >= 0 (but must be <= 0xFFFF) */
+  s32_t tci;
+#endif
+ };
+#else /* LWIP_NETIF_HWADDRHINT || LWIP_VLAN_PCP */
+ #define LWIP_NETIF_USE_HINTS              0
+#endif /* LWIP_NETIF_HWADDRHINT || LWIP_VLAN_PCP*/
 
 /** Generic data structure used for all lwIP network interfaces.
  *  The following fields should be filled in by the initialization
@@ -292,9 +291,6 @@ struct netif {
   u32_t ip6_addr_valid_life[LWIP_IPV6_NUM_ADDRESSES];
   u32_t ip6_addr_pref_life[LWIP_IPV6_NUM_ADDRESSES];
 #endif /* LWIP_IPV6_ADDRESS_LIFETIMES */
-#if ESP_LWIP
-  void (*ipv6_addr_cb)(struct netif* netif, u8_t ip_idex); /* callback for ipv6 addr states changed */
-#endif
 #endif /* LWIP_IPV6 */
   /** This function is called by the network device driver
    *  to pass a packet up the TCP/IP stack. */
@@ -337,12 +333,6 @@ struct netif {
 #ifdef netif_get_client_data
   void* client_data[LWIP_NETIF_CLIENT_DATA_INDEX_MAX + LWIP_NUM_NETIF_CLIENT_DATA];
 #endif
-
-#if ESP_DHCP
-  struct udp_pcb *dhcps_pcb;	
-  dhcp_event_fn dhcp_event;
-#endif
-
 #if LWIP_NETIF_HOSTNAME
   /* the hostname for this netif, NULL is a valid value */
   const char*  hostname;
@@ -364,7 +354,7 @@ struct netif {
   u8_t flags;
   /** descriptive abbreviation */
   char name[2];
-  /** number of this interface. Used for @ref if_api and @ref netifapi_netif, 
+  /** number of this interface. Used for @ref if_api and @ref netifapi_netif,
    * as well as for IPv6 zones */
   u8_t num;
 #if LWIP_IPV6_AUTOCONFIG
@@ -395,6 +385,9 @@ struct netif {
       filter table of the ethernet MAC. */
   netif_mld_mac_filter_fn mld_mac_filter;
 #endif /* LWIP_IPV6 && LWIP_IPV6_MLD */
+#if LWIP_ACD
+  struct acd *acd_list;
+#endif /* LWIP_ACD */
 #if LWIP_NETIF_USE_HINTS
   struct netif_hint *hints;
 #endif /* LWIP_NETIF_USE_HINTS */
@@ -405,22 +398,23 @@ struct netif {
 #if LWIP_LOOPBACK_MAX_PBUFS
   u16_t loop_cnt_current;
 #endif /* LWIP_LOOPBACK_MAX_PBUFS */
+#if LWIP_NETIF_LOOPBACK_MULTITHREADING
+  /* Used if the original scheduling failed. */
+  u8_t reschedule_poll;
+#endif /* LWIP_NETIF_LOOPBACK_MULTITHREADING */
 #endif /* ENABLE_LOOPBACK */
-#if ESP_PBUF
-  void (*l2_buffer_free_notify)(struct netif *lwip_netif, void *user_buf); /* Allows LWIP to notify driver when a L2-supplied pbuf can be freed */
-  ip_addr_t last_ip_addr; /* Store last non-zero ip address */
-#endif
-#if ESP_LWIP
 #if LWIP_IPV4 && IP_NAPT
   u8_t napt;
-#endif
-#endif /* ESP_LWIP */
+#endif /*LWIP_IPV4 && IP_NAPT */
 };
+
 #if LWIP_CHECKSUM_CTRL_PER_NETIF
 #define NETIF_SET_CHECKSUM_CTRL(netif, chksumflags) do { \
   (netif)->chksum_flags = chksumflags; } while(0)
-#define IF__NETIF_CHECKSUM_ENABLED(netif, chksumflag) if (((netif) == NULL) || (((netif)->chksum_flags & (chksumflag)) != 0))
+#define NETIF_CHECKSUM_ENABLED(netif, chksumflag) (((netif) == NULL) || (((netif)->chksum_flags & (chksumflag)) != 0))
+#define IF__NETIF_CHECKSUM_ENABLED(netif, chksumflag) if NETIF_CHECKSUM_ENABLED(netif, chksumflag)
 #else /* LWIP_CHECKSUM_CTRL_PER_NETIF */
+#define NETIF_CHECKSUM_ENABLED(netif, chksumflag) 0
 #define NETIF_SET_CHECKSUM_CTRL(netif, chksumflags)
 #define IF__NETIF_CHECKSUM_ENABLED(netif, chksumflag)
 #endif /* LWIP_CHECKSUM_CTRL_PER_NETIF */
@@ -448,11 +442,6 @@ void netif_set_addr(struct netif *netif, const ip4_addr_t *ipaddr, const ip4_add
 #else /* LWIP_IPV4 */
 struct netif *netif_add(struct netif *netif, void *state, netif_init_fn init, netif_input_fn input);
 #endif /* LWIP_IPV4 */
-
-#if ESP_GRATUITOUS_ARP
-void netif_set_garp_flag(struct netif *netif);
-#endif
-
 void netif_remove(struct netif * netif);
 
 /* Returns a network interface given its name. The name is of the form
@@ -483,7 +472,7 @@ void netif_set_gw(struct netif *netif, const ip4_addr_t *gw);
 
 #define netif_set_flags(netif, set_flags)     do { (netif)->flags = (u8_t)((netif)->flags |  (set_flags)); } while(0)
 #define netif_clear_flags(netif, clr_flags)   do { (netif)->flags = (u8_t)((netif)->flags & (u8_t)(~(clr_flags) & 0xff)); } while(0)
-#define netif_is_flag_set(nefif, flag)        (((netif)->flags & (flag)) != 0)
+#define netif_is_flag_set(netif, flag)        (((netif)->flags & (flag)) != 0)
 
 void netif_set_up(struct netif *netif);
 void netif_set_down(struct netif *netif);
@@ -516,14 +505,18 @@ void netif_set_link_callback(struct netif *netif, netif_status_callback_fn link_
 #endif /* LWIP_NETIF_HOSTNAME */
 
 #if LWIP_IGMP
-/** @ingroup netif */
+/** @ingroup netif
+ * Set igmp mac filter function for a netif. */
 #define netif_set_igmp_mac_filter(netif, function) do { if((netif) != NULL) { (netif)->igmp_mac_filter = function; }}while(0)
+/** Get the igmp mac filter function for a netif. */
 #define netif_get_igmp_mac_filter(netif) (((netif) != NULL) ? ((netif)->igmp_mac_filter) : NULL)
 #endif /* LWIP_IGMP */
 
 #if LWIP_IPV6 && LWIP_IPV6_MLD
-/** @ingroup netif */
+/** @ingroup netif
+ * Set mld mac filter function for a netif. */
 #define netif_set_mld_mac_filter(netif, function) do { if((netif) != NULL) { (netif)->mld_mac_filter = function; }}while(0)
+/** Get the mld mac filter function for a netif. */
 #define netif_get_mld_mac_filter(netif) (((netif) != NULL) ? ((netif)->mld_mac_filter) : NULL)
 #define netif_mld_mac_filter(netif, addr, action) do { if((netif) && (netif)->mld_mac_filter) { (netif)->mld_mac_filter((netif), (addr), (action)); }}while(0)
 #endif /* LWIP_IPV6 && LWIP_IPV6_MLD */
@@ -603,8 +596,8 @@ typedef u16_t netif_nsc_reason_t;
 #define LWIP_NSC_NETIF_REMOVED            0x0002
 /** link changed */
 #define LWIP_NSC_LINK_CHANGED             0x0004
-/** netif administrative status changed.\n
-  * up is called AFTER netif is set up.\n
+/** netif administrative status changed.<br>
+  * up is called AFTER netif is set up.<br>
   * down is called BEFORE the netif is actually set down. */
 #define LWIP_NSC_STATUS_CHANGED           0x0008
 /** IPv4 address has changed */
@@ -619,6 +612,8 @@ typedef u16_t netif_nsc_reason_t;
 #define LWIP_NSC_IPV6_SET                 0x0100
 /** IPv6 address state has changed */
 #define LWIP_NSC_IPV6_ADDR_STATE_CHANGED  0x0200
+/** IPv4 settings: valid address set, application may start to communicate */
+#define LWIP_NSC_IPV4_ADDR_VALID          0x0400
 
 /** @ingroup netif
  * Argument supplied to netif_ext_callback_fn.
@@ -693,6 +688,11 @@ void netif_invoke_ext_callback(struct netif* netif, netif_nsc_reason_t reason, c
 #define netif_remove_ext_callback(callback)
 #define netif_invoke_ext_callback(netif, reason, args)
 #endif
+
+#if LWIP_TESTMODE && LWIP_HAVE_LOOPIF
+struct netif* netif_get_loopif(void);
+#endif
+
 
 #ifdef __cplusplus
 }

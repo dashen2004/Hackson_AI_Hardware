@@ -29,6 +29,7 @@
 
 import unittest
 
+import config
 import thread_cert
 from pktverify.consts import MLE_ADVERTISEMENT, MLE_PARENT_REQUEST, MLE_CHILD_ID_RESPONSE, SOURCE_ADDRESS_TLV, ROUTE64_TLV, LEADER_DATA_TLV
 from pktverify.packet_verifier import PacketVerifier
@@ -77,23 +78,23 @@ class Cert_5_5_4_SplitMergeRouters(thread_cert.TestCase):
 
     def test(self):
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), 'leader')
 
         self.nodes[ROUTER1].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[ROUTER1].get_state(), 'router')
 
         self.nodes[ROUTER2].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[ROUTER2].get_state(), 'router')
 
         self.nodes[ROUTER3].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[ROUTER3].get_state(), 'router')
 
         self.nodes[ROUTER4].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[ROUTER4].get_state(), 'router')
 
         self.nodes[LEADER].reset()
@@ -101,7 +102,7 @@ class Cert_5_5_4_SplitMergeRouters(thread_cert.TestCase):
         self.simulator.go(150)
 
         self.nodes[LEADER].start()
-        self.simulator.go(50)
+        self.simulator.go(50 + config.LEADER_RESET_DELAY)
 
         self.assertEqual(self.nodes[LEADER].get_state(), 'router')
 

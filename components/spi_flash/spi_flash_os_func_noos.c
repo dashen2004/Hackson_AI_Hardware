@@ -1,16 +1,8 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <stdarg.h>
 #include "sdkconfig.h"
@@ -28,9 +20,24 @@
 #elif CONFIG_IDF_TARGET_ESP32C3
 #include "esp32c3/rom/ets_sys.h"
 #include "esp32c3/rom/cache.h"
+#elif CONFIG_IDF_TARGET_ESP32C2
+#include "esp32c2/rom/ets_sys.h"
+#include "esp32c2/rom/cache.h"
+#elif CONFIG_IDF_TARGET_ESP32C6
+#include "esp32c6/rom/ets_sys.h"
+#include "esp32c6/rom/cache.h"
+#elif CONFIG_IDF_TARGET_ESP32C61    //TODO: IDF-9526, refactor this
+#include "esp32c61/rom/ets_sys.h"
+#include "esp32c61/rom/cache.h"
+#elif CONFIG_IDF_TARGET_ESP32C5
+#include "esp32c5/rom/ets_sys.h"
+#include "esp32c5/rom/cache.h"
 #elif CONFIG_IDF_TARGET_ESP32H2
 #include "esp32h2/rom/ets_sys.h"
 #include "esp32h2/rom/cache.h"
+#elif CONFIG_IDF_TARGET_ESP32P4
+#include "esp32p4/rom/ets_sys.h"
+#include "esp32p4/rom/cache.h"
 #endif
 
 #include "esp_attr.h"
@@ -42,7 +49,7 @@ typedef struct {
 } spi_noos_arg_t;
 
 static DRAM_ATTR spi_noos_arg_t spi_arg = { 0 };
-#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32H2
+#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2 || CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C61
 typedef struct {
     uint32_t icache_autoload;
 } spi_noos_arg_t;
@@ -59,9 +66,17 @@ static IRAM_ATTR esp_err_t start(void *arg)
     spi_noos_arg_t *spi_arg = arg;
     spi_arg->icache_autoload = Cache_Suspend_ICache();
     spi_arg->dcache_autoload = Cache_Suspend_DCache();
-#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32H2
+#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2
     spi_noos_arg_t *spi_arg = arg;
     spi_arg->icache_autoload = Cache_Suspend_ICache();
+#elif CONFIG_IDF_TARGET_ESP32C61 || CONFIG_IDF_TARGET_ESP32C5
+    spi_noos_arg_t *spi_arg = arg;
+    spi_arg->icache_autoload = Cache_Suspend_Cache();
+#elif CONFIG_IDF_TARGET_ESP32P4
+    spi_noos_arg_t *spi_arg = arg;
+    spi_arg->icache_autoload = Cache_Suspend_L2_Cache();
+#else
+    abort();
 #endif
     return ESP_OK;
 }
@@ -69,8 +84,6 @@ static IRAM_ATTR esp_err_t start(void *arg)
 static IRAM_ATTR esp_err_t end(void *arg)
 {
 #if CONFIG_IDF_TARGET_ESP32
-    Cache_Flush(0);
-    Cache_Flush(1);
     Cache_Read_Enable(0);
     Cache_Read_Enable(1);
 #elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
@@ -78,10 +91,20 @@ static IRAM_ATTR esp_err_t end(void *arg)
     Cache_Invalidate_ICache_All();
     Cache_Resume_ICache(spi_arg->icache_autoload);
     Cache_Resume_DCache(spi_arg->dcache_autoload);
-#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32H2
+#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32H2
     spi_noos_arg_t *spi_arg = arg;
     Cache_Invalidate_ICache_All();
     Cache_Resume_ICache(spi_arg->icache_autoload);
+#elif CONFIG_IDF_TARGET_ESP32C61 || CONFIG_IDF_TARGET_ESP32C5
+    spi_noos_arg_t *spi_arg = arg;
+    Cache_Invalidate_All();
+    Cache_Resume_Cache(spi_arg->icache_autoload);
+#elif CONFIG_IDF_TARGET_ESP32P4
+    spi_noos_arg_t *spi_arg = arg;
+    Cache_Invalidate_All(CACHE_MAP_L2_CACHE);
+    Cache_Resume_L2_Cache(spi_arg->icache_autoload);
+#else
+    abort();
 #endif
     return ESP_OK;
 }

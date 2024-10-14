@@ -109,11 +109,11 @@ class Cert_5_3_10_AddressQuery(thread_cert.TestCase):
     def test(self):
         # 1 & 2
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), 'leader')
 
         self.nodes[BR].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[BR].get_state(), 'router')
 
         # Configure two On-Mesh Prefixes on the BR
@@ -122,11 +122,11 @@ class Cert_5_3_10_AddressQuery(thread_cert.TestCase):
         self.nodes[BR].register_netdata()
 
         self.nodes[DUT_ROUTER2].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[DUT_ROUTER2].get_state(), 'router')
 
         self.nodes[ROUTER1].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[ROUTER1].get_state(), 'router')
 
         self.nodes[MED1].start()
@@ -239,7 +239,7 @@ class Cert_5_3_10_AddressQuery(thread_cert.TestCase):
             must_next()
 
         # Step 4: Border Router sends an ICMPv6 Echo Request to MED using GUA 2003::
-        #         addresss
+        #         address
         #         The DUT MUST respond to the Address Query Request with a properly
         #         formatted Address Notification Message:
         #             CoAP URI-Path

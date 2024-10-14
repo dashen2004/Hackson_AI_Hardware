@@ -70,6 +70,7 @@ class TestNdProxy(thread_cert.TestCase):
             'is_otbr': True,
             'version': '1.2',
             'channel': CH1,
+            'router_id_range': [0, 30],
         },
         SBBR: {
             'name': 'SBBR',
@@ -93,6 +94,7 @@ class TestNdProxy(thread_cert.TestCase):
             'is_otbr': True,
             'version': '1.2',
             'channel': CH2,
+            'router_id_range': [31, 60],
         },
         ROUTER2: {
             'name': 'ROUTER2',
@@ -107,9 +109,9 @@ class TestNdProxy(thread_cert.TestCase):
 
         # Bring up PBBR
         self.nodes[PBBR].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual('leader', self.nodes[PBBR].get_state())
-        self.wait_node_state(PBBR, 'leader', 5)
+        self.wait_node_state(PBBR, 'leader', 10)
 
         self.nodes[PBBR].set_backbone_router(reg_delay=REREG_DELAY, mlr_timeout=MLR_TIMEOUT)
         self.nodes[PBBR].enable_backbone_router()
@@ -137,9 +139,9 @@ class TestNdProxy(thread_cert.TestCase):
 
         # Bring up PBBR2
         self.nodes[PBBR2].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual('leader', self.nodes[PBBR2].get_state())
-        self.wait_node_state(PBBR2, 'leader', 5)
+        self.wait_node_state(PBBR2, 'leader', 10)
 
         self.nodes[PBBR2].set_backbone_router(reg_delay=REREG_DELAY, mlr_timeout=MLR_TIMEOUT)
         self.nodes[PBBR2].enable_backbone_router()
@@ -209,7 +211,7 @@ class TestNdProxy(thread_cert.TestCase):
         PBBR_ETH = pv.vars['PBBR_ETH']
         PBBR2_ETH = pv.vars['PBBR2_ETH']
 
-        # Verify that SBBR should not foward any Ping Request to the Thread network.
+        # Verify that SBBR should not forward any Ping Request to the Thread network.
         # Use `ipv6.hlim == 63` to avoid false fails because SBBR might still forward Ping Request from PBBR to ROUTER1
         pkts.filter_wpan_src64(SBBR).filter_ping_request().filter('ipv6.hlim == 63').must_not_next()
 

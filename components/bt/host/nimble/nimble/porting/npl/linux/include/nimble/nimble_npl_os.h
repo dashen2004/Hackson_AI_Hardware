@@ -23,6 +23,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <limits.h>
 
 #include "os_types.h"
 
@@ -30,18 +31,9 @@
 extern "C" {
 #endif
 
-#define BLE_NPL_OS_ALIGNMENT    4
+#define BLE_NPL_OS_ALIGNMENT    (__WORDSIZE / 8)
 
 #define BLE_NPL_TIME_FOREVER    INT32_MAX
-
-#define SYSINIT_PANIC_MSG(msg) __assert_fail(msg, __FILE__, __LINE__, __func__)
-
-#define SYSINIT_PANIC_ASSERT_MSG(rc, msg) do \
-{                                            \
-    if (!(rc)) {                             \
-        SYSINIT_PANIC_MSG(msg);              \
-    }                                        \
-} while (0)
 
 #ifdef __cplusplus
 }

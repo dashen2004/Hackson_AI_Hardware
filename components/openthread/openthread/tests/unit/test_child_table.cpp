@@ -31,13 +31,14 @@
 #include <openthread/config.h>
 
 #include "test_util.h"
+#include "common/array.hpp"
 #include "common/code_utils.hpp"
-#include "common/instance.hpp"
+#include "instance/instance.hpp"
 #include "thread/child_table.hpp"
 
 namespace ot {
 
-static ot::Instance *sInstance;
+static Instance *sInstance;
 
 enum
 {
@@ -123,7 +124,7 @@ void VerifyChildTableContent(ChildTable &aTable, uint16_t aChildListLength, cons
 
         for (uint16_t listIndex = 0; listIndex < aChildListLength; listIndex++)
         {
-            Child *      child;
+            Child       *child;
             Mac::Address address;
 
             if (!StateMatchesFilter(aChildList[listIndex].mState, filter))
@@ -163,8 +164,8 @@ void VerifyChildTableContent(ChildTable &aTable, uint16_t aChildListLength, cons
 
             for (; !iter.IsDone(); iter++)
             {
-                Child *  child    = iter.GetChild();
-                Child &  childRef = *iter;
+                Child   *child    = iter.GetChild();
+                Child   &childRef = *iter;
                 bool     didFind  = false;
                 uint16_t childIndex;
 
@@ -290,7 +291,7 @@ void TestChildTable(void)
         },
     };
 
-    const uint16_t testListLength = OT_ARRAY_LENGTH(testChildList);
+    const uint16_t testListLength = GetArrayLength(testChildList);
 
     uint16_t testNumAllowedChildren = 2;
 

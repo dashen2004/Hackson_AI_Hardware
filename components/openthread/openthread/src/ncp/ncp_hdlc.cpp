@@ -41,8 +41,8 @@
 #include "openthread-core-config.h"
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
-#include "common/instance.hpp"
 #include "common/new.hpp"
+#include "instance/instance.hpp"
 #include "net/ip6.hpp"
 
 #if OPENTHREAD_CONFIG_NCP_HDLC_ENABLE
@@ -66,7 +66,7 @@ static OT_DEFINE_ALIGNED_VAR(sNcpRaw, sizeof(NcpHdlc), uint64_t);
 
 extern "C" void otNcpHdlcInit(otInstance *aInstance, otNcpHdlcSendCallback aSendCallback)
 {
-    NcpHdlc * ncpHdlc  = nullptr;
+    NcpHdlc  *ncpHdlc  = nullptr;
     Instance *instance = static_cast<Instance *>(aInstance);
 
     ncpHdlc = new (&sNcpRaw) NcpHdlc(instance, aSendCallback);
@@ -77,13 +77,37 @@ extern "C" void otNcpHdlcInit(otInstance *aInstance, otNcpHdlcSendCallback aSend
     }
 }
 
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && OPENTHREAD_RADIO
+
+extern "C" void otNcpHdlcInitMulti(otInstance **aInstances, uint8_t aCount, otNcpHdlcSendCallback aSendCallback)
+{
+    NcpHdlc      *ncpHdlc = nullptr;
+    ot::Instance *instances[SPINEL_HEADER_IID_MAX];
+
+    OT_ASSERT(aCount < SPINEL_HEADER_IID_MAX + 1);
+    OT_ASSERT(aCount > 0);
+    OT_ASSERT(aInstances[0] != nullptr);
+
+    for (int i = 0; i < aCount; i++)
+    {
+        instances[i] = static_cast<ot::Instance *>(aInstances[i]);
+    }
+
+    ncpHdlc = new (&sNcpRaw) NcpHdlc(instances, aCount, aSendCallback);
+
+    if (ncpHdlc == nullptr || ncpHdlc != NcpBase::GetNcpInstance())
+    {
+        OT_ASSERT(false);
+    }
+}
+#endif // OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && OPENTHREAD_RADIO
+
 #endif // OPENTHREAD_ENABLE_NCP_VENDOR_HOOK == 0
 
 NcpHdlc::NcpHdlc(Instance *aInstance, otNcpHdlcSendCallback aSendCallback)
     : NcpBase(aInstance)
     , mSendCallback(aSendCallback)
     , mFrameEncoder(mHdlcBuffer)
-    , mFrameDecoder(mRxBuffer, &NcpHdlc::HandleFrame, this)
     , mState(kStartingFrame)
     , mByte(0)
     , mHdlcSendImmediate(false)
@@ -92,13 +116,34 @@ NcpHdlc::NcpHdlc(Instance *aInstance, otNcpHdlcSendCallback aSendCallback)
     , mTxFrameBufferEncrypterReader(mTxFrameBuffer)
 #endif // OPENTHREAD_ENABLE_NCP_SPINEL_ENCRYPTER
 {
+    mFrameDecoder.Init(mRxBuffer, &NcpHdlc::HandleFrame, this);
     mTxFrameBuffer.SetFrameAddedCallback(HandleFrameAddedToNcpBuffer, this);
 }
 
-void NcpHdlc::HandleFrameAddedToNcpBuffer(void *                   aContext,
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && OPENTHREAD_RADIO
+
+NcpHdlc::NcpHdlc(Instance **aInstances, uint8_t aCount, otNcpHdlcSendCallback aSendCallback)
+    : NcpBase(aInstances, aCount)
+    , mSendCallback(aSendCallback)
+    , mFrameEncoder(mHdlcBuffer)
+    , mState(kStartingFrame)
+    , mByte(0)
+    , mHdlcSendImmediate(false)
+    , mHdlcSendTask(*aInstances[0], EncodeAndSend)
+#if OPENTHREAD_ENABLE_NCP_SPINEL_ENCRYPTER
+    , mTxFrameBufferEncrypterReader(mTxFrameBuffer)
+#endif // OPENTHREAD_ENABLE_NCP_SPINEL_ENCRYPTER
+{
+    mFrameDecoder.Init(mRxBuffer, &NcpHdlc::HandleFrame, this);
+    mTxFrameBuffer.SetFrameAddedCallback(HandleFrameAddedToNcpBuffer, this);
+}
+
+#endif // OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && OPENTHREAD_RADIO
+
+void NcpHdlc::HandleFrameAddedToNcpBuffer(void                    *aContext,
                                           Spinel::Buffer::FrameTag aTag,
                                           Spinel::Buffer::Priority aPriority,
-                                          Spinel::Buffer *         aBuffer)
+                                          Spinel::Buffer          *aBuffer)
 {
     OT_UNUSED_VARIABLE(aBuffer);
     OT_UNUSED_VARIABLE(aTag);
@@ -240,10 +285,7 @@ void NcpHdlc::HandleHdlcReceiveDone(const uint8_t *aBuf, uint16_t aBufLength)
     mFrameDecoder.Decode(aBuf, aBufLength);
 }
 
-void NcpHdlc::HandleFrame(void *aContext, otError aError)
-{
-    static_cast<NcpHdlc *>(aContext)->HandleFrame(aError);
-}
+void NcpHdlc::HandleFrame(void *aContext, otError aError) { static_cast<NcpHdlc *>(aContext)->HandleFrame(aError); }
 
 void NcpHdlc::HandleFrame(otError aError)
 {
@@ -277,8 +319,6 @@ void NcpHdlc::HandleError(otError aError, uint8_t *aBuf, uint16_t aBufLength)
 
     super_t::IncrementFrameErrorCounter();
 
-    // We can get away with sprintf because we know
-    // `hexbuf` is large enough.
     snprintf(hexbuf, sizeof(hexbuf), "Framing error %d: [", aError);
 
     // Write out the first part of our log message.
@@ -288,9 +328,6 @@ void NcpHdlc::HandleError(otError aError, uint8_t *aBuf, uint16_t aBufLength)
     // The second '3' comes from the length of two hex digits and a space.
     for (i = 0; (i < aBufLength) && (i < (sizeof(hexbuf) - 3) / 3); i++)
     {
-        // We can get away with sprintf because we know
-        // `hexbuf` is large enough, based on our calculations
-        // above.
         snprintf(&hexbuf[i * 3], sizeof(hexbuf) - i * 3, " %02X", static_cast<uint8_t>(aBuf[i]));
     }
 
@@ -312,10 +349,7 @@ NcpHdlc::BufferEncrypterReader::BufferEncrypterReader(Spinel::Buffer &aTxFrameBu
 {
 }
 
-bool NcpHdlc::BufferEncrypterReader::IsEmpty(void) const
-{
-    return mTxFrameBuffer.IsEmpty() && !mOutputDataLength;
-}
+bool NcpHdlc::BufferEncrypterReader::IsEmpty(void) const { return mTxFrameBuffer.IsEmpty() && !mOutputDataLength; }
 
 otError NcpHdlc::BufferEncrypterReader::OutFrameBegin(void)
 {
@@ -347,20 +381,11 @@ otError NcpHdlc::BufferEncrypterReader::OutFrameBegin(void)
     return status;
 }
 
-bool NcpHdlc::BufferEncrypterReader::OutFrameHasEnded(void)
-{
-    return (mDataBufferReadIndex >= mOutputDataLength);
-}
+bool NcpHdlc::BufferEncrypterReader::OutFrameHasEnded(void) { return (mDataBufferReadIndex >= mOutputDataLength); }
 
-uint8_t NcpHdlc::BufferEncrypterReader::OutFrameReadByte(void)
-{
-    return mDataBuffer[mDataBufferReadIndex++];
-}
+uint8_t NcpHdlc::BufferEncrypterReader::OutFrameReadByte(void) { return mDataBuffer[mDataBufferReadIndex++]; }
 
-otError NcpHdlc::BufferEncrypterReader::OutFrameRemove(void)
-{
-    return mTxFrameBuffer.OutFrameRemove();
-}
+otError NcpHdlc::BufferEncrypterReader::OutFrameRemove(void) { return mTxFrameBuffer.OutFrameRemove(); }
 
 void NcpHdlc::BufferEncrypterReader::Reset(void)
 {

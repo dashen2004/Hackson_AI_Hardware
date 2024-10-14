@@ -46,10 +46,8 @@
 namespace ot {
 namespace Cli {
 
-constexpr CoapSecure::Command CoapSecure::sCommands[];
-
-CoapSecure::CoapSecure(Output &aOutput)
-    : OutputWrapper(aOutput)
+CoapSecure::CoapSecure(otInstance *aInstance, OutputImplementer &aOutputImplementer)
+    : Utils(aInstance, aOutputImplementer)
     , mShutdownFlag(false)
     , mUseCertificate(false)
     , mPskLength(0)
@@ -58,10 +56,10 @@ CoapSecure::CoapSecure(Output &aOutput)
     , mBlockCount(1)
 #endif
 {
-    memset(&mResource, 0, sizeof(mResource));
-    memset(&mPsk, 0, sizeof(mPsk));
-    memset(&mPskId, 0, sizeof(mPskId));
-    memset(&mUriPath, 0, sizeof(mUriPath));
+    ClearAllBytes(mResource);
+    ClearAllBytes(mPsk);
+    ClearAllBytes(mPskId);
+    ClearAllBytes(mUriPath);
     strncpy(mResourceContent, "0", sizeof(mResourceContent));
     mResourceContent[sizeof(mResourceContent) - 1] = '\0';
 }
@@ -79,7 +77,7 @@ void CoapSecure::PrintPayload(otMessage *aMessage)
 
         while (length > 0)
         {
-            bytesToPrint = (length < sizeof(buf)) ? length : sizeof(buf);
+            bytesToPrint = Min(length, static_cast<uint16_t>(sizeof(buf)));
             otMessageRead(aMessage, otMessageGetOffset(aMessage) + bytesPrinted, buf, bytesToPrint);
 
             OutputBytes(buf, static_cast<uint8_t>(bytesToPrint));
@@ -89,22 +87,26 @@ void CoapSecure::PrintPayload(otMessage *aMessage)
         }
     }
 
-    OutputLine("");
+    OutputNewLine();
 }
 
-otError CoapSecure::ProcessHelp(Arg aArgs[])
-{
-    OT_UNUSED_VARIABLE(aArgs);
-
-    for (const Command &command : sCommands)
-    {
-        OutputLine(command.mName);
-    }
-
-    return OT_ERROR_NONE;
-}
-
-otError CoapSecure::ProcessResource(Arg aArgs[])
+/**
+ * @cli coaps resource (get,set)
+ * @code
+ * coaps resource test-resource
+ * Done
+ * @endcode
+ * @code
+ * coaps resource
+ * test-resource
+ * Done
+ * @endcode
+ * @cparam coaps resource [@ca{uri-path}]
+ * @par
+ * Gets or sets the URI path of the CoAPS server resource. @moreinfo{@coaps}.
+ * @sa otCoapSecureAddBlockWiseResource
+ */
+template <> otError CoapSecure::Process<Cmd("resource")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
 
@@ -142,7 +144,17 @@ exit:
     return error;
 }
 
-otError CoapSecure::ProcessSet(Arg aArgs[])
+/**
+ * @cli coaps set
+ * @code
+ * coaps set Testing123
+ * Done
+ * @endcode
+ * @cparam coaps set @ca{new-content}
+ * @par
+ * Sets the content sent by the resource on the CoAPS server. @moreinfo{@coaps}.
+ */
+template <> otError CoapSecure::Process<Cmd("set")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
 
@@ -161,10 +173,50 @@ exit:
     return error;
 }
 
-otError CoapSecure::ProcessStart(Arg aArgs[])
+/**
+ * @cli coaps start
+ * @code
+ * coaps start
+ * Done
+ * @endcode
+ * @code
+ * coaps start false
+ * Done
+ * @endcode
+ * @code
+ * coaps start 8
+ * Done
+ * @endcode
+ * @cparam coaps start [@ca{check-peer-cert} | @ca{max-conn-attempts}]
+ * The `check-peer-cert` parameter determines if the peer-certificate check is
+ * enabled (default) or disabled.
+ * The `max-conn-attempts` parameter sets the maximum number of allowed
+ * attempts, successful or failed, to connect to the CoAP Secure server.
+ * The default value of this parameter is `0`, which means that there is
+ * no limit to the number of attempts.
+ * The `check-peer-cert` and `max-conn-attempts` parameters work
+ * together in the following combinations, even though you can only specify
+ * one argument:
+ *   * No argument specified: Defaults are used.
+ *   * Setting `check-peer-cert` to `true`:
+ *     Has the same effect as omitting the argument, which is that the
+ *     `check-peer-cert` value is `true`, and the `max-conn-attempts` value is 0.
+ *   * Setting `check-peer-cert` to `false`:
+ *    `check-peer-cert` value is `false`, and the `max-conn-attempts` value is 0.
+ *   * Specifying a number:
+ *     `check-peer-cert` is `true`, and the `max-conn-attempts` value is the
+ *     number specified in the argument.
+ * @par
+ * Starts the CoAP Secure service. @moreinfo{@coaps}.
+ * @sa otCoapSecureStart
+ * @sa otCoapSecureSetSslAuthMode
+ * @sa otCoapSecureSetClientConnectedCallback
+ */
+template <> otError CoapSecure::Process<Cmd("start")>(Arg aArgs[])
 {
-    otError error          = OT_ERROR_NONE;
-    bool    verifyPeerCert = true;
+    otError  error           = OT_ERROR_NONE;
+    bool     verifyPeerCert  = true;
+    uint16_t maxConnAttempts = 0;
 
     if (!aArgs[0].IsEmpty())
     {
@@ -172,9 +224,13 @@ otError CoapSecure::ProcessStart(Arg aArgs[])
         {
             verifyPeerCert = false;
         }
+        else if (aArgs[0] == "true")
+        {
+            verifyPeerCert = true;
+        }
         else
         {
-            VerifyOrExit(aArgs[0] == "true", error = OT_ERROR_INVALID_ARGS);
+            SuccessOrExit(error = aArgs[0].ParseAsUint16(maxConnAttempts));
         }
     }
 
@@ -185,13 +241,24 @@ otError CoapSecure::ProcessStart(Arg aArgs[])
     otCoapSecureSetDefaultHandler(GetInstancePtr(), &CoapSecure::DefaultHandler, this);
 #endif
 
-    error = otCoapSecureStart(GetInstancePtr(), OT_DEFAULT_COAP_SECURE_PORT);
+    error = otCoapSecureStartWithMaxConnAttempts(GetInstancePtr(), OT_DEFAULT_COAP_SECURE_PORT, maxConnAttempts,
+                                                 nullptr, nullptr);
 
 exit:
     return error;
 }
 
-otError CoapSecure::ProcessStop(Arg aArgs[])
+/**
+ * @cli coaps stop
+ * @code
+ * coaps stop
+ * Done
+ * @endcode
+ * @par
+ * Stops the CoAP Secure service. @moreinfo{@coaps}.
+ * @sa otCoapSecureStop
+ */
+template <> otError CoapSecure::Process<Cmd("stop")>(Arg aArgs[])
 {
     OT_UNUSED_VARIABLE(aArgs);
 
@@ -214,22 +281,172 @@ otError CoapSecure::ProcessStop(Arg aArgs[])
     return OT_ERROR_NONE;
 }
 
-otError CoapSecure::ProcessGet(Arg aArgs[])
+/**
+ * @cli coaps isclosed
+ * @code
+ * coaps isclosed
+ * no
+ * Done
+ * @endcode
+ * @par
+ * Indicates if the CoAP Secure service is closed. @moreinfo{@coaps}.
+ * @sa otCoapSecureIsClosed
+ */
+template <> otError CoapSecure::Process<Cmd("isclosed")>(Arg aArgs[])
 {
-    return ProcessRequest(aArgs, OT_COAP_CODE_GET);
+    return ProcessIsRequest(aArgs, otCoapSecureIsClosed);
 }
 
-otError CoapSecure::ProcessPost(Arg aArgs[])
+/**
+ * @cli coaps isconnected
+ * @code
+ * coaps isconnected
+ * yes
+ * Done
+ * @endcode
+ * @par
+ * Indicates if the CoAP Secure service is connected. @moreinfo{@coaps}.
+ * @sa otCoapSecureIsConnected
+ */
+template <> otError CoapSecure::Process<Cmd("isconnected")>(Arg aArgs[])
 {
-    return ProcessRequest(aArgs, OT_COAP_CODE_POST);
+    return ProcessIsRequest(aArgs, otCoapSecureIsConnected);
 }
 
-otError CoapSecure::ProcessPut(Arg aArgs[])
+/**
+ * @cli coaps isconnactive
+ * @code
+ * coaps isconnactive
+ * yes
+ * Done
+ * @endcode
+ * @par
+ * Indicates if the CoAP Secure service connection is active
+ * (either already connected or in the process of establishing a connection).
+ * @moreinfo{@coaps}.
+ * @sa otCoapSecureIsConnectionActive
+ */
+template <> otError CoapSecure::Process<Cmd("isconnactive")>(Arg aArgs[])
 {
-    return ProcessRequest(aArgs, OT_COAP_CODE_PUT);
+    return ProcessIsRequest(aArgs, otCoapSecureIsConnectionActive);
 }
 
-otError CoapSecure::ProcessDelete(Arg aArgs[])
+otError CoapSecure::ProcessIsRequest(Arg aArgs[], bool (*IsChecker)(otInstance *))
+{
+    otError error = OT_ERROR_NONE;
+
+    VerifyOrExit(aArgs[0].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
+    OutputLine("%s", IsChecker(GetInstancePtr()) ? "yes" : "no");
+
+exit:
+    return error;
+}
+
+/**
+ * @cli coaps get
+ * @code
+ * coaps get test-resource
+ * Done
+ * @endcode
+ * @code
+ * coaps get test-resource block-1024
+ * Done
+ * @endcode
+ * @cparam coaps get @ca{uri-path} [@ca{type}]
+ *   * `uri-path`: URI path of the resource.
+ *   * `type`:
+ *       * `con`: Confirmable
+ *       * `non-con`: Non-confirmable (default)
+ *       * `block-`: Use this option, followed by the block-wise value,
+ *         if the response should be transferred block-wise.
+ *         Valid values are: `block-16`, `block-32`, `block-64`, `block-128`,
+ *         `block-256`, `block-512`, or `block-1024`.
+ * @par
+ * Gets information about the specified CoAPS resource on the CoAPS server.
+ * @moreinfo{@coaps}.
+ */
+template <> otError CoapSecure::Process<Cmd("get")>(Arg aArgs[]) { return ProcessRequest(aArgs, OT_COAP_CODE_GET); }
+
+/**
+ * @cli coaps post
+ * @code
+ * coaps post test-resource con hellothere
+ * Done
+ * @endcode
+ * @code
+ * coaps post test-resource block-1024 10
+ * Done
+ * @endcode
+ * @cparam @ca{uri-path} [@ca{type}] [@ca{payload}]
+ *   * `uri-path`: URI path of the resource.
+ *   * `type`:
+ *       * `con`: Confirmable
+ *       * `non-con`: Non-confirmable (default)
+ *       * `block-`: Use this option, followed by the block-wise value,
+ *         to send blocks with a randomly generated number of bytes for the payload.
+ *         Valid values are: `block-16`, `block-32`, `block-64`, `block-128`,
+ *         `block-256`, `block-512`, or `block-1024`.
+ *	 * `payload`:  CoAPS payload request, which if used is either a string
+ *	   or an integer, depending on the `type`. If the `type` is `con` or `non-con`,
+ *	   the payload parameter is optional. If you leave out the payload
+ *	   parameter, an empty payload is sent. However, If you use the payload
+ *	   parameter, its value must be a string, such as `hellothere`. If the
+ *	   `type` is `block-`, the value of the payload parameter must be an
+ *	   integer that specifies the number of blocks to send. The `block-` type
+ *	   requires `OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE` to be set.
+ * @par
+ * Creates the specified CoAPS resource. @moreinfo{@coaps}.
+ */
+template <> otError CoapSecure::Process<Cmd("post")>(Arg aArgs[]) { return ProcessRequest(aArgs, OT_COAP_CODE_POST); }
+
+/**
+ * @cli coaps put
+ * @code
+ * coaps put test-resource con hellothere
+ * Done
+ * @endcode
+ * @code
+ * coaps put test-resource block-1024 10
+ * Done
+ * @endcode
+ * @cparam @ca{uri-path} [@ca{type}] [@ca{payload}]
+ *   * `uri-path`: URI path of the resource.
+ *   * `type`:
+ *       * `con`: Confirmable
+ *       * `non-con`: Non-confirmable (default)
+ *       * `block-`: Use this option, followed by the block-wise value,
+ *         to send blocks with a randomly generated number of bytes for the payload.
+ *         Valid values are: `block-16`, `block-32`, `block-64`, `block-128`,
+ *         `block-256`, `block-512`, or `block-1024`.
+ *	 * `payload`:  CoAPS payload request, which if used is either a string
+ *	   or an integer, depending on the `type`. If the `type` is `con` or `non-con`,
+ *	   the payload parameter is optional. If you leave out the payload
+ *	   parameter, an empty payload is sent. However, If you use the payload
+ *	   parameter, its value must be a string, such as `hellothere`. If the
+ *	   `type` is `block-`, the value of the payload parameter must be an
+ *	   integer that specifies the number of blocks to send. The `block-` type
+ *	   requires `OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE` to be set.
+ * @par
+ * Modifies the specified CoAPS resource. @moreinfo{@coaps}.
+ */
+template <> otError CoapSecure::Process<Cmd("put")>(Arg aArgs[]) { return ProcessRequest(aArgs, OT_COAP_CODE_PUT); }
+
+/**
+ * @cli coaps delete
+ * @code
+ * coaps delete test-resource con hellothere
+ * Done
+ * @endcode
+ * @cparam coaps delete @ca{uri-path} [@ca{type}] [@ca{payload}]
+ *   * `uri-path`: URI path of the resource.
+ *   * `type`:
+ *       * `con`: Confirmable
+ *       * `non-con`: Non-confirmable (default)
+ *   * `payload`: CoAPS payload request.
+ * @par
+ * The CoAPS payload string to delete.
+ */
+template <> otError CoapSecure::Process<Cmd("delete")>(Arg aArgs[])
 {
     return ProcessRequest(aArgs, OT_COAP_CODE_DELETE);
 }
@@ -384,12 +601,26 @@ exit:
     return error;
 }
 
-otError CoapSecure::ProcessConnect(Arg aArgs[])
+/**
+ * @cli coaps connect
+ * @code
+ * coaps connect fdde:ad00:beef:0:9903:14b:27e0:5744
+ * Done
+ * coaps connected
+ * @endcode
+ * @cparam coaps connect @ca{address}
+ * The `address` parameter is the IPv6 address of the peer.
+ * @par
+ * Initializes a Datagram Transport Layer Security (DTLS) session with a peer.
+ * @moreinfo{@coaps}.
+ * @sa otCoapSecureConnect
+ */
+template <> otError CoapSecure::Process<Cmd("connect")>(Arg aArgs[])
 {
     otError    error;
     otSockAddr sockaddr;
 
-    memset(&sockaddr, 0, sizeof(sockaddr));
+    ClearAllBytes(sockaddr);
     SuccessOrExit(error = aArgs[0].ParseAsIp6Address(sockaddr.mAddress));
     sockaddr.mPort = OT_DEFAULT_COAP_SECURE_PORT;
 
@@ -404,7 +635,18 @@ exit:
     return error;
 }
 
-otError CoapSecure::ProcessDisconnect(Arg aArgs[])
+/**
+ * @cli coaps disconnect
+ * @code
+ * coaps disconnect
+ * coaps disconnected
+ * Done
+ * @endcode
+ * @par
+ * Stops the DTLS session.
+ * @sa otCoapSecureDisconnect
+ */
+template <> otError CoapSecure::Process<Cmd("disconnect")>(Arg aArgs[])
 {
     OT_UNUSED_VARIABLE(aArgs);
 
@@ -413,8 +655,24 @@ otError CoapSecure::ProcessDisconnect(Arg aArgs[])
     return OT_ERROR_NONE;
 }
 
+/**
+ * <!--- This tag is before the IF statement so that Doxygen imports the command. --->
+ * @cli coaps psk
+ * @code
+ * coaps psk 1234 key1
+ * Done
+ * @endcode
+ * @cparam coaps psk @ca{psk-value} @ca{psk-id}
+ *   * `psk-value`: The pre-shared key
+ *   * `psk-id`: The pre-shared key identifier.
+ * @par
+ * Sets the pre-shared key (PSK) and cipher suite DTLS_PSK_WITH_AES_128_CCM_8.
+ * @note This command requires the build-time feature
+ * `MBEDTLS_KEY_EXCHANGE_PSK_ENABLED` to be enabled.
+ * @sa #otCoapSecureSetPsk
+ */
 #ifdef MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
-otError CoapSecure::ProcessPsk(Arg aArgs[])
+template <> otError CoapSecure::Process<Cmd("psk")>(Arg aArgs[])
 {
     otError  error = OT_ERROR_NONE;
     uint16_t length;
@@ -439,8 +697,24 @@ exit:
 }
 #endif // MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
 
+/**
+ * <!--- This tag is before the IF statement so that Doxygen imports the command. --->
+ * @cli coaps x509
+ * @code
+ * coaps x509
+ * Done
+ * @endcode
+ * @par
+ * Sets the X509 certificate of the local device with the corresponding private key for
+ * the DTLS session with `DTLS_ECDHE_ECDSA_WITH_AES_128_CCM_8`.
+ * @note This command requires `MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED=1`
+ * to be enabled.
+ * The X.509 certificate is stored in the location: `src/cli/x509_cert_key.hpp`.
+ * @sa otCoapSecureSetCertificate
+ * @sa otCoapSecureSetCaCertificateChain
+ */
 #ifdef MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED
-otError CoapSecure::ProcessX509(Arg aArgs[])
+template <> otError CoapSecure::Process<Cmd("x509")>(Arg aArgs[])
 {
     OT_UNUSED_VARIABLE(aArgs);
 
@@ -459,17 +733,39 @@ otError CoapSecure::ProcessX509(Arg aArgs[])
 
 otError CoapSecure::Process(Arg aArgs[])
 {
-    otError        error = OT_ERROR_INVALID_ARGS;
-    const Command *command;
-
-    if (aArgs[0].IsEmpty())
-    {
-        IgnoreError(ProcessHelp(aArgs));
-        ExitNow();
+#define CmdEntry(aCommandString)                                  \
+    {                                                             \
+        aCommandString, &CoapSecure::Process<Cmd(aCommandString)> \
     }
 
-    command = Utils::LookupTable::Find(aArgs[0].GetCString(), sCommands);
-    VerifyOrExit(command != nullptr, error = OT_ERROR_INVALID_COMMAND);
+    static constexpr Command kCommands[] = {
+        CmdEntry("connect"),  CmdEntry("delete"),       CmdEntry("disconnect"),  CmdEntry("get"),
+        CmdEntry("isclosed"), CmdEntry("isconnactive"), CmdEntry("isconnected"), CmdEntry("post"),
+#ifdef MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
+        CmdEntry("psk"),
+#endif
+        CmdEntry("put"),      CmdEntry("resource"),     CmdEntry("set"),         CmdEntry("start"),
+        CmdEntry("stop"),
+#ifdef MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED
+        CmdEntry("x509"),
+#endif
+    };
+
+#undef CmdEntry
+
+    static_assert(BinarySearch::IsSorted(kCommands), "kCommands is not sorted");
+
+    otError        error = OT_ERROR_INVALID_COMMAND;
+    const Command *command;
+
+    if (aArgs[0].IsEmpty() || (aArgs[0] == "help"))
+    {
+        OutputCommandTable(kCommands);
+        ExitNow(error = aArgs[0].IsEmpty() ? OT_ERROR_INVALID_ARGS : OT_ERROR_NONE);
+    }
+
+    command = BinarySearch::Find(aArgs[0].GetCString(), kCommands);
+    VerifyOrExit(command != nullptr);
 
     error = (this->*command->mHandler)(aArgs + 1);
 
@@ -688,7 +984,7 @@ exit:
 #endif // CLI_COAP_SECURE_USE_COAP_DEFAULT_HANDLER
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
-otError CoapSecure::BlockwiseReceiveHook(void *         aContext,
+otError CoapSecure::BlockwiseReceiveHook(void          *aContext,
                                          const uint8_t *aBlock,
                                          uint32_t       aPosition,
                                          uint16_t       aBlockLength,
@@ -718,11 +1014,11 @@ otError CoapSecure::BlockwiseReceiveHook(const uint8_t *aBlock,
     return OT_ERROR_NONE;
 }
 
-otError CoapSecure::BlockwiseTransmitHook(void *    aContext,
-                                          uint8_t * aBlock,
+otError CoapSecure::BlockwiseTransmitHook(void     *aContext,
+                                          uint8_t  *aBlock,
                                           uint32_t  aPosition,
                                           uint16_t *aBlockLength,
-                                          bool *    aMore)
+                                          bool     *aMore)
 {
     return static_cast<CoapSecure *>(aContext)->BlockwiseTransmitHook(aBlock, aPosition, aBlockLength, aMore);
 }

@@ -30,6 +30,8 @@ add_library(openthread-cli-radio)
 
 target_compile_definitions(openthread-cli-radio
     PRIVATE
+        OPENTHREAD_FTD=0
+        OPENTHREAD_MTD=0
         OPENTHREAD_RADIO=1
         OPENTHREAD_RADIO_CLI=1
 )
@@ -43,13 +45,22 @@ target_include_directories(openthread-cli-radio PUBLIC ${OT_PUBLIC_INCLUDES} PRI
 target_sources(openthread-cli-radio
     PRIVATE
         cli.cpp
-        cli_output.cpp
+        cli_utils.cpp
 )
+
+if(NOT DEFINED OT_MBEDTLS_RCP)
+    set(OT_MBEDTLS_RCP ${OT_MBEDTLS})
+endif()
 
 target_link_libraries(openthread-cli-radio
     PUBLIC
         openthread-radio
     PRIVATE
-        ${OT_MBEDTLS}
+        ${OT_MBEDTLS_RCP}
+        ot-config-radio
         ot-config
 )
+
+if(OT_CLI_VENDOR_TARGET)
+    target_link_libraries(openthread-cli-radio PRIVATE ${OT_CLI_VENDOR_TARGET})
+endif()

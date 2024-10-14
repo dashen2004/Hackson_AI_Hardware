@@ -1,16 +1,8 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @file
@@ -28,7 +20,7 @@
 #include "esp_core_dump_port.h"
 
 /* TAG used for logs */
-const static DRAM_ATTR char TAG[] __attribute__((unused)) = "esp_core_dump_port";
+const static char TAG[] __attribute__((unused)) = "esp_core_dump_port";
 
 /* Code associated to RISC-V in ELF format */
 #define COREDUMP_EM_RISCV                   0xF3
@@ -40,6 +32,7 @@ const static DRAM_ATTR char TAG[] __attribute__((unused)) = "esp_core_dump_port"
 #if CONFIG_ESP_COREDUMP_ENABLE
 
 #define min(a,b) ((a) < (b) ? (a) : (b))
+#define max(a,b) ((a) < (b) ? (b) : (a))
 
 /**
  * Union representing the registers of the CPU as they will be written
@@ -90,7 +83,7 @@ typedef union {
 
 /**
  * The following structure represents the NOTE section in the coredump.
- * Its type must be PR_STATUS as it contains the regsiters values and the
+ * Its type must be PR_STATUS as it contains the registers value and the
  * program status.
  * As our coredump will be used with GDB, we only need to fill the info
  * it needs. We are going to use the macros taken from GDB's elf32-riscv.c
@@ -107,13 +100,13 @@ typedef union {
  * Other fields are not strictly required by GDB, we can then replace them
  * by a padding. Among these fields, we can find PPID, SID or system time.
  */
-#define PRSTATUS_SIZE				204
-#define PRSTATUS_OFFSET_PR_CURSIG	12
-#define PRSTATUS_OFFSET_PR_PID		24
-#define PRSTATUS_OFFSET_PR_REG		72
-#define ELF_GREGSET_T_SIZE		    128
+#define PRSTATUS_SIZE               204
+#define PRSTATUS_OFFSET_PR_CURSIG   12
+#define PRSTATUS_OFFSET_PR_PID      24
+#define PRSTATUS_OFFSET_PR_REG      72
+#define ELF_GREGSET_T_SIZE          128
 
-/* We can determine the padding thank to the previous macros */
+/* We can determine the padding thanks to the previous macros */
 #define PRSTATUS_SIG_PADDING        (PRSTATUS_OFFSET_PR_CURSIG)
 #define PRSTATUS_PID_PADDING        (PRSTATUS_OFFSET_PR_PID - PRSTATUS_OFFSET_PR_CURSIG - sizeof(uint16_t))
 #define PRSTATUS_REG_PADDING        (PRSTATUS_OFFSET_PR_REG - PRSTATUS_OFFSET_PR_PID - sizeof(uint32_t))
@@ -133,23 +126,23 @@ typedef struct {
  * Assert that our structure is designed the way we are expecting it to be.
  */
 _Static_assert(offsetof(riscv_prstatus, signal) == PRSTATUS_OFFSET_PR_CURSIG,
-                        "Wrong offset for signal field in riscv_prstatus structure");
+               "Wrong offset for signal field in riscv_prstatus structure");
 _Static_assert(offsetof(riscv_prstatus, pid) == PRSTATUS_OFFSET_PR_PID,
-                        "Wrong offset for pid field in riscv_prstatus structure");
+               "Wrong offset for pid field in riscv_prstatus structure");
 _Static_assert(offsetof(riscv_prstatus, regs) == PRSTATUS_OFFSET_PR_REG,
-                        "Wrong offset for regs field in riscv_prstatus structure");
+               "Wrong offset for regs field in riscv_prstatus structure");
 _Static_assert(sizeof(riscv_regs) == ELF_GREGSET_T_SIZE,
-                        "Wrong size for riscv_regs union");
+               "Wrong size for riscv_regs union");
 _Static_assert(sizeof(riscv_prstatus) == PRSTATUS_SIZE,
-                        "Wrong size for riscv_prstatus structure");
+               "Wrong size for riscv_prstatus structure");
 
 /**
  * Structure used to add some extra info inside core file.
  */
 typedef struct {
     uint32_t crashed_task_tcb;
+    uint32_t isr_context;
 } riscv_extra_info_t;
-
 
 /* Allocate the fake stack that will be used by broken tasks. */
 static RvExcFrame s_fake_stack_frame = {
@@ -164,9 +157,10 @@ static uint32_t s_fake_stacks_num = 0;
 /* Statically initialize the extra information structure. */
 static riscv_extra_info_t s_extra_info = { 0 };
 
-inline void esp_core_dump_port_init(panic_info_t *info)
+inline void esp_core_dump_port_init(panic_info_t *info, bool isr_context)
 {
     s_extra_info.crashed_task_tcb = COREDUMP_CURR_TASK_MARKER;
+    s_extra_info.isr_context = isr_context;
 }
 
 /**
@@ -179,7 +173,7 @@ inline uint16_t esp_core_dump_get_arch_id()
 }
 
 /**
- * Reset fake tasks' stack counter. This lets use reuse the previously allocated
+ * Reset fake tasks' stack counter. This lets us reuse the previously allocated
  * fake stacks.
  */
 void esp_core_dump_reset_fake_stacks(void)
@@ -219,7 +213,7 @@ uint8_t* esp_core_dump_get_isr_stack_top(void)
 uint32_t esp_core_dump_get_isr_stack_end(void)
 {
     uint8_t* isr_top_stack = esp_core_dump_get_isr_stack_top();
-    return (uint32_t)(isr_top_stack + (xPortGetCoreID()+1)*configISR_STACK_SIZE);
+    return (uint32_t)(isr_top_stack + (xPortGetCoreID() + 1) * configISR_STACK_SIZE);
 }
 
 /**
@@ -229,21 +223,21 @@ static inline bool esp_core_dump_task_stack_end_is_sane(uint32_t sp)
 {
     return esp_ptr_in_dram((void *)sp)
 #if CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY
-        || esp_stack_ptr_in_extram(sp)
+           || esp_stack_ptr_in_extram(sp)
 #endif
 #if CONFIG_ESP_SYSTEM_ALLOW_RTC_FAST_MEM_AS_HEAP
-        || esp_ptr_in_rtc_dram_fast((void*) sp)
+           || esp_ptr_in_rtc_dram_fast((void*) sp)
 #endif
-    ;
+           ;
 }
 
 bool esp_core_dump_check_stack(core_dump_task_header_t *task)
 {
     // Check task's stack
     if (!esp_stack_ptr_is_sane(task->stack_start) ||
-        !esp_core_dump_task_stack_end_is_sane(task->stack_end) ||
-        (task->stack_start >= task->stack_end) ||
-        ((task->stack_end-task->stack_start) > COREDUMP_MAX_TASK_STACK_SIZE)) {
+            !esp_core_dump_task_stack_end_is_sane(task->stack_end) ||
+            (task->stack_start >= task->stack_end) ||
+            ((task->stack_end - task->stack_start) > COREDUMP_MAX_TASK_STACK_SIZE)) {
         // Check if current task stack is corrupted
         ESP_COREDUMP_LOG_PROCESS("Invalid stack (%x...%x)!", task->stack_start, task->stack_end);
         return false;
@@ -259,8 +253,9 @@ bool esp_core_dump_check_stack(core_dump_task_header_t *task)
 uint32_t esp_core_dump_get_stack(core_dump_task_header_t *task,
                                  uint32_t* stk_vaddr, uint32_t* stk_paddr)
 {
-    const uint32_t stack_len = abs(task->stack_start - task->stack_end);
     const uint32_t stack_addr = min(task->stack_start, task->stack_end);
+    const uint32_t stack_addr2 = max(task->stack_start, task->stack_end);
+    const uint32_t stack_len = stack_addr2 - stack_addr;
 
     ESP_COREDUMP_DEBUG_ASSERT(stk_paddr != NULL && stk_vaddr != NULL);
 
@@ -268,7 +263,7 @@ uint32_t esp_core_dump_get_stack(core_dump_task_header_t *task,
     *stk_vaddr = stack_addr;
 
     if (stack_addr >= COREDUMP_FAKE_STACK_START &&
-        stack_addr < COREDUMP_FAKE_STACK_LIMIT) {
+            stack_addr < COREDUMP_FAKE_STACK_LIMIT) {
         /* In this case, the stack address pointed by the task is a fake stack
          * generated previously. So it doesn't really point to actual data.
          * Thus, we must provide the address of the fake stack data. */
@@ -312,11 +307,11 @@ bool esp_core_dump_check_task(core_dump_task_header_t *task)
  */
 bool esp_core_dump_mem_seg_is_sane(uint32_t addr, uint32_t sz)
 {
-    //TODO: external SRAM not supported yet
-    return (esp_ptr_in_dram((void *)addr) && esp_ptr_in_dram((void *)(addr+sz-1)))
-        || (esp_ptr_in_rtc_slow((void *)addr) && esp_ptr_in_rtc_slow((void *)(addr+sz-1)))
-        || (esp_ptr_in_rtc_dram_fast((void *)addr) && esp_ptr_in_rtc_dram_fast((void *)(addr+sz-1)))
-        || (esp_ptr_in_iram((void *)addr) && esp_ptr_in_iram((void *)(addr+sz-1)));
+    return (esp_ptr_in_dram((void *)addr) && esp_ptr_in_dram((void *)(addr + sz - 1)))
+           || (esp_ptr_in_rtc_slow((void *)addr) && esp_ptr_in_rtc_slow((void *)(addr + sz - 1)))
+           || (esp_ptr_in_rtc_dram_fast((void *)addr) && esp_ptr_in_rtc_dram_fast((void *)(addr + sz - 1)))
+           || (esp_ptr_external_ram((void *)addr) && esp_ptr_external_ram((void *)(addr + sz - 1)))
+           || (esp_ptr_in_iram((void *)addr) && esp_ptr_in_iram((void *)(addr + sz - 1)));
 }
 
 /**
@@ -359,14 +354,15 @@ uint32_t esp_core_dump_get_task_regs_dump(core_dump_task_header_t *task, void **
 /**
  * Save the crashed task handle in the extra info structure.
  */
-void esp_core_dump_port_set_crashed_tcb(uint32_t handle) {
+void esp_core_dump_port_set_crashed_tcb(uint32_t handle)
+{
     s_extra_info.crashed_task_tcb = handle;
 }
 
 /**
- * Function returning the extra info to be written in the dedicated section in
- * the core file.
- * info must not be NULL, it will be affected to the extra info data.
+ * Function returning the extra info to be written to the dedicated section in
+ * the core file. *info must not be NULL, it will be assigned to the extra info
+ * data.
  * The size, in bytes, of the data pointed by info is returned.
  */
 uint32_t esp_core_dump_get_extra_info(void **info)
@@ -405,7 +401,7 @@ void esp_core_dump_summary_parse_exc_regs(esp_core_dump_summary_t *summary, void
     summary->ex_info.ra = stack->ra;
     summary->ex_info.sp = stack->sp;
     ESP_COREDUMP_LOGD("mstatus:0x%x mtvec:0x%x mcause:0x%x mval:0x%x RA: 0x%x SP: 0x%x",
-                       stack->mstatus, stack->mtvec, stack->mcause, stack->mtval, stack->ra, stack->sp);
+                      stack->mstatus, stack->mtvec, stack->mcause, stack->mtval, stack->ra, stack->sp);
     a_reg = &stack->a0;
     for (i = 0; i < 8; i++) {
         summary->ex_info.exc_a[i] = a_reg[i];
@@ -424,7 +420,7 @@ void esp_core_dump_summary_parse_backtrace_info(esp_core_dump_bt_info_t *bt_info
     /* Check whether the stack is a fake stack created during coredump generation
      * If its a fake stack, we don't have any actual stack dump
      */
-    if (vaddr >= (void*) COREDUMP_FAKE_STACK_START && vaddr < (void*) COREDUMP_FAKE_STACK_LIMIT) {
+    if (vaddr >= (void *) COREDUMP_FAKE_STACK_START && vaddr < (void *) COREDUMP_FAKE_STACK_LIMIT) {
         bt_info->dump_size = 0;
         return;
     }

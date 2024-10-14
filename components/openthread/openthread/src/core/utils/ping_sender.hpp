@@ -40,6 +40,7 @@
 
 #include <openthread/ping_sender.h>
 
+#include "common/as_core_type.hpp"
 #include "common/code_utils.hpp"
 #include "common/locator.hpp"
 #include "common/message.hpp"
@@ -54,20 +55,20 @@ namespace ot {
 namespace Utils {
 
 /**
- * This class implements sending ICMPv6 Echo Request messages and processing ICMPv6 Echo Reply messages.
+ * Implements sending ICMPv6 Echo Request messages and processing ICMPv6 Echo Reply messages.
  *
  */
 class PingSender : public InstanceLocator, private NonCopyable
 {
 public:
     /**
-     * This class represents a ping reply.
+     * Represents a ping reply.
      *
      */
     typedef otPingSenderReply Reply;
 
     /**
-     * This class represents the statistics of several ping requests.
+     * Represents the statistics of several ping requests.
      *
      */
     struct Statistics : public otPingSenderStatistics
@@ -86,7 +87,7 @@ public:
     };
 
     /**
-     * This class represents a ping request configuration.
+     * Represents a ping request configuration.
      *
      */
     class Config : public otPingSenderConfig
@@ -95,41 +96,41 @@ public:
 
     public:
         /**
-         * This method gets the source IPv6 address of the ping.
+         * Gets the source IPv6 address of the ping.
          *
          * @returns The ping source IPv6 address.
          *
          */
-        Ip6::Address &GetSource(void) { return static_cast<Ip6::Address &>(mSource); }
+        Ip6::Address &GetSource(void) { return AsCoreType(&mSource); }
 
         /**
-         * This method gets the source IPv6 address of the ping.
+         * Gets the source IPv6 address of the ping.
          *
          * @returns The ping source IPv6 address.
          *
          */
-        const Ip6::Address &GetSource(void) const { return static_cast<const Ip6::Address &>(mSource); }
+        const Ip6::Address &GetSource(void) const { return AsCoreType(&mSource); }
 
         /**
-         * This method gets the destination IPv6 address to ping.
+         * Gets the destination IPv6 address to ping.
          *
          * @returns The ping destination IPv6 address.
          *
          */
-        Ip6::Address &GetDestination(void) { return static_cast<Ip6::Address &>(mDestination); }
+        Ip6::Address &GetDestination(void) { return AsCoreType(&mDestination); }
 
         /**
-         * This method gets the destination IPv6 address to ping.
+         * Gets the destination IPv6 address to ping.
          *
          * @returns The ping destination IPv6 address.
          *
          */
-        const Ip6::Address &GetDestination(void) const { return static_cast<const Ip6::Address &>(mDestination); }
+        const Ip6::Address &GetDestination(void) const { return AsCoreType(&mDestination); }
 
     private:
         static constexpr uint16_t kDefaultSize     = OPENTHREAD_CONFIG_PING_SENDER_DEFAULT_SIZE;
         static constexpr uint16_t kDefaultCount    = OPENTHREAD_CONFIG_PING_SENDER_DEFAULT_COUNT;
-        static constexpr uint32_t kDefaultInterval = OPENTHREAD_CONFIG_PING_SENDER_DEFAULT_INTEVRAL;
+        static constexpr uint32_t kDefaultInterval = OPENTHREAD_CONFIG_PING_SENDER_DEFAULT_INTERVAL;
         static constexpr uint32_t kDefaultTimeout  = OPENTHREAD_CONFIG_PING_SENDER_DEFAULT_TIMEOUT;
 
         void SetUnspecifiedToDefault(void);
@@ -138,7 +139,7 @@ public:
     };
 
     /**
-     * This constructor initializes the `PingSender` object.
+     * Initializes the `PingSender` object.
      *
      * @param[in]  aInstance     A reference to the OpenThread instance.
      *
@@ -146,7 +147,7 @@ public:
     explicit PingSender(Instance &aInstance);
 
     /**
-     * This method starts a ping.
+     * Starts a ping.
      *
      * @param[in] aConfig          The ping config to use.
      *
@@ -158,32 +159,38 @@ public:
     Error Ping(const Config &aConfig);
 
     /**
-     * This method stops an ongoing ping.
+     * Stops an ongoing ping.
      *
      */
     void Stop(void);
 
 private:
     void        SendPing(void);
-    static void HandleTimer(Timer &aTimer);
     void        HandleTimer(void);
-    static void HandleIcmpReceive(void *               aContext,
-                                  otMessage *          aMessage,
+    static void HandleIcmpReceive(void                *aContext,
+                                  otMessage           *aMessage,
                                   const otMessageInfo *aMessageInfo,
                                   const otIcmp6Header *aIcmpHeader);
-    void        HandleIcmpReceive(const Message &          aMessage,
-                                  const Ip6::MessageInfo & aMessageInfo,
+    void        HandleIcmpReceive(const Message           &aMessage,
+                                  const Ip6::MessageInfo  &aMessageInfo,
                                   const Ip6::Icmp::Header &aIcmpHeader);
+
+    using PingTimer = TimerMilliIn<PingSender, &PingSender::HandleTimer>;
 
     Config             mConfig;
     Statistics         mStatistics;
     uint16_t           mIdentifier;
     uint16_t           mTargetEchoSequence;
-    TimerMilli         mTimer;
+    PingTimer          mTimer;
     Ip6::Icmp::Handler mIcmpHandler;
 };
 
 } // namespace Utils
+
+DefineCoreType(otPingSenderReply, Utils::PingSender::Reply);
+DefineCoreType(otPingSenderConfig, Utils::PingSender::Config);
+DefineCoreType(otPingSenderStatistics, Utils::PingSender::Statistics);
+
 } // namespace ot
 
 #endif // OPENTHREAD_CONFIG_PING_SENDER_ENABLE

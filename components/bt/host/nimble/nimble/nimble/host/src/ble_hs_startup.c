@@ -40,7 +40,7 @@ ble_hs_startup_read_sup_f_tx(void)
     /* for now we don't use it outside of init sequence so check this here
      * LE Supported (Controller) byte 4, bit 6
      */
-    if (!(rsp.features & 0x0000006000000000)) {
+    if (!(le64toh(rsp.features) & 0x0000006000000000)) {
         BLE_HS_LOG(ERROR, "Controller doesn't support LE\n");
         return BLE_HS_ECONTROLLER;
     }
@@ -69,6 +69,26 @@ ble_hs_startup_read_local_ver_tx(void)
 }
 
 static int
+ble_hs_startup_read_sup_cmd_tx(void)
+{
+    struct ble_hci_ip_rd_loc_supp_cmd_rp rsp;
+    struct ble_hs_hci_sup_cmd sup_cmd;
+    int rc;
+
+    rc = ble_hs_hci_cmd_tx(BLE_HCI_OP(BLE_HCI_OGF_INFO_PARAMS,
+                                      BLE_HCI_OCF_IP_RD_LOC_SUPP_CMD),
+                           NULL, 0, &rsp, sizeof(rsp));
+    if (rc != 0) {
+        return rc;
+    }
+
+    memcpy(&sup_cmd.commands, &rsp.commands, sizeof(sup_cmd));
+    ble_hs_hci_set_hci_supported_cmd(sup_cmd);
+
+    return 0;
+}
+
+static int
 ble_hs_startup_le_read_sup_f_tx(void)
 {
     struct ble_hci_le_rd_loc_supp_feat_rp rsp;
@@ -86,6 +106,7 @@ ble_hs_startup_le_read_sup_f_tx(void)
     return 0;
 }
 
+#if MYNEWT_VAL(BLE_ROLE_CENTRAL) || MYNEWT_VAL(BLE_ROLE_PERIPHERAL)
 static int
 ble_hs_startup_le_read_buf_sz_tx(uint16_t *out_pktlen, uint8_t *out_max_pkts)
 {
@@ -155,6 +176,7 @@ ble_hs_startup_read_buf_sz(void)
 
     return 0;
 }
+#endif
 
 static int
 ble_hs_startup_read_bd_addr(void)
@@ -238,6 +260,59 @@ ble_hs_startup_le_set_evmask_tx(void)
     }
 #endif
 
+#if MYNEWT_VAL(BLE_CONN_SUBRATING)
+    if (version >= BLE_HCI_VER_BCS_5_3) {
+        /**
+         * Enable the following LE events:
+         * 0x0000000400000000 LE Subrate change event
+         */
+        mask |= 0x0000000400000000;
+#endif
+
+#if MYNEWT_VAL(BLE_POWER_CONTROL)
+    if (version >= BLE_HCI_VER_BCS_5_2) {
+        /**
+         * Enable the following LE events:
+         * 0x0000000080000000 LE Path Loss Threshold event
+         * 0x0000000100000000 LE Transmit Power Reporting event
+         */
+        mask |= 0x0000000180000000;
+    }
+#endif
+
+#if MYNEWT_VAL(BLE_POWER_CONTROL)
+    if (version >= BLE_HCI_VER_BCS_5_2) {
+        /**
+         * Enable the following LE events:
+         * 0x0000000080000000 LE Path Loss Threshold event
+         * 0x0000000100000000 LE Transmit Power Reporting event
+         */
+        mask |= 0x0000000180000000;
+    }
+#endif
+
+#if MYNEWT_VAL(BLE_PERIODIC_ADV_SYNC_BIGINFO_REPORTS)
+    if (version >= BLE_HCI_VER_BCS_5_2) {
+        /**
+         * Enable the following LE events:
+         * 0x0000000200000000 LE BIGInfo Advertising Report event
+         */
+        mask |= 0x0000000200000000;
+    }
+#endif
+
+#if MYNEWT_VAL(BLE_AOA_AOD)
+    if (version >= BLE_HCI_VER_BCS_5_1) {
+        /**
+         * Enable the following LE events:
+         * 0x0000000000100000 LE Connectionless IQ Report event
+         * 0x0000000000200000 LE Connection IQ Report event
+         * 0x0000000000400000 LE CTE Request Failed event
+         */
+        mask |= 0x0000000000700000;
+    }
+#endif
+
     cmd.event_mask = htole64(mask);
 
     rc = ble_hs_hci_cmd_tx(BLE_HCI_OP(BLE_HCI_OGF_LE,
@@ -256,9 +331,11 @@ ble_hs_startup_set_evmask_tx(void)
     struct ble_hci_cb_set_event_mask_cp cmd;
     struct ble_hci_cb_set_event_mask2_cp cmd2;
     uint8_t version;
+    struct ble_hs_hci_sup_cmd sup_cmd;
     int rc;
 
     version = ble_hs_hci_get_hci_version();
+    sup_cmd = ble_hs_hci_get_hci_supported_cmd();
 
     /**
      * Enable the following events:
@@ -278,7 +355,7 @@ ble_hs_startup_set_evmask_tx(void)
         return rc;
     }
 
-    if (version >= BLE_HCI_VER_BCS_4_1) {
+    if ((version >= BLE_HCI_VER_BCS_4_1) && ((sup_cmd.commands[22] & 0x04) != 0)) {
         /**
          * Enable the following events:
          *     0x0000000000800000 Authenticated Payload Timeout Event
@@ -306,6 +383,7 @@ ble_hs_startup_reset_tx(void)
 int
 ble_hs_startup_go(void)
 {
+    struct ble_store_gen_key gen_key;
     int rc;
 
     rc = ble_hs_startup_reset_tx();
@@ -318,7 +396,11 @@ ble_hs_startup_go(void)
         return rc;
     }
 
-    /* XXX: Read local supported commands. */
+    /* Read local supported commands. */
+    rc = ble_hs_startup_read_sup_cmd_tx();
+    if (rc != 0) {
+        return rc;
+    }
 
     /* we need to check this only if using external controller */
 #if !MYNEWT_VAL(BLE_CONTROLLER)
@@ -343,10 +425,12 @@ ble_hs_startup_go(void)
         return rc;
     }
 
+#if MYNEWT_VAL(BLE_ROLE_CENTRAL) || MYNEWT_VAL(BLE_ROLE_PERIPHERAL)
     rc = ble_hs_startup_read_buf_sz();
     if (rc != 0) {
         return rc;
     }
+#endif
 
     rc = ble_hs_startup_le_read_sup_f_tx();
     if (rc != 0) {
@@ -358,7 +442,22 @@ ble_hs_startup_go(void)
         return rc;
     }
 
-    ble_hs_pvcy_set_our_irk(NULL);
+    if (ble_hs_cfg.store_gen_key_cb) {
+        memset(&gen_key, 0, sizeof(gen_key));
+        rc = ble_hs_cfg.store_gen_key_cb(BLE_STORE_GEN_KEY_IRK, &gen_key,
+                                         BLE_HS_CONN_HANDLE_NONE);
+        if (rc == 0) {
+            ble_hs_pvcy_set_our_irk(gen_key.irk);
+        }
+    } else {
+        rc = -1;
+    }
+
+    if (rc != 0) {
+        ble_hs_pvcy_set_default_irk();
+
+        ble_hs_pvcy_set_our_irk(NULL);
+    }
 
     /* If flow control is enabled, configure the controller to use it. */
     ble_hs_flow_startup();

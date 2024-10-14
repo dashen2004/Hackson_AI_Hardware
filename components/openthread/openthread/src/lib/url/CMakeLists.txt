@@ -31,3 +31,4 @@ add_library(openthread-url EXCLUDE_FROM_ALL
 )
 
 target_link_libraries(openthread-url PRIVATE ot-config)
+

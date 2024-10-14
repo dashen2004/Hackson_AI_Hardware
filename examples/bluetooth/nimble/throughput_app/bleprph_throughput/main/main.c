@@ -8,7 +8,6 @@
 #include "nvs_flash.h"
 #include "freertos/FreeRTOSConfig.h"
 /* BLE */
-#include "esp_nimble_hci.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 #include "host/ble_hs.h"
@@ -125,7 +124,7 @@ gatts_advertise(void)
 
     rc = ble_gap_adv_set_fields(&fields);
     if (rc != 0) {
-        ESP_LOGE(tag, "Error setting advertisement data; rc=%d\n", rc);
+        ESP_LOGE(tag, "Error setting advertisement data; rc=%d", rc);
         return;
     }
 
@@ -136,7 +135,7 @@ gatts_advertise(void)
     rc = ble_gap_adv_start(gatts_addr_type, NULL, BLE_HS_FOREVER,
                            &adv_params, gatts_gap_event, NULL);
     if (rc != 0) {
-        ESP_LOGE(tag, "Error enabling advertisement; rc=%d\n", rc);
+        ESP_LOGE(tag, "Error enabling advertisement; rc=%d", rc);
         return;
     }
 }
@@ -186,16 +185,16 @@ notify_task(void *arg)
 
                 /* Check if the MBUFs are available */
                 if (os_msys_num_free() >= MIN_REQUIRED_MBUF) {
-                    om = ble_hs_mbuf_from_flat(payload, sizeof(payload));
-                    if (om == NULL) {
-                        /* Memory not available for mbuf */
-                        ESP_LOGE(tag, "No MBUFs available from pool, retry..");
-                        vTaskDelay(100 / portTICK_PERIOD_MS);
+                    do {
                         om = ble_hs_mbuf_from_flat(payload, sizeof(payload));
-                        assert(om != NULL);
-                    }
+                        if (om == NULL) {
+                            /* Memory not available for mbuf */
+                            ESP_LOGE(tag, "No MBUFs available from pool, retry..");
+                            vTaskDelay(100 / portTICK_PERIOD_MS);
+                        }
+                    } while (om == NULL);
 
-                    rc = ble_gattc_notify_custom(conn_handle, notify_handle, om);
+                    rc = ble_gatts_notify_custom(conn_handle, notify_handle, om);
                     if (rc != 0) {
                         ESP_LOGE(tag, "Error while sending notification; rc = %d", rc);
                         notify_count -= 1;
@@ -211,6 +210,7 @@ notify_task(void *arg)
                     ESP_LOGE(tag, "Not enough OS_MBUFs available; reduce notify count ");
                     xSemaphoreGive(notify_sem);
                     notify_count -= 1;
+                    vTaskDelay(10 / portTICK_PERIOD_MS);
                 }
 
                 end_time = esp_timer_get_time();
@@ -239,7 +239,7 @@ gatts_gap_event(struct ble_gap_event *event, void *arg)
     int rc;
 
     switch (event->type) {
-    case BLE_GAP_EVENT_CONNECT:
+    case BLE_GAP_EVENT_LINK_ESTAB:
         /* A new connection was established or a connection attempt failed */
         ESP_LOGI(tag, "connection %s; status = %d ",
                  event->connect.status == 0 ? "established" : "failed",
@@ -344,7 +344,7 @@ gatts_on_sync(void)
 static void
 gatts_on_reset(int reason)
 {
-    ESP_LOGE(tag, "Resetting state; reason=%d\n", reason);
+    ESP_LOGE(tag, "Resetting state; reason=%d", reason);
 }
 
 void gatts_host_task(void *param)
@@ -371,9 +371,13 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-    ESP_ERROR_CHECK(esp_nimble_hci_and_controller_init());
 
-    nimble_port_init();
+    ret = nimble_port_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(tag, "Failed to init nimble %d ", ret);
+        return;
+    }
+
     /* Initialize the NimBLE host configuration */
     ble_hs_cfg.sync_cb = gatts_on_sync;
     ble_hs_cfg.reset_cb = gatts_on_reset;

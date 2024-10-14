@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- | -------- | -------- |
+
 # HTTPS x509 Bundle Example
 
 This example shows how to use the ESP certificate bundle utility to embed a bundle of x509 certificates and use them to
@@ -13,7 +16,6 @@ See the README.md file in the upper level 'examples' directory for more informat
 
 * Open the project configuration menu (`idf.py menuconfig`)
 * Configure Wi-Fi or Ethernet under "Example Connection Configuration" menu. See "Establishing Wi-Fi or Ethernet Connection" section in [examples/protocols/README.md](../README.md) for more details.
-* When using Make build system, set `Default serial port` under `Serial flasher config`.
 * If using a different folder than `certs` for storing certificates then update `Custom Certificate Bundle Path` under `Component config` - `mbedTLS` - `Certificate Bundle`
 
 ### Build and Flash
@@ -33,7 +35,7 @@ See the Getting Started Guide for full steps to configure and use ESP-IDF to bui
 I (0) cpu_start: Starting scheduler on APP CPU.
 I (491) system_api: Base MAC address is not set, read default base MAC address from BLK0 of EFUSE
 I (4051) example_connect: Ethernet Link Up
-I (5971) tcpip_adapter: eth ip: 192.168.2.137, mask: 255.255.255.0, gw: 192.168.2.2
+I (5971) esp_netif_handlers: eth ip: 192.168.2.137, mask: 255.255.255.0, gw: 192.168.2.2
 I (5971) example_connect: Connected to Ethernet
 I (5971) example_connect: IPv4 address: 192.168.2.137
 I (5971) example_connect: IPv6 address: fe80:0000:0000:0000:bedd:c2ff:fed4:a92b

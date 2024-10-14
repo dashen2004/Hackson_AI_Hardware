@@ -1,16 +1,8 @@
-// Copyright 2017-2018 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
 
 #ifndef __ESP_HIDD_API_H__
 #define __ESP_HIDD_API_H__
@@ -30,6 +22,7 @@ typedef enum {
     ESP_HIDD_EVENT_BLE_CONNECT,
     ESP_HIDD_EVENT_BLE_DISCONNECT,
     ESP_HIDD_EVENT_BLE_VENDOR_REPORT_WRITE_EVT,
+    ESP_HIDD_EVENT_BLE_LED_REPORT_WRITE_EVT,
 } esp_hidd_cb_event_t;
 
 /// HID config status
@@ -104,6 +97,15 @@ typedef union {
         uint8_t  *data;                             /*!< The pointer to the data */
     } vendor_write;									/*!< HID callback param of ESP_HIDD_EVENT_BLE_VENDOR_REPORT_WRITE_EVT */
 
+    /**
+     * @brief ESP_HIDD_EVENT_BLE_LED_REPORT_WRITE_EVT
+     */
+    struct hidd_led_write_evt_param {
+        uint16_t conn_id;
+        uint8_t report_id;
+        uint8_t length;
+        uint8_t *data;
+    } led_write;
 } esp_hidd_cb_param_t;
 
 

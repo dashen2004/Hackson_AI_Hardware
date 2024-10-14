@@ -21,11 +21,13 @@
 #include <errno.h>
 #include "syscfg/syscfg.h"
 #include "os/os.h"
+#include "host/ble_l2cap.h"
 #include "nimble/ble.h"
 #include "nimble/hci_common.h"
 #include "ble_hs_priv.h"
 #include "ble_l2cap_coc_priv.h"
 
+#if NIMBLE_BLE_CONNECT
 _Static_assert(sizeof (struct ble_l2cap_hdr) == BLE_L2CAP_HDR_SZ,
                "struct ble_l2cap_hdr must be 4 bytes");
 
@@ -329,10 +331,6 @@ ble_l2cap_get_mtu(struct ble_l2cap_chan *chan)
  *                                  pointer to the appropriate handler gets
  *                                  written here.  The caller should pass the
  *                                  receive buffer to this callback.
- * @param out_rx_buf            If a full L2CAP packet has been received, this
- *                                  will point to the entire L2CAP packet.  To
- *                                  process the packet, pass this buffer to the
- *                                  receive handler (out_rx_cb).
  * @param out_reject_cid        Indicates whether an L2CAP Command Reject
  *                                  command should be sent.  If this equals -1,
  *                                  no reject should get sent.  Otherwise, the
@@ -386,14 +384,27 @@ ble_l2cap_rx(struct ble_hs_conn *conn,
             goto err;
         }
 
+        /* For CIDs from dynamic range we check if SDU size isn't larger than MPS */
+        if (chan->dcid >= 0x0040 && chan->dcid <= 0x007F && l2cap_hdr.len > chan->my_coc_mps) {
+            /* Data exceeds MPS */
+            BLE_HS_LOG(ERROR, "error: sdu_len > chan->my_coc_mps (%d>%d)\n",
+                       l2cap_hdr.len, chan->my_coc_mps);
+            ble_l2cap_disconnect(chan);
+            rc = BLE_HS_EBADDATA;
+            goto err;
+        }
+
         if (chan->rx_buf != NULL) {
             /* Previous data packet never completed.  Discard old packet. */
             ble_l2cap_remove_rx(conn, chan);
         }
 
         if (l2cap_hdr.len > ble_l2cap_get_mtu(chan)) {
-            /* More data then we expected on the channel */
+            /* More data than we expected on the channel.
+             * Disconnect peer with invalid behaviour
+             */
             rc = BLE_HS_EBADDATA;
+            ble_l2cap_disconnect(chan);
             goto err;
         }
 
@@ -504,3 +515,5 @@ ble_l2cap_init(void)
 
     return 0;
 }
+
+#endif

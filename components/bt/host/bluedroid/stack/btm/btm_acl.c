@@ -43,7 +43,9 @@
 #include "stack/btu.h"
 #include "stack/btm_api.h"
 #include "btm_int.h"
+#include "stack/acl_hci_link_interface.h"
 #include "l2c_int.h"
+#include "stack/l2cap_hci_link_interface.h"
 #include "stack/hcidefs.h"
 //#include "bt_utils.h"
 #include "osi/list.h"
@@ -237,7 +239,7 @@ BOOLEAN btm_ble_get_acl_remote_addr(tBTM_SEC_DEV_REC *p_dev_rec, BD_ADDR conn_ad
 ** Returns          void
 **
 *******************************************************************************/
-void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, BD_NAME bdn,
+void btm_acl_created (BD_ADDR bda, DEV_CLASS dc, UINT8 bdn[BTM_MAX_REM_BD_NAME_LEN],
                       UINT16 hci_handle, UINT8 link_role, tBT_TRANSPORT transport)
 {
     tBTM_SEC_DEV_REC *p_dev_rec = NULL;
@@ -507,12 +509,14 @@ void btm_acl_device_down (void)
 {
     tACL_CONN   *p = NULL;
     BTM_TRACE_DEBUG ("btm_acl_device_down\n");
-    for (list_node_t *p_node = list_begin(btm_cb.p_acl_db_list); p_node; p_node = list_next(p_node)) {
-       p = list_node(p_node);
-       if (p && p->in_use) {
-           BTM_TRACE_DEBUG ("hci_handle=%d HCI_ERR_HW_FAILURE \n", p->hci_handle );
-           l2c_link_hci_disc_comp (p->hci_handle, HCI_ERR_HW_FAILURE);
-       }
+    for (list_node_t *p_node = list_begin(btm_cb.p_acl_db_list); p_node;) {
+        list_node_t *p_next = list_next(p_node);
+        p = list_node(p_node);
+        if (p && p->in_use) {
+            BTM_TRACE_DEBUG ("hci_handle=%d HCI_ERR_HW_FAILURE \n", p->hci_handle );
+            l2c_link_hci_disc_comp (p->hci_handle, HCI_ERR_HW_FAILURE);
+        }
+        p_node = p_next;
    }
 }
 /*******************************************************************************
@@ -578,6 +582,26 @@ void btm_acl_update_busy_level (tBTM_BLI_EVENT event)
         if (btm_cb.p_bl_changed_cb && (btm_cb.bl_evt_mask & BTM_BL_UPDATE_MASK)) {
             (*btm_cb.p_bl_changed_cb)((tBTM_BL_EVENT_DATA *)&evt);
         }
+    }
+}
+
+/*******************************************************************************
+**
+** Function         btm_acl_link_stat_report
+**
+** Description      This function is called when the ACL link related
+                    events are received from controller. It reports the ACL
+                    link status to upper layer.
+
+** Returns          void
+**
+*******************************************************************************/
+void btm_acl_link_stat_report(tBTM_ACL_LINK_STAT_EVENT_DATA *p_data)
+{
+    BTM_TRACE_DEBUG ("btm_acl_link_stat_report\n");
+
+    if (btm_cb.p_acl_link_stat_cb) {
+        (*btm_cb.p_acl_link_stat_cb)(p_data);
     }
 }
 
@@ -819,22 +843,6 @@ void btm_acl_encrypt_change (UINT16 handle, UINT8 status, UINT8 encr_enable)
         }
 #endif
     }
-#if (CLASSIC_BT_INCLUDED == TRUE)
-    /* If authentication is done through legacy authentication and esp32 has
-     * not authenticated peer deivce yet, do not proceed for encrytion and
-     * first authenticate it. */
-    else if ((BTM_BothEndsSupportSecureConnections(p->remote_addr) == 0) &&
-            ((p->legacy_auth_state & BTM_ACL_LEGACY_AUTH_SELF) == 0)) {
-        if ((p_dev_rec = btm_find_dev (p->remote_addr)) != NULL) {
-            if (btm_sec_legacy_authentication_mutual(p_dev_rec)) {
-                btm_sec_update_legacy_auth_state(btm_bda_to_acl(p_dev_rec->bd_addr, BT_TRANSPORT_BR_EDR), BTM_ACL_LEGACY_AUTH_SELF);
-            } else {
-                BTM_TRACE_ERROR("%s failed, Resources not available for Authentication procedure", __FUNCTION__);
-            }
-        }
-    }
-#endif
-
 }
 /*******************************************************************************
 **
@@ -1846,6 +1854,22 @@ tBTM_STATUS BTM_RegBusyLevelNotif (tBTM_BL_CHANGE_CB *p_cb, UINT8 *p_level,
     return (BTM_SUCCESS);
 }
 
+
+tBTM_STATUS BTM_RegAclLinkStatNotif(tBTM_ACL_LINK_STAT_CB *p_cb)
+{
+    BTM_TRACE_DEBUG ("BTM_RegAclLinkStatNotif\n");
+
+    if (!p_cb) {
+        btm_cb.p_acl_link_stat_cb = NULL;
+    } else if (btm_cb.p_acl_link_stat_cb) {
+        return BTM_BUSY;
+    } else {
+        btm_cb.p_acl_link_stat_cb = p_cb;
+    }
+
+    return BTM_SUCCESS;
+}
+
 /*******************************************************************************
 **
 ** Function         BTM_SetQoS
@@ -2091,6 +2115,70 @@ tBTM_STATUS BTM_ReadTxPower (BD_ADDR remote_bda, tBT_TRANSPORT transport, tBTM_C
 
     /* If here, no BD Addr found */
     return (BTM_UNKNOWN_ADDR);
+}
+
+tBTM_STATUS BTM_SetAclPktTypes(BD_ADDR remote_bda, UINT16 pkt_types, tBTM_CMPL_CB *p_cb)
+{
+#if CLASSIC_BT_INCLUDED == TRUE
+    tBTM_STATUS ret = BTM_UNKNOWN_ADDR;
+    tACL_CONN *p;
+    tBTM_SET_ACL_PKT_TYPES_RESULTS result;
+
+    /* If someone already waiting on the version, do not allow another */
+    if (btm_cb.devcb.p_set_acl_pkt_types_cmpl_cb) {
+        result.status = HCI_ERR_REPEATED_ATTEMPTS;
+        (*p_cb)(&result);
+        return (BTM_BUSY);;
+    }
+
+    p = btm_bda_to_acl(remote_bda, BT_TRANSPORT_BR_EDR);
+
+    if (p != (tACL_CONN *)NULL) {
+        btu_start_timer (&btm_cb.devcb.set_acl_pkt_types_timer, BTU_TTYPE_BTM_ACL,
+                         BTM_DEV_REPLY_TIMEOUT);
+
+        btm_cb.devcb.p_set_acl_pkt_types_cmpl_cb = p_cb;
+        if (btm_set_packet_types(p, pkt_types) != BTM_CMD_STARTED) {
+            btm_cb.devcb.p_set_acl_pkt_types_cmpl_cb = NULL;
+            btu_stop_timer (&btm_cb.devcb.set_acl_pkt_types_timer);
+            result.status = HCI_ERR_MEMORY_FULL;
+            (*p_cb)(&result);
+            ret = BTM_NO_RESOURCES;
+        } else {
+            ret = BTM_CMD_STARTED;
+        }
+    }
+    /* If here, no BD Addr found */
+    return ret;
+#else
+    return BTM_NO_RESOURCES;
+#endif
+}
+
+void btm_acl_pkt_types_changed(UINT8 status, UINT16 handle, UINT16 pkt_types)
+{
+#if CLASSIC_BT_INCLUDED == TRUE
+    BTM_TRACE_DEBUG ("btm_acl_pkt_types_changed\n");
+    tACL_CONN *conn = NULL;
+    tBTM_SET_ACL_PKT_TYPES_RESULTS results;
+    btu_stop_timer (&btm_cb.devcb.set_acl_pkt_types_timer);
+
+    /* If there is a callback registered for packet types changed, call it */
+    if (btm_cb.devcb.p_set_acl_pkt_types_cmpl_cb) {
+        if (status == HCI_SUCCESS) {
+            results.status = BTM_SUCCESS;
+        } else {
+            results.status = BTM_BAD_VALUE_RET;
+        }
+        results.pkt_types = pkt_types;
+        /* Search through the list of active channels for the correct BD Addr */
+        if ((conn = btm_handle_to_acl(handle)) != NULL) {
+            memcpy(results.rem_bda, conn->remote_addr, BD_ADDR_LEN);
+            (*btm_cb.devcb.p_set_acl_pkt_types_cmpl_cb)(&results);
+        }
+        btm_cb.devcb.p_set_acl_pkt_types_cmpl_cb = NULL;
+    }
+#endif
 }
 
 #if (BLE_INCLUDED == TRUE)
@@ -2584,4 +2672,86 @@ void btm_acl_free(void)
 {
     list_free(btm_cb.p_acl_db_list);
     list_free(btm_cb.p_pm_mode_db_list);
+}
+
+/*******************************************************************************
+**
+** Function         btm_acl_connected
+**
+** Description      Handle ACL connection complete event
+**
+*******************************************************************************/
+void btm_acl_connected(BD_ADDR bda, UINT16 handle, UINT8 link_type, UINT8 enc_mode, UINT8 status)
+{
+#if BTM_SCO_INCLUDED == TRUE
+    tBTM_ESCO_DATA  esco_data;
+#endif
+
+    if (link_type == HCI_LINK_TYPE_ACL) {
+#if SMP_INCLUDED == TRUE
+        btm_sec_connected (bda, handle, status, enc_mode);
+#endif  /* SMP_INCLUDED == TRUE */
+        /* report acl connection result to upper layer */
+        do {
+            tBTM_ACL_LINK_STAT_EVENT_DATA evt_data = {
+                .event = BTM_ACL_CONN_CMPL_EVT,
+                .link_act.conn_cmpl.status = status,
+                .link_act.conn_cmpl.handle = handle,
+            };
+            bdcpy(evt_data.link_act.conn_cmpl.bd_addr, bda);
+            btm_acl_link_stat_report(&evt_data);
+        } while (0);
+
+        l2c_link_hci_conn_comp(status, handle, bda);
+    }
+#if BTM_SCO_INCLUDED == TRUE
+    else {
+        memset(&esco_data, 0, sizeof(tBTM_ESCO_DATA));
+        esco_data.link_type = HCI_LINK_TYPE_SCO;
+        memcpy (esco_data.bd_addr, bda, BD_ADDR_LEN);
+        btm_sco_connected(status, bda, handle, &esco_data);
+    }
+#endif /* BTM_SCO_INCLUDED == TRUE */
+}
+
+/*******************************************************************************
+**
+** Function         btm_acl_disconnected
+**
+** Description      Handle ACL disconnection complete event
+**
+*******************************************************************************/
+void btm_acl_disconnected(UINT16 handle, UINT8 reason)
+{
+
+    /* Report BR/EDR ACL disconnection result to upper layer */
+    tACL_CONN *conn = btm_handle_to_acl(handle);
+    if (conn) {
+#if BLE_INCLUDED == TRUE
+        if (conn->transport == BT_TRANSPORT_BR_EDR)
+#endif
+        {
+            tBTM_ACL_LINK_STAT_EVENT_DATA evt_data = {
+                .event = BTM_ACL_DISCONN_CMPL_EVT,
+                .link_act.disconn_cmpl.reason = reason,
+                .link_act.disconn_cmpl.handle = handle,
+            };
+            bdcpy(evt_data.link_act.disconn_cmpl.bd_addr, conn->remote_addr);
+            btm_acl_link_stat_report(&evt_data);
+        }
+    }
+
+#if BTM_SCO_INCLUDED == TRUE
+    /* If L2CAP doesn't know about it, send it to SCO */
+    if (!l2c_link_hci_disc_comp (handle, reason)) {
+        btm_sco_removed (handle, reason);
+    }
+#else
+    l2c_link_hci_disc_comp(handle, reason);
+#endif /* BTM_SCO_INCLUDED */
+
+#if (SMP_INCLUDED == TRUE)
+    /* Notify security manager */
+    btm_sec_disconnected(handle, reason);
+#endif  /* SMP_INCLUDED == TRUE */
 }

@@ -39,6 +39,7 @@
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
 
 #include "coap/coap.hpp"
+#include "thread/tmf.hpp"
 
 namespace ot {
 namespace BackboneRouter {
@@ -46,26 +47,22 @@ namespace BackboneRouter {
 constexpr uint16_t kBackboneUdpPort = 61631; ///< Backbone TMF UDP Port
 
 /**
- * This class implements functionality of the Backbone TMF agent.
+ * Implements functionality of the Backbone TMF agent.
  *
  */
 class BackboneTmfAgent : public Coap::Coap
 {
 public:
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      * @param[in] aInstance      A reference to the OpenThread instance.
      *
      */
-    explicit BackboneTmfAgent(Instance &aInstance)
-        : Coap::Coap(aInstance)
-    {
-        SetInterceptor(&Filter, this);
-    }
+    explicit BackboneTmfAgent(Instance &aInstance);
 
     /**
-     * This method starts the Backbone TMF agent.
+     * Starts the Backbone TMF agent.
      *
      * @retval kErrorNone    Successfully started the CoAP service.
      * @retval kErrorFailed  Failed to start the Backbone TMF agent.
@@ -74,7 +71,7 @@ public:
     Error Start(void);
 
     /**
-     * This method returns whether @p aMessageInfo meets Backbone Thread Management Framework Addressing Rules.
+     * Returns whether @p aMessageInfo meets Backbone Thread Management Framework Addressing Rules.
      *
      * @retval true   Thread Management Framework Addressing Rules are met.
      * @retval false  Thread Management Framework Addressing Rules are not met.
@@ -83,7 +80,7 @@ public:
     bool IsBackboneTmfMessage(const Ip6::MessageInfo &aMessageInfo) const;
 
     /**
-     * This method subscribes the Backbone TMF socket to a given IPv6 multicast group on the Backbone network.
+     * Subscribes the Backbone TMF socket to a given IPv6 multicast group on the Backbone network.
      *
      * @param[in] aAddress  The IPv6 multicast group address.
      *
@@ -91,7 +88,7 @@ public:
     void SubscribeMulticast(const Ip6::Address &aAddress);
 
     /**
-     * This method unsubscribes the Backbone TMF socket from a given IPv6 multicast group on the Backbone network.
+     * Unsubscribes the Backbone TMF socket from a given IPv6 multicast group on the Backbone network.
      *
      * @param[in] aAddress  The IPv6 multicast group address.
      *
@@ -99,6 +96,12 @@ public:
     void UnsubscribeMulticast(const Ip6::Address &aAddress);
 
 private:
+    static bool HandleResource(CoapBase               &aCoapBase,
+                               const char             *aUriPath,
+                               ot::Coap::Message      &aMessage,
+                               const Ip6::MessageInfo &aMessageInfo);
+    bool        HandleResource(const char *aUriPath, ot::Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
+    void        LogError(const char *aText, const Ip6::Address &aAddress, Error aError) const;
     static Error Filter(const ot::Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo, void *aContext);
 };
 

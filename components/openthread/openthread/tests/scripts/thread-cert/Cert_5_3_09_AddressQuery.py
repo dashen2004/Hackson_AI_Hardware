@@ -109,7 +109,7 @@ class Cert_5_3_09_AddressQuery(thread_cert.TestCase):
     def test(self):
         # 1 & 2 ALL: Build and verify the topology
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), 'leader')
 
         # Configure the LEADER to be a DHCPv6 Border Router for prefixes
@@ -118,15 +118,15 @@ class Cert_5_3_09_AddressQuery(thread_cert.TestCase):
         self.nodes[LEADER].register_netdata()
 
         self.nodes[ROUTER1].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[ROUTER1].get_state(), 'router')
 
         self.nodes[DUT_ROUTER2].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[DUT_ROUTER2].get_state(), 'router')
 
         self.nodes[ROUTER3].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[ROUTER3].get_state(), 'router')
 
         self.nodes[SED1].start()
@@ -155,7 +155,7 @@ class Cert_5_3_09_AddressQuery(thread_cert.TestCase):
         self.assertTrue(self.nodes[SED1].ping(router3_addr))
         self.simulator.go(1)
 
-        # 6 DUT_ROUTER2: Power off ROUTER3 and wait 580s to alow LEADER to
+        # 6 DUT_ROUTER2: Power off ROUTER3 and wait 580s to allow LEADER to
         # expire its Router ID
         self.nodes[ROUTER3].stop()
         self.simulator.go(580)
@@ -233,7 +233,7 @@ class Cert_5_3_09_AddressQuery(thread_cert.TestCase):
             must_next()
 
         # Step 3: Router_1 sends an ICMPv6 Echo Request to SED using GUA 2001::
-        #         addresss
+        #         address
         #         The DUT MUST respond to the Address Query Request with a properly
         #         formatted Address Notification Message:
         #             CoAP URI-Path

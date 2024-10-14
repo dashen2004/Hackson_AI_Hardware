@@ -127,6 +127,8 @@ LEAD_PET_URI = '/c/lp'
 LEAD_KA_URI = '/c/la'
 DIAG_GET_QRY_URI = '/d/dq'
 DIAG_GET_ANS_URI = '/d/da'
+BACKBONE_QUERY_URI = '/b/bq'
+BACKBONE_ANSWER_URI = '/b/ba'
 
 # ADDR SOL Status
 ADDR_SOL_SUCCESS = 0
@@ -162,6 +164,10 @@ PENDING_OPERATION_DATASET_TLV = 25
 THREAD_DISCOVERY_TLV = 26
 CSL_SYNCHRONIZED_TIMEOUT = 85
 CSL_CLOCK_ACCURACY = 86
+LINK_METRICS_QUERY_TLV = 87
+LINK_METRICS_MANAGEMENT_TLV = 88
+LINK_METRICS_REPORT_TLV = 89
+LINK_PROBE_TLV = 90
 
 # Network Layer TLVs
 NL_TARGET_EID_TLV = 0
@@ -308,6 +314,7 @@ REAL_LAYER_NAMES = {
     'dns',
     'igmp',
     'mdns',
+    'dns',
 }
 
 FAKE_LAYER_NAMES = {'thread_nwd', 'thread_meshcop', 'ipv6inner'}
@@ -335,6 +342,27 @@ WIRESHARK_OVERRIDE_PREFS = {
 
 WIRESHARK_DECODE_AS_ENTRIES = {
     'udp.port==61631': 'coap',
+    # SRP server ports for dissecting SRP requests and responses
+    'udp.port==53535': 'dns',
+    'udp.port==53536': 'dns',
+    'udp.port==53537': 'dns',
+    'udp.port==53538': 'dns',
+    'udp.port==53539': 'dns',
+    'udp.port==53540': 'dns',
+    'udp.port==53541': 'dns',
+    'udp.port==53542': 'dns',
+    'udp.port==53543': 'dns',
+    'udp.port==53544': 'dns',
+    'udp.port==53545': 'dns',
+    'udp.port==53546': 'dns',
+    'udp.port==53547': 'dns',
+    'udp.port==53548': 'dns',
+    'udp.port==53549': 'dns',
+    'udp.port==53550': 'dns',
+    'udp.port==53551': 'dns',
+    'udp.port==53552': 'dns',
+    'udp.port==53553': 'dns',
+    'udp.port==53554': 'dns',
 }
 
 TIMEOUT_JOIN_NETWORK = 10
@@ -355,18 +383,36 @@ MAC_FRAME_TYPE_ACK = 0x2
 MAC_FRAME_TYPE_MAC_CMD = 0x3
 
 # CSL
-CSL_DEFAULT_PERIOD = 3125  # 0.5s, 3125 in units of ten symbols
 CSL_DEFAULT_PERIOD_IN_SECOND = 0.5
+CSL_DEFAULT_PERIOD = CSL_DEFAULT_PERIOD_IN_SECOND * 1000 * 1000  # in usec
 US_PER_TEN_SYMBOLS = 160
 CSL_IE_ID = 0x1a
 CSL_DEFAULT_TIMEOUT = 30
 CSL_DEFAULT_CHANNEL = 12
 
 # Thread Version TLV value
+THREAD_VERSION_1_1 = 2
 THREAD_VERSION_1_2 = 3
+THREAD_VERSION_1_3 = 4
 
 # ICMPv6 Types
 ICMPV6_TYPE_DESTINATION_UNREACHABLE = 1
+ICMPV6_TYPE_PACKET_TO_BIG = 2
+ICMPV6_TYPE_TIME_EXCEEDED = 3
+ICMPV6_TYPE_PARAMETER_PROBLEM = 4
+ICMPV6_TYPE_ECHO_REQUEST = 128
+ICMPV6_TYPE_ECHO_REPLY = 129
+
+ICMPV6_RA_OPT_TYPE_RIO = 24
+
+THREAD_ALLOWED_ICMPV6_TYPES = [
+    ICMPV6_TYPE_DESTINATION_UNREACHABLE,
+    ICMPV6_TYPE_PACKET_TO_BIG,
+    ICMPV6_TYPE_TIME_EXCEEDED,
+    ICMPV6_TYPE_PARAMETER_PROBLEM,
+    ICMPV6_TYPE_ECHO_REQUEST,
+    ICMPV6_TYPE_ECHO_REPLY,
+]
 
 # Link Metrics
 LINK_METRICS_STATUS_SUCCESS = 0

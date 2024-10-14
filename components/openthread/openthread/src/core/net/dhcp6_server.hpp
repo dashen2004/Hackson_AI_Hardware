@@ -67,7 +67,7 @@ class Server : public InstanceLocator, private NonCopyable
 {
 public:
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      * @param[in]  aInstance     A reference to the OpenThread instance.
      *
@@ -75,23 +75,17 @@ public:
     explicit Server(Instance &aInstance);
 
     /**
-     * This method updates DHCP Agents and DHCP ALOCs.
+     * Updates DHCP Agents and DHCP ALOCs.
      *
      */
     Error UpdateService(void);
-
-    /**
-     * This method applies the Mesh Local Prefix.
-     *
-     */
-    void ApplyMeshLocalPrefix(void);
 
 private:
     class PrefixAgent
     {
     public:
         /**
-         * This method indicates whether or not @p aAddress has a matching prefix.
+         * Indicates whether or not @p aAddress has a matching prefix.
          *
          * @param[in]  aAddress  The IPv6 address to compare.
          *
@@ -102,7 +96,7 @@ private:
         bool IsPrefixMatch(const Ip6::Address &aAddress) const { return aAddress.MatchesPrefix(GetPrefix()); }
 
         /**
-         * This method indicates whether or not this entry is valid.
+         * Indicates whether or not this entry is valid.
          *
          * @retval TRUE if this entry is valid.
          * @retval FALSE if this entry is not valid.
@@ -111,13 +105,13 @@ private:
         bool IsValid(void) const { return mAloc.mValid; }
 
         /**
-         * This method sets the entry to invalid.
+         * Sets the entry to invalid.
          *
          */
         void Clear(void) { mAloc.mValid = false; }
 
         /**
-         * This method returns the 6LoWPAN context ID.
+         * Returns the 6LoWPAN context ID.
          *
          * @returns The 6LoWPAN context ID.
          *
@@ -125,7 +119,7 @@ private:
         uint8_t GetContextId(void) const { return mAloc.mAddress.mFields.m8[15]; }
 
         /**
-         * This method returns the ALOC.
+         * Returns the ALOC.
          *
          * @returns the ALOC.
          *
@@ -133,7 +127,7 @@ private:
         Ip6::Netif::UnicastAddress &GetAloc(void) { return mAloc; }
 
         /**
-         * This method returns the IPv6 prefix.
+         * Returns the IPv6 prefix.
          *
          * @returns The IPv6 prefix.
          *
@@ -141,7 +135,7 @@ private:
         const Ip6::Prefix &GetPrefix(void) const { return mPrefix; }
 
         /**
-         * This method returns the IPv6 prefix.
+         * Returns the IPv6 prefix.
          *
          * @returns The IPv6 prefix.
          *
@@ -149,7 +143,7 @@ private:
         Ip6::Prefix &GetPrefix(void) { return mPrefix; }
 
         /**
-         * This method returns the IPv6 prefix as an IPv6 address.
+         * Returns the IPv6 prefix as an IPv6 address.
          *
          * @returns The IPv6 prefix as an IPv6 address.
          *
@@ -160,19 +154,20 @@ private:
         }
 
         /**
-         * This method sets the ALOC.
+         * Sets the ALOC.
          *
          * @param[in]  aPrefix           The IPv6 prefix.
          * @param[in]  aMeshLocalPrefix  The Mesh Local Prefix.
          * @param[in]  aContextId        The 6LoWPAN Context ID.
          *
          */
-        void Set(const Ip6::Prefix &aPrefix, const Mle::MeshLocalPrefix &aMeshLocalPrefix, uint8_t aContextId)
+        void Set(const Ip6::Prefix &aPrefix, const Ip6::NetworkPrefix &aMeshLocalPrefix, uint8_t aContextId)
         {
             mPrefix = aPrefix;
 
             mAloc.InitAsThreadOrigin();
             mAloc.GetAddress().SetToAnycastLocator(aMeshLocalPrefix, (Ip6::Address::kAloc16Mask << 8) + aContextId);
+            mAloc.mMeshLocal = true;
         }
 
     private:
@@ -197,11 +192,8 @@ private:
     Error AppendVendorSpecificInformation(Message &aMessage);
 
     Error AddIaAddress(Message &aMessage, const Ip6::Address &aPrefix, ClientIdentifier &aClientId);
-
-    static void HandleUdpReceive(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo);
-    void        HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
-
-    void ProcessSolicit(Message &aMessage, const Ip6::Address &aDst, const TransactionId &aTransactionId);
+    void  HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
+    void  ProcessSolicit(Message &aMessage, const Ip6::Address &aDst, const TransactionId &aTransactionId);
 
     uint16_t FindOption(Message &aMessage, uint16_t aOffset, uint16_t aLength, Code aCode);
     Error    ProcessClientIdentifier(Message &aMessage, uint16_t aOffset, ClientIdentifier &aClientId);
@@ -209,12 +201,14 @@ private:
     Error    ProcessIaAddress(Message &aMessage, uint16_t aOffset);
     Error    ProcessElapsedTime(Message &aMessage, uint16_t aOffset);
 
-    Error SendReply(const Ip6::Address & aDst,
+    Error SendReply(const Ip6::Address  &aDst,
                     const TransactionId &aTransactionId,
-                    ClientIdentifier &   aClientId,
-                    IaNa &               aIaNa);
+                    ClientIdentifier    &aClientId,
+                    IaNa                &aIaNa);
 
-    Ip6::Udp::Socket mSocket;
+    using ServerSocket = Ip6::Udp::SocketIn<Server, &Server::HandleUdpReceive>;
+
+    ServerSocket mSocket;
 
     PrefixAgent mPrefixAgents[kNumPrefixes];
     uint8_t     mPrefixAgentsCount;

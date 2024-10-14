@@ -27,7 +27,6 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 import ipaddress
-import logging
 import unittest
 
 import config
@@ -81,16 +80,23 @@ class SingleHostAndService(thread_cert.TestCase):
         host.start(start_radvd=False)
         self.simulator.go(5)
 
+        # Reserve UDP ports to verify that SRP server can skip the unavailable
+        # ports correctly
+        server.reserve_udp_port(53535)
+        server.reserve_udp_port(53536)
+        server.reserve_udp_port(53537)
+
         self.assertEqual(server.srp_server_get_state(), 'disabled')
         server.srp_server_set_enabled(True)
         server.srp_server_set_lease_range(LEASE, LEASE, KEY_LEASE, KEY_LEASE)
         server.start()
-        self.simulator.go(10)
+        self.simulator.go(config.BORDER_ROUTER_STARTUP_DELAY)
         self.assertEqual('leader', server.get_state())
         self.assertEqual(server.srp_server_get_state(), 'running')
+        self.assertNotIn(server.get_srp_server_port(), [53535, 53536, 53537])
 
         client.start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual('router', client.get_state())
 
         #
@@ -168,7 +174,7 @@ class SingleHostAndService(thread_cert.TestCase):
         self.assertIsNone(host.discover_mdns_service('my-service-1', '_ipps._tcp', 'my-host'))
 
         server.srp_server_set_enabled(True)
-        self.simulator.go(LEASE)
+        self.simulator.go(20)
 
         self.check_host_and_service(server, client, '2001::2', 'my-service')
         self.check_host_and_service(server, client, '2001::2', 'my-service-1')
@@ -181,11 +187,16 @@ class SingleHostAndService(thread_cert.TestCase):
         #
 
         client.srp_client_remove_service('my-service-1', '_ipps._tcp')
+
         self.simulator.go(5)
 
         self.check_host_and_service(server, client, '2001::2', 'my-service')
         self.host_check_mdns_service(host, '2001::2', 'my-service')
         self.assertIsNone(host.discover_mdns_service('my-service-1', '_ipps._tcp', 'my-host'))
+
+        # Wait for KEY expiration of service 'my-service-1'.
+        # FIXME: workaround for https://github.com/openthread/ot-br-posix/issues/1071.
+        self.simulator.go(KEY_LEASE + 5)
 
         #
         # 8. Update both the host and the service in a loop and make sure the
@@ -197,22 +208,60 @@ class SingleHostAndService(thread_cert.TestCase):
             client.srp_client_clear_service('my-service', '_ipps._tcp')
             client.srp_client_set_host_address(host_address)
             client.srp_client_add_service('my-service', '_ipps._tcp', service_port)
-            self.simulator.go(5)
+            self.simulator.go(10)
 
             self.check_host_and_service(server, client, host_address, 'my-service', service_port)
             self.host_check_mdns_service(host, host_address, 'my-service', service_port)
 
         #
-        # 9. Check if the expired service is removed by the Advertising Proxy.
+        # 9. Check if Advertising Proxy filters out Mesh Local and Link Local host addresses
         #
+        client.srp_client_remove_host()
+        self.simulator.go(2)
+        client.srp_client_set_host_name('my-host')
+        client.srp_client_set_host_address('2001::1', '2002::2',
+                                           client.get_ip6_address(config.ADDRESS_TYPE.OMR)[0],
+                                           client.get_ip6_address(config.ADDRESS_TYPE.LINK_LOCAL),
+                                           client.get_ip6_address(config.ADDRESS_TYPE.ML_EID))
+        client.srp_client_add_service('my-service', '_ipps._tcp', 12345)
+        client.srp_client_enable_auto_start_mode()
+        self.simulator.go(10)
+        self.check_host_and_service(server, client, [
+            '2001::1', '2002::2',
+            client.get_ip6_address(config.ADDRESS_TYPE.OMR)[0],
+            client.get_ip6_address(config.ADDRESS_TYPE.LINK_LOCAL),
+            client.get_ip6_address(config.ADDRESS_TYPE.ML_EID)
+        ], 'my-service', 12345)
+        self.host_check_mdns_service(
+            host, ['2001::1', '2002::2', client.get_ip6_address(config.ADDRESS_TYPE.OMR)[0]], 'my-service', 12345)
 
+        client.srp_client_set_host_address(client.get_ip6_address(config.ADDRESS_TYPE.LINK_LOCAL),
+                                           client.get_ip6_address(config.ADDRESS_TYPE.ML_EID), client.get_rloc())
+        self.simulator.go(10)
+        self.check_host_and_service(server, client, [
+            client.get_ip6_address(config.ADDRESS_TYPE.LINK_LOCAL),
+            client.get_ip6_address(config.ADDRESS_TYPE.ML_EID),
+            client.get_rloc()
+        ], 'my-service', 12345)
+        self.host_check_mdns_service(host, [], 'my-service', 12345)
+
+        client.srp_client_set_host_address('2005::3')
+        self.simulator.go(10)
+        self.check_host_and_service(server, client, '2005::3', 'my-service', 12345)
+        self.host_check_mdns_service(host, '2005::3', 'my-service', 12345)
+
+        #
+        # 10. Check if the expired service is removed by the Advertising Proxy.
+        #
         client.srp_client_stop()
         self.simulator.go(LEASE + 2)
 
         self.assertIsNone(host.discover_mdns_service('my-service', '_ipps._tcp', 'my-host'))
         self.assertIsNone(host.discover_mdns_service('my-service-1', '_ipps._tcp', 'my-host'))
 
-    def host_check_mdns_service(self, host, host_addr, service_instance, service_port=12345):
+    def host_check_mdns_service(self, host, host_addrs, service_instance, service_port=12345):
+        if isinstance(host_addrs, str):
+            host_addrs = [host_addrs]
         service = host.discover_mdns_service(service_instance, '_ipps._tcp', 'my-host')
         self.assertIsNotNone(service)
         self.assertEqual(service['instance'], service_instance)
@@ -221,13 +270,16 @@ class SingleHostAndService(thread_cert.TestCase):
         self.assertEqual(service['priority'], 0)
         self.assertEqual(service['weight'], 0)
         self.assertEqual(service['host'], 'my-host')
-        self.assertEqual(ipaddress.ip_address(service['addresses'][0]), ipaddress.ip_address(host_addr))
-        self.assertEqual(len(service['addresses']), 1)
+        self.assertEqual(len(service['addresses']), len(host_addrs))
+        self.assertEqual(sorted(map(ipaddress.ip_address, service['addresses'])),
+                         sorted(map(ipaddress.ip_address, host_addrs)))
 
-    def check_host_and_service(self, server, client, host_addr, service_instance, service_port=12345):
+    def check_host_and_service(self, server, client, host_addrs, service_instance, service_port=12345):
         """Check that we have properly registered host and service instance.
         """
 
+        if isinstance(host_addrs, str):
+            host_addrs = [host_addrs]
         client_services = client.srp_client_get_services()
         print(client_services)
         client_services = [service for service in client_services if service['instance'] == service_instance]
@@ -241,8 +293,14 @@ class SingleHostAndService(thread_cert.TestCase):
         self.assertEqual(int(client_service['priority']), 0)
         self.assertEqual(int(client_service['weight']), 0)
 
-        # Verify that the client received a SUCCESS response for the server.
-        self.assertEqual(client_service['state'], 'Registered')
+        # Verify the client successfully registered its service with
+        # the server. Due to the short lease times (10 seconds) used
+        # in this test, the client will refresh the registered
+        # service quickly. During the test, we accept any of the
+        # following states as indicating successful registration:
+        # `Registered`, `ToRefresh`, or `Refreshing`.
+
+        self.assertIn(client_service['state'], ['Registered', 'ToRefresh', 'Refreshing'])
 
         server_services = server.srp_server_get_services()
         print(server_services)
@@ -267,8 +325,51 @@ class SingleHostAndService(thread_cert.TestCase):
 
         self.assertEqual(server_host['deleted'], 'false')
         self.assertEqual(server_host['fullname'], server_service['host_fullname'])
-        self.assertEqual(len(server_host['addresses']), 1)
-        self.assertEqual(ipaddress.ip_address(server_host['addresses'][0]), ipaddress.ip_address(host_addr))
+        self.assertEqual(sorted(map(ipaddress.ip_address, server_host['addresses'])),
+                         sorted(map(ipaddress.ip_address, host_addrs)))
+
+
+class SrpClientRemoveNonExistingHost(thread_cert.TestCase):
+    USE_MESSAGE_FACTORY = False
+
+    TOPOLOGY = {
+        BR: {
+            'name': 'BR',
+            'allowlist': [ROUTER],
+            'is_otbr': True,
+            'version': '1.2',
+        },
+        ROUTER: {
+            'name': 'Router',
+            'allowlist': [BR],
+            'version': '1.2',
+        }
+    }
+
+    def test(self):
+        server = self.nodes[BR]
+        client = self.nodes[ROUTER]
+
+        server.srp_server_set_enabled(True)
+        server.srp_server_set_lease_range(LEASE, LEASE, KEY_LEASE, KEY_LEASE)
+        server.start()
+        self.simulator.go(config.BORDER_ROUTER_STARTUP_DELAY)
+        self.assertEqual('leader', server.get_state())
+        self.assertEqual(server.srp_server_get_state(), 'running')
+
+        client.start()
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
+        self.assertEqual('router', client.get_state())
+
+        # Immediately remove a non-existing host.
+
+        client.srp_client_enable_auto_start_mode()
+        client.srp_client_set_host_name('my-host')
+        self.assertEqual('ToAdd', client.srp_client_get_host_state())
+
+        client.srp_client_remove_host(remove_key=True, send_unreg_to_server=True)
+        self.simulator.go(2)
+        self.assertEqual('Removed', client.srp_client_get_host_state())
 
 
 if __name__ == '__main__':

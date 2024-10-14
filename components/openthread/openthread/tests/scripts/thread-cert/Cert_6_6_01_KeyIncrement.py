@@ -29,6 +29,7 @@
 
 import unittest
 
+import config
 import thread_cert
 from pktverify.consts import MLE_ADVERTISEMENT, MLE_CHILD_ID_REQUEST
 from pktverify.packet_verifier import PacketVerifier
@@ -41,14 +42,12 @@ class Cert_6_6_1_KeyIncrement(thread_cert.TestCase):
     TOPOLOGY = {
         LEADER: {
             'name': 'LEADER',
-            'key_switch_guardtime': 0,
             'mode': 'rdn',
             'allowlist': [ED]
         },
         ED: {
             'name': 'ED',
             'is_mtd': True,
-            'key_switch_guardtime': 0,
             'mode': 'rn',
             'allowlist': [LEADER]
         },
@@ -56,7 +55,7 @@ class Cert_6_6_1_KeyIncrement(thread_cert.TestCase):
 
     def test(self):
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), "leader")
 
         self.nodes[ED].start()

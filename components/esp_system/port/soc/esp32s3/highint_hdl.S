@@ -1,22 +1,14 @@
-// Copyright 2015-2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 
 #include <xtensa/coreasm.h>
 #include <xtensa/corebits.h>
 #include <xtensa/config/system.h>
-#include "freertos/xtensa_context.h"
+#include "xtensa_context.h"
 #include "esp_private/panic_reason.h"
 #include "sdkconfig.h"
 #include "soc/soc.h"
@@ -45,12 +37,12 @@ _l4_intr_stack:
     .align      4
 xt_highint4:
 
-#ifndef CONFIG_FREERTOS_UNICORE
+#ifndef CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
     /* See if we're here for the IPC_ISR interrupt */
     rsr     a0, INTERRUPT
     extui   a0, a0, ETS_IPC_ISR_INUM, 1
     bnez    a0, jump_to_esp_ipc_isr_handler
-#endif // not CONFIG_FREERTOS_UNICORE
+#endif // not CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE
 
     /* Allocate exception frame and save minimal context. */
     mov     a0, sp
@@ -63,6 +55,8 @@ xt_highint4:
     s32i    a0, sp, XT_STK_PS
     rsr     a0, EPC_4                       /* save interruptee's PC */
     s32i    a0, sp, XT_STK_PC
+    rsr     a0, EXCSAVE_4                   /* save interruptee's a0 */
+    s32i    a0, sp, XT_STK_A0
     #if XCHAL_HAVE_WINDOWED
     s32e    a0, sp, -16                     /* for debug backtrace */
     #endif
@@ -90,7 +84,7 @@ xt_highint4:
 1:
 #if CONFIG_ESP_INT_WDT_CHECK_CPU1
     /* Check if the cause is the app cpu failing to tick.*/
-    movi    a0, int_wdt_app_cpu_ticked
+    movi    a0, int_wdt_cpu1_ticked
     l32i    a0, a0, 0
     bnez    a0, 2f
     /* It is. Modify cause. */
@@ -104,11 +98,6 @@ xt_highint4:
 9:
     /* Found the reason, now save it. */
     s32i    a0, sp, XT_STK_EXCCAUSE
-
-    /* _xt_context_save seems to save the current a0, but we need the interuptees a0. Fix this. */
-    rsr     a0, EXCSAVE_4                   /* save interruptee's a0 */
-
-    s32i    a0, sp, XT_STK_A0
 
     /* Set up PS for C, disable all interrupts except NMI and debug, and clear EXCM. */
     movi    a0, PS_INTLEVEL(5) | PS_UM | PS_WOE

@@ -65,7 +65,7 @@ static const tGATT_CBACK gap_cback = {
 **
 ** Function         gap_find_clcb_by_bd_addr
 **
-** Description      The function searches all LCB with macthing bd address
+** Description      The function searches all LCB with matching bd address
 **
 ** Returns          total number of clcb found.
 **
@@ -88,7 +88,7 @@ tGAP_CLCB *gap_find_clcb_by_bd_addr(BD_ADDR bda)
 **
 ** Function         gap_ble_find_clcb_by_conn_id
 **
-** Description      The function searches all LCB with macthing connection ID
+** Description      The function searches all LCB with matching connection ID
 **
 ** Returns          total number of clcb found.
 **
@@ -163,7 +163,7 @@ void gap_ble_dealloc_clcb(tGAP_CLCB *p_clcb)
 **
 ** Description      The function enqueue a GAP client request
 **
-** Returns           TRUE is successul; FALSE otherwise
+** Returns           TRUE is successful; FALSE otherwise
 **
 *******************************************************************************/
 BOOLEAN gap_ble_enqueue_request (tGAP_CLCB *p_clcb, UINT16 uuid, tGAP_BLE_CMPL_CBACK *p_cback)
@@ -185,7 +185,7 @@ BOOLEAN gap_ble_enqueue_request (tGAP_CLCB *p_clcb, UINT16 uuid, tGAP_BLE_CMPL_C
 **
 ** Description      The function dequeue a GAP client request if any
 **
-** Returns           TRUE is successul; FALSE otherwise
+** Returns           TRUE is successful; FALSE otherwise
 **
 *******************************************************************************/
 BOOLEAN gap_ble_dequeue_request (tGAP_CLCB *p_clcb, UINT16 *p_uuid, tGAP_BLE_CMPL_CBACK **p_cback)
@@ -221,7 +221,7 @@ tGATT_STATUS gap_read_attr_value (UINT16 handle, tGATT_VALUE *p_value, BOOLEAN i
 
             switch (p_db_attr->uuid) {
             case GATT_UUID_GAP_DEVICE_NAME:
-                BTM_ReadLocalDeviceName((char **)&p_dev_name);
+                BTM_ReadLocalDeviceName((char **)&p_dev_name, BT_DEVICE_TYPE_BLE);
                 if (strlen ((char *)p_dev_name) > GATT_MAX_ATTR_LEN) {
                     p_value->len = GATT_MAX_ATTR_LEN;
                 } else {
@@ -298,12 +298,34 @@ UINT8 gap_proc_write_req( tGATTS_REQ_TYPE type, tGATT_WRITE_REQ *p_data)
     UNUSED(type);
 
     for (i = 0; i < GAP_MAX_CHAR_NUM; i ++, p_db_attr ++) {
-        if (p_data-> handle == p_db_attr->handle) {
+        if (p_data->handle == p_db_attr->handle) {
+            switch (p_db_attr->uuid) {
+                #if (GATTS_DEVICE_NAME_WRITABLE == TRUE)
+                case GATT_UUID_GAP_DEVICE_NAME: {
+                    UINT8 *p_val = p_data->value;
+                    p_val[p_data->len] = '\0';
+                    BTM_SetLocalDeviceName((char *)p_val, BT_DEVICE_TYPE_BLE);
+                    return GATT_SUCCESS;
+                }
+                #endif
+                #if (GATTS_APPEARANCE_WRITABLE == TRUE)
+                case GATT_UUID_GAP_ICON: {
+                    UINT8 *p_val = p_data->value;
+                    if (p_data->len != sizeof(UINT16)) {
+                        return GATT_INVALID_ATTR_LEN;
+                    }
+                    STREAM_TO_UINT16(p_db_attr->attr_value.icon, p_val);
+                    return GATT_SUCCESS;
+                }
+                #endif
+                default:
+                    break;
+            }
             return GATT_WRITE_NOT_PERMIT;
         }
     }
-    return GATT_NOT_FOUND;
 
+    return GATT_NOT_FOUND;
 }
 
 /******************************************************************************
@@ -363,7 +385,7 @@ void gap_ble_s_attr_request_cback (UINT16 conn_id, UINT32 trans_id,
 **
 ** Function         btm_ble_att_db_init
 **
-** Description      GAP ATT database initalization.
+** Description      GAP ATT database initialization.
 **
 ** Returns          void.
 **
@@ -393,17 +415,26 @@ void gap_attr_db_init(void)
     */
     uuid.len = LEN_UUID_16;
     uuid.uu.uuid16 = p_db_attr->uuid = GATT_UUID_GAP_DEVICE_NAME;
-    p_db_attr->handle = GATTS_AddCharacteristic(service_handle, &uuid, GATT_PERM_READ, GATT_CHAR_PROP_BIT_READ,
-											NULL, NULL);
+    p_db_attr->handle = GATTS_AddCharacteristic(service_handle, &uuid,
+                        #if (GATTS_DEVICE_NAME_WRITABLE == TRUE)
+                        GATT_PERM_READ | GATT_PERM_WRITE,
+                        GATT_CHAR_PROP_BIT_READ | GATT_CHAR_PROP_BIT_WRITE_NR,
+                        #else
+                        GATT_PERM_READ, GATT_CHAR_PROP_BIT_READ,
+                        #endif
+                        NULL, NULL);
     p_db_attr ++;
 
     /* add Icon characteristic
     */
     uuid.uu.uuid16   = p_db_attr->uuid = GATT_UUID_GAP_ICON;
-    p_db_attr->handle = GATTS_AddCharacteristic(service_handle,
-                        &uuid,
-                        GATT_PERM_READ,
-                        GATT_CHAR_PROP_BIT_READ,
+    p_db_attr->handle = GATTS_AddCharacteristic(service_handle, &uuid,
+                        #if (GATTS_APPEARANCE_WRITABLE == TRUE)
+                        GATT_PERM_READ | GATT_PERM_WRITE,
+                        GATT_CHAR_PROP_BIT_READ | GATT_CHAR_PROP_BIT_WRITE_NR,
+                        #else
+                        GATT_PERM_READ, GATT_CHAR_PROP_BIT_READ,
+                        #endif
                         NULL, NULL);
     p_db_attr ++;
 
@@ -479,7 +510,7 @@ void GAP_BleAttrDBUpdate(UINT16 attr_uuid, tGAP_BLE_ATTR_VALUE *p_value)
                 break;
 
             case GATT_UUID_GAP_DEVICE_NAME:
-                BTM_SetLocalDeviceName((char *)p_value->p_dev_name);
+                BTM_SetLocalDeviceName((char *)p_value->p_dev_name, BT_DEVICE_TYPE_BLE);
                 break;
 
             case GATT_UUID_GAP_CENTRAL_ADDR_RESOL:
@@ -498,7 +529,7 @@ void GAP_BleAttrDBUpdate(UINT16 attr_uuid, tGAP_BLE_ATTR_VALUE *p_value)
 **
 ** Function         gap_ble_send_cl_read_request
 **
-** Description      utility function to send a read request for a GAP charactersitic
+** Description      utility function to send a read request for a GAP characteristic
 **
 ** Returns          TRUE if read started, else FALSE if GAP is busy
 **

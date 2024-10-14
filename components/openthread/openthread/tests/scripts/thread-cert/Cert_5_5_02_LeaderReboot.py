@@ -67,11 +67,11 @@ class Cert_5_5_2_LeaderReboot(thread_cert.TestCase):
 
     def test(self):
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), 'leader')
 
         self.nodes[ROUTER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[ROUTER].get_state(), 'router')
 
         self.nodes[ED].start()
@@ -80,11 +80,11 @@ class Cert_5_5_2_LeaderReboot(thread_cert.TestCase):
 
         self.nodes[LEADER].reset()
         self._setUpLeader()
-        self.simulator.go(140)
+        self.simulator.go(150)
         self.assertEqual(self.nodes[ROUTER].get_state(), 'leader')
 
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_RESET_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), 'router')
 
         addrs = self.nodes[ED].get_addrs()
@@ -176,14 +176,9 @@ class Cert_5_5_2_LeaderReboot(thread_cert.TestCase):
             thread_address.tlv.status == 0)
 
         #Step 15: Leader Send a Multicast Link Request
-        _lpkts.filter_mle_cmd(MLE_LINK_REQUEST).must_next().must_verify(
-            lambda p: {VERSION_TLV, TLV_REQUEST_TLV, SOURCE_ADDRESS_TLV, LEADER_DATA_TLV, CHALLENGE_TLV} < set(
-                p.mle.tlv.type))
-
         #Step 16: Router_1 send a Unicast Link Accept
-        _rpkts.filter_mle_cmd(MLE_LINK_ACCEPT_AND_REQUEST).must_next().must_verify(lambda p: {
-            VERSION_TLV, SOURCE_ADDRESS_TLV, RESPONSE_TLV, MLE_FRAME_COUNTER_TLV, LINK_MARGIN_TLV, LEADER_DATA_TLV
-        } < set(p.mle.tlv.type))
+        # Steps 15 and 16 are skipped since new router no longer
+        # send multicast Link Request.
 
         #Step 17: Router_1 MUST respond with an ICMPv6 Echo Reply
         _rpkts.filter_ping_request().filter_wpan_dst64(MED).must_next()

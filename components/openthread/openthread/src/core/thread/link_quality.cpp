@@ -36,8 +36,10 @@
 #include <stdio.h>
 
 #include "common/code_utils.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
+#include "common/num_utils.hpp"
+#include "common/numeric_limits.hpp"
+#include "instance/instance.hpp"
 
 namespace ot {
 
@@ -63,13 +65,11 @@ Error RssAverager::Add(int8_t aRss)
     Error    error = kErrorNone;
     uint16_t newValue;
 
-    VerifyOrExit(aRss != OT_RADIO_RSSI_INVALID, error = kErrorInvalidArgs);
+    VerifyOrExit(aRss != Radio::kInvalidRssi, error = kErrorInvalidArgs);
 
-    // Restrict the RSS value to the closed range [0, -128] so the RSS times precision multiple can fit in 11 bits.
-    if (aRss > 0)
-    {
-        aRss = 0;
-    }
+    // Restrict the RSS value to the closed range [-128, 0]
+    // so the RSS times precision multiple can fit in 11 bits.
+    aRss = Min<int8_t>(aRss, 0);
 
     // Multiply the RSS value by a precision multiple (currently -8).
 
@@ -89,7 +89,7 @@ int8_t RssAverager::GetAverage(void) const
 {
     int8_t average;
 
-    VerifyOrExit(mCount != 0, average = OT_RADIO_RSSI_INVALID);
+    VerifyOrExit(mCount != 0, average = Radio::kInvalidRssi);
 
     average = -static_cast<int8_t>(mAverage >> kPrecisionBitShift);
 
@@ -117,22 +117,27 @@ exit:
 
 void LqiAverager::Add(uint8_t aLqi)
 {
-    uint8_t count;
+    uint8_t  count;
+    uint16_t newAverage;
 
-    if (mCount < UINT8_MAX)
+    if (mCount < NumericLimits<uint8_t>::kMax)
     {
         mCount++;
     }
-    count = OT_MIN((1 << kCoeffBitShift), mCount);
 
-    mAverage = static_cast<uint8_t>(((mAverage * (count - 1)) + aLqi) / count);
+    count = Min(static_cast<uint8_t>(1 << kCoeffBitShift), mCount);
+
+    newAverage = mAverage;
+    newAverage = (newAverage * (count - 1) + aLqi) / count;
+
+    mAverage = static_cast<uint8_t>(newAverage);
 }
 
 void LinkQualityInfo::Clear(void)
 {
     mRssAverager.Clear();
-    SetLinkQuality(0);
-    mLastRss = OT_RADIO_RSSI_INVALID;
+    SetLinkQuality(kLinkQuality0);
+    mLastRss = Radio::kInvalidRssi;
 
     mFrameErrorRate.Clear();
     mMessageErrorRate.Clear();
@@ -142,7 +147,7 @@ void LinkQualityInfo::AddRss(int8_t aRss)
 {
     uint8_t oldLinkQuality = kNoLinkQuality;
 
-    VerifyOrExit(aRss != OT_RADIO_RSSI_INVALID);
+    VerifyOrExit(aRss != Radio::kInvalidRssi);
 
     mLastRss = aRss;
 
@@ -161,7 +166,7 @@ exit:
 
 uint8_t LinkQualityInfo::GetLinkMargin(void) const
 {
-    return ConvertRssToLinkMargin(Get<Mac::SubMac>().GetNoiseFloor(), GetAverageRss());
+    return ComputeLinkMargin(Get<Mac::SubMac>().GetNoiseFloor(), GetAverageRss());
 }
 
 LinkQualityInfo::InfoString LinkQualityInfo::ToInfoString(void) const
@@ -174,11 +179,11 @@ LinkQualityInfo::InfoString LinkQualityInfo::ToInfoString(void) const
     return string;
 }
 
-uint8_t LinkQualityInfo::ConvertRssToLinkMargin(int8_t aNoiseFloor, int8_t aRss)
+uint8_t ComputeLinkMargin(int8_t aNoiseFloor, int8_t aRss)
 {
     int8_t linkMargin = aRss - aNoiseFloor;
 
-    if (linkMargin < 0 || aRss == OT_RADIO_RSSI_INVALID)
+    if (linkMargin < 0 || aRss == Radio::kInvalidRssi)
     {
         linkMargin = 0;
     }
@@ -186,43 +191,61 @@ uint8_t LinkQualityInfo::ConvertRssToLinkMargin(int8_t aNoiseFloor, int8_t aRss)
     return static_cast<uint8_t>(linkMargin);
 }
 
-uint8_t LinkQualityInfo::ConvertLinkMarginToLinkQuality(uint8_t aLinkMargin)
+LinkQuality LinkQualityForLinkMargin(uint8_t aLinkMargin)
 {
-    return CalculateLinkQuality(aLinkMargin, kNoLinkQuality);
+    return LinkQualityInfo::CalculateLinkQuality(aLinkMargin, LinkQualityInfo::kNoLinkQuality);
 }
 
-uint8_t LinkQualityInfo::ConvertRssToLinkQuality(int8_t aNoiseFloor, int8_t aRss)
+int8_t GetTypicalRssForLinkQuality(int8_t aNoiseFloor, LinkQuality aLinkQuality)
 {
-    return ConvertLinkMarginToLinkQuality(ConvertRssToLinkMargin(aNoiseFloor, aRss));
-}
-
-int8_t LinkQualityInfo::ConvertLinkQualityToRss(int8_t aNoiseFloor, uint8_t aLinkQuality)
-{
-    int8_t linkmargin = 0;
+    int8_t linkMargin = 0;
 
     switch (aLinkQuality)
     {
-    case 3:
-        linkmargin = kLinkQuality3LinkMargin;
+    case kLinkQuality3:
+        linkMargin = LinkQualityInfo::kLinkQuality3LinkMargin;
         break;
 
-    case 2:
-        linkmargin = kLinkQuality2LinkMargin;
+    case kLinkQuality2:
+        linkMargin = LinkQualityInfo::kLinkQuality2LinkMargin;
         break;
 
-    case 1:
-        linkmargin = kLinkQuality1LinkMargin;
+    case kLinkQuality1:
+        linkMargin = LinkQualityInfo::kLinkQuality1LinkMargin;
         break;
 
     default:
-        linkmargin = kLinkQuality0LinkMargin;
+        linkMargin = LinkQualityInfo::kLinkQuality0LinkMargin;
         break;
     }
 
-    return linkmargin + aNoiseFloor;
+    return linkMargin + aNoiseFloor;
 }
 
-uint8_t LinkQualityInfo::CalculateLinkQuality(uint8_t aLinkMargin, uint8_t aLastLinkQuality)
+uint8_t CostForLinkQuality(LinkQuality aLinkQuality)
+{
+    static const uint8_t kCostsForLinkQuality[] = {
+        kCostForLinkQuality0, // Link cost for `kLinkQuality0` (0).
+        kCostForLinkQuality1, // Link cost for `kLinkQuality1` (1).
+        kCostForLinkQuality2, // Link cost for `kLinkQuality2` (2).
+        kCostForLinkQuality3, // Link cost for `kLinkQuality3` (3).
+    };
+
+    static_assert(kLinkQuality0 == 0, "kLinkQuality0 is invalid");
+    static_assert(kLinkQuality1 == 1, "kLinkQuality1 is invalid");
+    static_assert(kLinkQuality2 == 2, "kLinkQuality2 is invalid");
+    static_assert(kLinkQuality3 == 3, "kLinkQuality3 is invalid");
+
+    uint8_t cost = Mle::kMaxRouteCost;
+
+    VerifyOrExit(aLinkQuality <= kLinkQuality3);
+    cost = kCostsForLinkQuality[aLinkQuality];
+
+exit:
+    return cost;
+}
+
+LinkQuality LinkQualityInfo::CalculateLinkQuality(uint8_t aLinkMargin, uint8_t aLastLinkQuality)
 {
     // Static private method to calculate the link quality from a given
     // link margin while taking into account the last link quality
@@ -230,8 +253,8 @@ uint8_t LinkQualityInfo::CalculateLinkQuality(uint8_t aLinkMargin, uint8_t aLast
     // there is no previous value for link quality, the constant
     // kNoLinkQuality should be passed as the second argument.
 
-    uint8_t threshold1, threshold2, threshold3;
-    uint8_t linkQuality = 0;
+    uint8_t     threshold1, threshold2, threshold3;
+    LinkQuality linkQuality = kLinkQuality0;
 
     threshold1 = kThreshold1;
     threshold2 = kThreshold2;
@@ -262,15 +285,15 @@ uint8_t LinkQualityInfo::CalculateLinkQuality(uint8_t aLinkMargin, uint8_t aLast
 
     if (aLinkMargin > threshold3)
     {
-        linkQuality = 3;
+        linkQuality = kLinkQuality3;
     }
     else if (aLinkMargin > threshold2)
     {
-        linkQuality = 2;
+        linkQuality = kLinkQuality2;
     }
     else if (aLinkMargin > threshold1)
     {
-        linkQuality = 1;
+        linkQuality = kLinkQuality1;
     }
 
     return linkQuality;

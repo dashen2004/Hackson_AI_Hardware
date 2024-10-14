@@ -39,12 +39,22 @@ esp_err_t esp_flash_encryption_enable_secure_features(void)
     ESP_LOGW(TAG, "Not disabling JTAG - SECURITY COMPROMISED");
 #endif
 
-    esp_efuse_write_field_bit(ESP_EFUSE_DIS_LEGACY_SPI_BOOT);
+    esp_efuse_write_field_bit(ESP_EFUSE_DIS_DIRECT_BOOT);
 
 #if defined(CONFIG_SECURE_BOOT_V2_ENABLED) && !defined(CONFIG_SECURE_BOOT_V2_ALLOW_EFUSE_RD_DIS)
     // This bit is set when enabling Secure Boot V2, but we can't enable it until this later point in the first boot
     // otherwise the Flash Encryption key cannot be read protected
     esp_efuse_write_field_bit(ESP_EFUSE_WR_DIS_RD_DIS);
+#endif
+
+#ifndef CONFIG_SECURE_FLASH_SKIP_WRITE_PROTECTION_CACHE
+    // Set write-protection for DIS_ICACHE and DIS_DCACHE to prevent bricking chip in case it will be set accidentally.
+    // esp32s3 has DIS_ICACHE and DIS_DCACHE. Write-protection bit = 2 for both.
+    // List of eFuses with the same write protection bit:
+    // DIS_ICACHE, DIS_DCACHE, DIS_DOWNLOAD_ICACHE, DIS_DOWNLOAD_DCACHE,
+    // DIS_FORCE_DOWNLOAD, DIS_USB_OTG, DIS_TWAI, DIS_APP_CPU, DIS_PAD_JTAG,
+    // DIS_DOWNLOAD_MANUAL_ENCRYPT, DIS_USB_JTAG, DIS_USB_SERIAL_JTAG, STRAP_JTAG_SEL, USB_PHY_SEL.
+    esp_efuse_write_field_bit(ESP_EFUSE_WR_DIS_DIS_ICACHE);
 #endif
 
     return ESP_OK;

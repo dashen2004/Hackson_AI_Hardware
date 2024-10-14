@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2018-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,9 +12,23 @@
 #include "esp_http_server.h"
 #include "esp_tls.h"
 
+#include "esp_event.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+ESP_EVENT_DECLARE_BASE(ESP_HTTPS_SERVER_EVENT);
+
+typedef enum {
+    HTTPS_SERVER_EVENT_ERROR = 0,       /*!< This event occurs when there are any errors during execution */
+    HTTPS_SERVER_EVENT_START,           /*!< This event occurs when HTTPS Server is started */
+    HTTPS_SERVER_EVENT_ON_CONNECTED,    /*!< Once the HTTPS Server has been connected to the client */
+    HTTPS_SERVER_EVENT_ON_DATA,         /*!< Occurs when receiving data from the client */
+    HTTPS_SERVER_EVENT_SENT_DATA,       /*!< Occurs when an ESP HTTPS server sends data to the client */
+    HTTPS_SERVER_EVENT_DISCONNECTED,    /*!< The connection has been disconnected */
+    HTTPS_SERVER_EVENT_STOP,            /*!< This event occurs when HTTPS Server is stopped */
+} esp_https_server_event_id_t;
 
 typedef enum {
     HTTPD_SSL_TRANSPORT_SECURE,      // SSL Enabled
@@ -22,11 +36,24 @@ typedef enum {
 } httpd_ssl_transport_mode_t;
 
 /**
+ * @brief Indicates the state at which the user callback is executed,
+ *        i.e at session creation or session close
+ */
+typedef enum {
+    HTTPD_SSL_USER_CB_SESS_CREATE,
+    HTTPD_SSL_USER_CB_SESS_CLOSE
+} httpd_ssl_user_cb_state_t;
+
+/**
  * @brief Callback data struct, contains the ESP-TLS connection handle
+ * and the connection state at which the callback is executed
  */
 typedef struct esp_https_server_user_cb_arg {
-    const esp_tls_t *tls;
+    httpd_ssl_user_cb_state_t user_cb_state; /*!< State of user callback */
+    esp_tls_t *tls;                    /*!< ESP-TLS connection handle */
 } esp_https_server_user_cb_arg_t;
+
+typedef esp_tls_last_error_t esp_https_server_last_error_t;
 
 /**
  * @brief Callback function prototype
@@ -50,27 +77,29 @@ struct httpd_ssl_config {
      */
     httpd_config_t httpd;
 
-    /** CA certificate (here it is treated as server cert)
-     * Todo: Fix this change in release/v5.0 as it would be a breaking change
-     * i.e. Rename the nomenclature of variables holding different certs in https_server component as well as example
-     * 1)The cacert variable should hold the CA which is used to authenticate clients (should inherit current role of client_verify_cert_pem var)
-     * 2)There should be another variable servercert which whould hold servers own certificate (should inherit current role of cacert var) */
+    /** Server certificate */
+    const uint8_t *servercert;
+
+    /** Server certificate byte length */
+    size_t servercert_len;
+
+    /** CA certificate ((CA used to sign clients, or client cert itself) */
     const uint8_t *cacert_pem;
 
     /** CA certificate byte length */
     size_t cacert_len;
-
-    /** Client verify authority certificate (CA used to sign clients, or client cert itself */
-    const uint8_t *client_verify_cert_pem;
-
-    /** Client verify authority cert len */
-    size_t client_verify_cert_len;
 
     /** Private key */
     const uint8_t *prvtkey_pem;
 
     /** Private key byte length */
     size_t prvtkey_len;
+
+    /** Use ECDSA peripheral to use private key */
+    bool use_ecdsa_peripheral;
+
+    /** The efuse block where ECDSA key is stored */
+    uint8_t ecdsa_key_efuse_blk;
 
     /** Transport Mode (default secure) */
     httpd_ssl_transport_mode_t transport_mode;
@@ -84,17 +113,29 @@ struct httpd_ssl_config {
     /** Enable tls session tickets */
     bool session_tickets;
 
+    /** Enable secure element for server session */
+    bool use_secure_element;
+
     /** User callback for esp_https_server */
     esp_https_server_user_cb *user_cb;
+
+    /** User data to add to the ssl context */
+    void *ssl_userdata;
+
+    /** Certificate selection callback to use.
+     *  The callback is only applicable when CONFIG_ESP_TLS_SERVER_CERT_SELECT_HOOK is enabled in menuconfig */
+    esp_tls_handshake_callback cert_select_cb;
+
+    /** Application protocols the server supports in order of prefernece.
+     *  Used for negotiating during the TLS handshake, first one the client supports is selected.
+     *  The data structure must live as long as the https server itself */
+    const char** alpn_protos;
 };
 
 typedef struct httpd_ssl_config httpd_ssl_config_t;
 
 /**
  * Default config struct init
- *
- * (http_server default config had to be copied for customization)
- *
  * Notes:
  * - port is set when starting the server, according to 'transport_mode'
  * - one socket uses ~ 40kB RAM with SSL, we reduce the default socket count to 4
@@ -106,8 +147,9 @@ typedef struct httpd_ssl_config httpd_ssl_config_t;
         .task_priority      = tskIDLE_PRIORITY+5, \
         .stack_size         = 10240,              \
         .core_id            = tskNO_AFFINITY,     \
+        .task_caps          = (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),       \
         .server_port        = 0,                  \
-        .ctrl_port          = 32768,              \
+        .ctrl_port   = ESP_HTTPD_DEF_CTRL_PORT+1, \
         .max_open_sockets   = 4,                  \
         .max_uri_handlers   = 8,                  \
         .max_resp_headers   = 8,                  \
@@ -119,21 +161,33 @@ typedef struct httpd_ssl_config httpd_ssl_config_t;
         .global_user_ctx_free_fn = NULL,          \
         .global_transport_ctx = NULL,             \
         .global_transport_ctx_free_fn = NULL,     \
+        .enable_so_linger = false,                \
+        .linger_timeout = 0,                      \
+        .keep_alive_enable = false,               \
+        .keep_alive_idle = 0,                     \
+        .keep_alive_interval = 0,                 \
+        .keep_alive_count = 0,                    \
         .open_fn = NULL,                          \
         .close_fn = NULL,                         \
         .uri_match_fn = NULL                      \
     },                                            \
+    .servercert = NULL,                           \
+    .servercert_len = 0,                          \
     .cacert_pem = NULL,                           \
     .cacert_len = 0,                              \
-    .client_verify_cert_pem = NULL,               \
-    .client_verify_cert_len = 0,                  \
     .prvtkey_pem = NULL,                          \
     .prvtkey_len = 0,                             \
+    .use_ecdsa_peripheral = false,                \
+    .ecdsa_key_efuse_blk = 0,                     \
     .transport_mode = HTTPD_SSL_TRANSPORT_SECURE, \
     .port_secure = 443,                           \
     .port_insecure = 80,                          \
     .session_tickets = false,                     \
+    .use_secure_element = false,                  \
     .user_cb = NULL,                              \
+    .ssl_userdata = NULL,                         \
+    .cert_select_cb = NULL,                       \
+    .alpn_protos = NULL,                          \
 }
 
 /**
@@ -150,8 +204,12 @@ esp_err_t httpd_ssl_start(httpd_handle_t *handle, httpd_ssl_config_t *config);
  * Stop the server. Blocks until the server is shut down.
  *
  * @param[in] handle
+ * @return
+ *    - ESP_OK: Server stopped successfully
+ *    - ESP_ERR_INVALID_ARG: Invalid argument
+ *    - ESP_FAIL: Failure to shut down server
  */
-void httpd_ssl_stop(httpd_handle_t handle);
+esp_err_t httpd_ssl_stop(httpd_handle_t handle);
 
 #ifdef __cplusplus
 }

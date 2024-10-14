@@ -37,7 +37,7 @@
 #include "stack/btu.h"
 #include "osi/allocator.h"
 
-#if (CLASSIC_BT_INCLUDED == TRUE)
+#if (L2CAP_COC_INCLUDED == TRUE)
 
 /* Flag passed to retransmit_i_frames() when all packets should be retransmitted */
 #define L2C_FCR_RETX_ALL_PKTS   0xFF
@@ -928,6 +928,9 @@ static BOOLEAN process_reqseq (tL2C_CCB *p_ccb, UINT16 ctrl_word)
                 full_sdus_xmitted++;
             }
             osi_free(p_tmp);
+            if (p_ccb->cong_sent) {
+                l2cu_check_channel_congestion(p_ccb);
+            }
         }
 
         /* If we are still in a wait_ack state, do not mess with the timer */
@@ -2223,4 +2226,4 @@ static void l2c_fcr_collect_ack_delay (tL2C_CCB *p_ccb, UINT8 num_bufs_acked)
     }
 }
 #endif
-#endif ///CLASSIC_BT_INCLUDED == TRUE
+#endif /// (L2CAP_COC_INCLUDED == TRUE)

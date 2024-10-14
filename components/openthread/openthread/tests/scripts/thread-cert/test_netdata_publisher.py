@@ -31,6 +31,7 @@ import ipaddress
 import unittest
 
 import command
+import config
 import thread_cert
 
 # Test description:
@@ -56,10 +57,10 @@ END_DEV5 = 11
 
 WAIT_TIME = 55
 
-ON_MESH_PREFIX = 'fd00:1234::/64'
+ON_MESH_PREFIX = 'fd00:1234:0:0::/64'
 ON_MESH_FLAGS = 'paso'
 
-EXTERNAL_ROUTE = 'fd00:abce::/64'
+EXTERNAL_ROUTE = 'fd00:abce:0:0::/64'
 EXTERNAL_FLAGS = 's'
 
 ANYCAST_SEQ_NUM = 4
@@ -69,7 +70,7 @@ DNSSRP_PORT = 49152
 
 # The desired number of entries (based on related config).
 DESIRED_NUM_DNSSRP_ANYCAST = 8
-DESIRED_NUM_DNSSRP_UNCIAST = 2
+DESIRED_NUM_DNSSRP_UNICAST = 2
 DESIRED_NUM_ON_MESH_PREFIX = 3
 DESIRED_NUM_EXTERNAL_ROUTE = 10
 
@@ -206,12 +207,12 @@ class NetDataPublisher(thread_cert.TestCase):
         # Start the nodes
 
         leader.start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(leader.get_state(), 'leader')
 
         for router in routers:
             router.start()
-            self.simulator.go(5)
+            self.simulator.go(config.ROUTER_STARTUP_DELAY)
             self.assertEqual(router.get_state(), 'router')
 
         for end_dev in end_devs:
@@ -262,46 +263,121 @@ class NetDataPublisher(thread_cert.TestCase):
             self.verify_anycast_services(services)
 
         #---------------------------------------------------------------------------------
-        # DNS/SRP unicast entries
+        # DNS/SRP service data unicast entries
 
-        # Publish DNS/SRP unicast address on all routers, first using
-        # MLE-EID address, then change to use specific address. Verify
-        # that number of entries in network data is correct in each step
-        # and that entries are switched correctly.
         num = 0
-        for node in routers:
-            node.netdata_publish_dnssrp_unicast_mleid(DNSSRP_PORT)
-            self.simulator.go(WAIT_TIME)
-            num += 1
-            services = leader.get_services()
-            self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNCIAST))
-            self.verify_unicast_services(services)
-
         for node in routers:
             node.netdata_publish_dnssrp_unicast(DNSSRP_ADDRESS, DNSSRP_PORT)
             self.simulator.go(WAIT_TIME)
+            num += 1
             services = leader.get_services()
-            self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNCIAST))
+            self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNICAST))
             self.verify_unicast_services(services)
 
         for node in routers:
             node.srp_server_set_enabled(True)
             self.simulator.go(WAIT_TIME)
+
         self.assertEqual(sum(node.srp_server_get_state() == 'running' for node in routers),
-                         min(len(routers), DESIRED_NUM_DNSSRP_UNCIAST))
+                         min(len(routers), DESIRED_NUM_DNSSRP_UNICAST))
         self.assertEqual(sum(node.srp_server_get_state() == 'stopped' for node in routers),
-                         max(len(routers) - DESIRED_NUM_DNSSRP_UNCIAST, 0))
+                         max(len(routers) - DESIRED_NUM_DNSSRP_UNICAST, 0))
 
         for node in routers:
             node.netdata_unpublish_dnssrp()
             self.simulator.go(WAIT_TIME)
             num -= 1
             services = leader.get_services()
-            self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNCIAST))
+            self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNICAST))
             self.verify_unicast_services(services)
         for node in routers:
             node.srp_server_set_enabled(False)
             self.assertEqual(node.srp_server_get_state(), 'disabled')
+
+        #---------------------------------------------------------------------------------
+        # DNS/SRP server data unicast entries
+
+        num = 0
+        for node in routers:
+            node.netdata_publish_dnssrp_unicast_mleid(DNSSRP_PORT)
+            self.simulator.go(WAIT_TIME)
+            num += 1
+            services = leader.get_services()
+            self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNICAST))
+            self.verify_unicast_services(services)
+
+        for node in routers:
+            node.srp_server_set_enabled(True)
+            self.simulator.go(WAIT_TIME)
+        self.assertEqual(sum(node.srp_server_get_state() == 'running' for node in routers),
+                         min(len(routers), DESIRED_NUM_DNSSRP_UNICAST))
+        self.assertEqual(sum(node.srp_server_get_state() == 'stopped' for node in routers),
+                         max(len(routers) - DESIRED_NUM_DNSSRP_UNICAST, 0))
+
+        for node in routers:
+            node.netdata_unpublish_dnssrp()
+            self.simulator.go(WAIT_TIME)
+            num -= 1
+            services = leader.get_services()
+            self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNICAST))
+            self.verify_unicast_services(services)
+        for node in routers:
+            node.srp_server_set_enabled(False)
+            self.assertEqual(node.srp_server_get_state(), 'disabled')
+
+        #---------------------------------------------------------------------------------
+        # DNS/SRP server data unicast vs anycast
+
+        num = 0
+        for node in routers:
+            node.netdata_publish_dnssrp_unicast_mleid(DNSSRP_PORT)
+            self.simulator.go(WAIT_TIME)
+            num += 1
+            services = leader.get_services()
+            self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNICAST))
+            self.verify_unicast_services(services)
+
+        # Verify that publishing an anycast entry will update the
+        # limit for the server data unicast address entry and all are
+        # removed.
+
+        leader.netdata_publish_dnssrp_anycast(ANYCAST_SEQ_NUM)
+        self.simulator.go(WAIT_TIME)
+        services = leader.get_services()
+        self.assertEqual(len(services), 1)
+        self.verify_anycast_services(services)
+
+        # Removing the anycast entry will cause the lower priority
+        # server data unicast entries to be added again.
+
+        leader.netdata_unpublish_dnssrp()
+        self.simulator.go(WAIT_TIME)
+
+        services = leader.get_services()
+        self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNICAST))
+        self.verify_unicast_services(services)
+
+        #---------------------------------------------------------------------------------
+        # DNS/SRP server data unicast vs service data unicast
+
+        leader.netdata_publish_dnssrp_unicast(DNSSRP_ADDRESS, DNSSRP_PORT)
+        self.simulator.go(WAIT_TIME)
+        services = leader.get_services()
+        self.assertEqual(len(services), 1)
+        self.verify_unicast_services(services)
+
+        # Removing the service data unicast entry will cause the lower
+        # priority server data unicast entries to be added again.
+
+        leader.netdata_unpublish_dnssrp()
+        self.simulator.go(WAIT_TIME)
+
+        services = leader.get_services()
+        self.assertEqual(len(services), min(num, DESIRED_NUM_DNSSRP_UNICAST))
+        self.verify_unicast_services(services)
+
+        for node in routers:
+            node.netdata_unpublish_dnssrp()
 
         #---------------------------------------------------------------------------------
         # DNS/SRP entries: Verify publisher preference when removing
@@ -443,6 +519,8 @@ class NetDataPublisher(thread_cert.TestCase):
         #---------------------------------------------------------------------------------
         # External route
 
+        # Publish same external route on all nodes with low preference.
+
         num = 0
         for node in nodes:
             node.netdata_publish_route(EXTERNAL_ROUTE, EXTERNAL_FLAGS, 'low')
@@ -451,11 +529,38 @@ class NetDataPublisher(thread_cert.TestCase):
             routes = leader.get_routes()
             self.check_num_of_routes(routes, num, 0, 0)
 
-        leader.netdata_unpublish_prefix(EXTERNAL_ROUTE)
+        # Change the preference level of the existing entry on leader to high.
+
         leader.netdata_publish_route(EXTERNAL_ROUTE, EXTERNAL_FLAGS, 'high')
         self.simulator.go(WAIT_TIME)
         routes = leader.get_routes()
         self.check_num_of_routes(routes, num - 1, 0, 1)
+
+        # Replace the published route on leader with '::/0'.
+        leader.netdata_publish_replace(EXTERNAL_ROUTE, '::/0', EXTERNAL_FLAGS, 'med')
+        self.simulator.go(1)
+        routes = leader.get_routes()
+        self.assertEqual([route.split(' ')[0] == '::/0' for route in routes].count(True), 1)
+
+        # Replace it back to the original route.
+        leader.netdata_publish_replace('::/0', EXTERNAL_ROUTE, EXTERNAL_FLAGS, 'high')
+        self.simulator.go(WAIT_TIME)
+        routes = leader.get_routes()
+        self.assertEqual([route.split(' ')[0] == '::/0' for route in routes].count(True), 0)
+        self.check_num_of_routes(routes, num - 1, 0, 1)
+
+        # Publish the same prefix on leader as an on-mesh prefix. Make
+        # sure it is removed from external routes and now seen in the
+        # prefix list.
+
+        leader.netdata_publish_prefix(EXTERNAL_ROUTE, ON_MESH_FLAGS, 'low')
+        self.simulator.go(WAIT_TIME)
+        routes = leader.get_routes()
+        self.check_num_of_routes(routes, num - 1, 0, 0)
+
+        prefixes = leader.get_prefixes()
+        print(prefixes)
+        self.assertIn(EXTERNAL_ROUTE, [prefix.split()[0] for prefix in prefixes])
 
 
 if __name__ == '__main__':

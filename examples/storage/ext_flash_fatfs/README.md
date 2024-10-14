@@ -1,5 +1,5 @@
-| Supported Targets | ESP32 |
-| ----------------- | ----- |
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- |
 
 # FAT FS on External Flash example
 
@@ -11,7 +11,7 @@ The flow of the example is as follows:
 
 1. Initialize the SPI bus and configure the pins. In this example, VSPI peripheral is used. The pins chosen in this example correspond to IOMUX pins for the VSPI peripheral. If the pin assignment is changed, SPI driver will instead connect the peripheral to the pins using the GPIO Matrix.
 
-2. Initialize the SPI flash chip. This involves creating a run-time object which describes the flash chip (`esp_flash_t`), probing the flash chip, and configuring it for the selected read mode. By default this example uses DIO mode, which only requires 4 pins (MOSI, MISO, SCLK, CS) but we strongly recommand to connect (or pull-up) the WP and HD pins. For modes such as QIO and QOUT, additional pins (WP/DQ2, HD/DQ3) must be connected.
+2. Initialize the SPI flash chip. This involves creating a run-time object which describes the flash chip (`esp_flash_t`), probing the flash chip, and configuring it for the selected read mode. By default this example uses DIO mode, which only requires 4 pins (MOSI, MISO, SCLK, CS) but we strongly recommend to connect (or pull-up) the WP and HD pins. For modes such as QIO and QOUT, additional pins (WP/DQ2, HD/DQ3) must be connected.
 
 3. Register the entire area of the Flash chip as a *partition* (`esp_partition_t`). This allows other components (FATFS, SPIFFS, NVS, etc) to use the storage provided by the external flash chip.
 
@@ -25,16 +25,24 @@ This example needs an SPI NOR Flash chip connected to the ESP32. The SPI Flash c
 
 Use the following pin assignments:
 
-ESP32 pin     | SPI bus signal | SPI Flash pin 
---------------|----------------|----------------
-GPIO23        | MOSI           | DI
-GPIO19        | MISO           | DO
-GPIO18        | SCLK           | CLK
-GPIO5         | CS             | CMD
-GPIO22        | WP             | WP
-GPIO21        | HD             | HOLD
-GND           |                | GND
-VCC           |                | VCC
+#### Pin assignments
+
+The GPIO pin numbers used to connect an external SPI flash chip can be customized.
+
+In this example it can be done in source code by changing C defines under `Pin mapping` comment at the top of the file.
+
+The table below shows the default pin assignments.
+
+SPI bus signal | SPI Flash pin | ESP32 pin | ESP32S2 pin | ESP32S3 pin | ESP32C3 pin
+---------------|---------------|-----------|-------------|-------------|-------------
+MOSI           | DI            | GPIO23    | GPIO11      | GPIO11      | GPIO7
+MISO           | DO            | GPIO19    | GPIO13      | GPIO13      | GPIO2
+SCLK           | CLK           | GPIO18    | GPIO12      | GPIO12      | GPIO6
+CS             | CMD           | GPIO5     | GPIO10      | GPIO10      | GPIO10
+WP             | WP            | GPIO22    | GPIO14      | GPIO14      | GPIO5
+HD             | HOLD          | GPIO21    | GPIO9       | GPIO9       | GPIO4
+|              | GND           | GND       | GND         | GND         | GND
+|              | VCC           | VCC       | VCC         | VCC         | VCC
 
 ### Build and flash
 
@@ -52,7 +60,7 @@ See the Getting Started Guide for full steps to configure and use ESP-IDF to bui
 
 ## Example output
 
-Here is a typical example console output. 
+Here is a typical example console output.
 
 ```
 I (328) example: Initializing external SPI Flash

@@ -39,6 +39,7 @@
 import unittest
 
 import thread_cert
+import config
 from pktverify.packet_verifier import PacketVerifier
 
 PBBR = 1
@@ -87,7 +88,7 @@ class BBR_5_11_01(thread_cert.TestCase):
 
     def test(self):
         self.nodes[PBBR].start()
-        self.wait_node_state(PBBR, 'leader', 5)
+        self.wait_node_state(PBBR, 'leader', 10)
         self.nodes[PBBR].set_backbone_router(reg_delay=REREG_DELAY, mlr_timeout=MLR_TIMEOUT)
         self.nodes[PBBR].enable_backbone_router()
         self.wait_until(lambda: self.nodes[PBBR].is_primary_backbone_router, 5)
@@ -160,7 +161,7 @@ class BBR_5_11_01(thread_cert.TestCase):
             and ipv6.src.is_link_local
         """)
 
-        # Commissioner registers MA3 with deafult timeout
+        # Commissioner registers MA3 with default timeout
         pkts.filter_wpan_src64(COMMISSIONER).filter_coap_request('/n/mr').must_next().must_verify(f"""
             thread_meshcop.tlv.ipv6_addr == ['{MA3}']
             and thread_bl.tlv.timeout is null
@@ -189,11 +190,12 @@ class BBR_5_11_01(thread_cert.TestCase):
             thread_meshcop.tlv.ipv6_addr == ['{MA5}']
             and thread_nm.tlv.timeout == 0
         """)
-        # Verify PBBR not sends `/b/bmr` on the Backbone link for MA5.
-        pkts.filter_eth_src(PBBR_ETH).filter_coap_request('/b/bmr').filter(f"""
+        # Verify PBBR sends `/b/bmr` on the Backbone link for MA5 with timeout equal to zero.
+        pkts.filter_eth_src(PBBR_ETH).filter_coap_request('/b/bmr').must_next().must_verify(f"""
             thread_meshcop.tlv.ipv6_addr == ['{MA5}']
+            and thread_bl.tlv.timeout == 0
             and ipv6.src.is_link_local
-        """).must_not_next()
+        """)
 
 
 if __name__ == '__main__':

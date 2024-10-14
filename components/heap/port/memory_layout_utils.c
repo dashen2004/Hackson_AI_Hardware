@@ -1,34 +1,34 @@
-// Copyright 2018 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2018-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include <stdint.h>
 #include <string.h>
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "soc/soc_memory_layout.h"
+#include "esp_rom_caps.h"
 
+#if ESP_ROM_HAS_LAYOUT_TABLE
 #ifdef CONFIG_IDF_TARGET_ESP32C3
 #include "esp32c3/rom/rom_layout.h"
-#define ROM_HAS_LAYOUT_TABLE 1
 #elif CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/rom/rom_layout.h"
-#define ROM_HAS_LAYOUT_TABLE 1
+#elif CONFIG_IDF_TARGET_ESP32C2
+#include "esp32c2/rom/rom_layout.h"
+#elif CONFIG_IDF_TARGET_ESP32C6
+#include "esp32c6/rom/rom_layout.h"
+#elif CONFIG_IDF_TARGET_ESP32C61    //TODO: IDF-9526, refactor this
+#include "esp32c61/rom/rom_layout.h"
+#elif CONFIG_IDF_TARGET_ESP32C5
+#include "esp32c5/rom/rom_layout.h"
 #elif CONFIG_IDF_TARGET_ESP32H2
 #include "esp32h2/rom/rom_layout.h"
-#define ROM_HAS_LAYOUT_TABLE 1
-#else
-#define ROM_HAS_LAYOUT_TABLE 0
+#elif CONFIG_IDF_TARGET_ESP32P4
+#include "esp32p4/rom/rom_layout.h"
 #endif
+#endif // ESP_ROM_HAS_LAYOUT_TABLE
 
 static const char *TAG = "memory_layout";
 
@@ -43,7 +43,7 @@ static size_t s_get_num_reserved_regions(void)
 {
     size_t result = ( &soc_reserved_memory_region_end
              - &soc_reserved_memory_region_start );
-#if ROM_HAS_LAYOUT_TABLE
+#if ESP_ROM_HAS_LAYOUT_TABLE
     return result + 1; // ROM table means one entry needs to be added at runtime
 #else
     return result;
@@ -71,11 +71,15 @@ static int s_compare_reserved_regions(const void *a, const void *b)
 */
 static void s_prepare_reserved_regions(soc_reserved_region_t *reserved, size_t count)
 {
-#if ROM_HAS_LAYOUT_TABLE
+#if ESP_ROM_HAS_LAYOUT_TABLE
     /* Get the ROM layout to find which part of DRAM is reserved */
     const ets_rom_layout_t *layout = ets_rom_layout_p;
     reserved[0].start = (intptr_t)layout->dram0_rtos_reserved_start;
+#ifdef SOC_DIRAM_ROM_RESERVE_HIGH
+    reserved[0].end = SOC_DIRAM_ROM_RESERVE_HIGH;
+#else
     reserved[0].end = SOC_DIRAM_DRAM_HIGH;
+#endif
 
     memcpy(reserved + 1, &soc_reserved_memory_region_start, (count - 1) * sizeof(soc_reserved_region_t));
 #else

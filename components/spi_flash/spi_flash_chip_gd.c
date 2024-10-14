@@ -1,16 +1,8 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +11,7 @@
 #include "spi_flash_chip_generic.h"
 #include "spi_flash_chip_gd.h"
 #include "spi_flash_defs.h"
+#include "sdkconfig.h"
 
 #define ADDR_32BIT(addr)            (addr >= (1<<24))
 
@@ -41,10 +34,37 @@ spi_flash_caps_t spi_flash_chip_gd_get_caps(esp_flash_t *chip)
     if ((chip->chip_id & 0xFF) >= 0x19) {
         caps_flags |= SPI_FLASH_CHIP_CAP_32MB_SUPPORT;
     }
+#if CONFIG_SPI_FLASH_AUTO_SUSPEND
+    switch (chip->chip_id) {
+    /* The flash listed here can support suspend */
+    case 0xC84016:
+    case 0xC84017:
+    case 0xC84018:
+        caps_flags |= SPI_FLASH_CHIP_CAP_SUSPEND;
+        break;
+    default:
+        break;
+    }
+#endif
     // flash-suspend is not supported
     // flash read unique id.
     caps_flags |= SPI_FLASH_CHIP_CAP_UNIQUE_ID;
     return caps_flags;
+}
+
+esp_err_t spi_flash_chip_gd_detect_size(esp_flash_t *chip, uint32_t *size)
+{
+    uint32_t id = chip->chip_id;
+    *size = 0;
+
+    /* Can't detect size unless the high byte of the product ID matches the same convention, which is usually 0x40 or
+     * 0xC0 or similar. */
+    if (((id & 0xFFFF) == 0x0000) || ((id & 0xFFFF) == 0xFFFF)) {
+        return ESP_ERR_FLASH_UNSUPPORTED_CHIP;
+    }
+
+    *size = 1 << (id & 0xFF);
+    return ESP_OK;
 }
 
 #ifndef CONFIG_SPI_FLASH_ROM_IMPL
@@ -105,6 +125,18 @@ esp_err_t spi_flash_chip_gd_get_io_mode(esp_flash_t *chip, esp_flash_io_mode_t* 
 }
 #endif //CONFIG_SPI_FLASH_ROM_IMPL
 
+esp_err_t spi_flash_chip_gd_suspend_cmd_conf(esp_flash_t *chip)
+{
+    spi_flash_sus_cmd_conf sus_conf = {
+        .sus_mask = 0x84,
+        .cmd_rdsr = CMD_RDSR2,
+        .sus_cmd = CMD_SUSPEND,
+        .res_cmd = CMD_RESUME,
+    };
+
+    return chip->host->driver->sus_setup(chip->host, &sus_conf);
+}
+
 static const char chip_name[] = "gd";
 
 // The issi chip can use the functions for generic chips except from set read mode and probe,
@@ -114,7 +146,7 @@ const spi_flash_chip_t esp_flash_chip_gd = {
     .timeout = &spi_flash_chip_generic_timeout,
     .probe = spi_flash_chip_gd_probe,
     .reset = spi_flash_chip_generic_reset,
-    .detect_size = spi_flash_chip_generic_detect_size,
+    .detect_size = spi_flash_chip_gd_detect_size,
     .erase_chip = spi_flash_chip_generic_erase_chip,
     .erase_sector = spi_flash_chip_gd_erase_sector,
     .erase_block = spi_flash_chip_gd_erase_block,
@@ -141,7 +173,7 @@ const spi_flash_chip_t esp_flash_chip_gd = {
 
     .read_reg = spi_flash_chip_generic_read_reg,
     .yield = spi_flash_chip_generic_yield,
-    .sus_setup = spi_flash_chip_generic_suspend_cmd_conf,
+    .sus_setup = spi_flash_chip_gd_suspend_cmd_conf,
     .read_unique_id = spi_flash_chip_generic_read_unique_id,
     .get_chip_caps = spi_flash_chip_gd_get_caps,
     .config_host_io_mode = spi_flash_chip_generic_config_host_io_mode,

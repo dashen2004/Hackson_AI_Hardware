@@ -28,12 +28,17 @@
 
 #include "posix/platform/daemon.hpp"
 
+#if OPENTHREAD_POSIX_CONFIG_ANDROID_ENABLE
+#include <cutils/sockets.h>
+#endif
 #include <fcntl.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <string.h>
 #include <sys/file.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -58,9 +63,10 @@ typedef char(Filename)[sizeof(sockaddr_un::sun_path)];
 
 void GetFilename(Filename &aFilename, const char *aPattern)
 {
-    int rval;
+    int         rval;
+    const char *netIfName = strlen(gNetifName) > 0 ? gNetifName : OPENTHREAD_POSIX_CONFIG_THREAD_NETIF_DEFAULT_NAME;
 
-    rval = snprintf(aFilename, sizeof(aFilename), aPattern, gNetifName);
+    rval = snprintf(aFilename, sizeof(aFilename), aPattern, netIfName);
     if (rval < 0 && static_cast<size_t>(rval) >= sizeof(aFilename))
     {
         DieNow(OT_EXIT_INVALID_ARGUMENTS);
@@ -69,20 +75,41 @@ void GetFilename(Filename &aFilename, const char *aPattern)
 
 } // namespace
 
+const char Daemon::kLogModuleName[] = "Daemon";
+
+int Daemon::OutputFormat(const char *aFormat, ...)
+{
+    int     ret;
+    va_list ap;
+
+    va_start(ap, aFormat);
+    ret = OutputFormatV(aFormat, ap);
+    va_end(ap);
+
+    return ret;
+}
+
 int Daemon::OutputFormatV(const char *aFormat, va_list aArguments)
 {
-    char buf[OPENTHREAD_CONFIG_CLI_MAX_LINE_LENGTH + 1];
-    int  rval;
+    static constexpr char truncatedMsg[] = "(truncated ...)";
+    char                  buf[OPENTHREAD_CONFIG_CLI_MAX_LINE_LENGTH];
+    int                   rval;
 
-    buf[OPENTHREAD_CONFIG_CLI_MAX_LINE_LENGTH] = '\0';
+    static_assert(sizeof(truncatedMsg) < OPENTHREAD_CONFIG_CLI_MAX_LINE_LENGTH,
+                  "OPENTHREAD_CONFIG_CLI_MAX_LINE_LENGTH is too short!");
 
-    rval = vsnprintf(buf, sizeof(buf) - 1, aFormat, aArguments);
+    rval = vsnprintf(buf, sizeof(buf), aFormat, aArguments);
+    VerifyOrExit(rval >= 0, LogWarn("Failed to format CLI output: %s", strerror(errno)));
 
-    VerifyOrExit(rval >= 0, otLogWarnPlat("Failed to format CLI output: %s", strerror(errno)));
+    if (rval >= static_cast<int>(sizeof(buf)))
+    {
+        rval = static_cast<int>(sizeof(buf) - 1);
+        memcpy(buf + sizeof(buf) - sizeof(truncatedMsg), truncatedMsg, sizeof(truncatedMsg));
+    }
 
     VerifyOrExit(mSessionSocket != -1);
 
-#if defined(__linux__)
+#ifdef __linux__
     // Don't die on SIGPIPE
     rval = send(mSessionSocket, buf, static_cast<size_t>(rval), MSG_NOSIGNAL);
 #else
@@ -91,7 +118,7 @@ int Daemon::OutputFormatV(const char *aFormat, va_list aArguments)
 
     if (rval < 0)
     {
-        otLogWarnPlat("Failed to write CLI output: %s", strerror(errno));
+        LogWarn("Failed to write CLI output: %s", strerror(errno));
         close(mSessionSocket);
         mSessionSocket = -1;
     }
@@ -135,7 +162,7 @@ void Daemon::InitializeSessionSocket(void)
 exit:
     if (rval == -1)
     {
-        otLogWarnPlat("Failed to initialize session socket: %s", strerror(errno));
+        LogWarn("Failed to initialize session socket: %s", strerror(errno));
         if (newSessionSocket != -1)
         {
             close(newSessionSocket);
@@ -143,17 +170,59 @@ exit:
     }
     else
     {
-        otLogInfoPlat("Session socket is ready", strerror(errno));
+        LogInfo("Session socket is ready");
     }
 }
 
-void Daemon::SetUp(void)
+#if OPENTHREAD_POSIX_CONFIG_ANDROID_ENABLE
+void Daemon::createListenSocketOrDie(void)
+{
+    Filename socketFile;
+
+    // Don't use OPENTHREAD_POSIX_DAEMON_SOCKET_NAME because android_get_control_socket
+    // below already assumes parent /dev/socket dir
+    GetFilename(socketFile, "ot-daemon/%s.sock");
+
+    // This returns the init-managed stream socket which is already bind to
+    // /dev/socket/ot-daemon/<interface-name>.sock
+    mListenSocket = android_get_control_socket(socketFile);
+
+    if (mListenSocket == -1)
+    {
+        DieNowWithMessage("android_get_control_socket", OT_EXIT_ERROR_ERRNO);
+    }
+}
+#else
+void Daemon::createListenSocketOrDie(void)
 {
     struct sockaddr_un sockname;
-    int                ret;
+    int ret;
 
-    // This allows implementing pseudo reset.
-    VerifyOrExit(mListenSocket == -1);
+    class AllowAllGuard
+    {
+    public:
+        AllowAllGuard(void)
+        {
+            const char *allowAll = getenv("OT_DAEMON_ALLOW_ALL");
+            mAllowAll = (allowAll != nullptr && strcmp("1", allowAll) == 0);
+
+            if (mAllowAll)
+            {
+                mMode = umask(0);
+            }
+        }
+        ~AllowAllGuard(void)
+        {
+            if (mAllowAll)
+            {
+                umask(mMode);
+            }
+        }
+
+    private:
+        bool mAllowAll = false;
+        mode_t mMode = 0;
+    };
 
     mListenSocket = SocketWithCloseExec(AF_UNIX, SOCK_STREAM, 0, kSocketNonBlock);
 
@@ -188,12 +257,26 @@ void Daemon::SetUp(void)
     GetFilename(sockname.sun_path, OPENTHREAD_POSIX_DAEMON_SOCKET_NAME);
     (void)unlink(sockname.sun_path);
 
-    ret = bind(mListenSocket, (const struct sockaddr *)&sockname, sizeof(struct sockaddr_un));
+    {
+        AllowAllGuard allowAllGuard;
+
+        ret = bind(mListenSocket, reinterpret_cast<const struct sockaddr *>(&sockname), sizeof(struct sockaddr_un));
+    }
 
     if (ret == -1)
     {
         DieNowWithMessage("bind", OT_EXIT_ERROR_ERRNO);
     }
+}
+#endif // OPENTHREAD_POSIX_CONFIG_ANDROID_ENABLE
+
+void Daemon::SetUp(void)
+{
+    int ret;
+
+    // This allows implementing pseudo reset.
+    VerifyOrExit(mListenSocket == -1);
+    createListenSocketOrDie();
 
     //
     // only accept 1 connection.
@@ -204,16 +287,13 @@ void Daemon::SetUp(void)
         DieNowWithMessage("listen", OT_EXIT_ERROR_ERRNO);
     }
 
-    otCliInit(
-        gInstance,
-        [](void *aContext, const char *aFormat, va_list aArguments) -> int {
-            return static_cast<Daemon *>(aContext)->OutputFormatV(aFormat, aArguments);
-        },
-        this);
+exit:
+#if OPENTHREAD_POSIX_CONFIG_DAEMON_CLI_ENABLE
+    otSysCliInitUsingDaemon(gInstance);
+#endif
 
     Mainloop::Manager::Get().Add(*this);
 
-exit:
     return;
 }
 
@@ -227,6 +307,8 @@ void Daemon::TearDown(void)
         mSessionSocket = -1;
     }
 
+#if !OPENTHREAD_POSIX_CONFIG_ANDROID_ENABLE
+    // The `mListenSocket` is managed by `init` on Android
     if (mListenSocket != -1)
     {
         close(mListenSocket);
@@ -238,7 +320,7 @@ void Daemon::TearDown(void)
         Filename sockfile;
 
         GetFilename(sockfile, OPENTHREAD_POSIX_DAEMON_SOCKET_NAME);
-        otLogDebgPlat("Removing daemon socket: %s", sockfile);
+        LogDebg("Removing daemon socket: %s", sockfile);
         (void)unlink(sockfile);
     }
 
@@ -248,6 +330,7 @@ void Daemon::TearDown(void)
         close(mDaemonLock);
         mDaemonLock = -1;
     }
+#endif
 }
 
 void Daemon::Update(otSysMainloopContext &aContext)
@@ -309,14 +392,17 @@ void Daemon::Process(const otSysMainloopContext &aContext)
         if (rval > 0)
         {
             buffer[rval] = '\0';
-            otLogInfoPlat("> %s", reinterpret_cast<const char *>(buffer));
+#if OPENTHREAD_POSIX_CONFIG_DAEMON_CLI_ENABLE
             otCliInputLine(reinterpret_cast<char *>(buffer));
+#else
+            OutputFormat("Error: CLI is disabled!\n");
+#endif
         }
         else
         {
             if (rval < 0)
             {
-                otLogWarnPlat("Daemon read: %s", strerror(errno));
+                LogWarn("Daemon read: %s", strerror(errno));
             }
             close(mSessionSocket);
             mSessionSocket = -1;

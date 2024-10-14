@@ -34,8 +34,8 @@
 #include "mac_links.hpp"
 
 #include "common/code_utils.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
+#include "instance/instance.hpp"
 
 namespace ot {
 namespace Mac {
@@ -156,10 +156,7 @@ void Links::Send(TxFrame &aFrame, RadioTypes aRadioTypes)
 #if OPENTHREAD_CONFIG_RADIO_LINK_IEEE_802_15_4_ENABLE
     if (aRadioTypes.Contains(kRadioTypeIeee802154))
     {
-        Error error = mSubMac.Send();
-
-        OT_ASSERT(error == kErrorNone);
-        OT_UNUSED_VARIABLE(error);
+        SuccessOrAssert(mSubMac.Send());
     }
 #endif
 #if OPENTHREAD_CONFIG_RADIO_LINK_TREL_ENABLE

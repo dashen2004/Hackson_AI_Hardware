@@ -3,21 +3,27 @@
 
 :link_to_translation:`en:[English]`
 
-Wi-Fi
-=======
+.. only:: SOC_WIFI_SUPPORTED
 
-.. toctree::
-   :maxdepth: 1
+   Wi-Fi
+   =====
 
-   Wi-Fi <esp_wifi>
-   Smart Config <esp_smartconfig>
-   ESP-NOW <esp_now>
-   ESP-WIFI-MESH <esp-wifi-mesh>
-   EasyConnect <esp_dpp>
+   .. toctree::
+      :maxdepth: 1
 
-本部分的 Wi-Fi API 示例代码存放在 ESP-IDF 示例项目的 :example:`wifi` 目录下。
+      esp_now
+      :SOC_WIFI_MESH_SUPPORT: esp-wifi-mesh
+      esp_smartconfig
+      esp_wifi
+      esp_dpp
+      :SOC_WIFI_NAN_SUPPORT: esp_nan
 
-ESP-WIFI-MESH 的示例代码存放在 ESP-IDF 示例项目的 :example:`mesh` 目录下。
+   本部分的 Wi-Fi API 示例代码存放在 ESP-IDF 示例项目的 :example:`wifi` 目录下。
+
+.. only:: SOC_WIFI_MESH_SUPPORT
+
+      ESP-WIFI-MESH 的示例代码存放在 ESP-IDF 示例项目的 :example:`mesh` 目录下。
+
 
 
 以太网
@@ -26,7 +32,7 @@ ESP-WIFI-MESH 的示例代码存放在 ESP-IDF 示例项目的 :example:`mesh` �
 .. toctree::
    :maxdepth: 1
 
-   Ethernet <esp_eth>
+   esp_eth
 
 本部分的以太网 API 示例代码存放在 ESP-IDF 示例项目的 :example:`ethernet` 目录下。
 
@@ -36,29 +42,32 @@ Thread
 .. toctree::
    :maxdepth: 1
 
-   Thread <esp_openthread>
+   esp_openthread
 
-本部分的Thread API 示例代码存放在 ESP-IDF 示例项目的 :example:`openthread` 目录下。
+Thread 是一种基于 IPv6 的物联网网状网络技术。
 
+本部分的 Thread API 示例代码存放在 ESP-IDF 示例项目的 :example:`openthread` 目录下。
 
-IP 网络层协议
-================
+ESP-NETIF
+=========
 
 .. toctree::
    :maxdepth: 1
 
-   ESP-NETIF <esp_netif.rst>
+   esp_netif
 
 .. toctree::
-   :hidden:
+    :hidden:
 
-   TCP/IP Adapter Migration Guide <tcpip_adapter_migration.rst>
-   ESP-NETIF Custom I/O Driver <esp_netif_driver.rst>
+    esp_netif_programming
+    esp_netif_driver
+
+IP 网络层协议
+================
 
 TCP/IP 套接字 API 的示例代码存放在 ESP-IDF 示例项目的 :example:`protocols/sockets` 目录下。
-
 
 应用层协议 
 ===========
 
-应用层网络协议（IP 网络层协议之上）的相关文档存放在 :doc:`../protocols/index`。
+应用层网络协议（IP 网络层协议之上）的相关文档存放在 :doc:`../protocols/index` 目录下。

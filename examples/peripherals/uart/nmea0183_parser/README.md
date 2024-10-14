@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- | -------- | -------- |
+
 # NMEA Parser Example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -21,11 +24,11 @@ Usually, modules will also output some vendor specific statements which common n
 
 ### Hardware Required
 
-To run this example, you need an ESP32, ESP32-S or ESP32-C series dev board (e.g. ESP32-WROVER Kit). For test purpose, you also need a GPS module. Here we take the [ATGM332D-5N](http://www.icofchina.com/pro/mokuai/2016-08-01/5.html) as an example to show how to parse the NMEA statements and output common information such as UTC time, latitude, longitude, altitude, speed and so on.
+To run this example, you need a dev board that is based on Espressif SoC (e.g. ESP32-WROVER Kit). For test purpose, you also need a GPS module. Here we take the [ATGM332D-5N](http://www.icofchina.com/pro/mokuai/2016-08-01/5.html) as an example to show how to parse the NMEA statements and output common information such as UTC time, latitude, longitude, altitude, speed and so on.
 
 #### Pin Assignment:
 
-**Note:** The following pin assignments are used by default which can be changed in `nmea_parser_config_t` structure.
+**Note:** GPIO5 is used by default as the RX pin, you can change it by `idf.py menuconfig` > `Example Configuration` > `NMEA_PARSER_UART_RXD`.
 
 | ESP                        | GPS             |
 | -------------------------- | --------------- |

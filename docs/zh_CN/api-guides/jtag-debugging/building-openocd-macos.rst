@@ -1,6 +1,7 @@
 ******************************
 MacOS 环境下从源码编译 OpenOCD
 ******************************
+
 :link_to_translation:`en:[English]`
 
 除了从 `Espressif 官方 <https://github.com/espressif/openocd-esp32/releases>`_ 直接下载 OpenOCD 可执行文件，你还可以选择从源码编译得到 OpenOCD。如果想要快速设置 OpenOCD 而不是自行编译，请备份好当前文件，前往 :ref:`jtag-debugging-setup-openocd` 章节查阅。
@@ -23,7 +24,8 @@ MacOS 环境下从源码编译 OpenOCD
 
 使用 Homebrew 安装编译 OpenOCD 所需的软件包::
 
-	brew install automake libtool libusb wget gcc@4.9 pkg-config
+    brew install automake libtool libusb wget gcc@4.9 pkg-config
+
 
 构建 OpenOCD
 =============
@@ -40,12 +42,18 @@ MacOS 环境下从源码编译 OpenOCD
 .. note::
 
     * 如果发生错误，请解决后再次尝试编译，直到 ``make`` 成功为止。
+    * 发生 ``Unknown command 'raggedright'`` 错误可能是因为安装的 ``texinfo`` 版本不对，或是由于没有将其添加到 PATH 路径。为了解决该问题，在运行 ``./bootstrap`` 前，请先运行如下命令确保安装合适版本的 ``texinfo`` 并将其添加到 PATH 路径::
+
+        brew install texinfo
+        export PATH=/usr/local/opt/texinfo/bin:$PATH
+
     * 如果 OpenOCD 存在子模块问题，请 ``cd`` 到 ``openocd-esp32`` 目录，并输入 ``git submodule update --init`` 命令。
     * 如果 ``./configure`` 成功运行，JTAG 被使能的信息会被打印在 ``OpenOCD configuration summary`` 下面。
-    * 如果您的设备信息未显示在日志中，请根据 ``../openocd-esp32/doc/INSTALL.txt`` 文中的描述使用 ``./configure`` 启用它。
+    * 如果你的设备信息未显示在日志中，请根据 ``../openocd-esp32/doc/INSTALL.txt`` 文中的描述使用 ``./configure`` 启用它。
     * 有关编译 OpenOCD 的详细信息，请参阅 ``openocd-esp32/README.OSX``。
 
 一旦 ``make`` 过程成功结束，OpenOCD 的可执行文件会被保存到 ``~/esp/openocd-esp32/src/openocd`` 目录中。
+
 
 下一步
 ======

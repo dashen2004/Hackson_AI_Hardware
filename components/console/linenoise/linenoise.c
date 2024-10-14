@@ -105,8 +105,14 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <stdio_ext.h>
+#include "sdkconfig.h"
+#if !CONFIG_IDF_TARGET_LINUX
+// On Linux, we don't need __fbufsize (see comments below), and
+// __fbufsize not available on MacOS (which is also considered "Linux" target)
+#include <stdio_ext.h> // for __fbufsize
+#endif
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
@@ -114,6 +120,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/fcntl.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <assert.h>
 #include "linenoise.h"
@@ -171,6 +178,7 @@ enum KEY_ACTION{
 	CTRL_U = 21,        /* Ctrl+u */
 	CTRL_W = 23,        /* Ctrl+w */
 	ESC = 27,           /* Escape */
+	UNIT_SEP = 31,      /* ctrl-_ */
 	BACKSPACE =  127    /* Backspace */
 };
 
@@ -214,9 +222,14 @@ bool linenoiseIsDumbMode(void) {
 }
 
 static void flushWrite(void) {
+// On Linux, we set stdout to unbuffered mode to facilitate interaction with tools.
+// Performance on Linux is not considered as critical as on chip targets. Additionally,
+// MacOS does not have __fbufsize.
+#if !CONFIG_IDF_TARGET_LINUX
     if (__fbufsize(stdout) > 0) {
         fflush(stdout);
     }
+#endif
     fsync(fileno(stdout));
 }
 
@@ -237,7 +250,10 @@ static int getCursorPosition(void) {
     /* Send the command to the TTY on the other end of the UART.
      * Let's use unistd's write function. Thus, data sent through it are raw
      * reducing the overhead compared to using fputs, fprintf, etc... */
-    write(out_fd, get_cursor_cmd, sizeof(get_cursor_cmd));
+    int num_written = write(out_fd, get_cursor_cmd, sizeof(get_cursor_cmd));
+    if (num_written != sizeof(get_cursor_cmd)) {
+        return -1;
+    }
 
     /* For USB CDC, it is required to flush the output. */
     flushWrite();
@@ -501,9 +517,10 @@ void refreshShowHints(struct abuf *ab, struct linenoiseState *l, int plen) {
             int hintmaxlen = l->cols-(plen+l->len);
             if (hintlen > hintmaxlen) hintlen = hintmaxlen;
             if (bold == 1 && color == -1) color = 37;
-            if (color != -1 || bold != 0)
+            if (color != -1 || bold != 0) {
                 snprintf(seq,64,"\033[%d;%d;49m",bold,color);
-            abAppend(ab,seq,strlen(seq));
+                abAppend(ab,seq,strlen(seq));
+            }
             abAppend(ab,hint,hintlen);
             if (color != -1 || bold != 0)
                 abAppend(ab,"\033[0m",4);
@@ -565,7 +582,7 @@ static void refreshMultiLine(struct linenoiseState *l) {
     int rows = (plen+l->len+l->cols-1)/l->cols; /* rows used by current buf. */
     int rpos = (plen+l->oldpos+l->cols)/l->cols; /* cursor relative row. */
     int rpos2; /* rpos after refresh. */
-    int col; /* colum position, zero-based. */
+    int col; /* column position, zero-based. */
     int old_rows = l->maxrows;
     int j;
     int fd = fileno(stdout);
@@ -620,7 +637,7 @@ static void refreshMultiLine(struct linenoiseState *l) {
     rpos2 = (plen+l->pos+l->cols)/l->cols; /* current cursor relative row. */
     lndebug("rpos2 %d", rpos2);
 
-    /* Go up till we reach the expected positon. */
+    /* Go up till we reach the expected position. */
     if (rows-rpos2 > 0) {
         lndebug("go-up %d", rows-rpos2);
         snprintf(seq,64,"\x1b[%dA", rows-rpos2);
@@ -781,7 +798,7 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
     }
 }
 
-/* Delete the previosu word, maintaining the cursor at the start of the
+/* Delete the previous word, maintaining the cursor at the start of the
  * current word. */
 void linenoiseEditDeletePrevWord(struct linenoiseState *l) {
     size_t old_pos = l->pos;
@@ -801,6 +818,23 @@ uint32_t getMillis(void) {
     struct timeval tv = { 0 };
     gettimeofday(&tv, NULL);
     return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+}
+
+static inline size_t prompt_len_ignore_escape_seq(const char *prompt) {
+    size_t plen = 0;
+    bool in_escape_sequence = false;
+
+    for (; *prompt != '\0'; ++prompt) {
+        if (*prompt == '\033') {
+            in_escape_sequence = true;
+        } else if (in_escape_sequence && *prompt == 'm') {
+            in_escape_sequence = false;
+        } else if (!in_escape_sequence) {
+            ++plen;
+        }
+    }
+
+    return plen;
 }
 
 /* This function is the core of the line editing capability of linenoise.
@@ -838,15 +872,16 @@ static int linenoiseEdit(char *buf, size_t buflen, const char *prompt)
      * initially is just an empty string. */
     linenoiseHistoryAdd("");
 
-    int pos1 = getCursorPosition();
     if (write(out_fd, prompt,l.plen) == -1) {
         return -1;
     }
     flushWrite();
-    int pos2 = getCursorPosition();
-    if (pos1 >= 0 && pos2 >= 0) {
-        l.plen = pos2 - pos1;
-    }
+
+    /* If the prompt has been registered with ANSI escape sequences
+     * for terminal colors then we remove them from the prompt length
+     * calculation. */
+    l.plen = prompt_len_ignore_escape_seq(prompt);
+
     while(1) {
         char c;
         int nread;
@@ -865,7 +900,7 @@ static int linenoiseEdit(char *buf, size_t buflen, const char *prompt)
         nread = read(in_fd, &c, 1);
         if (nread <= 0) return l.len;
 
-        if ( (getMillis() - t1) < LINENOISE_PASTE_KEY_DELAY ) {
+        if ( (getMillis() - t1) < LINENOISE_PASTE_KEY_DELAY && c != ENTER) {
             /* Pasting data, insert characters without formatting.
              * This can only be performed when the cursor is at the end of the
              * line. */
@@ -1045,7 +1080,7 @@ int linenoiseProbe(void) {
     flushWrite();
 
     /* Try to read response */
-    int timeout_ms = 200;
+    int timeout_ms = 500;
     const int retry_ms = 10;
     size_t read_bytes = 0;
     while (timeout_ms > 0 && read_bytes < 4) { // response is ESC[0n or ESC[3n
@@ -1054,6 +1089,10 @@ int linenoiseProbe(void) {
         char c;
         int cb = read(stdin_fileno, &c, 1);
         if (cb < 0) {
+            continue;
+        }
+        if (read_bytes == 0 && c != ESC) {
+            /* invalid response, try again until the timeout triggers */
             continue;
         }
         read_bytes += cb;
@@ -1087,24 +1126,35 @@ static int linenoiseRaw(char *buf, size_t buflen, const char *prompt) {
 static int linenoiseDumb(char* buf, size_t buflen, const char* prompt) {
     /* dumb terminal, fall back to fgets */
     fputs(prompt, stdout);
+    flushWrite();
     size_t count = 0;
     while (count < buflen) {
         int c = fgetc(stdin);
         if (c == '\n') {
             break;
-        } else if (c >= 0x1c && c <= 0x1f){
-            continue; /* consume arrow keys */
-        } else if (c == BACKSPACE || c == 0x8) {
+        } else if (c == BACKSPACE || c == CTRL_H) {
             if (count > 0) {
                 buf[count - 1] = 0;
-                count --;
+                count--;
+
+                /* Only erase symbol echoed from stdin. */
+                fputs("\x08 ", stdout); /* Windows CMD: erase symbol under cursor */
+                flushWrite();
+            } else {
+                /* Consume backspace if the command line is empty to avoid erasing the prompt */
+                continue;
             }
-            fputs("\x08 ", stdout); /* Windows CMD: erase symbol under cursor */
+
+        } else if (c <= UNIT_SEP) {
+            /* Consume all character that are non printable (the backspace
+             * case is handled above) */
+            continue;
         } else {
             buf[count] = c;
             ++count;
         }
         fputc(c, stdout); /* echo */
+        flushWrite();
     }
     fputc('\n', stdout);
     flushWrite();

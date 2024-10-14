@@ -35,6 +35,7 @@
 
 #if OPENTHREAD_CONFIG_NEIGHBOR_DISCOVERY_AGENT_ENABLE
 
+#include "common/as_core_type.hpp"
 #include "common/locator_getters.hpp"
 #include "thread/lowpan.hpp"
 #include "thread/mle_router.hpp"
@@ -67,8 +68,7 @@ void Agent::UpdateService(void)
                 continue;
             }
 
-            error = Get<NetworkData::Leader>().GetContext(static_cast<const Ip6::Address &>(config.mPrefix.mPrefix),
-                                                          lowpanContext);
+            error = Get<NetworkData::Leader>().GetContext(AsCoreType(&config.mPrefix.mPrefix), lowpanContext);
 
             if ((error != kErrorNone) || (lowpanContext.mContextId != contextId))
             {
@@ -97,31 +97,19 @@ void Agent::UpdateService(void)
             continue;
         }
 
-        error = Get<NetworkData::Leader>().GetContext(static_cast<const Ip6::Address &>(config.mPrefix.mPrefix),
-                                                      lowpanContext);
+        error = Get<NetworkData::Leader>().GetContext(AsCoreType(&config.mPrefix.mPrefix), lowpanContext);
 
         if (error == kErrorNone)
         {
-            uint16_t rloc = Mle::kAloc16NeighborDiscoveryAgentStart + lowpanContext.mContextId - 1;
+            uint16_t aloc16 = Mle::kAloc16NeighborDiscoveryAgentStart + lowpanContext.mContextId - 1;
 
             mAloc.InitAsThreadOrigin();
-            mAloc.GetAddress().SetToAnycastLocator(Get<Mle::MleRouter>().GetMeshLocalPrefix(), rloc);
+            mAloc.GetAddress().SetToAnycastLocator(Get<Mle::MleRouter>().GetMeshLocalPrefix(), aloc16);
+            mAloc.mMeshLocal = true;
             Get<ThreadNetif>().AddUnicastAddress(mAloc);
             ExitNow();
         }
     }
-
-exit:
-    return;
-}
-
-void Agent::ApplyMeshLocalPrefix(void)
-{
-    VerifyOrExit(IsAlocInUse());
-
-    Get<ThreadNetif>().RemoveUnicastAddress(mAloc);
-    mAloc.GetAddress().SetPrefix(Get<Mle::MleRouter>().GetMeshLocalPrefix());
-    Get<ThreadNetif>().AddUnicastAddress(mAloc);
 
 exit:
     return;

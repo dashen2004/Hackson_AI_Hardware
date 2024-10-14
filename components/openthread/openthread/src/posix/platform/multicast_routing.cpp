@@ -28,29 +28,48 @@
 
 #include "posix/platform/multicast_routing.hpp"
 
-#if OPENTHREAD_CONFIG_BACKBONE_ROUTER_MULTICAST_ROUTING_ENABLE
+#if OPENTHREAD_POSIX_CONFIG_BACKBONE_ROUTER_MULTICAST_ROUTING_ENABLE
 
 #include <assert.h>
 #include <net/if.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
+#include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#if __linux__
+#ifdef __linux__
 #include <linux/mroute6.h>
 #else
 #error "Multicast Routing feature is not ported to non-Linux platforms yet."
 #endif
 
 #include <openthread/backbone_router_ftd.h>
+#include <openthread/logging.h>
 
+#include "core/common/arg_macros.hpp"
 #include "core/common/debug.hpp"
-#include "core/common/logging.hpp"
 
 namespace ot {
 namespace Posix {
+
+const char MulticastRoutingManager::kLogModuleName[] = "McastRtMgr";
+
+#define LogResult(aError, ...)                                                                                \
+    do                                                                                                        \
+    {                                                                                                         \
+        otError _err = (aError);                                                                              \
+                                                                                                              \
+        if (_err == OT_ERROR_NONE)                                                                            \
+        {                                                                                                     \
+            LogInfo(OT_FIRST_ARG(__VA_ARGS__) ": %s" OT_REST_ARGS(__VA_ARGS__), otThreadErrorToString(_err)); \
+        }                                                                                                     \
+        else                                                                                                  \
+        {                                                                                                     \
+            LogWarn(OT_FIRST_ARG(__VA_ARGS__) ": %s" OT_REST_ARGS(__VA_ARGS__), otThreadErrorToString(_err)); \
+        }                                                                                                     \
+    } while (false)
 
 void MulticastRoutingManager::SetUp(void)
 {
@@ -69,16 +88,16 @@ void MulticastRoutingManager::TearDown(void)
     Mainloop::Manager::Get().Remove(*this);
 }
 
-void MulticastRoutingManager::HandleBackboneMulticastListenerEvent(void *                                 aContext,
+void MulticastRoutingManager::HandleBackboneMulticastListenerEvent(void                                  *aContext,
                                                                    otBackboneRouterMulticastListenerEvent aEvent,
-                                                                   const otIp6Address *                   aAddress)
+                                                                   const otIp6Address                    *aAddress)
 {
     static_cast<MulticastRoutingManager *>(aContext)->HandleBackboneMulticastListenerEvent(
         aEvent, static_cast<const Ip6::Address &>(*aAddress));
 }
 
 void MulticastRoutingManager::HandleBackboneMulticastListenerEvent(otBackboneRouterMulticastListenerEvent aEvent,
-                                                                   const Ip6::Address &                   aAddress)
+                                                                   const Ip6::Address                    &aAddress)
 {
     switch (aEvent)
     {
@@ -97,7 +116,7 @@ void MulticastRoutingManager::Enable(void)
 
     InitMulticastRouterSock();
 
-    otLogResultPlat(OT_ERROR_NONE, "MulticastRoutingManager: %s", __FUNCTION__);
+    LogResult(OT_ERROR_NONE, "%s", __FUNCTION__);
 exit:
     return;
 }
@@ -106,7 +125,7 @@ void MulticastRoutingManager::Disable(void)
 {
     FinalizeMulticastRouterSock();
 
-    otLogResultPlat(OT_ERROR_NONE, "MulticastRoutingManager: %s", __FUNCTION__);
+    LogResult(OT_ERROR_NONE, "%s", __FUNCTION__);
 }
 
 void MulticastRoutingManager::Add(const Ip6::Address &aAddress)
@@ -114,7 +133,9 @@ void MulticastRoutingManager::Add(const Ip6::Address &aAddress)
     VerifyOrExit(IsEnabled());
 
     UnblockInboundMulticastForwardingCache(aAddress);
-    otLogResultPlat(OT_ERROR_NONE, "MulticastRoutingManager: %s: %s", __FUNCTION__, aAddress.ToString().AsCString());
+    UpdateMldReport(aAddress, true);
+
+    LogResult(OT_ERROR_NONE, "%s: %s", __FUNCTION__, aAddress.ToString().AsCString());
 
 exit:
     return;
@@ -127,10 +148,27 @@ void MulticastRoutingManager::Remove(const Ip6::Address &aAddress)
     VerifyOrExit(IsEnabled());
 
     RemoveInboundMulticastForwardingCache(aAddress);
-    otLogResultPlat(error, "MulticastRoutingManager: %s: %s", __FUNCTION__, aAddress.ToString().AsCString());
+    UpdateMldReport(aAddress, false);
+
+    LogResult(error, "%s: %s", __FUNCTION__, aAddress.ToString().AsCString());
 
 exit:
     return;
+}
+
+void MulticastRoutingManager::UpdateMldReport(const Ip6::Address &aAddress, bool isAdd)
+{
+    struct ipv6_mreq ipv6mr;
+    otError          error = OT_ERROR_NONE;
+
+    ipv6mr.ipv6mr_interface = if_nametoindex(otSysGetInfraNetifName());
+    memcpy(&ipv6mr.ipv6mr_multiaddr, aAddress.GetBytes(), sizeof(ipv6mr.ipv6mr_multiaddr));
+    error = (setsockopt(mMulticastRouterSock, IPPROTO_IPV6, (isAdd ? IPV6_JOIN_GROUP : IPV6_LEAVE_GROUP),
+                        (void *)&ipv6mr, sizeof(ipv6mr))
+                 ? OT_ERROR_FAILED
+                 : OT_ERROR_NONE);
+
+    LogResult(error, "%s: address %s %s", __FUNCTION__, aAddress.ToString().AsCString(), (isAdd ? "Added" : "Removed"));
 }
 
 bool MulticastRoutingManager::HasMulticastListener(const Ip6::Address &aAddress) const
@@ -206,7 +244,7 @@ void MulticastRoutingManager::InitMulticastRouterSock(void)
 
     // Add Backbone network interface to MIF
     mif6ctl.mif6c_mifi = kMifIndexBackbone;
-    mif6ctl.mif6c_pifi = if_nametoindex(gBackboneNetifName);
+    mif6ctl.mif6c_pifi = otSysGetInfraNetifIndex();
     VerifyOrDie(mif6ctl.mif6c_pifi > 0, OT_EXIT_ERROR_ERRNO);
     VerifyOrDie(0 == setsockopt(mMulticastRouterSock, IPPROTO_IPV6, MRT6_ADD_MIF, &mif6ctl, sizeof(mif6ctl)),
                 OT_EXIT_ERROR_ERRNO);
@@ -246,7 +284,7 @@ void MulticastRoutingManager::ProcessMulticastRouterMessages(void)
     error = AddMulticastForwardingCache(src, dst, static_cast<MifIndex>(mrt6msg->im6_mif));
 
 exit:
-    otLogResultPlat(error, "MulticastRoutingManager: %s", __FUNCTION__);
+    LogResult(error, "%s", __FUNCTION__);
 }
 
 otError MulticastRoutingManager::AddMulticastForwardingCache(const Ip6::Address &aSrcAddr,
@@ -272,6 +310,8 @@ otError MulticastRoutingManager::AddMulticastForwardingCache(const Ip6::Address 
     }
     else
     {
+        VerifyOrExit(!aSrcAddr.IsLinkLocalUnicast(), error = OT_ERROR_NONE);
+        VerifyOrExit(aSrcAddr.GetPrefix() != AsCoreType(otThreadGetMeshLocalPrefix(gInstance)), error = OT_ERROR_NONE);
         // Forward multicast traffic from Thread to Backbone if multicast scope > kRealmLocalScope
         // TODO: (MLR) allow scope configuration of outbound multicast routing
         if (aGroupAddr.GetScope() > Ip6::Address::kRealmLocalScope)
@@ -301,9 +341,8 @@ otError MulticastRoutingManager::AddMulticastForwardingCache(const Ip6::Address 
 
     SaveMulticastForwardingCache(aSrcAddr, aGroupAddr, aIif, forwardMif);
 exit:
-    otLogResultPlat(error, "MulticastRoutingManager: %s: add dynamic route: %s %s => %s %s", __FUNCTION__,
-                    MifIndexToString(aIif), aSrcAddr.ToString().AsCString(), aGroupAddr.ToString().AsCString(),
-                    MifIndexToString(forwardMif));
+    LogResult(error, "%s: add dynamic route: %s %s => %s %s", __FUNCTION__, MifIndexToString(aIif),
+              aSrcAddr.ToString().AsCString(), aGroupAddr.ToString().AsCString(), MifIndexToString(forwardMif));
 
     return error;
 }
@@ -338,9 +377,9 @@ void MulticastRoutingManager::UnblockInboundMulticastForwardingCache(const Ip6::
 
         mfc.Set(kMifIndexBackbone, kMifIndexThread);
 
-        otLogResultPlat(error, "MulticastRoutingManager: %s: %s %s => %s %s", __FUNCTION__, MifIndexToString(mfc.mIif),
-                        mfc.mSrcAddr.ToString().AsCString(), mfc.mGroupAddr.ToString().AsCString(),
-                        MifIndexToString(kMifIndexThread));
+        LogResult(error, "%s: %s %s => %s %s", __FUNCTION__, MifIndexToString(mfc.mIif),
+                  mfc.mSrcAddr.ToString().AsCString(), mfc.mGroupAddr.ToString().AsCString(),
+                  MifIndexToString(kMifIndexThread));
     }
 }
 
@@ -400,9 +439,9 @@ bool MulticastRoutingManager::UpdateMulticastRouteInfo(MulticastForwardingCache 
     {
         unsigned long validPktCnt;
 
-        otLogDebgPlat("MulticastRoutingManager: %s: SIOCGETSGCNT_IN6 %s => %s: bytecnt=%lu, pktcnt=%lu, wrong_if=%lu",
-                      __FUNCTION__, aMfc.mSrcAddr.ToString().AsCString(), aMfc.mGroupAddr.ToString().AsCString(),
-                      sioc_sg_req6.bytecnt, sioc_sg_req6.pktcnt, sioc_sg_req6.wrong_if);
+        LogDebg("%s: SIOCGETSGCNT_IN6 %s => %s: bytecnt=%lu, pktcnt=%lu, wrong_if=%lu", __FUNCTION__,
+                aMfc.mSrcAddr.ToString().AsCString(), aMfc.mGroupAddr.ToString().AsCString(), sioc_sg_req6.bytecnt,
+                sioc_sg_req6.pktcnt, sioc_sg_req6.wrong_if);
 
         validPktCnt = sioc_sg_req6.pktcnt - sioc_sg_req6.wrong_if;
         if (validPktCnt != aMfc.mValidPktCnt)
@@ -414,8 +453,8 @@ bool MulticastRoutingManager::UpdateMulticastRouteInfo(MulticastForwardingCache 
     }
     else
     {
-        otLogWarnPlat("MulticastRoutingManager: %s: SIOCGETSGCNT_IN6 %s => %s failed: %s", __FUNCTION__,
-                      aMfc.mSrcAddr.ToString().AsCString(), aMfc.mGroupAddr.ToString().AsCString(), strerror(errno));
+        LogDebg("%s: SIOCGETSGCNT_IN6 %s => %s failed: %s", __FUNCTION__, aMfc.mSrcAddr.ToString().AsCString(),
+                aMfc.mGroupAddr.ToString().AsCString(), strerror(errno));
     }
 
     return updated;
@@ -443,20 +482,19 @@ const char *MulticastRoutingManager::MifIndexToString(MifIndex aMif)
 
 void MulticastRoutingManager::DumpMulticastForwardingCache(void) const
 {
-#if OPENTHREAD_CONFIG_LOG_PLATFORM && OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_DEBG
-    otLogDebgPlat("MulticastRoutingManager: ==================== MFC ENTRIES ====================");
+#if OPENTHREAD_CONFIG_LOG_PLATFORM && (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_DEBG)
+    LogDebg("==================== MFC ENTRIES ====================");
 
     for (const MulticastForwardingCache &mfc : mMulticastForwardingCacheTable)
     {
         if (mfc.IsValid())
         {
-            otLogDebgPlat("MulticastRoutingManager: %s %s => %s %s", MifIndexToString(mfc.mIif),
-                          mfc.mSrcAddr.ToString().AsCString(), mfc.mGroupAddr.ToString().AsCString(),
-                          MifIndexToString(mfc.mOif));
+            LogDebg("%s %s => %s %s", MifIndexToString(mfc.mIif), mfc.mSrcAddr.ToString().AsCString(),
+                    mfc.mGroupAddr.ToString().AsCString(), MifIndexToString(mfc.mOif));
         }
     }
 
-    otLogDebgPlat("MulticastRoutingManager: =====================================================");
+    LogDebg("=====================================================");
 #endif
 }
 
@@ -504,8 +542,8 @@ void MulticastRoutingManager::MulticastForwardingCache::SetValidPktCnt(unsigned 
     mLastUseTime = otPlatTimeGet();
 }
 
-void MulticastRoutingManager::SaveMulticastForwardingCache(const Ip6::Address &              aSrcAddr,
-                                                           const Ip6::Address &              aGroupAddr,
+void MulticastRoutingManager::SaveMulticastForwardingCache(const Ip6::Address               &aSrcAddr,
+                                                           const Ip6::Address               &aGroupAddr,
                                                            MulticastRoutingManager::MifIndex aIif,
                                                            MulticastRoutingManager::MifIndex aOif)
 {
@@ -566,9 +604,9 @@ void MulticastRoutingManager::RemoveMulticastForwardingCache(
                 ? OT_ERROR_NONE
                 : OT_ERROR_FAILED;
 
-    otLogResultPlat(error, "MulticastRoutingManager: %s: %s %s => %s %s", __FUNCTION__, MifIndexToString(aMfc.mIif),
-                    aMfc.mSrcAddr.ToString().AsCString(), aMfc.mGroupAddr.ToString().AsCString(),
-                    MifIndexToString(aMfc.mOif));
+    LogResult(error, "%s: %s %s => %s %s", __FUNCTION__, MifIndexToString(aMfc.mIif),
+              aMfc.mSrcAddr.ToString().AsCString(), aMfc.mGroupAddr.ToString().AsCString(),
+              MifIndexToString(aMfc.mOif));
 
     aMfc.Erase();
 }
@@ -576,4 +614,4 @@ void MulticastRoutingManager::RemoveMulticastForwardingCache(
 } // namespace Posix
 } // namespace ot
 
-#endif // OPENTHREAD_CONFIG_BACKBONE_ROUTER_MULTICAST_ROUTING_ENABLE
+#endif // OPENTHREAD_POSIX_CONFIG_BACKBONE_ROUTER_MULTICAST_ROUTING_ENABLE

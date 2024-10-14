@@ -1,26 +1,42 @@
-// Copyright 2010-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+/*
+ * SPDX-FileCopyrightText: 2010-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+#pragma once
 
-#ifndef _SOC_CLKOUT_CHANNEL_H
-#define _SOC_CLKOUT_CHANNEL_H
+#include "esp_assert.h"
+#include "soc/soc_caps.h"
+#include "soc/io_mux_reg.h"
+#include "soc/gpio_sig_map.h"
 
-//CLKOUT channels
-#define CLKOUT_GPIO20_DIRECT_CHANNEL         CLKOUT_CHANNEL_1
-#define CLKOUT_CHANNEL_1_DIRECT_GPIO_NUM     20
-#define CLKOUT_GPIO19_DIRECT_CHANNEL         CLKOUT_CHANNEL_2
-#define CLKOUT_CHANNEL_2_DIRECT_GPIO_NUM     19
-#define CLKOUT_GPIO18_DIRECT_CHANNEL         CLKOUT_CHANNEL_3
-#define CLKOUT_CHANNEL_3_DIRECT_GPIO_NUM     18
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+typedef enum clock_out_channel {
+    CLKOUT_CHANNEL_1,
+    CLKOUT_CHANNEL_2,
+    CLKOUT_CHANNEL_3,
+    CLKOUT_CHANNEL_MAX,
+} clock_out_channel_t;
+
+#define CLKOUT_CHANNEL_TO_GPIO_SIG_ID(channel)  ((channel == CLKOUT_CHANNEL_1) ? CLK_OUT_OUT1_IDX : \
+                                                 (channel == CLKOUT_CHANNEL_2) ? CLK_OUT_OUT2_IDX : \
+                                                 (channel == CLKOUT_CHANNEL_3) ? CLK_OUT_OUT3_IDX : SIG_GPIO_OUT_IDX)
+
+
+#define CLKOUT_CHANNEL_MASK(channel)    ((channel == CLKOUT_CHANNEL_1) ? CLK_OUT1 : \
+                                         (channel == CLKOUT_CHANNEL_2) ? CLK_OUT2 : \
+                                         (channel == CLKOUT_CHANNEL_3) ? CLK_OUT3 : 0)
+
+#define CLKOUT_CHANNEL_SHIFT(channel)   ((channel == CLKOUT_CHANNEL_1) ? CLK_OUT1_S : \
+                                         (channel == CLKOUT_CHANNEL_2) ? CLK_OUT2_S : \
+                                         (channel == CLKOUT_CHANNEL_3) ? CLK_OUT3_S : 0)
+
+ESP_STATIC_ASSERT(CLKOUT_CHANNEL_MAX == SOC_GPIO_CLOCKOUT_CHANNEL_NUM, "clock_out_channel enumeration mismatch");
+
+#ifdef __cplusplus
+}
 #endif

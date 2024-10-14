@@ -1,8 +1,11 @@
-# HTTP server with SSL support using OpenSSL
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | -------- | -------- | -------- |
 
-This example creates a SSL server that returns a simple HTML page when you visit its root URL.
+# HTTPS server
 
-See the `esp_https_server` component documentation for details.
+This example creates an HTTPS server with SSL/TLS support using **ESP-TLS** that serves a simple HTML page when you visit its root URL.
+
+For more information, refer to the [esp_https_server component documentation](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/protocols/esp_https_server.html).
 
 ## How to use example
 Before project configuration and build, be sure to set the correct chip target using `idf.py set-target <chip_name>`.

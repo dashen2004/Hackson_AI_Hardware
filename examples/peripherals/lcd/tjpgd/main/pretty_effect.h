@@ -1,15 +1,12 @@
 /*
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+ * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: CC0-1.0
+ */
 
 #pragma once
 #include <stdint.h>
 #include "esp_err.h"
-
 
 /**
  * @brief Calculate the effect for a bunch of lines.
@@ -20,7 +17,6 @@
  * @param linect Amount of lines to calculate
  */
 void pretty_effect_calc_lines(uint16_t *dest, int line, int frame, int linect);
-
 
 /**
  * @brief Initialize the effect

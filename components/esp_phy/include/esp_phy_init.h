@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,13 +8,15 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_err.h"
+#include "sdkconfig.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**
- * @file PHY init parameters and API
+ * @file
+ *          init parameters and API
  */
 
 
@@ -22,8 +24,21 @@ extern "C" {
  * @brief Structure holding PHY init parameters
  */
 typedef struct {
-	uint8_t params[128];                    /*!< opaque PHY initialization parameters */
+#if CONFIG_IDF_TARGET_ESP32C5
+    uint8_t params[256];                    /*!< opaque PHY initialization parameters */
+#else
+    uint8_t params[128];                    /*!< opaque PHY initialization parameters */
+#endif
 } esp_phy_init_data_t;
+
+/**
+ * @brief PHY enable or disable modem
+ */
+typedef enum {
+    PHY_MODEM_WIFI       = 1,       /*!< PHY modem WIFI       */
+    PHY_MODEM_BT         = 2,       /*!< PHY modem BT         */
+    PHY_MODEM_IEEE802154 = 4,       /*!< PHY modem IEEE802154 */
+} esp_phy_modem_t;
 
 /**
  * @brief Opaque PHY calibration data
@@ -34,6 +49,10 @@ typedef struct {
     uint8_t opaque[1894];                   /*!< calibration data */
 } esp_phy_calibration_data_t;
 
+/**
+ * @brief PHY calibration mode
+ *
+ */
 typedef enum {
     PHY_RF_CAL_PARTIAL = 0x00000000,        /*!< Do part of RF calibration. This should be used after power-on reset. */
     PHY_RF_CAL_NONE    = 0x00000001,        /*!< Don't do any RF calibration. This mode is only suggested to be used after deep sleep reset. */
@@ -90,7 +109,7 @@ const esp_phy_init_data_t* esp_phy_get_init_data(void);
 void esp_phy_release_init_data(const esp_phy_init_data_t* data);
 
 /**
- * @brief Function called by esp_phy_init to load PHY calibration data
+ * @brief Function called by esp_phy_load_cal_and_init to load PHY calibration data
  *
  * This is a convenience function which can be used to load PHY calibration
  * data from NVS. Data can be stored to NVS using esp_phy_store_cal_data_to_nvs
@@ -101,13 +120,6 @@ void esp_phy_release_init_data(const esp_phy_init_data_t* data);
  * or obtained for a different version of software), this function will
  * return an error.
  *
- * If "Initialize PHY in startup code" option is set in menuconfig, this
- * function will be used to load calibration data. To provide a different
- * mechanism for loading calibration data, disable
- * "Initialize PHY in startup code" option in menuconfig and call esp_phy_init
- * function from the application. For an example usage of esp_phy_init and
- * this function, see esp_phy_store_cal_data_to_nvs function in cpu_start.c
- *
  * @param out_cal_data pointer to calibration data structure to be filled with
  *                     loaded data.
  * @return ESP_OK on success
@@ -115,18 +127,12 @@ void esp_phy_release_init_data(const esp_phy_init_data_t* data);
 esp_err_t esp_phy_load_cal_data_from_nvs(esp_phy_calibration_data_t* out_cal_data);
 
 /**
- * @brief Function called by esp_phy_init to store PHY calibration data
+ * @brief Function called by esp_phy_load_cal_and_init to store PHY calibration data
  *
  * This is a convenience function which can be used to store PHY calibration
- * data to the NVS. Calibration data is returned by esp_phy_init function.
+ * data to the NVS. Calibration data is returned by esp_phy_load_cal_and_init function.
  * Data saved using this function to the NVS can later be loaded using
  * esp_phy_store_cal_data_to_nvs function.
- *
- * If "Initialize PHY in startup code" option is set in menuconfig, this
- * function will be used to store calibration data. To provide a different
- * mechanism for storing calibration data, disable
- * "Initialize PHY in startup code" option in menuconfig and call esp_phy_init
- * function from the application.
  *
  * @param cal_data pointer to calibration data which has to be saved.
  * @return ESP_OK on success
@@ -152,8 +158,9 @@ esp_err_t esp_phy_erase_cal_data_in_nvs(void);
  * Now PHY and RF enabling job is done automatically when start WiFi or BT. Users should not
  * call this API in their application.
  *
+ * @param modem the modem to call the phy enable.
  */
-void esp_phy_enable(void);
+void esp_phy_enable(esp_phy_modem_t modem);
 
 /**
  * @brief Disable PHY and RF module
@@ -162,19 +169,55 @@ void esp_phy_enable(void);
  * Now PHY and RF disabling job is done automatically when stop WiFi or BT. Users should not
  * call this API in their application.
  *
+ * @param modem the modem to call the phy disable.
  */
-void esp_phy_disable(void);
+void esp_phy_disable(esp_phy_modem_t modem);
+
+/**
+ * @brief Enable BTBB module
+ *
+ * BTBB module should be enabled in order to use IEEE802154 or BT.
+ * Now BTBB enabling job is done automatically when start IEEE802154 or BT. Users should not
+ * call this API in their application.
+ *
+ */
+void esp_btbb_enable(void);
+
+/**
+ * @brief Disable BTBB module
+ *
+ * Disable BTBB module, used by IEEE802154 or Bluetooth.
+ * Users should not call this API in their application.
+ *
+ */
+void esp_btbb_disable(void);
 
 /**
  * @brief Load calibration data from NVS and initialize PHY and RF module
  */
 void esp_phy_load_cal_and_init(void);
 
+/**
+ * @brief Initialize backup memory for Phy power up/down
+ */
+void esp_phy_modem_init(void);
+
+/**
+ * @brief Deinitialize backup memory for Phy power up/down
+ * Set phy_init_flag if all modems deinit on ESP32C3
+ */
+void esp_phy_modem_deinit(void);
+
 #if CONFIG_MAC_BB_PD
 /**
  * @brief Initialize backup memory for MAC and Baseband power up/down
  */
 void esp_mac_bb_pd_mem_init(void);
+
+/**
+ * @brief Deinitialize backup memory for MAC and Baseband power up/down
+ */
+void esp_mac_bb_pd_mem_deinit(void);
 
 /**
  * @brief Power up MAC and Baseband
@@ -208,6 +251,10 @@ int64_t esp_phy_rf_get_on_ts(void);
 
 /**
  * @brief Update the corresponding PHY init type according to the country code of Wi-Fi.
+ *
+ * @param country country code
+ * @return ESP_OK on success.
+ * @return esp_err_t code describing the error on fail
  */
 esp_err_t esp_phy_update_country_info(const char *country);
 
@@ -226,6 +273,18 @@ esp_err_t esp_phy_apply_phy_init_data(uint8_t *init_data);
  * @return PHY lib version.
  */
 char * get_phy_version_str(void);
+
+/**
+ * @brief Set PHY init parameters
+ * @param param is 1 means combo module
+ */
+void phy_init_param_set(uint8_t param);
+
+/**
+ * @brief Wi-Fi RX enable
+ * @param enable True for enable wifi receiving mode as default, false for closing wifi receiving mode as default.
+ */
+void phy_wifi_enable_set(uint8_t enable);
 
 #ifdef __cplusplus
 }

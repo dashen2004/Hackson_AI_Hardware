@@ -1,36 +1,51 @@
-/*******************************************************************************
-Copyright (c) 2006-2015 Cadence Design Systems Inc.
+/*
+ * SPDX-FileCopyrightText: 2015-2019 Cadence Design Systems, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ * SPDX-FileContributor: 2016-2022 Espressif Systems (Shanghai) CO LTD
+ */
+/*
+ * Copyright (c) 2015-2019 Cadence Design Systems, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-******************************************************************************/
-
-/******************************************************************************
-  Xtensa interrupt handling data and assembly routines.
-  Also see xtensa_intr.c and xtensa_vectors.S.
-******************************************************************************/
+/*
+ * Xtensa interrupt handling data and assembly routines.
+ * Also see xtensa_intr.c and xtensa_vectors.S.
+ */
 
 #include <xtensa/hal.h>
 #include <xtensa/config/core.h>
 
-#include "xtensa/xtensa_context.h"
-#include "freertos/FreeRTOSConfig.h"
+#include "xtensa_context.h"
+
+/*
+ * When compiling for G0-only, we don't have FreeRTOS component.
+ * In fact, FreeRTOS component is only used for the configuration, so only the
+ * macro portNUM_PROCESSORS needs to be defined (in the build file).
+ */
+#if __has_include("freertos/FreeRTOSConfig.h")
+    #include "freertos/FreeRTOSConfig.h"
+#endif
 
 #if XCHAL_HAVE_INTERRUPTS
 

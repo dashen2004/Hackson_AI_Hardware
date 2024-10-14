@@ -43,20 +43,22 @@
 #include <mbedtls/pem.h>
 #endif
 
+#include "common/code_utils.hpp"
 #include "common/error.hpp"
-#include "common/instance.hpp"
+#include "common/heap.hpp"
+#include "common/random.hpp"
 
 namespace ot {
 namespace Crypto {
 
 MbedTls::MbedTls(void)
 {
-#if OPENTHREAD_CONFIG_ENABLE_BUILTIN_MBEDTLS_MANAGEMENT
 #ifdef MBEDTLS_DEBUG_C
     // mbedTLS's debug level is almost the same as OpenThread's
     mbedtls_debug_set_threshold(OPENTHREAD_CONFIG_LOG_LEVEL);
 #endif
-    mbedtls_platform_set_calloc_free(Instance::HeapCAlloc, Instance::HeapFree);
+#if OPENTHREAD_CONFIG_ENABLE_BUILTIN_MBEDTLS_MANAGEMENT
+    mbedtls_platform_set_calloc_free(Heap::CAlloc, Heap::Free);
 #endif // OPENTHREAD_CONFIG_ENABLE_BUILTIN_MBEDTLS_MANAGEMENT
 }
 
@@ -167,6 +169,17 @@ Error MbedTls::MapError(int aMbedTlsError)
 
     return error;
 }
+
+#if !OPENTHREAD_RADIO
+
+int MbedTls::CryptoSecurePrng(void *, unsigned char *aBuffer, size_t aSize)
+{
+    IgnoreError(ot::Random::Crypto::FillBuffer(aBuffer, static_cast<uint16_t>(aSize)));
+
+    return 0;
+}
+
+#endif // !OPENTHREAD_RADIO
 
 } // namespace Crypto
 } // namespace ot

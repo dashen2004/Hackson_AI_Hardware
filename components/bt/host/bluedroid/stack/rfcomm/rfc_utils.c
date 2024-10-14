@@ -188,7 +188,8 @@ tRFC_MCB *rfc_alloc_multiplexer_channel (BD_ADDR bd_addr, BOOLEAN is_initiator)
     return (NULL);
 }
 
-void osi_free_fun(void *p){
+void osi_free_fun(void *p)
+{
     osi_free(p);
 }
 /*******************************************************************************
@@ -201,7 +202,6 @@ void osi_free_fun(void *p){
 *******************************************************************************/
 void rfc_release_multiplexer_channel (tRFC_MCB *p_mcb)
 {
-
     rfc_timer_free (p_mcb);
 
     fixed_queue_free(p_mcb->cmd_q, osi_free_fun);

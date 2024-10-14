@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -14,7 +20,6 @@
 #include "console/console.h"
 
 /*nimBLE Host*/
-#include "esp_nimble_hci.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 #include "host/ble_hs.h"
@@ -28,7 +33,6 @@
 #if (BLUFI_INCLUDED == TRUE)
 
 static uint8_t own_addr_type;
-static uint16_t  conn_handle;
 
 struct gatt_value gatt_values[SERVER_MAX_VALUES];
 const static char *TAG = "BLUFI_EXAMPLE";
@@ -78,7 +82,7 @@ void esp_blufi_gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *a
     char buf[BLE_UUID_STR_LEN];
     switch (ctxt->op) {
     case BLE_GATT_REGISTER_OP_SVC:
-        ESP_LOGI(TAG, "registered service %s with handle=%d\n",
+        ESP_LOGI(TAG, "registered service %s with handle=%d",
                  ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
                  ctxt->svc.handle);
         break;
@@ -92,7 +96,7 @@ void esp_blufi_gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *a
         break;
 
     case BLE_GATT_REGISTER_OP_DSC:
-        ESP_LOGI(TAG, "registering descriptor %s with handle=%d\n",
+        ESP_LOGI(TAG, "registering descriptor %s with handle=%d",
                  ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
                  ctxt->dsc.handle);
         break;
@@ -120,7 +124,31 @@ static size_t write_value(uint16_t conn_handle, uint16_t attr_handle,
         }
     }
 
-    btc_blufi_recv_handler(&ctxt->om->om_data[0], ctxt->om->om_len);
+    /* Data may come in linked om. So retrieve all data */
+    if (SLIST_NEXT(ctxt->om, om_next) != NULL) {
+	uint8_t *fw_buf = (uint8_t *)malloc(517 * sizeof(uint8_t));
+	memset(fw_buf, 0x0, 517);
+
+        memcpy(fw_buf, &ctxt->om->om_data[0], ctxt->om->om_len);
+        struct os_mbuf *last;
+        last = ctxt->om;
+        uint32_t offset = ctxt->om->om_len;
+
+        while (SLIST_NEXT(last, om_next) != NULL) {
+              struct os_mbuf *temp = SLIST_NEXT(last, om_next);
+	      memcpy(fw_buf + offset  , &temp->om_data[0], temp->om_len);
+	      offset += temp->om_len;
+	      last = SLIST_NEXT(last, om_next);
+              temp = NULL;
+        }
+	btc_blufi_recv_handler(fw_buf, offset);
+
+	free(fw_buf);
+    }
+    else {
+        btc_blufi_recv_handler(&ctxt->om->om_data[0], ctxt->om->om_len);
+    }
+
     rc = ble_hs_mbuf_to_flat(ctxt->om, value->buf->om_data,
                              value->buf->om_len, &len);
     if (rc != 0) {
@@ -241,7 +269,7 @@ esp_blufi_gap_event(struct ble_gap_event *event, void *arg)
     switch (event->type) {
     case BLE_GAP_EVENT_CONNECT:
         /* A new connection was established or a connection attempt failed. */
-        ESP_LOGI(TAG, "connection %s; status=%d\n",
+        ESP_LOGI(TAG, "connection %s; status=%d",
                  event->connect.status == 0 ? "established" : "failed",
                  event->connect.status);
         if (event->connect.status == 0) {
@@ -256,12 +284,12 @@ esp_blufi_gap_event(struct ble_gap_event *event, void *arg)
 
             rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
             assert(rc == 0);
-            memcpy(param.connect.remote_bda, desc.peer_id_addr.val, sizeof(esp_bd_addr_t));
+            memcpy(param.connect.remote_bda, desc.peer_id_addr.val, ESP_BLUFI_BD_ADDR_LEN);
 
             param.connect.conn_id = event->connect.conn_handle;
             /* save connection handle */
-            conn_handle = event->connect.conn_handle;
-            btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL);
+            blufi_env.conn_id = event->connect.conn_handle;
+            btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
         }
         if (event->connect.status != 0) {
             /* Connection failed; resume advertising. */
@@ -269,24 +297,31 @@ esp_blufi_gap_event(struct ble_gap_event *event, void *arg)
         }
         return 0;
     case BLE_GAP_EVENT_DISCONNECT:
-        ESP_LOGI(TAG, "disconnect; reason=%d\n", event->disconnect.reason);
-        memcpy(blufi_env.remote_bda, event->disconnect.conn.peer_id_addr.val, sizeof(esp_bd_addr_t));
+        ESP_LOGI(TAG, "disconnect; reason=%d", event->disconnect.reason);
+        memcpy(blufi_env.remote_bda, event->disconnect.conn.peer_id_addr.val, ESP_BLUFI_BD_ADDR_LEN);
         blufi_env.is_connected = false;
         blufi_env.recv_seq = blufi_env.send_seq = 0;
         blufi_env.sec_mode = 0x0;
+        blufi_env.offset = 0;
+
+        if (blufi_env.aggr_buf != NULL) {
+            osi_free(blufi_env.aggr_buf);
+            blufi_env.aggr_buf = NULL;
+        }
+
         btc_msg_t msg;
         esp_blufi_cb_param_t param;
 
         msg.sig = BTC_SIG_API_CB;
         msg.pid = BTC_PID_BLUFI;
         msg.act = ESP_BLUFI_EVENT_BLE_DISCONNECT;
-        memcpy(param.disconnect.remote_bda, event->disconnect.conn.peer_id_addr.val, sizeof(esp_bd_addr_t));
-        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL);
+        memcpy(param.disconnect.remote_bda, event->disconnect.conn.peer_id_addr.val, ESP_BLUFI_BD_ADDR_LEN);
+        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
 
         return 0;
     case BLE_GAP_EVENT_CONN_UPDATE:
         /* The central has updated the connection parameters. */
-        ESP_LOGI(TAG, "connection updated; status=%d\n",
+        ESP_LOGI(TAG, "connection updated; status=%d",
                  event->conn_update.status);
         return 0;
 
@@ -309,7 +344,7 @@ esp_blufi_gap_event(struct ble_gap_event *event, void *arg)
         return 0;
 
     case BLE_GAP_EVENT_MTU:
-        ESP_LOGI(TAG, "mtu update event; conn_handle=%d cid=%d mtu=%d\n",
+        ESP_LOGI(TAG, "mtu update event; conn_handle=%d cid=%d mtu=%d",
                  event->mtu.conn_handle,
                  event->mtu.channel_id,
                  event->mtu.value);
@@ -379,7 +414,7 @@ void esp_blufi_adv_start(void)
     fields.uuids16_is_complete = 1;
     rc = ble_gap_adv_set_fields(&fields);
     if (rc != 0) {
-        ESP_LOGE(TAG, "error setting advertisement data; rc=%d\n", rc);
+        ESP_LOGE(TAG, "error setting advertisement data; rc=%d", rc);
         return;
     }
 
@@ -390,7 +425,7 @@ void esp_blufi_adv_start(void)
     rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER,
                            &adv_params, esp_blufi_gap_event, NULL);
     if (rc != 0) {
-        ESP_LOGE(TAG, "error enabling advertisement; rc=%d\n", rc);
+        ESP_LOGE(TAG, "error enabling advertisement; rc=%d", rc);
         return;
     }
 }
@@ -407,12 +442,14 @@ uint8_t esp_blufi_init(void)
 void esp_blufi_deinit(void)
 {
     blufi_env.enabled = false;
-    btc_msg_t msg;
     esp_blufi_cb_param_t param;
+    btc_msg_t msg;
+    memset (&msg, 0x0, sizeof (msg));
+    msg.sig = BTC_SIG_API_CB;
     msg.pid = BTC_PID_BLUFI;
     msg.act = ESP_BLUFI_EVENT_DEINIT_FINISH;
     param.deinit_finish.state = ESP_BLUFI_DEINIT_OK;
-    btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL);
+    btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
 }
 
 void esp_blufi_send_notify(void *arg)
@@ -420,14 +457,20 @@ void esp_blufi_send_notify(void *arg)
     struct pkt_info *pkts = (struct pkt_info *) arg;
     struct os_mbuf *om;
     om = ble_hs_mbuf_from_flat(pkts->pkt, pkts->pkt_len);
+    if (om == NULL) {
+        ESP_LOGE(TAG, "Error in allocating memory");
+        return;
+    }
     int rc = 0;
-    rc = ble_gattc_notify_custom(conn_handle, gatt_values[1].val_handle, om);
-    assert(rc == 0);
+    rc = ble_gatts_notify_custom(blufi_env.conn_id, gatt_values[1].val_handle, om);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Error in sending notification");
+    }
 }
 
 void esp_blufi_disconnect(void)
 {
-    ble_gap_terminate(conn_handle, BLE_ERR_REM_USER_CONN_TERM);
+    ble_gap_terminate(blufi_env.conn_id, BLE_ERR_REM_USER_CONN_TERM);
 }
 
 void esp_blufi_adv_stop(void) {}
@@ -437,8 +480,6 @@ void esp_blufi_send_encap(void *arg)
     struct blufi_hdr *hdr = (struct blufi_hdr *)arg;
     if (blufi_env.is_connected == false) {
         BTC_TRACE_WARNING("%s ble connection is broken\n", __func__);
-        osi_free(hdr);
-        hdr =  NULL;
         return;
     }
     btc_blufi_send_notify((uint8_t *)hdr,
@@ -452,6 +493,77 @@ void esp_blufi_btc_init(void)
     int rc;
     rc = btc_init();
     assert(rc == 0);
+}
+
+void esp_blufi_btc_deinit(void)
+{
+    btc_deinit();
+}
+
+int esp_blufi_handle_gap_events(struct ble_gap_event *event, void *arg)
+{
+    struct ble_gap_conn_desc desc;
+    int rc;
+
+    if (event != NULL) {
+        switch (event->type) {
+        case BLE_GAP_EVENT_CONNECT:
+            if (event->connect.status == 0) {
+                btc_msg_t msg;
+                esp_blufi_cb_param_t param;
+
+                blufi_env.is_connected = true;
+                blufi_env.recv_seq = blufi_env.send_seq = 0;
+                blufi_env.conn_id  = event->connect.conn_handle;
+
+                msg.sig = BTC_SIG_API_CB;
+                msg.pid = BTC_PID_BLUFI;
+                msg.act = ESP_BLUFI_EVENT_BLE_CONNECT;
+
+                rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
+                assert(rc == 0);
+                memcpy(param.connect.remote_bda, desc.peer_id_addr.val, ESP_BLUFI_BD_ADDR_LEN);
+
+                param.connect.conn_id = event->connect.conn_handle;
+                btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
+            }
+            return 0;
+        case BLE_GAP_EVENT_DISCONNECT: {
+            btc_msg_t msg;
+            esp_blufi_cb_param_t param;
+
+            blufi_env.is_connected = false;
+            blufi_env.recv_seq = blufi_env.send_seq = 0;
+            blufi_env.sec_mode = 0x0;
+            blufi_env.offset = 0;
+
+            memcpy(blufi_env.remote_bda,
+                   event->disconnect.conn.peer_id_addr.val,
+                   ESP_BLUFI_BD_ADDR_LEN);
+
+            if (blufi_env.aggr_buf != NULL) {
+                osi_free(blufi_env.aggr_buf);
+                blufi_env.aggr_buf = NULL;
+            }
+
+            msg.sig = BTC_SIG_API_CB;
+            msg.pid = BTC_PID_BLUFI;
+            msg.act = ESP_BLUFI_EVENT_BLE_DISCONNECT;
+            memcpy(param.disconnect.remote_bda,
+                   event->disconnect.conn.peer_id_addr.val,
+                   ESP_BLUFI_BD_ADDR_LEN);
+            btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
+            return 0;
+        }
+
+        case BLE_GAP_EVENT_MTU:
+            blufi_env.frag_size = (event->mtu.value < BLUFI_MAX_DATA_LEN ? event->mtu.value :
+                                   BLUFI_MAX_DATA_LEN) - BLUFI_MTU_RESERVED_SIZE;
+            return 0;
+        }
+    }
+
+    return 0;
 }
 
 #endif

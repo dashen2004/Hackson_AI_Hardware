@@ -38,13 +38,35 @@
 
 #include <openthread/tcp.h>
 
-#include "net/ip6_headers.hpp"
-#include "net/socket.hpp"
-
+#include "common/as_core_type.hpp"
+#include "common/clearable.hpp"
 #include "common/linked_list.hpp"
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
 #include "common/timer.hpp"
+#include "net/ip6_headers.hpp"
+#include "net/socket.hpp"
+
+/*
+ * These structures and functions are forward-declared here to avoid
+ * #includ'ing third_party/tcplp/tcplp.h in this header file.
+ */
+extern "C" {
+struct tcpcb;
+struct tcpcb_listen;
+struct tcplp_signals;
+
+/*
+ * The next two declarations intentionally change argument names from the
+ * original declarations in TCPlp, in order to comply with OpenThread's format.
+ */
+
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
+void tcplp_sys_set_timer(struct tcpcb *aTcb, uint8_t aTimerFlag, uint32_t aDelay);
+
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
+void tcplp_sys_stop_timer(struct tcpcb *aTcb, uint8_t aTimerFlag);
+}
 
 namespace ot {
 namespace Ip6 {
@@ -60,19 +82,20 @@ namespace Ip6 {
  */
 
 /**
- * This class implements TCP message handling.
+ * Implements TCP message handling.
  *
  */
 class Tcp : public InstanceLocator, private NonCopyable
 {
 public:
     /**
-     * This class represents an endpoint of a TCP/IPv6 connection.
+     * Represents an endpoint of a TCP/IPv6 connection.
      *
      */
-    class Endpoint : public otTcpEndpoint, public LinkedListEntry<Endpoint>
+    class Endpoint : public otTcpEndpoint, public LinkedListEntry<Endpoint>, public GetProvider<Endpoint>
     {
         friend class Tcp;
+        friend class LinkedList<Endpoint>;
 
     public:
         /**
@@ -93,7 +116,7 @@ public:
          * @retval kErrorFailed  Failed to open the TCP endpoint.
          *
          */
-        Error Initialize(Instance &aInstance, otTcpEndpointInitializeArgs &aArgs);
+        Error Initialize(Instance &aInstance, const otTcpEndpointInitializeArgs &aArgs);
 
         /**
          * Obtains the Instance that was associated with this Endpoint upon
@@ -104,7 +127,7 @@ public:
          * @returns  The Instance pointer associated with this Endpoint.
          *
          */
-        Instance &GetInstance(void);
+        Instance &GetInstance(void) const;
 
         /**
          * Obtains the context pointer that was associated this Endpoint upon
@@ -236,7 +259,7 @@ public:
          * @retval kErrorNone    Successfully completed the operation.
          * @retval kErrorFailed  Failed to complete the operation.
          */
-        Error ReceiveByReference(const otLinkedBuffer *&aBuffer) const;
+        Error ReceiveByReference(const otLinkedBuffer *&aBuffer);
 
         /**
          * Reorganizes the receive buffer to be entirely contiguous in memory.
@@ -329,7 +352,31 @@ public:
          */
         Error Deinitialize(void);
 
+        /**
+         * Converts a reference to a struct tcpcb to a reference to its
+         * enclosing Endpoint.
+         */
+        static Endpoint &FromTcb(struct tcpcb &aTcb) { return *reinterpret_cast<Endpoint *>(&aTcb); }
+
+        /**
+         * Obtains a reference to this Endpoint's struct tcpcb.
+         */
+        struct tcpcb &GetTcb(void) { return *reinterpret_cast<struct tcpcb *>(&mTcb); }
+
+        /**
+         * Obtains a const reference to this Endpoint's struct tcpcb.
+         */
+        const struct tcpcb &GetTcb(void) const { return *reinterpret_cast<const struct tcpcb *>(&mTcb); }
+
+        /**
+         * Checks if this Endpoint is in the closed state.
+         */
+        bool IsClosed(void) const;
+
     private:
+        friend void ::tcplp_sys_set_timer(struct tcpcb *aTcb, uint8_t aTimerFlag, uint32_t aDelay);
+        friend void ::tcplp_sys_stop_timer(struct tcpcb *aTcb, uint8_t aTimerFlag);
+
         enum : uint8_t
         {
             kTimerDelack       = 0,
@@ -345,14 +392,29 @@ public:
         void SetTimer(uint8_t aTimerFlag, uint32_t aDelay);
         void CancelTimer(uint8_t aTimerFlag);
         bool FirePendingTimers(TimeMilli aNow, bool &aHasFutureTimer, TimeMilli &aEarliestFutureExpiry);
+
+        void PostCallbacksAfterSend(size_t aSent, size_t aBacklogBefore);
+        bool FirePendingCallbacks(void);
+
+        size_t GetSendBufferBytes(void) const;
+        size_t GetInFlightBytes(void) const;
+        size_t GetBacklogBytes(void) const;
+
+        Address       &GetLocalIp6Address(void);
+        const Address &GetLocalIp6Address(void) const;
+        Address       &GetForeignIp6Address(void);
+        const Address &GetForeignIp6Address(void) const;
+        bool           Matches(const MessageInfo &aMessageInfo) const;
     };
 
     /**
-     * This class represents a TCP/IPv6 listener.
+     * Represents a TCP/IPv6 listener.
      *
      */
-    class Listener : public otTcpListener, public LinkedListEntry<Listener>
+    class Listener : public otTcpListener, public LinkedListEntry<Listener>, public GetProvider<Listener>
     {
+        friend class LinkedList<Listener>;
+
     public:
         /**
          * Initializes a TCP listener.
@@ -372,7 +434,7 @@ public:
          * @retval kErrorFailed  Failed to open the TCP listener.
          *
          */
-        Error Initialize(Instance &aInstance, otTcpListenerInitializeArgs &aArgs);
+        Error Initialize(Instance &aInstance, const otTcpListenerInitializeArgs &aArgs);
 
         /**
          * Obtains the otInstance that was associated with this Listener upon
@@ -383,7 +445,7 @@ public:
          * @returns  The otInstance pointer associated with this Listener.
          *
          */
-        Instance &GetInstance(void);
+        Instance &GetInstance(void) const;
 
         /**
          * Obtains the context pointer that was associated with this Listener upon
@@ -438,81 +500,113 @@ public:
          *
          */
         Error Deinitialize(void);
+
+        /**
+         * Converts a reference to a struct tcpcb_listen to a reference to its
+         * enclosing Listener.
+         */
+        static Listener &FromTcbListen(struct tcpcb_listen &aTcbListen)
+        {
+            return *reinterpret_cast<Listener *>(&aTcbListen);
+        }
+
+        /**
+         * Obtains a reference to this Listener's struct tcpcb_listen.
+         */
+        struct tcpcb_listen &GetTcbListen(void) { return *reinterpret_cast<struct tcpcb_listen *>(&mTcbListen); }
+
+        /**
+         * Obtains a const reference to this Listener's struct tcpcb_listen.
+         */
+        const struct tcpcb_listen &GetTcbListen(void) const
+        {
+            return *reinterpret_cast<const struct tcpcb_listen *>(&mTcbListen);
+        }
+
+        /**
+         * Checks if this Listener is in the closed state.
+         */
+        bool IsClosed(void) const;
+
+    private:
+        Address       &GetLocalIp6Address(void);
+        const Address &GetLocalIp6Address(void) const;
+        bool           Matches(const MessageInfo &aMessageInfo) const;
     };
 
     /**
-     * This class implements TCP header parsing.
+     * Implements TCP header parsing.
      *
      */
     OT_TOOL_PACKED_BEGIN
-    class Header
+    class Header : public Clearable<Header>
     {
     public:
         static constexpr uint8_t kChecksumFieldOffset = 16; ///< Byte offset of the Checksum field in the TCP header.
 
         /**
-         * This method returns the TCP Source Port.
+         * Returns the TCP Source Port.
          *
          * @returns The TCP Source Port.
          *
          */
-        uint16_t GetSourcePort(void) const { return HostSwap16(mSource); }
+        uint16_t GetSourcePort(void) const { return BigEndian::HostSwap16(mSource); }
 
         /**
-         * This method returns the TCP Destination Port.
+         * Returns the TCP Destination Port.
          *
          * @returns The TCP Destination Port.
          *
          */
-        uint16_t GetDestinationPort(void) const { return HostSwap16(mDestination); }
+        uint16_t GetDestinationPort(void) const { return BigEndian::HostSwap16(mDestination); }
 
         /**
-         * This method returns the TCP Sequence Number.
+         * Returns the TCP Sequence Number.
          *
          * @returns The TCP Sequence Number.
          *
          */
-        uint32_t GetSequenceNumber(void) const { return HostSwap32(mSequenceNumber); }
+        uint32_t GetSequenceNumber(void) const { return BigEndian::HostSwap32(mSequenceNumber); }
 
         /**
-         * This method returns the TCP Acknowledgment Sequence Number.
+         * Returns the TCP Acknowledgment Sequence Number.
          *
          * @returns The TCP Acknowledgment Sequence Number.
          *
          */
-        uint32_t GetAcknowledgmentNumber(void) const { return HostSwap32(mAckNumber); }
+        uint32_t GetAcknowledgmentNumber(void) const { return BigEndian::HostSwap32(mAckNumber); }
 
         /**
-         * This method returns the TCP Flags.
+         * Returns the TCP Flags.
          *
          * @returns The TCP Flags.
          *
          */
-        uint16_t GetFlags(void) const { return HostSwap16(mFlags); }
+        uint16_t GetFlags(void) const { return BigEndian::HostSwap16(mFlags); }
 
         /**
-         * This method returns the TCP Window.
+         * Returns the TCP Window.
          *
          * @returns The TCP Window.
          *
          */
-        uint16_t GetWindow(void) const { return HostSwap16(mWindow); }
+        uint16_t GetWindow(void) const { return BigEndian::HostSwap16(mWindow); }
 
         /**
-         * This method returns the TCP Checksum.
+         * Returns the TCP Checksum.
          *
          * @returns The TCP Checksum.
          *
          */
-        uint16_t GetChecksum(void) const { return HostSwap16(mChecksum); }
+        uint16_t GetChecksum(void) const { return BigEndian::HostSwap16(mChecksum); }
 
         /**
-         * This method returns the TCP Urgent Pointer.
+         * Returns the TCP Urgent Pointer.
          *
          * @returns The TCP Urgent Pointer.
          *
          */
-        uint16_t GetUrgentPointer(void) const { return HostSwap16(mUrgentPointer); }
+        uint16_t GetUrgentPointer(void) const { return BigEndian::HostSwap16(mUrgentPointer); }
 
     private:
         uint16_t mSource;
@@ -526,7 +620,7 @@ public:
     } OT_TOOL_PACKED_END;
 
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      * @param[in] aInstance  A reference to the OpenThread instance.
      *
@@ -546,6 +640,31 @@ public:
      */
     Error HandleMessage(ot::Ip6::Header &aIp6Header, Message &aMessage, MessageInfo &aMessageInfo);
 
+    /**
+     * Automatically selects a local address and/or port for communication with the specified peer.
+     *
+     * @param[in] aPeer         The peer's address and port.
+     * @param[in,out] aToBind   The SockAddr into which to store the selected address and/or port.
+     * @param[in] aBindAddress  If true, the local address is selected; if not, the current address
+     *                          in @p aToBind is treated as a given.
+     * @param[in] aBindPort     If true, the local port is selected; if not, the current port in
+     *                          @p aToBind is treated as a given.
+     *
+     * @returns  True if successful, false otherwise.
+     *
+     */
+    bool AutoBind(const SockAddr &aPeer, SockAddr &aToBind, bool aBindAddress, bool aBindPort);
+
+    /**
+     * Checks if an Endpoint is in the list of initialized endpoints.
+     */
+    bool IsInitialized(const Endpoint &aEndpoint) const { return mEndpoints.Contains(aEndpoint); }
+
+    /**
+     * Checks if a Listener is in the list of initialized Listeners.
+     */
+    bool IsInitialized(const Listener &aListener) const { return mListeners.Contains(aListener); }
+
 private:
     enum
     {
@@ -553,10 +672,29 @@ private:
         kDynamicPortMax = 65535, ///< Service Name and Transport Protocol Port Number Registry
     };
 
-    static void HandleTimer(Timer &aTimer);
-    void        ProcessTimers(void);
+    static constexpr uint8_t kEstablishedCallbackFlag      = (1 << 0);
+    static constexpr uint8_t kSendDoneCallbackFlag         = (1 << 1);
+    static constexpr uint8_t kForwardProgressCallbackFlag  = (1 << 2);
+    static constexpr uint8_t kReceiveAvailableCallbackFlag = (1 << 3);
+    static constexpr uint8_t kDisconnectedCallbackFlag     = (1 << 4);
 
-    TimerMilli mTimer;
+    void ProcessSignals(Endpoint             &aEndpoint,
+                        otLinkedBuffer       *aPriorHead,
+                        size_t                aPriorBacklog,
+                        struct tcplp_signals &aSignals) const;
+
+    static Error BsdErrorToOtError(int aBsdError);
+    bool         CanBind(const SockAddr &aSockName);
+
+    void HandleTimer(void);
+
+    void ProcessCallbacks(void);
+
+    using TcpTasklet = TaskletIn<Tcp, &Tcp::ProcessCallbacks>;
+    using TcpTimer   = TimerMilliIn<Tcp, &Tcp::HandleTimer>;
+
+    TcpTimer   mTimer;
+    TcpTasklet mTasklet;
 
     LinkedList<Endpoint> mEndpoints;
     LinkedList<Listener> mListeners;
@@ -564,6 +702,10 @@ private:
 };
 
 } // namespace Ip6
+
+DefineCoreType(otTcpEndpoint, Ip6::Tcp::Endpoint);
+DefineCoreType(otTcpListener, Ip6::Tcp::Listener);
+
 } // namespace ot
 
 #endif // TCP6_HPP_

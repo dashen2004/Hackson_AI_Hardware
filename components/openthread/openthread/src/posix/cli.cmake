@@ -43,19 +43,28 @@ target_compile_options(ot-cli PRIVATE
     ${OT_CFLAGS}
 )
 
-target_link_libraries(ot-cli
+target_link_libraries(ot-cli PRIVATE
     openthread-cli-ftd
     openthread-posix
     openthread-ftd
     openthread-posix
     openthread-cli-ftd
     openthread-hdlc
+    openthread-radio-spinel
     openthread-spinel-rcp
     ${OT_MBEDTLS}
     ${READLINE_LINK_LIBRARIES}
+    ot-config-ftd
     ot-config
 )
 
+if(OT_LINKER_MAP)
+    if("${CMAKE_CXX_COMPILER_ID}" MATCHES "AppleClang")
+        target_link_libraries(ot-cli PRIVATE -Wl,-map,ot-cli.map)
+    else()
+        target_link_libraries(ot-cli PRIVATE -Wl,-Map=ot-cli.map)
+    endif()
+endif()
 
 install(TARGETS ot-cli DESTINATION bin)
 

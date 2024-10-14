@@ -42,6 +42,7 @@
 #include "common/encoding.hpp"
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
+#include "common/serial_number.hpp"
 #include "net/socket.hpp"
 #include "thread/network_data_tlvs.hpp"
 
@@ -49,15 +50,12 @@ namespace ot {
 namespace NetworkData {
 namespace Service {
 
-using ot::Encoding::BigEndian::HostSwap16;
-using ot::Encoding::BigEndian::HostSwap32;
-
 const uint32_t kThreadEnterpriseNumber = ServiceTlv::kThreadEnterpriseNumber; ///< Thread enterprise number.
 
 #if (OPENTHREAD_CONFIG_THREAD_VERSION >= OT_THREAD_VERSION_1_2)
 
 /**
- * This type implements Thread Network Data "Backbone Router Service" server data generation and parsing.
+ * Implements Thread Network Data "Backbone Router Service" server data generation and parsing.
  *
  */
 class BackboneRouter
@@ -73,7 +71,7 @@ public:
     static constexpr uint8_t kServiceDataMinSize = 1;
 
     /**
-     * This class implements the generation and parsing of "Backbone Router Service" server data.
+     * Implements the generation and parsing of "Backbone Router Service" server data.
      *
      */
     OT_TOOL_PACKED_BEGIN
@@ -81,7 +79,7 @@ public:
     {
     public:
         /**
-         * This method returns the length (in bytes) of server data.
+         * Returns the length (in bytes) of server data.
          *
          * @returns The server data length in bytes.
          *
@@ -89,7 +87,7 @@ public:
         uint8_t GetLength(void) const { return sizeof(ServerData); }
 
         /**
-         * This method returns the sequence number of Backbone Router.
+         * Returns the sequence number of Backbone Router.
          *
          * @returns  The sequence number of the Backbone Router.
          *
@@ -97,7 +95,7 @@ public:
         uint8_t GetSequenceNumber(void) const { return mSequenceNumber; }
 
         /**
-         * This method sets the sequence number of Backbone Router.
+         * Sets the sequence number of Backbone Router.
          *
          * @param[in]  aSequenceNumber  The sequence number of Backbone Router.
          *
@@ -105,39 +103,39 @@ public:
         void SetSequenceNumber(uint8_t aSequenceNumber) { mSequenceNumber = aSequenceNumber; }
 
         /**
-         * This method returns the Registration Delay (in seconds) of Backbone Router.
+         * Returns the Registration Delay (in seconds) of Backbone Router.
          *
          * @returns The BBR Registration Delay (in seconds) of Backbone Router.
          *
          */
-        uint16_t GetReregistrationDelay(void) const { return HostSwap16(mReregistrationDelay); }
+        uint16_t GetReregistrationDelay(void) const { return BigEndian::HostSwap16(mReregistrationDelay); }
 
         /**
-         * This method sets the Registration Delay (in seconds) of Backbone Router.
+         * Sets the Registration Delay (in seconds) of Backbone Router.
          *
          * @param[in]  aReregistrationDelay  The Registration Delay (in seconds) of Backbone Router.
          *
          */
         void SetReregistrationDelay(uint16_t aReregistrationDelay)
         {
-            mReregistrationDelay = HostSwap16(aReregistrationDelay);
+            mReregistrationDelay = BigEndian::HostSwap16(aReregistrationDelay);
         }
 
         /**
-         * This method returns the multicast listener report timeout (in seconds) of Backbone Router.
+         * Returns the multicast listener report timeout (in seconds) of Backbone Router.
          *
          * @returns The multicast listener report timeout (in seconds) of Backbone Router.
          *
          */
-        uint32_t GetMlrTimeout(void) const { return HostSwap32(mMlrTimeout); }
+        uint32_t GetMlrTimeout(void) const { return BigEndian::HostSwap32(mMlrTimeout); }
 
         /**
-         * This method sets multicast listener report timeout (in seconds) of Backbone Router.
+         * Sets multicast listener report timeout (in seconds) of Backbone Router.
          *
          * @param[in]  aMlrTimeout  The multicast listener report timeout (in seconds) of Backbone Router.
          *
          */
-        void SetMlrTimeout(uint32_t aMlrTimeout) { mMlrTimeout = HostSwap32(aMlrTimeout); }
+        void SetMlrTimeout(uint32_t aMlrTimeout) { mMlrTimeout = BigEndian::HostSwap32(aMlrTimeout); }
 
     private:
         uint8_t  mSequenceNumber;
@@ -151,7 +149,7 @@ public:
 #endif // #if (OPENTHREAD_CONFIG_THREAD_VERSION >= OT_THREAD_VERSION_1_2)
 
 /**
- * This type implements Thread Network Data "DNS/SRP Service Anycast Address" generation and parsing.
+ * Implements Thread Network Data "DNS/SRP Service Anycast Address" generation and parsing.
  *
  */
 class DnsSrpAnycast
@@ -168,36 +166,17 @@ public:
     static const uint8_t kServiceData = kServiceNumber;
 
     /**
-     * This structure represents information about an DNS/SRP server parsed from related Network Data service entries.
+     * Represents information about an DNS/SRP server parsed from related Network Data service entries.
      *
      */
     struct Info
     {
-        /**
-         * This method indicates whether or not the sequence number from the current `Info` is ahead of (more recent
-         * than) the sequence number from another `Info`.
-         *
-         * The sequence numbers comparison follows the Serial Number Arithmetic logic from RFC-1982. It is semantically
-         * equivalent to `GetSequenceNumber() > aOther.GetSequenceNumber()` while handling roll-over of the `uint8_t`
-         * values.
-         *
-         * @param[in] aOther   The other `Info` to compare with.
-         *
-         * @retval TRUE  The `Info` is ahead of @p aOther.
-         * @retval FALSE The `Info` is not ahead of @p aOther.
-         *
-         */
-        bool IsSequenceNumberAheadOf(const Info &aOther) const
-        {
-            return (((aOther.mSequenceNumber - mSequenceNumber) & (1U << 7)) != 0);
-        }
-
         Ip6::Address mAnycastAddress; ///< The anycast address associated with the DNS/SRP servers.
         uint8_t      mSequenceNumber; ///< Sequence number used to notify SRP client if they need to re-register.
     };
 
     /**
-     * This class represents the "DNS/SRP Service (Anycast)" service data.
+     * Represents the "DNS/SRP Service (Anycast)" service data.
      *
      */
     OT_TOOL_PACKED_BEGIN
@@ -205,7 +184,7 @@ public:
     {
     public:
         /**
-         * This constructor initializes the `ServiceData` object.
+         * Initializes the `ServiceData` object.
          *
          * @param[in] aSequenceNumber   The sequence number of "DNS/SRP server" service.
          *
@@ -218,7 +197,7 @@ public:
         }
 
         /**
-         * This method returns the length (in bytes) of service data.
+         * Returns the length (in bytes) of service data.
          *
          * @returns The data length in bytes.
          *
@@ -226,7 +205,7 @@ public:
         uint8_t GetLength(void) const { return sizeof(ServiceData); }
 
         /**
-         * This method returns the sequence number.
+         * Returns the sequence number.
          *
          * @returns The sequence number.
          *
@@ -242,7 +221,7 @@ public:
 };
 
 /**
- * This type implements Thread Network Data DNS/SRP Service (Unicast Address) generation and parsing.
+ * Implements Thread Network Data DNS/SRP Service (Unicast Address) generation and parsing.
  *
  */
 class DnsSrpUnicast
@@ -259,16 +238,28 @@ public:
     static const uint8_t kServiceData = kServiceNumber;
 
     /**
-     * This structure represents information about an DNS/SRP server parsed from related Network Data service entries.
+     * Represents the origin a `DnsSrpUnicast` entry.
+     *
+     */
+    enum Origin : uint8_t
+    {
+        kFromServiceData, ///< Socket address is from service data.
+        kFromServerData,  ///< Socket address is from server data.
+    };
+
+    /**
+     * Represents information about an DNS/SRP server parsed from related Network Data service entries.
      *
      */
     struct Info
     {
         Ip6::SockAddr mSockAddr; ///< The socket address (IPv6 address and port) of the DNS/SRP server.
+        Origin        mOrigin;   ///< The origin of the socket address (whether from service or server data).
+        uint16_t      mRloc16;   ///< The BR RLOC16 adding the entry (only used when `mOrigin == kFromServerData`).
     };
 
     /**
-     * This class represents long version of "DNS/SRP Service (Unicast)" service data.
+     * Represents long version of "DNS/SRP Service (Unicast)" service data.
      *
      */
     OT_TOOL_PACKED_BEGIN
@@ -276,7 +267,7 @@ public:
     {
     public:
         /**
-         * This constructor initializes the `ServiceData` object.
+         * Initializes the `ServiceData` object.
          *
          * @param[in] aAddress   The IPv6 address of DNS/SRP server.
          * @param[in] aPort      The port number of DNS/SRP server.
@@ -285,13 +276,13 @@ public:
         explicit ServiceData(const Ip6::Address &aAddress, uint16_t aPort)
             : mServiceNumber(kServiceNumber)
             , mAddress(aAddress)
-            , mPort(HostSwap16(aPort))
+            , mPort(BigEndian::HostSwap16(aPort))
         {
             OT_UNUSED_VARIABLE(mServiceNumber);
         }
 
         /**
-         * This method returns the length (in bytes) of service data.
+         * Returns the length (in bytes) of service data.
          *
          * @returns The data length in bytes.
          *
@@ -299,7 +290,7 @@ public:
         uint8_t GetLength(void) const { return sizeof(ServiceData); }
 
         /**
-         * This method returns the IPv6 address.
+         * Returns the IPv6 address.
          *
          * @returns The IPv6 address
          *
@@ -307,12 +298,12 @@ public:
         const Ip6::Address &GetAddress(void) const { return mAddress; }
 
         /**
-         * This method returns the port number.
+         * Returns the port number.
          *
          * @returns The port number.
          *
          */
-        uint16_t GetPort(void) const { return HostSwap16(mPort); }
+        uint16_t GetPort(void) const { return BigEndian::HostSwap16(mPort); }
 
     private:
         uint8_t      mServiceNumber;
@@ -321,7 +312,7 @@ public:
     } OT_TOOL_PACKED_END;
 
     /**
-     * This class represents long version of "DNS/SRP Service (Unicast)" server data.
+     * Represents long version of "DNS/SRP Service (Unicast)" server data.
      *
      */
     OT_TOOL_PACKED_BEGIN
@@ -329,7 +320,7 @@ public:
     {
     public:
         /**
-         * This constructor initializes the `ServerData` object.
+         * Initializes the `ServerData` object.
          *
          * @param[in] aAddress   The IPv6 address of DNS/SRP server.
          * @param[in] aPort      The port number of DNS/SRP server.
@@ -337,12 +328,12 @@ public:
          */
         ServerData(const Ip6::Address &aAddress, uint16_t aPort)
             : mAddress(aAddress)
-            , mPort(HostSwap16(aPort))
+            , mPort(BigEndian::HostSwap16(aPort))
         {
         }
 
         /**
-         * This method returns the length (in bytes) of server data.
+         * Returns the length (in bytes) of server data.
          *
          * @returns The data length in bytes.
          *
@@ -350,7 +341,7 @@ public:
         uint8_t GetLength(void) const { return sizeof(ServerData); }
 
         /**
-         * This method returns the IPv6 address.
+         * Returns the IPv6 address.
          *
          * @returns The IPv6 address
          *
@@ -358,12 +349,12 @@ public:
         const Ip6::Address &GetAddress(void) const { return mAddress; }
 
         /**
-         * This method returns the port number.
+         * Returns the port number.
          *
          * @returns The port number.
          *
          */
-        uint16_t GetPort(void) const { return HostSwap16(mPort); }
+        uint16_t GetPort(void) const { return BigEndian::HostSwap16(mPort); }
 
     private:
         Ip6::Address mAddress;
@@ -374,14 +365,14 @@ public:
 };
 
 /**
- * This class manages the Thread Service entries in Thread Network Data.
+ * Manages the Thread Service entries in Thread Network Data.
  *
  */
 class Manager : public InstanceLocator, private NonCopyable
 {
 public:
     /**
-     * This class represents an iterator used to iterate through Network Data Service entries.
+     * Represents an iterator used to iterate through Network Data Service entries.
      *
      */
     class Iterator : public Clearable<Iterator>
@@ -390,7 +381,7 @@ public:
 
     public:
         /**
-         * This constructor initializes the iterator (as empty/clear).
+         * Initializes the iterator (as empty/clear).
          *
          */
         Iterator(void)
@@ -400,7 +391,7 @@ public:
         }
 
         /**
-         * This method resets the iterator to start from beginning.
+         * Resets the iterator to start from beginning.
          *
          */
         void Reset(void)
@@ -411,11 +402,11 @@ public:
 
     private:
         const ServiceTlv *mServiceTlv;
-        const ServerTlv * mServerSubTlv;
+        const ServerTlv  *mServerSubTlv;
     };
 
     /**
-     * This constructor initializes the `Manager` object.
+     * Initializes the `Manager` object.
      *
      * @param[in]  aInstance     A reference to the OpenThread instance.
      *
@@ -427,9 +418,9 @@ public:
 
 #if OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
     /**
-     * This method adds a Thread Service entry to the local Thread Network Data.
+     * Adds a Thread Service entry to the local Thread Network Data.
      *
-     * This version of `Add<SeviceType>()` is intended for use with a `ServiceType` that has a constant service data
+     * This version of `Add<ServiceType>()` is intended for use with a `ServiceType` that has a constant service data
      * format with a non-empty and potentially non-const server data format (provided as input parameter).
      *
      * The template type `ServiceType` has the following requirements:
@@ -454,9 +445,9 @@ public:
     }
 
     /**
-     * This method adds a Thread Service entry to the local Thread Network Data.
+     * Adds a Thread Service entry to the local Thread Network Data.
      *
-     * This version of `Add<SeviceType>()` is intended for use with a `ServiceType` that has a non-const service data
+     * This version of `Add<ServiceType>()` is intended for use with a `ServiceType` that has a non-const service data
      * format (provided as input parameter) with an empty server data.
      *
      * The template type `ServiceType` has the following requirements:
@@ -479,7 +470,7 @@ public:
     }
 
     /**
-     * This method removes a Thread Service entry from the local Thread Network Data.
+     * Removes a Thread Service entry from the local Thread Network Data.
      *
      * This version of `Remove<SeviceType>()` is intended for use with a `ServiceType` that has a constant service data
      * format.
@@ -499,10 +490,10 @@ public:
     }
 
     /**
-     * This method removes a Thread Service entry from the local Thread Network Data.
+     * Removes a Thread Service entry from the local Thread Network Data.
      *
-     * This version of `Remove<SeviceType>()` is intended for use with a `ServiceType` that has a non-const service data
-     * format (provided as input parameter).
+     * This version of `Remove<ServiceType>()` is intended for use with a `ServiceType` that has a non-const service
+     * data format (provided as input parameter).
      *
      * The template type `ServiceType` has the following requirements:
      *   - It MUST define nested type `ServiceType::ServiceData` representing the service data (and its format).
@@ -524,7 +515,7 @@ public:
 #endif // OPENTHREAD_CONFIG_TMF_NETDATA_SERVICE_ENABLE
 
     /**
-     * This method gets the Service ID for the specified service from Thread Network Data.
+     * Gets the Service ID for the specified service from Thread Network Data.
      *
      * The template type `ServiceType` has the following requirements:
      *   - It MUST have a constant `ServiceType::kServiceNumber` specifying the service number.
@@ -545,22 +536,22 @@ public:
 
 #if (OPENTHREAD_CONFIG_THREAD_VERSION >= OT_THREAD_VERSION_1_2)
     /**
-     * This method gets the Primary Backbone Router (PBBR) in the Thread Network Data.
+     * Gets the Primary Backbone Router (PBBR) in the Thread Network Data.
      *
      * @param[out]  aConfig      The Primary Backbone Router configuration.
      *
      */
-    void GetBackboneRouterPrimary(ot::BackboneRouter::BackboneRouterConfig &aConfig) const;
+    void GetBackboneRouterPrimary(ot::BackboneRouter::Config &aConfig) const;
 #endif
 
     /**
-     * This method gets the next DNS/SRP info from the Thread Network Data "DNS/SRP Service Anycast Address" entries.
+     * Gets the next DNS/SRP info from the Thread Network Data "DNS/SRP Service Anycast Address" entries.
      *
      * To get the first entry, @p aIterator should be cleared (e.g., a new instance of `Iterator` or calling `Clear()`
      * method).
      *
-     * @param[inout] aIterator     A reference to an iterator.
-     * @param[out]   aInfo         A reference to `DnsSrpAnycast::Info` to return the info.
+     * @param[in,out] aIterator    A reference to an iterator.
+     * @param[out]    aInfo        A reference to `DnsSrpAnycast::Info` to return the info.
      *
      * @retval kErrorNone       Successfully got the next info. @p aInfo and @p aIterator are updated.
      * @retval kErrorNotFound   No more matching entries in the Network Data.
@@ -569,7 +560,7 @@ public:
     Error GetNextDnsSrpAnycastInfo(Iterator &aIterator, DnsSrpAnycast::Info &aInfo) const;
 
     /**
-     * This method finds the preferred DNS/SRP info among all the Thread Network Data "DNS/SRP Service Anycast Address"
+     * Finds the preferred DNS/SRP info among all the Thread Network Data "DNS/SRP Service Anycast Address"
      * entries.
      *
      * The preferred entry is determined based on the sequence number value where a larger value (in the sense
@@ -584,13 +575,13 @@ public:
     Error FindPreferredDnsSrpAnycastInfo(DnsSrpAnycast::Info &aInfo) const;
 
     /**
-     * This method gets the next DNS/SRP info from the Thread Network Data "DNS/SRP Service Unicast Address" entries.
+     * Gets the next DNS/SRP info from the Thread Network Data "DNS/SRP Service Unicast Address" entries.
      *
      * To get the first entry @p aIterator should be cleared (e.g., a new instance of `Iterator` or calling `Clear()`
      * method).
      *
-     * @param[inout] aIterator     A reference to an iterator.
-     * @param[out]   aInfo         A reference to `DnsSrpUnicast::Info` to return the info.
+     * @param[in,out] aIterator    A reference to an iterator.
+     * @param[out]    aInfo        A reference to `DnsSrpUnicast::Info` to return the info.
      *
      * @retval kErrorNone       Successfully got the next info. @p aInfo and @p aIterator are updated.
      * @retval kErrorNotFound   No more matching entries in the Network Data.
@@ -611,13 +602,13 @@ private:
     Error GetServiceId(const void *aServiceData,
                        uint8_t     aServiceDataLength,
                        bool        aServerStable,
-                       uint8_t &   aServiceId) const;
+                       uint8_t    &aServiceId) const;
     Error IterateToNextServer(Iterator &aIterator) const;
 
 #if (OPENTHREAD_CONFIG_THREAD_VERSION >= OT_THREAD_VERSION_1_2)
-    bool IsBackboneRouterPreferredTo(const ServerTlv &                 aServerTlv,
+    bool IsBackboneRouterPreferredTo(const ServerTlv                  &aServerTlv,
                                      const BackboneRouter::ServerData &aServerData,
-                                     const ServerTlv &                 aOtherServerTlv,
+                                     const ServerTlv                  &aOtherServerTlv,
                                      const BackboneRouter::ServerData &aOtherServerData) const;
 #endif
 };

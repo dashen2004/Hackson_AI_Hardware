@@ -1,16 +1,8 @@
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #pragma once
 
@@ -19,6 +11,11 @@
 #include "soc/timer_group_struct.h"
 #include "soc/soc_caps.h"
 #include "soc/periph_defs.h"
+#include "soc/regdma.h"
+
+#if SOC_TIMER_SUPPORT_SLEEP_RETENTION
+#include "soc/retention_periph_defs.h"
+#endif // SOC_TIMER_SUPPORT_SLEEP_RETENTION
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,11 +24,21 @@ extern "C" {
 typedef struct {
     struct {
         const periph_module_t module; // Peripheral module
-        const int t0_irq_id;          // Interrupt ID of the first timer in the group
+        const int timer_irq_id[SOC_TIMER_GROUP_TIMERS_PER_GROUP]; // interrupt source ID
     } groups[SOC_TIMER_GROUPS];
 } timer_group_signal_conn_t;
 
 extern const timer_group_signal_conn_t timer_group_periph_signals;
+
+#if SOC_TIMER_SUPPORT_SLEEP_RETENTION
+typedef struct {
+    const periph_retention_module_t module;
+    const regdma_entries_config_t *regdma_entry_array;
+    uint32_t array_size;
+} tg_timer_reg_retention_info_t;
+
+extern const tg_timer_reg_retention_info_t tg_timer_reg_retention_info[SOC_TIMER_GROUPS];
+#endif // SOC_TIMER_SUPPORT_SLEEP_RETENTION
 
 #ifdef __cplusplus
 }

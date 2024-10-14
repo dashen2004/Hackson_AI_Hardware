@@ -36,6 +36,9 @@
 #include "stack/port_api.h"
 #include "bta/utl.h"
 
+#if BT_HF_AG_BQB_INCLUDED
+static BOOLEAN s_bta_hf_ag_bqb_brsf_flag = false;
+#endif /* BT_HF_AG_BQB_INCLUDED */
 
 #if (BTA_AG_INCLUDED == TRUE)
 /*****************************************************************************
@@ -144,6 +147,14 @@ enum
     BTA_AG_HF_CMD_BCC,
     BTA_AG_HF_CMD_BCS,
     BTA_AG_HF_CMD_BAC
+};
+
+/* dialing type of BTA_AG_HF_CMD_D */
+enum
+{
+    BTA_AG_HF_DIAL_NUM = 0,
+    BTA_AG_HF_DIAL_VOIP,
+    BTA_AG_HF_DIAL_MEM,
 };
 
 /* HFP AT command interpreter table */
@@ -329,6 +340,22 @@ const UINT8 bta_ag_callsetup_ind_tbl[] =
 #if defined(BTA_HSP_RESULT_REPLACE_COLON) && (BTA_HSP_RESULT_REPLACE_COLON == TRUE)
 #define COLON_IDX_4_VGSVGM    4
 #endif
+
+/*******************************************************************************
+**
+** Function     bta_hf_ag_bqb_brsf_ctrl
+**
+** Description  Control the usage of BTA_AG_BQB_BRSF_FEAT_SPEC for BQB test
+**
+** Returns      void
+**
+*******************************************************************************/
+#if BT_HF_AG_BQB_INCLUDED
+void bta_hf_ag_bqb_brsf_ctrl(BOOLEAN enable)
+{
+    s_bta_hf_ag_bqb_brsf_flag = enable;
+}
+#endif /* BT_HF_AG_BQB_INCLUDED */
 
 /*******************************************
 *              Funcitons Result
@@ -612,7 +639,7 @@ static UINT8 bta_ag_parse_chld(tBTA_AG_SCB *p_scb, char *p_s)
     INT16   idx = -1;
     UNUSED(p_scb);
 
-    if (!isdigit(p_s[0])) {
+    if (!isdigit((unsigned char)p_s[0])) {
         return BTA_AG_INVALID_CHLD;
     }
 
@@ -798,7 +825,7 @@ void bta_ag_at_hsp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
     val.hdr.app_id = p_scb->app_id;
     val.num = (UINT16) int_arg;
     BCM_STRNCPY_S(val.str, p_arg, BTA_AG_AT_MAX_LEN);
-    val.str[BTA_AG_AT_MAX_LEN] = 0;
+    val.str[BTA_AG_AT_MAX_LEN] = '\0';
     /* call callback with event */
     (*bta_ag_cb.p_cback)(bta_ag_hsp_cb_evt[cmd], (tBTA_AG *) &val);
 }
@@ -836,7 +863,7 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
     val.num = int_arg;
     bdcpy(val.bd_addr, p_scb->peer_addr);
     BCM_STRNCPY_S(val.str, p_arg, BTA_AG_AT_MAX_LEN);
-    val.str[BTA_AG_AT_MAX_LEN] = 0;
+    val.str[BTA_AG_AT_MAX_LEN] = '\0';
     event = bta_ag_hfp_cb_evt[cmd];
 
     switch (cmd)
@@ -856,6 +883,8 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
 
         case BTA_AG_HF_CMD_D:
         {
+            UINT16 src = 0;
+            UINT16 dst = 0;
             /* Do not send OK for Dial cmds Let application decide whether to send OK or ERROR*/
             /* if mem dial cmd, make sure string contains only digits */
             if(p_arg[0] == '>') {
@@ -863,6 +892,8 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
                     event = 0;
                     bta_ag_send_error(p_scb, BTA_AG_ERR_INV_CHAR_IN_DSTR);
                 }
+                val.value = BTA_AG_HF_DIAL_MEM;
+                src = 1;
             } else if (p_arg[0] == 'V') {
                 /* ATDV : Dial VoIP Call */
                 /* We do not check string. Code will be added later if needed. */
@@ -870,12 +901,24 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
                     event = 0;
                     bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_SUPPORTED);
                 }
+                val.value = BTA_AG_HF_DIAL_VOIP;
             } else {
             /* If dial cmd, make sure string contains only dial digits
             ** Dial digits are 0-9, A-C, *, #, + */
                 if(!utl_isdialstr(p_arg)) {
                     event = 0;
                     bta_ag_send_error(p_scb, BTA_AG_ERR_INV_CHAR_IN_DSTR);
+                }
+                val.value = BTA_AG_HF_DIAL_NUM;
+            }
+            if (event != 0) {
+                while ((val.str[dst] = p_arg[src]) != '\0') {
+                    if (val.str[dst] == ';') {
+                        val.str[dst] = '\0';
+                        break;
+                    }
+                    src++;
+                    dst++;
                 }
             }
             break;
@@ -1001,7 +1044,15 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB *p_scb, UINT16 cmd, UINT8 arg_type,
             /* store peer features */
             p_scb->peer_features = (UINT16) int_arg;
             /* send BRSF, send OK */
-            bta_ag_send_result(p_scb, BTA_AG_RES_BRSF, NULL, (INT16) (p_scb->features & BTA_AG_BSRF_FEAT_SPEC));
+#if BT_HF_AG_BQB_INCLUDED
+            if (s_bta_hf_ag_bqb_brsf_flag == true) {
+                bta_ag_send_result(p_scb, BTA_AG_RES_BRSF, NULL, (INT16) (p_scb->features & BTA_AG_BQB_BRSF_FEAT_SPEC));
+            } else {
+                bta_ag_send_result(p_scb, BTA_AG_RES_BRSF, NULL, (INT16) (p_scb->features & BTA_AG_BRSF_FEAT_SPEC));
+            }
+#else
+            bta_ag_send_result(p_scb, BTA_AG_RES_BRSF, NULL, (INT16) (p_scb->features & BTA_AG_BRSF_FEAT_SPEC));
+#endif /* BT_HF_AG_BQB_INCLUDED */
             bta_ag_send_ok(p_scb);
             break;
         }
@@ -1212,7 +1263,7 @@ void bta_ag_at_err_cback(tBTA_AG_SCB *p_scb, BOOLEAN unknown, char *p_arg)
         val.hdr.app_id = p_scb->app_id;
         val.num = 0;
         BCM_STRNCPY_S(val.str, p_arg, BTA_AG_AT_MAX_LEN);
-        val.str[BTA_AG_AT_MAX_LEN] = 0;
+        val.str[BTA_AG_AT_MAX_LEN] = '\0';
         (*bta_ag_cb.p_cback)(BTA_AG_AT_UNAT_EVT, (tBTA_AG *) &val);
     } else {
         bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_SUPPORTED);
@@ -1357,7 +1408,7 @@ void bta_ag_hfp_result(tBTA_AG_SCB *p_scb, tBTA_AG_API_RESULT *p_result)
                 }
             }
             APPL_TRACE_DEBUG("CLIP type :%d", p_result->data.num);
-            p_scb->clip[0] = 0;
+            p_scb->clip[0] = '\0';
             if (p_result->data.str[0] != 0) {
                 snprintf(p_scb->clip, sizeof(p_scb->clip), "%s,%d", p_result->data.str, p_result->data.num);
             }
@@ -1498,7 +1549,6 @@ void bta_ag_hfp_result(tBTA_AG_SCB *p_scb, tBTA_AG_API_RESULT *p_result)
             if (p_result->data.ok_flag != BTA_AG_OK_ERROR) {
                 if (p_result->data.str[0] != 0) {
                    bta_ag_send_result(p_scb, code, p_result->data.str, 0);
-                   bta_ag_send_ok(p_scb);
                 }
                 if (p_result->data.ok_flag == BTA_AG_OK_DONE) {
                     bta_ag_send_ok(p_scb);

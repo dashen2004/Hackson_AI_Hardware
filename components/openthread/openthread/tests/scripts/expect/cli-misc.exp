@@ -86,6 +86,10 @@ send "ifconfig\n"
 expect "up"
 expect_line "Done"
 
+send "instanceid\n"
+expect -re {\d+}
+expect_line "Done"
+
 send "ipaddr add ::\n"
 expect_line "Done"
 send "ipaddr del ::\n"
@@ -179,6 +183,13 @@ expect "Done"
 
 send "ba state\n"
 expect "Done"
+
+send "prefix meshlocal fd00:dead:beef:cafe::/96\n"
+expect_line "Error 7: InvalidArgs"
+send "prefix meshlocal fd00:dead:beef:cafe::/64\n"
+expect_line "Done"
+send "prefix meshlocal\n"
+expect_line "fd00:dead:beef:cafe::/64"
 
 send "invalidcommand\n"
 expect_line "Error 35: InvalidCommand"

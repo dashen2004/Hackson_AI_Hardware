@@ -17,6 +17,10 @@
 #
 
 syscfg.vals:
+    CONSOLE_IMPLEMENTATION: full
+    LOG_IMPLEMENTATION: full
+    STATS_IMPLEMENTATION: full
+
     # DEBUG logging is a bit noisy; use INFO.
     LOG_LEVEL: 1
 
@@ -28,3 +32,6 @@ syscfg.vals:
     BLE_ROLE_CENTRAL: 1
     BLE_ROLE_OBSERVER: 1
     BLE_ROLE_PERIPHERAL: 0
+
+    # Whether to save data to sys/config, or just keep it in RAM.
+    BLE_STORE_CONFIG_PERSIST: 0

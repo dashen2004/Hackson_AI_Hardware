@@ -17,6 +17,9 @@
  * under the License.
  */
 
+/* for jrand48 */
+#define _XOPEN_SOURCE
+#include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
 #include <string.h>
@@ -28,6 +31,14 @@
 #include "controller/ble_ll.h"
 #if MYNEWT_VAL(TRNG)
 #include "trng/trng.h"
+#endif
+
+#ifdef RIOT_VERSION
+#include "random.h"
+#endif
+
+#if BABBLESIM
+extern void tm_tick(void);
 #endif
 
 #if MYNEWT_VAL(TRNG)
@@ -113,11 +124,33 @@ ble_ll_rand_data_get(uint8_t *buf, uint8_t len)
             while ((g_ble_ll_rnum_data.rnd_size < len) &&
                    (g_ble_ll_rnum_data.rnd_size < MYNEWT_VAL(BLE_LL_RNG_BUFSIZE))) {
                 /* Spin here */
+#if BABBLESIM
+                tm_tick();
+#endif
             }
         }
     }
 #endif
     return BLE_ERR_SUCCESS;
+}
+
+/* Simple wrapper to allow easy replacement of rand() */
+uint32_t
+ble_ll_rand(void)
+{
+#ifndef RIOT_VERSION
+    static unsigned short xsubi[3];
+    static bool init = true;
+
+    if (init) {
+        init = false;
+        ble_ll_rand_data_get((uint8_t *)xsubi, sizeof(xsubi));
+    }
+
+    return (uint32_t) jrand48(xsubi);
+#else
+    return random_uint32();
+#endif
 }
 
 /**

@@ -29,6 +29,7 @@
 
 import unittest
 
+import config
 import thread_cert
 import mle
 import network_layer
@@ -52,11 +53,11 @@ class Router_5_1_01(thread_cert.TestCase):
         self.nodes[ROUTER_1].set_router_selection_jitter(1)
 
         self.nodes[LEADER].start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(self.nodes[LEADER].get_state(), 'leader')
 
         self.nodes[ROUTER_1].start()
-        self.simulator.go(7)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(self.nodes[ROUTER_1].get_state(), 'router')
 
         leader_messages = self.simulator.get_messages_sent_by(LEADER)
@@ -78,7 +79,7 @@ class Router_5_1_01(thread_cert.TestCase):
         msg.assertMleMessageContainsTlv(mle.Challenge)
         msg.assertMleMessageContainsTlv(mle.ScanMask)
         msg.assertMleMessageContainsTlv(mle.Version)
-        assert msg.get_mle_message_tlv(mle.Version).version == 3
+        self.assertGreaterEqual(msg.get_mle_message_tlv(mle.Version).version, config.THREAD_VERSION_1_2)
 
         scan_mask_tlv = msg.get_mle_message_tlv(mle.ScanMask)
         self.assertEqual(1, scan_mask_tlv.router)
@@ -96,7 +97,7 @@ class Router_5_1_01(thread_cert.TestCase):
         msg.assertMleMessageContainsTlv(mle.LinkMargin)
         msg.assertMleMessageContainsTlv(mle.Connectivity)
         msg.assertMleMessageContainsTlv(mle.Version)
-        assert msg.get_mle_message_tlv(mle.Version).version == 3
+        self.assertGreaterEqual(msg.get_mle_message_tlv(mle.Version).version, config.THREAD_VERSION_1_2)
 
         # 4 - Router_1 receives the MLE Parent Response and sends a Child ID Request
         msg = router_messages.next_mle_message(mle.CommandType.CHILD_ID_REQUEST)
@@ -109,7 +110,7 @@ class Router_5_1_01(thread_cert.TestCase):
         msg.assertMleMessageContainsTlv(mle.Version)
         msg.assertMleMessageContainsTlv(mle.TlvRequest)
         msg.assertMleMessageDoesNotContainTlv(mle.AddressRegistration)
-        assert msg.get_mle_message_tlv(mle.Version).version == 3
+        self.assertGreaterEqual(msg.get_mle_message_tlv(mle.Version).version, config.THREAD_VERSION_1_2)
 
         # 5 - Leader responds with a Child ID Response
         msg = leader_messages.next_mle_message(mle.CommandType.CHILD_ID_RESPONSE)
@@ -135,31 +136,7 @@ class Router_5_1_01(thread_cert.TestCase):
         status_tlv = msg.get_coap_message_tlv(network_layer.Status)
         self.assertEqual(network_layer.StatusValues.SUCCESS, status_tlv.status)
 
-        # 8 - Router_1 sends a multicast Link Request Message
-        msg = router_messages.next_mle_message(mle.CommandType.LINK_REQUEST)
-        msg.assertMleMessageContainsTlv(mle.SourceAddress)
-        msg.assertMleMessageContainsTlv(mle.LeaderData)
-        msg.assertMleMessageContainsTlv(mle.Challenge)
-        msg.assertMleMessageContainsTlv(mle.Version)
-        msg.assertMleMessageContainsTlv(mle.TlvRequest)
-        assert msg.get_mle_message_tlv(mle.Version).version >= 3
-
-        tlv_request = msg.get_mle_message_tlv(mle.TlvRequest)
-        self.assertIn(mle.TlvType.LINK_MARGIN, tlv_request.tlvs)
-
-        # 9 - Leader sends a Unicast Link Accept
-        msg = leader_messages.next_mle_message(mle.CommandType.LINK_ACCEPT_AND_REQUEST)
-        msg.assertMleMessageContainsTlv(mle.SourceAddress)
-        msg.assertMleMessageContainsTlv(mle.LeaderData)
-        msg.assertMleMessageContainsTlv(mle.Response)
-        msg.assertMleMessageContainsTlv(mle.LinkLayerFrameCounter)
-        msg.assertMleMessageContainsTlv(mle.Version)
-        msg.assertMleMessageContainsTlv(mle.LinkMargin)
-        msg.assertMleMessageContainsOptionalTlv(mle.MleFrameCounter)
-        msg.assertMleMessageContainsOptionalTlv(mle.Challenge)
-        assert msg.get_mle_message_tlv(mle.Version).version >= 3
-
-        # 10 - Router_1 Transmit MLE advertisements
+        # 8 - Router_1 Transmit MLE advertisements
         msg = router_messages.next_mle_message(mle.CommandType.ADVERTISEMENT)
         msg.assertSentWithHopLimit(255)
         msg.assertSentToDestinationAddress('ff02::1')
@@ -167,7 +144,7 @@ class Router_5_1_01(thread_cert.TestCase):
         msg.assertMleMessageContainsTlv(mle.LeaderData)
         msg.assertMleMessageContainsTlv(mle.Route64)
 
-        # 11 - Verify connectivity by sending an ICMPv6 Echo Request to the DUT link local address
+        # 9 - Verify connectivity by sending an ICMPv6 Echo Request to the DUT link local address
         self.assertTrue(self.nodes[LEADER].ping(self.nodes[ROUTER_1].get_linklocal()))
         self.assertTrue(self.nodes[ROUTER_1].ping(self.nodes[LEADER].get_linklocal()))
 

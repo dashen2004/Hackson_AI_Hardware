@@ -93,7 +93,7 @@ static void netconn_drain(struct netconn *conn);
 #endif /* LWIP_TCPIP_CORE_LOCKING */
 
 #if LWIP_NETCONN_FULLDUPLEX
-const u8_t netconn_deleted = 0;
+static const u8_t netconn_deleted = 0;
 
 int
 lwip_netconn_is_deallocated_msg(void *msg)
@@ -106,9 +106,9 @@ lwip_netconn_is_deallocated_msg(void *msg)
 #endif /* LWIP_NETCONN_FULLDUPLEX */
 
 #if LWIP_TCP
-const u8_t netconn_aborted = 0;
-const u8_t netconn_reset = 0;
-const u8_t netconn_closed = 0;
+static const u8_t netconn_aborted = 0;
+static const u8_t netconn_reset = 0;
+static const u8_t netconn_closed = 0;
 
 /** Translate an error to a unique void* passed via an mbox */
 static void *
@@ -221,6 +221,7 @@ recv_udp(void *arg, struct udp_pcb *pcb, struct pbuf *p,
   struct netbuf *buf;
   struct netconn *conn;
   u16_t len;
+  err_t err;
 #if LWIP_SO_RCVBUF
   int recv_avail;
 #endif /* LWIP_SO_RCVBUF */
@@ -248,8 +249,7 @@ recv_udp(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     return;
   }
 
-#if ESP_IPV6
-#if LWIP_IPV6
+#if ESP_LWIP && LWIP_IPV6
   /* This should be eventually moved to a flag on the UDP PCB, and this drop can happen
      more correctly in udp_input(). This will also allow icmp_dest_unreach() to be called. */
   if (conn->flags & NETCONN_FLAG_IPV6_V6ONLY && !ip_current_is_v6()) {
@@ -257,8 +257,7 @@ recv_udp(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     pbuf_free(p);
     return;
   }
-#endif
-#endif
+#endif /* ESP_LWIP && LWIP_IPV6 */
 
   buf = (struct netbuf *)memp_malloc(MEMP_NETBUF);
   if (buf == NULL) {
@@ -281,8 +280,10 @@ recv_udp(void *arg, struct udp_pcb *pcb, struct pbuf *p,
   }
 
   len = p->tot_len;
-  if (sys_mbox_trypost(&conn->recvmbox, buf) != ERR_OK) {
+  err = sys_mbox_trypost(&conn->recvmbox, buf);
+  if (err != ERR_OK) {
     netbuf_delete(buf);
+    LWIP_DEBUGF(API_MSG_DEBUG, ("recv_udp: sys_mbox_trypost failed, err=%d\n", err));
     return;
   } else {
 #if LWIP_SO_RCVBUF
@@ -481,7 +482,7 @@ err_tcp(void *arg, err_t err)
   }
   /* pass error message to acceptmbox to wake up pending accept */
   if (NETCONN_MBOX_VALID(conn, &conn->acceptmbox)) {
-    /* use trypost to preven deadlock */
+    /* use trypost to prevent deadlock */
     sys_mbox_trypost(&conn->acceptmbox, mbox_msg);
   }
 
@@ -504,7 +505,7 @@ err_tcp(void *arg, err_t err)
         conn->current_msg->err = err;
       }
       op_completed_sem = LWIP_API_MSG_SEM(conn->current_msg);
-      LWIP_ASSERT("inavlid op_completed_sem", sys_sem_valid(op_completed_sem));
+      LWIP_ASSERT("invalid op_completed_sem", sys_sem_valid(op_completed_sem));
       conn->current_msg = NULL;
       /* wake up the waiting task */
       sys_sem_signal(op_completed_sem);
@@ -597,11 +598,9 @@ accept_function(void *arg, struct tcp_pcb *newpcb, err_t err)
     tcp_err(pcb, NULL);
     /* remove reference from to the pcb from this netconn */
     newconn->pcb.tcp = NULL;
-#if ESP_LWIP
-#if LWIP_NETCONN_FULLDUPLEX
+#if ESP_LWIP && LWIP_NETCONN_FULLDUPLEX
     newconn->flags |= NETCONN_FLAG_MBOXINVALID;
-#endif /* LWIP_NETCONN_FULLDUPLEX */
-#endif /* ESP_LWIP */   
+#endif /* ESP_LWIP && LWIP_NETCONN_FULLDUPLEX */
     /* no need to drain since we know the recvmbox is empty. */
     sys_mbox_free(&newconn->recvmbox);
     sys_mbox_set_invalid(&newconn->recvmbox);
@@ -685,8 +684,7 @@ pcb_new(struct api_msg *msg)
   if (msg->conn->pcb.ip == NULL) {
     msg->err = ERR_MEM;
   }
-#if ESP_IPV6
-#if LWIP_IPV4 && LWIP_IPV6
+#if ESP_LWIP && LWIP_IPV4 && LWIP_IPV6
   else {
     if (NETCONNTYPE_ISIPV6(msg->conn->type)) {
       /* Convert IPv4 PCB manually to an IPv6 PCB */
@@ -694,8 +692,7 @@ pcb_new(struct api_msg *msg)
       IP_SET_TYPE_VAL(msg->conn->pcb.ip->remote_ip, IPADDR_TYPE_V6);
     }
   }
-#endif /* LWIP_IPV4 && LWIP_IPV6 */
-#endif /* ESP_IPV6 */
+#endif /* ESP_LWIP && LWIP_IPV4 && LWIP_IPV6 */
 }
 
 /**
@@ -787,18 +784,11 @@ netconn_alloc(enum netconn_type t, netconn_callback callback)
   sys_mbox_set_invalid(&conn->acceptmbox);
 #endif
   conn->state        = NETCONN_NONE;
-#if LWIP_SOCKET
   /* initialize socket to -1 since 0 is a valid socket */
-  conn->socket       = -1;
-#endif /* LWIP_SOCKET */
+  conn->callback_arg.socket = -1;
   conn->callback     = callback;
 #if LWIP_TCP
   conn->current_msg  = NULL;
-
-#if ESP_THREAD_PROTECTION
-  conn->write_protection = false;
-#endif /* ESP_THREAD_PROTECTION */
-
 #endif /* LWIP_TCP */
 #if LWIP_SO_SNDTIMEO
   conn->send_timeout = 0;
@@ -850,6 +840,20 @@ netconn_free(struct netconn *conn)
 
   memp_free(MEMP_NETCONN, conn);
 }
+
+#if ESP_LWIP
+struct tcp_psb_msg {
+  struct tcpip_api_call_data call;
+  struct tcp_pcb *pcb;
+};
+
+static err_t tcp_do_abort(struct tcpip_api_call_data *msg)
+{
+  struct tcp_psb_msg *pcb_msg = __containerof(msg, struct tcp_psb_msg, call);
+  tcp_abort(pcb_msg->pcb);
+  return ERR_OK;
+}
+#endif /* ESP_LWIP */
 
 /**
  * Delete rcvmbox and acceptmbox of a netconn and free the left-over data in
@@ -908,12 +912,18 @@ netconn_drain(struct netconn *conn)
           /* Only tcp pcbs have an acceptmbox, so no need to check conn->type */
           /* pcb might be set to NULL already by err_tcp() */
           /* drain recvmbox */
-#if ESP_LWIP
+#if ESP_LWIP && LWIP_NETCONN_FULLDUPLEX
           newconn->flags |= NETCONN_FLAG_MBOXINVALID;
 #endif /* ESP_LWIP */
           netconn_drain(newconn);
           if (newconn->pcb.tcp != NULL) {
+#if ESP_LWIP
+            struct tcp_psb_msg pcb_msg = { 0 };
+            pcb_msg.pcb = newconn->pcb.tcp;
+            tcpip_api_call(tcp_do_abort, &pcb_msg.call);
+#else
             tcp_abort(newconn->pcb.tcp);
+#endif /* ESP_LWIP */
             newconn->pcb.tcp = NULL;
           }
           netconn_free(newconn);
@@ -935,11 +945,8 @@ netconn_mark_mbox_invalid(struct netconn *conn)
 
   /* Prevent new calls/threads from reading from the mbox */
   conn->flags |= NETCONN_FLAG_MBOXINVALID;
-#if ESP_LWIP_LOCK
+
   SYS_ARCH_LOCKED(num_waiting = conn->mbox_threads_waiting);
-#else
-  num_waiting = conn->mbox_threads_waiting;
-#endif /* ESP_LWIP_LOCK */  
   for (i = 0; i < num_waiting; i++) {
     if (sys_mbox_valid_val(conn->recvmbox)) {
       sys_mbox_trypost(&conn->recvmbox, msg);
@@ -1017,11 +1024,11 @@ lwip_netconn_do_close_internal(struct netconn *conn  WRITE_DELAYED_PARAM)
   /* Try to close the connection */
   if (shut_close) {
 #if LWIP_SO_LINGER
-    /* check linger possibilites before calling tcp_close */
+    /* check linger possibilities before calling tcp_close */
     err = ERR_OK;
     /* linger enabled/required at all? (i.e. is there untransmitted data left?) */
     if ((conn->linger >= 0) && (conn->pcb.tcp->unsent || conn->pcb.tcp->unacked)) {
-      if ((conn->linger == 0)) {
+      if (conn->linger == 0) {
         /* data left but linger prevents waiting */
         tcp_abort(tpcb);
         tpcb = NULL;
@@ -1045,7 +1052,11 @@ lwip_netconn_do_close_internal(struct netconn *conn  WRITE_DELAYED_PARAM)
     if ((err == ERR_OK) && (tpcb != NULL))
 #endif /* LWIP_SO_LINGER */
     {
-      err = tcp_close(tpcb);
+      err = tcp_close_ext(tpcb,
+#if LWIP_SO_LINGER
+                          /* don't send RST yet if linger-wait-required */ linger_wait_required ? 0 :
+#endif
+                          1);
     }
   } else {
     err = tcp_shutdown(tpcb, shut_rx, shut_tx);
@@ -1161,7 +1172,7 @@ lwip_netconn_do_delconn(void *m)
               (state == NETCONN_NONE) || (NETCONNTYPE_GROUP(msg->conn->type) == NETCONN_TCP));
 #if ESP_LWIP
   msg->err = ERR_OK;
-#endif              
+#endif
 #if LWIP_NETCONN_FULLDUPLEX
   /* In full duplex mode, blocking write/connect is aborted with ERR_CLSD */
   if (state != NETCONN_NONE) {
@@ -1191,11 +1202,11 @@ lwip_netconn_do_delconn(void *m)
   } else
 #endif /* LWIP_NETCONN_FULLDUPLEX */
   {
-#if !ESP_LWIP    
+#if !ESP_LWIP
     LWIP_ASSERT("blocking connect in progress",
                 (state != NETCONN_CONNECT) || IN_NONBLOCKING_CONNECT(msg->conn));
     msg->err = ERR_OK;
-#endif /* ESP_LWIP */                
+#endif /* ESP_LWIP */
 #if LWIP_NETCONN_FULLDUPLEX
     /* Mark mboxes invalid */
     netconn_mark_mbox_invalid(msg->conn);
@@ -1269,8 +1280,7 @@ lwip_netconn_do_bind(void *m)
   err_t err;
 
   if (msg->conn->pcb.tcp != NULL) {
-#if ESP_IPV6
-#if LWIP_IPV4 && LWIP_IPV6
+#if ESP_LWIP && LWIP_IPV4 && LWIP_IPV6
       /* "Socket API like" dual-stack support: If IP to bind to is IP6_ADDR_ANY,
        * and NETCONN_FLAG_IPV6_V6ONLY is NOT set, use IP_ANY_TYPE to bind
        */
@@ -1279,12 +1289,11 @@ lwip_netconn_do_bind(void *m)
         /* change PCB type to IPADDR_TYPE_ANY */
         IP_SET_TYPE_VAL(msg->conn->pcb.ip->local_ip,  IPADDR_TYPE_ANY);
         IP_SET_TYPE_VAL(msg->conn->pcb.ip->remote_ip, IPADDR_TYPE_ANY);
-        
+
         /* bind to IPADDR_TYPE_ANY */
         API_EXPR_REF(msg->msg.bc.ipaddr) = IP_ANY_TYPE;
       }
-#endif /* LWIP_IPV4 && LWIP_IPV6 */
-#endif
+#endif /* ESP_LWIP && LWIP_IPV4 && LWIP_IPV6 */
     switch (NETCONNTYPE_GROUP(msg->conn->type)) {
 #if LWIP_RAW
       case NETCONN_RAW:
@@ -1535,7 +1544,7 @@ lwip_netconn_do_listen(void *m)
           /* "Socket API like" dual-stack support: If IP to listen to is IP6_ADDR_ANY,
             * and NETCONN_FLAG_IPV6_V6ONLY is NOT set, use IP_ANY_TYPE to listen
             */
-          if (ip_addr_cmp(&msg->conn->pcb.ip->local_ip, IP6_ADDR_ANY) &&
+          if (ip_addr_eq(&msg->conn->pcb.ip->local_ip, IP6_ADDR_ANY) &&
               (netconn_get_ipv6only(msg->conn) == 0)) {
             /* change PCB type to IPADDR_TYPE_ANY */
             IP_SET_TYPE_VAL(msg->conn->pcb.tcp->local_ip,  IPADDR_TYPE_ANY);
@@ -1600,15 +1609,13 @@ lwip_netconn_do_send(void *m)
   struct api_msg *msg = (struct api_msg *)m;
 
   err_t err = netconn_err(msg->conn);
-  
-#if ESP_IPV6
-#if LWIP_IPV4 && LWIP_IPV6
+
+#if ESP_LWIP && LWIP_IPV4 && LWIP_IPV6
   if ((msg->conn->flags & NETCONN_FLAG_IPV6_V6ONLY) &&IP_IS_V4MAPPEDV6(&msg->msg.b->addr)) {
     LWIP_DEBUGF(API_MSG_DEBUG, ("lwip_netconn_do_send: Dropping IPv4 packet on IPv6-only socket"));
     msg->err = ERR_VAL;
-   }  
-#endif /* LWIP_IPV4 && LWIP_IPV6 */
-#endif
+   }
+#endif /* ESP_LWIP && LWIP_IPV4 && LWIP_IPV6 */
 
   if (err == ERR_OK) {
     if (msg->conn->pcb.tcp != NULL) {
@@ -1723,18 +1730,6 @@ lwip_netconn_do_writemore(struct netconn *conn  WRITE_DELAYED_PARAM)
   u8_t dontblock;
   u8_t apiflags;
   u8_t write_more;
-
-#if ESP_THREAD_PROTECTION
-  if(conn->write_protection == true) {
-    return ERR_OK;
-  }
-  TCP_WRITE_LOCK(conn);
-
-  if (conn->state != NETCONN_WRITE) {
-    TCP_WRITE_UNLOCK(conn);
-    return ERR_OK;
-  }
-#endif /* ESP_THREAD_PROTECTION */
 
   LWIP_ASSERT("conn != NULL", conn != NULL);
   LWIP_ASSERT("conn->state == NETCONN_WRITE", (conn->state == NETCONN_WRITE));
@@ -1879,27 +1874,14 @@ err_mem:
     if (delayed)
 #endif
     {
-#if ESP_THREAD_PROTECTION
-      TCP_WRITE_UNLOCK(conn);
       sys_sem_signal(op_completed_sem);
-      return ERR_OK;
-#else
-      sys_sem_signal(op_completed_sem);
-#endif /* ESP_THREAD_PROTECTION */
-      
     }
   }
 #if LWIP_TCPIP_CORE_LOCKING
   else {
-#if ESP_THREAD_PROTECTION
-      TCP_WRITE_UNLOCK(conn);
-#endif /*ESP_THREAD_PROTECTION */
     return ERR_MEM;
   }
 #endif
-#if ESP_THREAD_PROTECTION
-  TCP_WRITE_UNLOCK(conn);
-#endif /*ESP_THREAD_PROTECTION */
   return ERR_OK;
 }
 #endif /* LWIP_TCP */
@@ -2217,6 +2199,7 @@ done:
 static void
 lwip_netconn_do_dns_found(const char *name, const ip_addr_t *ipaddr, void *arg)
 {
+  u8_t i;
   struct dns_api_msg *msg = (struct dns_api_msg *)arg;
 
   /* we trust the internal implementation to be correct :-) */
@@ -2228,7 +2211,10 @@ lwip_netconn_do_dns_found(const char *name, const ip_addr_t *ipaddr, void *arg)
   } else {
     /* address was resolved */
     API_EXPR_DEREF(msg->err) = ERR_OK;
-    API_EXPR_DEREF(msg->addr) = *ipaddr;
+
+    for (i=0; i<DNS_MAX_HOST_IP; i++) {
+      API_EXPR_DEREF(msg->addr+i) = *(ipaddr+i);
+    }
   }
   /* wake up the application task waiting in netconn_gethostbyname */
   sys_sem_signal(API_EXPR_REF_SEM(msg->sem));

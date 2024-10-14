@@ -1,22 +1,14 @@
-
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #ifndef _BT_COMMON_H_
 #define _BT_COMMON_H_
 
 #include <assert.h>
+#include <stdbool.h>
 #include "bt_user_config.h"
 #include "esp_log.h"
 
@@ -54,6 +46,7 @@
 #define OSI_INITIAL_TRACE_LEVEL             UC_BT_LOG_OSI_TRACE_LEVEL
 #define BLUFI_INITIAL_TRACE_LEVEL           UC_BT_LOG_BLUFI_TRACE_LEVEL
 
+// MEMORY
 #if UC_BT_BLE_DYNAMIC_ENV_MEMORY
 #define BT_BLE_DYNAMIC_ENV_MEMORY  TRUE
 #define BTC_DYNAMIC_MEMORY         TRUE
@@ -62,8 +55,45 @@
 #define BTC_DYNAMIC_MEMORY         FALSE
 #endif
 
+#if UC_BT_BLUEDROID_MEM_DEBUG
+#define HEAP_MEMORY_DEBUG   TRUE
+#else
+#define HEAP_MEMORY_DEBUG   FALSE
+#endif
+
 #ifndef BT_BLE_DYNAMIC_ENV_MEMORY
 #define BT_BLE_DYNAMIC_ENV_MEMORY  FALSE
+#endif
+
+#if UC_HEAP_ALLOCATION_FROM_SPIRAM_FIRST
+#define HEAP_ALLOCATION_FROM_SPIRAM_FIRST TRUE
+#else
+#define HEAP_ALLOCATION_FROM_SPIRAM_FIRST FALSE
+#endif
+
+#if UC_BT_ABORT_WHEN_ALLOCATION_FAILS
+#define HEAP_ALLOCATION_FAILS_ABORT TRUE
+#else
+#define HEAP_ALLOCATION_FAILS_ABORT FALSE
+#endif
+
+// HCI LOG
+#if UC_BT_HCI_LOG_DEBUG_EN
+#define BT_HCI_LOG_INCLUDED  UC_BT_HCI_LOG_DEBUG_EN
+#else
+#define BT_HCI_LOG_INCLUDED  FALSE
+#endif
+
+#if UC_BT_HCI_LOG_DATA_BUFFER_SIZE
+#define HCI_LOG_DATA_BUFFER_SIZE  UC_BT_HCI_LOG_DATA_BUFFER_SIZE
+#else
+#define HCI_BUFFER_SIZE  (5)
+#endif
+
+#if UC_BT_HCI_ADV_BUFFER_SIZE
+#define HCI_LOG_ADV_BUFFER_SIZE  UC_BT_HCI_LOG_ADV_BUFFER_SIZE
+#else
+#define HCI_LOG_ADV_BUFFER_SIZE  (5)
 #endif
 
 /* OS Configuration from User config (eg: sdkconfig) */

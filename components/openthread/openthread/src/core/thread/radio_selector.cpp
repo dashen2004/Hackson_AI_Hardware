@@ -36,12 +36,14 @@
 #if OPENTHREAD_CONFIG_MULTI_RADIO
 
 #include "common/code_utils.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
 #include "common/random.hpp"
+#include "instance/instance.hpp"
 
 namespace ot {
+
+RegisterLogModule("RadioSelector");
 
 // This array defines the order in which different radio link types are
 // selected for message tx (direct message).
@@ -61,7 +63,7 @@ RadioSelector::RadioSelector(Instance &aInstance)
 
 void RadioSelector::NeighborInfo::PopulateMultiRadioInfo(MultiRadioInfo &aInfo)
 {
-    memset(&aInfo, 0, sizeof(MultiRadioInfo));
+    ClearAllBytes(aInfo);
 
 #if OPENTHREAD_CONFIG_RADIO_LINK_IEEE_802_15_4_ENABLE
     if (GetSupportedRadioTypes().Contains(Mac::kRadioTypeIeee802154))
@@ -80,36 +82,36 @@ void RadioSelector::NeighborInfo::PopulateMultiRadioInfo(MultiRadioInfo &aInfo)
 #endif
 }
 
-otLogLevel RadioSelector::UpdatePreference(Neighbor &aNeighbor, Mac::RadioType aRadioType, int16_t aDifference)
+LogLevel RadioSelector::UpdatePreference(Neighbor &aNeighbor, Mac::RadioType aRadioType, int16_t aDifference)
 {
     uint8_t old        = aNeighbor.GetRadioPreference(aRadioType);
-    int16_t preferecne = static_cast<int16_t>(old);
+    int16_t preference = static_cast<int16_t>(old);
 
-    preferecne += aDifference;
+    preference += aDifference;
 
-    if (preferecne > kMaxPreference)
+    if (preference > kMaxPreference)
     {
-        preferecne = kMaxPreference;
+        preference = kMaxPreference;
     }
 
-    if (preferecne < kMinPreference)
+    if (preference < kMinPreference)
     {
-        preferecne = kMinPreference;
+        preference = kMinPreference;
     }
 
-    aNeighbor.SetRadioPreference(aRadioType, static_cast<uint8_t>(preferecne));
+    aNeighbor.SetRadioPreference(aRadioType, static_cast<uint8_t>(preference));
 
     // We check whether the update to the preference value caused it
     // to cross the threshold `kHighPreference`. Based on this we
     // return a suggested log level. If there is cross, suggest info
     // log level, otherwise debug log level.
 
-    return ((old >= kHighPreference) != (preferecne >= kHighPreference)) ? OT_LOG_LEVEL_INFO : OT_LOG_LEVEL_DEBG;
+    return ((old >= kHighPreference) != (preference >= kHighPreference)) ? kLogLevelInfo : kLogLevelDebg;
 }
 
 void RadioSelector::UpdateOnReceive(Neighbor &aNeighbor, Mac::RadioType aRadioType, bool aIsDuplicate)
 {
-    otLogLevel logLevel = OT_LOG_LEVEL_INFO;
+    LogLevel logLevel = kLogLevelInfo;
 
     if (aNeighbor.GetSupportedRadioTypes().Contains(aRadioType))
     {
@@ -129,10 +131,10 @@ void RadioSelector::UpdateOnReceive(Neighbor &aNeighbor, Mac::RadioType aRadioTy
 
 void RadioSelector::UpdateOnSendDone(Mac::TxFrame &aFrame, Error aTxError)
 {
-    otLogLevel     logLevel  = OT_LOG_LEVEL_INFO;
+    LogLevel       logLevel  = kLogLevelInfo;
     Mac::RadioType radioType = aFrame.GetRadioType();
     Mac::Address   macDest;
-    Neighbor *     neighbor;
+    Neighbor      *neighbor;
 
 #if OPENTHREAD_CONFIG_RADIO_LINK_TREL_ENABLE
     if (radioType == Mac::kRadioTypeTrel)
@@ -173,7 +175,7 @@ exit:
 #if OPENTHREAD_CONFIG_RADIO_LINK_TREL_ENABLE
 void RadioSelector::UpdateOnDeferredAck(Neighbor &aNeighbor, Error aTxError, bool &aAllowNeighborRemove)
 {
-    otLogLevel logLevel = OT_LOG_LEVEL_INFO;
+    LogLevel logLevel = kLogLevelInfo;
 
     aAllowNeighborRemove = true;
 
@@ -255,7 +257,7 @@ Mac::RadioType RadioSelector::Select(Mac::RadioTypes aRadioOptions, const Neighb
 
 Mac::TxFrame &RadioSelector::SelectRadio(Message &aMessage, const Mac::Address &aMacDest, Mac::TxFrames &aTxFrames)
 {
-    Neighbor *      neighbor;
+    Neighbor       *neighbor;
     Mac::RadioType  selectedRadio;
     Mac::RadioTypes selections;
 
@@ -292,7 +294,7 @@ Mac::TxFrame &RadioSelector::SelectRadio(Message &aMessage, const Mac::Address &
     selectedRadio = Select(neighbor->GetSupportedRadioTypes(), *neighbor);
     selections.Add(selectedRadio);
 
-    Log(OT_LOG_LEVEL_DEBG, "SelectRadio", selectedRadio, *neighbor);
+    Log(kLogLevelDebg, "SelectRadio", selectedRadio, *neighbor);
 
     aMessage.SetRadioType(selectedRadio);
 
@@ -316,7 +318,7 @@ Mac::TxFrame &RadioSelector::SelectRadio(Message &aMessage, const Mac::Address &
         aTxFrames.SetRequiredRadioTypes(selections);
         selections.Add(Mac::kRadioTypeTrel);
 
-        Log(OT_LOG_LEVEL_DEBG, "Probe", Mac::kRadioTypeTrel, *neighbor);
+        Log(kLogLevelDebg, "Probe", Mac::kRadioTypeTrel, *neighbor);
     }
 #endif
 
@@ -353,17 +355,17 @@ Mac::RadioType RadioSelector::SelectPollFrameRadio(const Neighbor &aParent)
 
 // LCOV_EXCL_START
 
-#if (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_MAC == 1)
+#if OT_SHOULD_LOG_AT(OT_LOG_LEVEL_INFO)
 
-void RadioSelector::Log(otLogLevel      aLogLevel,
-                        const char *    aActionText,
+void RadioSelector::Log(LogLevel        aLogLevel,
+                        const char     *aActionText,
                         Mac::RadioType  aRadioType,
                         const Neighbor &aNeighbor)
 {
     String<kRadioPreferenceStringSize> preferenceString;
     bool                               isFirstEntry = true;
 
-    VerifyOrExit(otLoggingGetLevel() >= aLogLevel);
+    VerifyOrExit(Instance::GetLogLevel() >= aLogLevel);
 
     for (Mac::RadioType radio : sRadioSelectionOrder)
     {
@@ -375,21 +377,19 @@ void RadioSelector::Log(otLogLevel      aLogLevel,
         }
     }
 
-    otLogMac(aLogLevel, "RadioSelector: %s %s - neighbor:[%s rloc16:0x%04x radio-pref:{%s} state:%s]", aActionText,
-             RadioTypeToString(aRadioType), aNeighbor.GetExtAddress().ToString().AsCString(), aNeighbor.GetRloc16(),
-             preferenceString.AsCString(), Neighbor::StateToString(aNeighbor.GetState()));
+    LogAt(aLogLevel, "RadioSelector: %s %s - neighbor:[%s rloc16:0x%04x radio-pref:{%s} state:%s]", aActionText,
+          RadioTypeToString(aRadioType), aNeighbor.GetExtAddress().ToString().AsCString(), aNeighbor.GetRloc16(),
+          preferenceString.AsCString(), Neighbor::StateToString(aNeighbor.GetState()));
 
 exit:
     return;
 }
 
-#else // #if (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_MAC == 1)
+#else // #if OT_SHOULD_LOG_AT(OT_LOG_LEVEL_INFO)
 
-void RadioSelector::Log(otLogLevel, const char *, Mac::RadioType, const Neighbor &)
-{
-}
+void RadioSelector::Log(LogLevel, const char *, Mac::RadioType, const Neighbor &) {}
 
-#endif // #if (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_MAC == 1)
+#endif // #if OT_SHOULD_LOG_AT(OT_LOG_LEVEL_INFO)
 
 // LCOV_EXCL_STOP
 

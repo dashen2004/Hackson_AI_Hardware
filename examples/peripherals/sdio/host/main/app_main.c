@@ -10,28 +10,48 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <inttypes.h>
+#include "soc/soc_caps.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 
-#include "soc/sdmmc_periph.h"
-#include "soc/sdio_slave_periph.h"
 #include "esp_log.h"
 #include "esp_attr.h"
-#include "esp_serial_slave_link/essl_sdio.h"
-#include "sdkconfig.h"
+
 #include "driver/sdmmc_host.h"
 #include "driver/sdspi_host.h"
 
-#define TIMEOUT_MAX   UINT32_MAX
+#include "esp_serial_slave_link/essl_sdio.h"
+#include "sdkconfig.h"
+#include "sdmmc_cmd.h"
 
+#define TIMEOUT_MAX   UINT32_MAX
 
 #define GPIO_B1     21
 
 #if CONFIG_EXAMPLE_SLAVE_B1
 #define SLAVE_PWR_GPIO GPIO_B1
+#endif
+
+#if CONFIG_EXAMPLE_ADJUSTABLE_PIN
+#define PIN_CLK     CONFIG_EXAMPLE_PIN_CLK
+#define PIN_CMD     CONFIG_EXAMPLE_PIN_CMD
+#define PIN_D0      CONFIG_EXAMPLE_PIN_D0
+#define PIN_D1      CONFIG_EXAMPLE_PIN_D1
+#define PIN_D2      CONFIG_EXAMPLE_PIN_D2
+#define PIN_D3      CONFIG_EXAMPLE_PIN_D3
+#else
+// For ESP32 only, when not using SDMMC host
+#include "soc/sdmmc_pins.h"
+#define PIN_CLK     SDMMC_SLOT1_IOMUX_PIN_NUM_CLK
+#define PIN_CMD     SDMMC_SLOT1_IOMUX_PIN_NUM_CMD
+#define PIN_D0      SDMMC_SLOT1_IOMUX_PIN_NUM_D0
+#define PIN_D1      SDMMC_SLOT1_IOMUX_PIN_NUM_D1
+#define PIN_D2      SDMMC_SLOT1_IOMUX_PIN_NUM_D2
+#define PIN_D3      SDMMC_SLOT1_IOMUX_PIN_NUM_D3
 #endif
 
 /*
@@ -81,8 +101,6 @@
 
 static const char TAG[] = "example_host";
 
-#define SDIO_INTERRUPT_LINE     GPIO_NUM_4   //DATA1
-
 #define SLAVE_INTR_NOTIFY    0
 
 #define SLAVE_REG_JOB   0
@@ -109,7 +127,7 @@ esp_err_t slave_reset(essl_handle_t handle)
         return ret;
     }
 
-    vTaskDelay(500 / portTICK_RATE_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     ret = essl_wait_for_ready(handle, TIMEOUT_MAX);
     ESP_LOGI(TAG, "slave io ready");
     return ret;
@@ -119,12 +137,12 @@ esp_err_t slave_reset(essl_handle_t handle)
 static void gpio_d2_set_high(void)
 {
     gpio_config_t d2_config = {
-        .pin_bit_mask = BIT64(SDIO_SLAVE_SLOT1_IOMUX_PIN_NUM_D2),
+        .pin_bit_mask = BIT64(PIN_D2),
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = true,
     };
     gpio_config(&d2_config);
-    gpio_set_level(SDIO_SLAVE_SLOT1_IOMUX_PIN_NUM_D2, 1);
+    gpio_set_level(PIN_D2, 1);
 }
 #endif
 
@@ -166,10 +184,10 @@ esp_err_t slave_init(essl_handle_t* handle)
 #ifndef CONFIG_EXAMPLE_SDIO_OVER_SPI
     sdmmc_host_t config = SDMMC_HOST_DEFAULT();
 #ifdef CONFIG_EXAMPLE_SDIO_4BIT
-    ESP_LOGI(TAG, "Probe using SD 4-bit...\n");
+    ESP_LOGI(TAG, "Probe using SD 4-bit...");
     config.flags = SDMMC_HOST_FLAG_4BIT;
 #else
-    ESP_LOGI(TAG, "Probe using SD 1-bit...\n");
+    ESP_LOGI(TAG, "Probe using SD 1-bit...");
     config.flags = SDMMC_HOST_FLAG_1BIT;
 #endif
 
@@ -179,6 +197,10 @@ esp_err_t slave_init(essl_handle_t* handle)
     config.max_freq_khz = SDMMC_FREQ_DEFAULT;
 #endif
 
+    // Set this flag to allocate aligned buffer of 512 bytes to meet DMA's requirements for CMD53 byte mode. Mandatory
+    // when any buffer is behind the cache, or not aligned to 4 byte boundary.
+    config.flags |= SDMMC_HOST_FLAG_ALLOC_ALIGNED_BUF;
+
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
     /* Note: For small devkits there may be no pullups on the board.
        This enables the internal pullups to help evaluate the driver quickly.
@@ -187,6 +209,19 @@ esp_err_t slave_init(essl_handle_t* handle)
        real design.
     */
     //slot_config.flags = SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+
+    //Initialize all pins to avoid them floating
+    //Set slot width to 4 to ignore other pin config on S3, which support at most 8 lines
+    slot_config.width = 4;
+#ifdef CONFIG_SOC_SDMMC_USE_GPIO_MATRIX
+    slot_config.clk = PIN_CLK;
+    slot_config.cmd = PIN_CMD;
+    slot_config.d0 = PIN_D0;
+    slot_config.d1 = PIN_D1;
+    slot_config.d2 = PIN_D2;
+    slot_config.d3 = PIN_D3;
+#endif  // CONFIG_SOC_SDMMC_USE_GPIO_MATRIX
+
     err = sdmmc_host_init();
     ESP_ERROR_CHECK(err);
 
@@ -194,35 +229,36 @@ esp_err_t slave_init(essl_handle_t* handle)
     ESP_ERROR_CHECK(err);
 #else   //over SPI
     sdspi_device_config_t dev_config = SDSPI_DEVICE_CONFIG_DEFAULT();
-    dev_config.gpio_cs   = SDIO_SLAVE_SLOT1_IOMUX_PIN_NUM_D3;
-    dev_config.gpio_int = SDIO_SLAVE_SLOT1_IOMUX_PIN_NUM_D1;
+    dev_config.gpio_cs   = PIN_D3;
+    dev_config.gpio_int = PIN_D1;
 
     err = gpio_install_isr_service(0);
     ESP_ERROR_CHECK(err);
 
     spi_bus_config_t bus_config = {
-        .mosi_io_num = SDIO_SLAVE_SLOT1_IOMUX_PIN_NUM_CMD,
-        .miso_io_num = SDIO_SLAVE_SLOT1_IOMUX_PIN_NUM_D0,
-        .sclk_io_num = SDIO_SLAVE_SLOT1_IOMUX_PIN_NUM_CLK,
+        .mosi_io_num = PIN_CMD,
+        .miso_io_num = PIN_D0,
+        .sclk_io_num = PIN_CLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .max_transfer_sz = 4000,
     };
-    err = spi_bus_initialize(dev_config.host_id, &bus_config, 1);
+    err = spi_bus_initialize(dev_config.host_id, &bus_config, SPI_DMA_CH_AUTO);
     ESP_ERROR_CHECK(err);
 
-    sdspi_device_handle_t sdspi_handle;
+    sdspi_dev_handle_t sdspi_handle;
     err = sdspi_host_init();
     ESP_ERROR_CHECK(err);
-    err = sdspi_host_init_device(&slot_config, &sdspi_handle);
+    err = sdspi_host_init_device(&dev_config, &sdspi_handle);
     ESP_ERROR_CHECK(err);
-    ESP_LOGI(TAG, "Probe using SPI...\n");
+    ESP_LOGI(TAG, "Probe using SPI...");
 
     sdmmc_host_t config = SDSPI_HOST_DEFAULT();
     config.slot = sdspi_handle;
     //we have to pull up all the slave pins even when the pin is not used
     gpio_d2_set_high();
 #endif  //over SPI
+
     sdmmc_card_t *card = (sdmmc_card_t *)malloc(sizeof(sdmmc_card_t));
     if (card == NULL) {
         return ESP_ERR_NO_MEM;
@@ -236,18 +272,18 @@ esp_err_t slave_init(essl_handle_t* handle)
     }
     sdmmc_card_print_info(stdout, card);
 
-    gpio_pullup_en(14);
-    gpio_pulldown_dis(14);
-    gpio_pullup_en(15);
-    gpio_pulldown_dis(15);
-    gpio_pullup_en(2);
-    gpio_pulldown_dis(2);
-    gpio_pullup_en(4);
-    gpio_pulldown_dis(4);
-    gpio_pullup_en(12);
-    gpio_pulldown_dis(12);
-    gpio_pullup_en(13);
-    gpio_pulldown_dis(13);
+    gpio_pullup_en(PIN_CMD);
+    gpio_pulldown_dis(PIN_CMD);
+    gpio_pullup_en(PIN_CLK);
+    gpio_pulldown_dis(PIN_CLK);
+    gpio_pullup_en(PIN_D0);
+    gpio_pulldown_dis(PIN_D0);
+    gpio_pullup_en(PIN_D1);
+    gpio_pulldown_dis(PIN_D1);
+    gpio_pullup_en(PIN_D2);
+    gpio_pulldown_dis(PIN_D2);
+    gpio_pullup_en(PIN_D3);
+    gpio_pulldown_dis(PIN_D3);
 
     essl_sdio_config_t ser_config = {
         .card = card,
@@ -263,7 +299,6 @@ esp_err_t slave_init(essl_handle_t* handle)
     ESP_ERROR_CHECK(ret);
     return ret;
 }
-
 
 void slave_power_on(void)
 {
@@ -304,10 +339,14 @@ static esp_err_t get_intr(essl_handle_t handle, uint32_t* out_raw, uint32_t* out
 #endif
 
     ret = essl_get_intr(handle, out_raw, out_st, TIMEOUT_MAX);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK) {
+        return ret;
+    }
     ret = essl_clear_intr(handle, *out_raw, TIMEOUT_MAX);
-    if (ret != ESP_OK) return ret;
-    ESP_LOGD(TAG, "intr: %08X", *out_raw);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+    ESP_LOGD(TAG, "intr: %08"PRIX32, *out_raw);
     return ESP_OK;
 }
 
@@ -328,7 +367,7 @@ esp_err_t process_event(essl_handle_t handle)
     }
 
     const int wait_ms = 50;
-    if (intr_raw & HOST_SLC0_RX_NEW_PACKET_INT_ST) {
+    if (intr_raw & ESSL_SDIO_DEF_ESP32.new_packet_intr_mask) {
         ESP_LOGD(TAG, "new packet coming");
         while (1) {
             size_t size_read = READ_BUFFER_LEN;
@@ -382,24 +421,20 @@ void job_write_reg(essl_handle_t handle, int value)
     }
 
     ESP_LOGI(TAG, "read registers:");
-    ESP_LOG_BUFFER_HEXDUMP(TAG, reg_read, 64, ESP_LOG_INFO);
+    ESP_LOG_BUFFER_HEXDUMP(TAG, reg_read, 60, ESP_LOG_INFO);
 }
 
 //the slave only load 16 buffers a time
 //so first 5 packets (use 1+1+8+4+1=15 buffers) are sent, the others (513, 517) failed (timeout)
 int packet_len[] = {6, 12, 1024, 512, 3, 513, 517};
 //the sending buffer should be word aligned
-DMA_ATTR uint8_t send_buffer[READ_BUFFER_LEN];
+DRAM_DMA_ALIGNED_ATTR uint8_t send_buffer[READ_BUFFER_LEN];
 
 //send packets to the slave (they will return and be handled by the interrupt handler)
 void job_fifo(essl_handle_t handle)
 {
-    for (int i = 0; i < READ_BUFFER_LEN; i++) {
-        send_buffer[i] = 0x46 + i * 5;
-    }
-
     esp_err_t ret;
-    int pointer = 0;
+    int data_index = 0;
 
     ESP_LOGI(TAG, "========JOB: send fifos========");
     /* CAUTION: This example shows that we can send random length of packet to the slave.
@@ -408,16 +443,21 @@ void job_fifo(essl_handle_t handle)
      * Try to avoid unaligned packets if possible to get higher effeciency.
      */
     for (int i = 0; i < sizeof(packet_len) / sizeof(int); i++) {
-        const int wait_ms = 50;
+        //Prepare data to send. The length can be random, but data should start at the 32-bit boundary.
         int length = packet_len[i];
-        ret = essl_send_packet(handle, send_buffer + pointer, length, wait_ms);
-        if (ret == ESP_ERR_TIMEOUT) {
-            ESP_LOGD(TAG, "several packets are expected to timeout.");
+        for (int i = 0; i < length; i ++) {
+            send_buffer[i] = 0x46 + (data_index + i) * 5;
+        }
+        data_index += (length + 3) & (~3);  //get different data next time
+
+        const int wait_ms = 50;
+        ret = essl_send_packet(handle, send_buffer, length, wait_ms);
+        if (ret == ESP_ERR_TIMEOUT || ret == ESP_ERR_NOT_FOUND) {
+            ESP_LOGD(TAG, "slave not ready to receive packet %d", i); // And there are several packets expected to timeout.
         } else {
             ESP_ERROR_CHECK(ret);
             ESP_LOGI(TAG, "send packet length: %d", length);
         }
-        pointer += (length + 3) & (~3); //the length can be random, but data should start at the 32-bit boundary.
     }
 }
 

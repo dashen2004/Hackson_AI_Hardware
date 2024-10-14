@@ -38,9 +38,7 @@
 
 #include <openthread/commissioner.h>
 
-#include "cli/cli_output.hpp"
-#include "utils/lookup_table.hpp"
-#include "utils/parse_cmdline.hpp"
+#include "cli/cli_utils.hpp"
 
 #if OPENTHREAD_CONFIG_COMMISSIONER_ENABLE && OPENTHREAD_FTD
 
@@ -48,90 +46,66 @@ namespace ot {
 namespace Cli {
 
 /**
- * This class implements the Commissioner CLI interpreter.
+ * Implements the Commissioner CLI interpreter.
  *
  */
-class Commissioner : private OutputWrapper
+class Commissioner : private Utils
 {
 public:
-    typedef Utils::CmdLineParser::Arg Arg;
-
     /**
      * Constructor
      *
-     * @param[in]  aOutput The CLI console output context
+     * @param[in]  aInstance            The OpenThread Instance.
+     * @param[in]  aOutputImplementer   An `OutputImplementer`.
      *
      */
-    explicit Commissioner(Output &aOutput)
-        : OutputWrapper(aOutput)
+    Commissioner(otInstance *aInstance, OutputImplementer &aOutputImplementer)
+        : Utils(aInstance, aOutputImplementer)
     {
     }
 
     /**
-     * This method interprets a list of CLI arguments.
+     * Processes a CLI sub-command.
      *
-     * @param[in]  aArgs        An array of command line arguments.
+     * @param[in]  aArgs     An array of command line arguments.
+     *
+     * @retval OT_ERROR_NONE              Successfully executed the CLI command.
+     * @retval OT_ERROR_PENDING           The CLI command was successfully started but final result is pending.
+     * @retval OT_ERROR_INVALID_COMMAND   Invalid or unknown CLI command.
+     * @retval OT_ERROR_INVALID_ARGS      Invalid arguments.
+     * @retval ...                        Error during execution of the CLI command.
      *
      */
     otError Process(Arg aArgs[]);
 
 private:
-    enum
-    {
-        kDefaultJoinerTimeout = 120, ///< Default timeout for Joiners, in seconds.
-    };
+    static constexpr uint32_t kDefaultJoinerTimeout = 120; ///< Default timeout for Joiners, in seconds.
 
-    struct Command
-    {
-        const char *mName;
-        otError (Commissioner::*mHandler)(Arg aArgs[]);
-    };
+    using Command = CommandEntry<Commissioner>;
 
-    otError ProcessHelp(Arg aArgs[]);
-    otError ProcessAnnounce(Arg aArgs[]);
-    otError ProcessEnergy(Arg aArgs[]);
-    otError ProcessJoiner(Arg aArgs[]);
-    otError ProcessMgmtGet(Arg aArgs[]);
-    otError ProcessMgmtSet(Arg aArgs[]);
-    otError ProcessPanId(Arg aArgs[]);
-    otError ProcessProvisioningUrl(Arg aArgs[]);
-    otError ProcessSessionId(Arg aArgs[]);
-    otError ProcessStart(Arg aArgs[]);
-    otError ProcessState(Arg aArgs[]);
-    otError ProcessStop(Arg aArgs[]);
+    template <CommandId kCommandId> otError Process(Arg aArgs[]);
 
     static void HandleStateChanged(otCommissionerState aState, void *aContext);
     void        HandleStateChanged(otCommissionerState aState);
 
     static void HandleJoinerEvent(otCommissionerJoinerEvent aEvent,
-                                  const otJoinerInfo *      aJoinerInfo,
-                                  const otExtAddress *      aJoinerId,
-                                  void *                    aContext);
+                                  const otJoinerInfo       *aJoinerInfo,
+                                  const otExtAddress       *aJoinerId,
+                                  void                     *aContext);
     void        HandleJoinerEvent(otCommissionerJoinerEvent aEvent,
-                                  const otJoinerInfo *      aJoinerInfo,
-                                  const otExtAddress *      aJoinerId);
+                                  const otJoinerInfo       *aJoinerInfo,
+                                  const otExtAddress       *aJoinerId);
 
     static void HandleEnergyReport(uint32_t       aChannelMask,
                                    const uint8_t *aEnergyList,
                                    uint8_t        aEnergyListLength,
-                                   void *         aContext);
+                                   void          *aContext);
     void        HandleEnergyReport(uint32_t aChannelMask, const uint8_t *aEnergyList, uint8_t aEnergyListLength);
 
     static void HandlePanIdConflict(uint16_t aPanId, uint32_t aChannelMask, void *aContext);
     void        HandlePanIdConflict(uint16_t aPanId, uint32_t aChannelMask);
 
     static const char *StateToString(otCommissionerState aState);
-
-    static constexpr Command sCommands[] = {
-        {"announce", &Commissioner::ProcessAnnounce},   {"energy", &Commissioner::ProcessEnergy},
-        {"help", &Commissioner::ProcessHelp},           {"joiner", &Commissioner::ProcessJoiner},
-        {"mgmtget", &Commissioner::ProcessMgmtGet},     {"mgmtset", &Commissioner::ProcessMgmtSet},
-        {"panid", &Commissioner::ProcessPanId},         {"provisioningurl", &Commissioner::ProcessProvisioningUrl},
-        {"sessionid", &Commissioner::ProcessSessionId}, {"start", &Commissioner::ProcessStart},
-        {"state", &Commissioner::ProcessState},         {"stop", &Commissioner::ProcessStop},
-    };
-
-    static_assert(Utils::LookupTable::IsSorted(sCommands), "Command Table is not sorted");
 };
 
 } // namespace Cli

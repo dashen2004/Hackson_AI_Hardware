@@ -1,16 +1,8 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 
 /*******************************************************************************
@@ -58,7 +50,6 @@ typedef enum {
     BTC_AV_CONNECT_REQ_EVT = BTA_AV_MAX_EVT,
     BTC_AV_DISCONNECT_REQ_EVT,
     BTC_AV_START_STREAM_REQ_EVT,
-    BTC_AV_STOP_STREAM_REQ_EVT,
     BTC_AV_SUSPEND_STREAM_REQ_EVT,
     BTC_AV_SINK_CONFIG_REQ_EVT,
 } btc_av_sm_event_t;
@@ -70,6 +61,8 @@ typedef enum {
     BTC_AV_SINK_API_CONNECT_EVT,
     BTC_AV_SINK_API_DISCONNECT_EVT,
     BTC_AV_SINK_API_REG_DATA_CB_EVT,
+    BTC_AV_SINK_API_SET_DELAY_VALUE_EVT,
+    BTC_AV_SINK_API_GET_DELAY_VALUE_EVT,
 #endif  /* BTC_AV_SINK_INCLUDED */
 #if BTC_AV_SRC_INCLUDED
     BTC_AV_SRC_API_INIT_EVT,
@@ -79,7 +72,6 @@ typedef enum {
     BTC_AV_SRC_API_REG_DATA_CB_EVT,
 #endif  /* BTC_AV_SRC_INCLUDED */
     BTC_AV_API_MEDIA_CTRL_EVT,
-    BTC_AV_DATAPATH_CTRL_EVT,
 } btc_av_act_t;
 
 /* btc_av_args_t */
@@ -93,6 +85,8 @@ typedef union {
     bt_bdaddr_t disconn;
     // BTC_AV_SINK_API_REG_DATA_CB_EVT
     esp_a2d_sink_data_cb_t data_cb;
+    // BTC_AV_SINK_API_SET_DELAY_VALUE_EVT
+    uint16_t delay_value;
 #endif  /* BTC_AV_SINK_INCLUDED */
 #if BTC_AV_SRC_INCLUDED
     // BTC_AV_SRC_API_REG_DATA_CB_EVT
@@ -104,8 +98,6 @@ typedef union {
 #endif /* BTC_AV_SRC_INCLUDED */
     // BTC_AV_API_MEDIA_CTRL_EVT
     esp_a2d_media_ctrl_t ctrl;
-    // BTC_AV_DATAPATH_CTRL_EVT
-    uint32_t dp_evt;
 } btc_av_args_t;
 
 /*******************************************************************************

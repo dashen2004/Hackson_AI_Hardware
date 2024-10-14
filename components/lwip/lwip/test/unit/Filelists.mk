@@ -34,6 +34,7 @@ TESTFILES=$(TESTDIR)/lwip_unittests.c \
 	$(TESTDIR)/api/test_sockets.c \
 	$(TESTDIR)/arch/sys_arch.c \
 	$(TESTDIR)/core/test_def.c \
+	$(TESTDIR)/core/test_dns.c \
 	$(TESTDIR)/core/test_mem.c \
 	$(TESTDIR)/core/test_netif.c \
 	$(TESTDIR)/core/test_ip4_route.c \
@@ -49,5 +50,6 @@ TESTFILES=$(TESTDIR)/lwip_unittests.c \
 	$(TESTDIR)/tcp/test_tcp_oos.c \
 	$(TESTDIR)/tcp/test_tcp_state.c \
 	$(TESTDIR)/tcp/test_tcp.c \
-	$(TESTDIR)/udp/test_udp.c
-
+	$(TESTDIR)/udp/test_udp.c \
+	$(TESTDIR)/ppp/test_pppos.c \
+	$(TESTDIR)/esp_platform_hooks.c

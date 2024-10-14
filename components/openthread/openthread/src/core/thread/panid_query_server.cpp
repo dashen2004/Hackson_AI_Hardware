@@ -34,11 +34,12 @@
 #include "panid_query_server.hpp"
 
 #include "coap/coap_message.hpp"
+#include "common/as_core_type.hpp"
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
+#include "instance/instance.hpp"
 #include "meshcop/meshcop.hpp"
 #include "meshcop/meshcop_tlvs.hpp"
 #include "thread/thread_netif.hpp"
@@ -46,30 +47,24 @@
 
 namespace ot {
 
+RegisterLogModule("MeshCoP");
+
 PanIdQueryServer::PanIdQueryServer(Instance &aInstance)
     : InstanceLocator(aInstance)
     , mChannelMask(0)
     , mPanId(Mac::kPanIdBroadcast)
-    , mTimer(aInstance, PanIdQueryServer::HandleTimer)
-    , mPanIdQuery(UriPath::kPanIdQuery, &PanIdQueryServer::HandleQuery, this)
+    , mTimer(aInstance)
 {
-    Get<Tmf::Agent>().AddResource(mPanIdQuery);
 }
 
-void PanIdQueryServer::HandleQuery(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo)
+template <>
+void PanIdQueryServer::HandleTmf<kUriPanIdQuery>(Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
 {
-    static_cast<PanIdQueryServer *>(aContext)->HandleQuery(*static_cast<Coap::Message *>(aMessage),
-                                                           *static_cast<const Ip6::MessageInfo *>(aMessageInfo));
-}
-
-void PanIdQueryServer::HandleQuery(Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
-{
-    uint16_t         panId;
-    Ip6::MessageInfo responseInfo(aMessageInfo);
-    uint32_t         mask;
+    uint16_t panId;
+    uint32_t mask;
 
     VerifyOrExit(aMessage.IsPostRequest());
-    VerifyOrExit((mask = MeshCoP::ChannelMaskTlv::GetChannelMask(aMessage)) != 0);
+    SuccessOrExit(MeshCoP::ChannelMaskTlv::FindIn(aMessage, mask));
 
     SuccessOrExit(Tlv::Find<MeshCoP::PanIdTlv>(aMessage, panId));
 
@@ -80,8 +75,8 @@ void PanIdQueryServer::HandleQuery(Coap::Message &aMessage, const Ip6::MessageIn
 
     if (aMessage.IsConfirmable() && !aMessageInfo.GetSockAddr().IsMulticast())
     {
-        SuccessOrExit(Get<Tmf::Agent>().SendEmptyAck(aMessage, responseInfo));
-        otLogInfoMeshCoP("sent panid query response");
+        SuccessOrExit(Get<Tmf::Agent>().SendEmptyAck(aMessage, aMessageInfo));
+        LogInfo("Sent %s ack", UriToString<kUriPanIdQuery>());
     }
 
 exit:
@@ -110,37 +105,26 @@ void PanIdQueryServer::HandleScanResult(Mac::ActiveScanResult *aScanResult)
 
 void PanIdQueryServer::SendConflict(void)
 {
-    Error                   error = kErrorNone;
-    MeshCoP::ChannelMaskTlv channelMask;
-    Ip6::MessageInfo        messageInfo;
-    Coap::Message *         message;
+    Error            error = kErrorNone;
+    Tmf::MessageInfo messageInfo(GetInstance());
+    Coap::Message   *message;
 
-    VerifyOrExit((message = MeshCoP::NewMeshCoPMessage(Get<Tmf::Agent>())) != nullptr, error = kErrorNoBufs);
+    message = Get<Tmf::Agent>().NewPriorityConfirmablePostMessage(kUriPanIdConflict);
+    VerifyOrExit(message != nullptr, error = kErrorNoBufs);
 
-    SuccessOrExit(error = message->InitAsConfirmablePost(UriPath::kPanIdConflict));
-    SuccessOrExit(error = message->SetPayloadMarker());
-
-    channelMask.Init();
-    channelMask.SetChannelMask(mChannelMask);
-    SuccessOrExit(error = channelMask.AppendTo(*message));
+    SuccessOrExit(error = MeshCoP::ChannelMaskTlv::AppendTo(*message, mChannelMask));
 
     SuccessOrExit(error = Tlv::Append<MeshCoP::PanIdTlv>(*message, mPanId));
 
-    messageInfo.SetSockAddr(Get<Mle::MleRouter>().GetMeshLocal16());
-    messageInfo.SetPeerAddr(mCommissioner);
-    messageInfo.SetPeerPort(Tmf::kUdpPort);
+    messageInfo.SetSockAddrToRlocPeerAddrTo(mCommissioner);
+
     SuccessOrExit(error = Get<Tmf::Agent>().SendMessage(*message, messageInfo));
 
-    otLogInfoMeshCoP("sent panid conflict");
+    LogInfo("Sent %s", UriToString<kUriPanIdConflict>());
 
 exit:
     FreeMessageOnError(message, error);
-    MeshCoP::LogError("send panid conflict", error);
-}
-
-void PanIdQueryServer::HandleTimer(Timer &aTimer)
-{
-    aTimer.Get<PanIdQueryServer>().HandleTimer();
+    LogWarnOnError(error, "send panid conflict");
 }
 
 void PanIdQueryServer::HandleTimer(void)

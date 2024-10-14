@@ -83,10 +83,14 @@ struct btshell_conn {
     struct btshell_l2cap_coc_list coc_list;
 };
 
+#define NAME_FILTER_LEN_MAX 20
+
 struct btshell_scan_opts {
     uint16_t limit;
     uint8_t ignore_legacy:1;
     uint8_t periodic_only:1;
+    uint8_t name_filter_len;
+    char name_filter[NAME_FILTER_LEN_MAX];
 };
 
 extern struct btshell_conn btshell_conns[MYNEWT_VAL(BLE_MAX_CONNECTIONS)];
@@ -180,7 +184,7 @@ int btshell_l2cap_reconfig(uint16_t conn_handle, uint16_t mtu,
 
 int btshell_gap_event(struct ble_gap_event *event, void *arg);
 void btshell_sync_stats(uint16_t handle);
-
+uint8_t btshell_get_default_own_addr_type(void);
 /** GATT server. */
 #define GATT_SVR_SVC_ALERT_UUID               0x1811
 #define GATT_SVR_CHR_SUP_NEW_ALERT_CAT_UUID   0x2A47

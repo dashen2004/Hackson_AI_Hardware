@@ -12,7 +12,6 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "esp_system.h"
-#include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -23,7 +22,10 @@
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
+
+#ifdef CONFIG_EXAMPLE_SOCKET_IP_INPUT_STDIN
 #include "addr_from_stdin.h"
+#endif
 
 #if defined(CONFIG_EXAMPLE_IPV4)
 #define HOST_IP_ADDR CONFIG_EXAMPLE_IPV4_ADDR
@@ -73,6 +75,13 @@ static void udp_client_task(void *pvParameters)
             ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
             break;
         }
+
+        // Set timeout
+        struct timeval timeout;
+        timeout.tv_sec = 10;
+        timeout.tv_usec = 0;
+        setsockopt (sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout);
+
         ESP_LOGI(TAG, "Socket created, sending to %s:%d", HOST_IP_ADDR, PORT);
 
         while (1) {

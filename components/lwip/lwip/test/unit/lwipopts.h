@@ -35,6 +35,7 @@
 #define LWIP_TESTMODE                   1
 
 #define LWIP_IPV6                       1
+#define LWIP_ND6                        1
 
 #define LWIP_CHECKSUM_ON_COPY           1
 #define TCP_CHECKSUM_ON_COPY_SANITY_CHECK 1
@@ -46,12 +47,17 @@
 #define LWIP_NETCONN                    !NO_SYS
 #define LWIP_SOCKET                     !NO_SYS
 #define LWIP_NETCONN_FULLDUPLEX         LWIP_SOCKET
+#define LWIP_NETCONN_SEM_PER_THREAD     1
 #define LWIP_NETBUF_RECVINFO            1
 #define LWIP_HAVE_LOOPIF                1
 #define TCPIP_THREAD_TEST
 
-/* Enable DHCP to test it, disable UDP checksum to easier inject packets */
+/* Enable DHCP to test it */
 #define LWIP_DHCP                       1
+
+/* Enable DNS, with random source port to avoid alloc in dns_init */
+#define LWIP_DNS                        1
+#define LWIP_DNS_SECURE (LWIP_DNS_SECURE_RAND_XID | LWIP_DNS_SECURE_RAND_SRC_PORT)
 
 /* Minimal changes to opt.h required for tcp unit tests: */
 #define MEM_SIZE                        16000
@@ -68,6 +74,10 @@
 #define LWIP_MDNS_RESPONDER             1
 #define LWIP_NUM_NETIF_CLIENT_DATA      (LWIP_MDNS_RESPONDER)
 
+/* Enable PPP and PPPOS support for PPPOS test suites */
+#define PPP_SUPPORT                     1
+#define PPPOS_SUPPORT                   1
+
 /* Minimal changes to opt.h required for etharp unit tests: */
 #define ETHARP_SUPPORT_STATIC_ENTRIES   1
 
@@ -82,37 +92,68 @@
 /* Check lwip_stats.mem.illegal instead of asserting */
 #define LWIP_MEM_ILLEGAL_FREE(msg)      /* to nothing */
 
-#define SNTP_SERVER_DNS                 0
-#define LWIP_COMPAT_SOCKET_INET         0
+/* Enable Espressif specific options */
+#ifdef ESP_LWIP
+#define ESP_DNS                          1
+#define LWIP_DHCP_ENABLE_VENDOR_SPEC_IDS 1
+#define LWIP_DHCP_ENABLE_CLIENT_ID 1
+#define LWIP_DHCP_ENABLE_MTU_UPDATE 1
+#if LWIP_DHCP_ENABLE_VENDOR_SPEC_IDS
+#define DHCP_OPTION_VSI             43
+#define DHCP_ADD_EXTRA_REQUEST_OPTIONS , DHCP_OPTION_VSI
+#endif
+#define ESP_LWIP                        1
 
-/* ESP specific cofiguration */
-#define ESP_LWIP                                1
-#define ESP_DHCP                                1 
-#define ESP_DHCPS_TIMER                         0
-#define ESP_STATS_DROP                          0
-#define ESP_PBUF                                1
-#define ESP_IP4_ROUTE                           1
-#define ESP_AUTO_IP                             1
-#define ESP_IPV6                                1
-#define ESP_SOCKET                              0
-#define ESP_PPP                                 1
-#define ESP_LWIP_IGMP_TIMERS_ONDEMAND           1
-#define ESP_LWIP_MLD6_TIMERS_ONDEMAND           1
-#define ESP_GRATUITOUS_ARP                      1
-#define ESP_LWIP_SELECT                         1
-#define ESP_LWIP_LOCK                           1
-#define TCP_OOSEQ_DEBUG                         LWIP_DBG_ON
-#define ESP_DHCP_DEBUG                          1
-#define ESP_THREAD_PROTECTION                   0
-#define ESP_DHCP_DISABLE_CLIENT_ID              0
-#define ESP_DHCP_DISABLE_VENDOR_CLASS_IDENTIFIER 0
+/* DHCP options*/
+#define DHCP_DEFINE_CUSTOM_TIMEOUTS     1
+#define DHCP_COARSE_TIMER_SECS          (1)
+#define DHCP_NEXT_TIMEOUT_THRESHOLD     (3)
+#define DHCP_REQUEST_BACKOFF_SEQUENCE(state, tries)   ((uint16_t)(((tries) < 5 ? 1 << (tries) : 16) * 250))
 
+#include <stdint.h>
+static inline uint32_t timeout_from_offered(uint32_t lease, uint32_t min)
+{
+    uint32_t timeout = lease;
+    if (timeout == 0) {
+        timeout = min;
+    }
+    return timeout;
+}
+#define DHCP_SET_TIMEOUT_FROM_OFFERED_T0_LEASE(tout, dhcp)  do {    \
+        (tout) = timeout_from_offered((dhcp)->offered_t0_lease, 120); } while(0)
+#define DHCP_SET_TIMEOUT_FROM_OFFERED_T1_RENEW(tout, dhcp)  do {    \
+        (tout) = timeout_from_offered((dhcp)->offered_t1_renew, (dhcp)->t0_timeout>>1 /* 50% */ );  } while(0)
+#define DHCP_SET_TIMEOUT_FROM_OFFERED_T2_REBIND(tout, dhcp) do {    \
+        (tout) = timeout_from_offered((dhcp)->offered_t2_rebind, ((dhcp)->t0_timeout/8)*7 /* 87.5% */ );  } while(0)
+
+struct dhcp;
+struct pbuf;
+struct dhcp;
+struct netif;
+struct dhcp_msg;
+void dhcp_parse_extra_opts(struct dhcp *dhcp, uint8_t state, uint8_t option, uint8_t len, struct pbuf* p, uint16_t offset);
+void dhcp_append_extra_opts(struct netif *netif, uint8_t state, struct dhcp_msg *msg_out, uint16_t *options_out_len);
+int dhcp_set_vendor_class_identifier(uint8_t len, const char * str);
+int dhcp_get_vendor_specific_information(uint8_t len, char * str);
+void dhcp_free_vendor_class_identifier(void);
+
+
+#define LWIP_HOOK_DHCP_PARSE_OPTION(netif, dhcp, state, msg, msg_type, option, len, pbuf, offset)   \
+        do {    LWIP_UNUSED_ARG(msg);                                           \
+                dhcp_parse_extra_opts(dhcp, state, option, len, pbuf, offset);  \
+            } while(0)
+
+#define LWIP_HOOK_DHCP_APPEND_OPTIONS(netif, dhcp, state, msg, msg_type, options_len_ptr) \
+        dhcp_append_extra_opts(netif, state, msg, options_len_ptr);
+
+/* NAPT options */
 #ifdef IP_NAPT
 #define IP_NAPT_MAX                     16
+#include "lwip/arch.h"
 #undef LWIP_RAND
 #define LWIP_RAND() (esp_random())
-#include "lwip/arch.h"
 u32_t esp_random(void);
+#define IP_NAPT_PORTMAP                 1
 #endif /* IP_NAPT */
 /* ESP debug options */
 #ifdef ESP_TEST_DEBUG
@@ -121,5 +162,41 @@ u32_t esp_random(void);
 #define UDP_DEBUG                       LWIP_DBG_ON
 #define TCP_DEBUG                       LWIP_DBG_ON
 #endif /* ESP_TEST_DEBUG */
+#define ESP_LWIP_IGMP_TIMERS_ONDEMAND           1
+#define ESP_LWIP_MLD6_TIMERS_ONDEMAND           1
+#define DNS_FALLBACK_SERVER_INDEX       (DNS_MAX_SERVERS - 1)
+#define ESP_LWIP_DHCP_FINE_TIMERS_ONDEMAND      1
+#define ESP_LWIP_DNS_TIMERS_ONDEMAND            1
+#define ESP_LWIP_IP4_REASSEMBLY_TIMERS_ONDEMAND 1
+#define ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND 1
+#define DHCP_DOES_ARP_CHECK                     1
+
+#else
+#define ESP_LWIP                                0
+#define ESP_DNS                                 0
+#define ESP_LWIP_IGMP_TIMERS_ONDEMAND           0
+#define ESP_LWIP_MLD6_TIMERS_ONDEMAND           0
+
+#ifndef ESP_LWIP_DHCP_FINE_TIMERS_ONDEMAND
+#define ESP_LWIP_DHCP_FINE_TIMERS_ONDEMAND      0
+#endif
+
+#ifndef ESP_LWIP_DNS_TIMERS_ONDEMAND
+#define ESP_LWIP_DNS_TIMERS_ONDEMAND            0
+#endif
+
+#ifndef DHCP_DOES_ARP_CHECK
+#define DHCP_DOES_ARP_CHECK                     0
+#endif
+
+#ifndef ESP_LWIP_IP4_REASSEMBLY_TIMERS_ONDEMAND
+#define ESP_LWIP_IP4_REASSEMBLY_TIMERS_ONDEMAND 0
+#endif /* ESP_LWIP_IP4_REASSEMBLY_TIMERS_ONDEMAND */
+
+#ifndef ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND
+#define ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND 0
+#endif /* ESP_LWIP_IP6_REASSEMBLY_TIMERS_ONDEMAND */
+
+#endif /* ESP_LWIP */
 
 #endif /* LWIP_HDR_LWIPOPTS_H */

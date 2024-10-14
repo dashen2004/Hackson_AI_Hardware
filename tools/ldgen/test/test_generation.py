@@ -1,40 +1,31 @@
 #!/usr/bin/env python
 #
-# Copyright 2021 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
 import collections
 import fnmatch
 import os
 import sys
 import tempfile
 import unittest
-
-try:
-    from generation import Generation, GenerationException
-except ImportError:
-    sys.path.append('../')
-    from generation import Generation, GenerationException
-
 from io import StringIO
 
-from entity import Entity, EntityDB
-from fragments import FragmentFile
-from linker_script import LinkerScript
-from output_commands import AlignAtAddress, InputSectionDesc, SymbolAtAddress
-from sdkconfig import SDKConfig
+try:
+    from ldgen.entity import Entity, EntityDB
+    from ldgen.fragments import parse_fragment_file
+    from ldgen.generation import Generation, GenerationException
+    from ldgen.linker_script import LinkerScript
+    from ldgen.output_commands import AlignAtAddress, InputSectionDesc, SymbolAtAddress
+    from ldgen.sdkconfig import SDKConfig
+except ImportError:
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+    from ldgen.entity import Entity, EntityDB
+    from ldgen.fragments import parse_fragment_file
+    from ldgen.generation import Generation, GenerationException
+    from ldgen.linker_script import LinkerScript
+    from ldgen.output_commands import AlignAtAddress, InputSectionDesc, SymbolAtAddress
+    from ldgen.sdkconfig import SDKConfig
 
 ROOT = Entity('*')
 
@@ -69,9 +60,8 @@ class GenerationTest(unittest.TestCase):
 
         self.sdkconfig = SDKConfig('data/Kconfig', 'data/sdkconfig')
 
-        with open('data/base.lf') as fragment_file_obj:
-            fragment_file = FragmentFile(fragment_file_obj, self.sdkconfig)
-            self.generation.add_fragments_from_file(fragment_file)
+        fragment_file = parse_fragment_file('data/base.lf', self.sdkconfig)
+        self.generation.add_fragments_from_file(fragment_file)
 
         self.entities = EntityDB()
 
@@ -79,7 +69,10 @@ class GenerationTest(unittest.TestCase):
             self.entities.add_sections_info(objdump)
 
         with open('data/linker_script.ld') as linker_script:
-            self.linker_script = LinkerScript(linker_script)
+            self.linker_script_expect = LinkerScript(linker_script)
+
+        with open('data/linker_script.ld') as linker_script:
+            self.linker_script_actual = LinkerScript(linker_script)
 
     @staticmethod
     def create_fragment_file(contents, name='test_fragment.lf'):
@@ -89,45 +82,35 @@ class GenerationTest(unittest.TestCase):
 
     def add_fragments(self, text):
         fragment_file = self.create_fragment_file(text)
-        fragment_file = FragmentFile(fragment_file, self.sdkconfig)
+        fragment_file = parse_fragment_file(fragment_file, self.sdkconfig)
         self.generation.add_fragments_from_file(fragment_file)
 
     def write(self, expected, actual):
-        self.linker_script.fill(expected)
-        self.linker_script.write(open('expected.ld', 'w'))
+        self.linker_script_expect.fill(expected)
+        self.linker_script_expect.write(open('expected.ld', 'w'))
 
-        self.linker_script.fill(actual)
-        self.linker_script.write(open('actual.ld', 'w'))
+        self.linker_script_actual.fill(actual)
+        self.linker_script_actual.write(open('actual.ld', 'w'))
 
     def generate_default_rules(self):
         rules = collections.defaultdict(list)
 
-        rules['flash_text'].append(InputSectionDesc(ROOT, ['.literal', '.literal.*', '.text', '.text.*'], []))
-        rules['flash_rodata'].append(InputSectionDesc(ROOT, ['.rodata', '.rodata.*'], []))
-        rules['dram0_data'].append(InputSectionDesc(ROOT, ['.data', '.data.*'], []))
-        rules['dram0_data'].append(InputSectionDesc(ROOT, ['.dram', '.dram.*'], []))
         rules['dram0_bss'].append(InputSectionDesc(ROOT, ['.bss', '.bss.*'], []))
         rules['dram0_bss'].append(InputSectionDesc(ROOT, ['COMMON'], []))
+        rules['dram0_data'].append(InputSectionDesc(ROOT, ['.data', '.data.*'], []))
+        rules['dram0_data'].append(InputSectionDesc(ROOT, ['.dram', '.dram.*'], []))
+        rules['flash_text'].append(InputSectionDesc(ROOT, ['.literal', '.literal.*', '.text', '.text.*'], []))
+        rules['flash_rodata'].append(InputSectionDesc(ROOT, ['.rodata', '.rodata.*'], []))
         rules['iram0_text'].append(InputSectionDesc(ROOT, ['.iram', '.iram.*'], []))
-        rules['rtc_text'].append(InputSectionDesc(ROOT, ['.rtc.text', '.rtc.literal'], []))
+        rules['rtc_bss'].append(InputSectionDesc(ROOT, ['.rtc.bss'], []))
         rules['rtc_data'].append(InputSectionDesc(ROOT, ['.rtc.data'], []))
         rules['rtc_data'].append(InputSectionDesc(ROOT, ['.rtc.rodata'], []))
-        rules['rtc_bss'].append(InputSectionDesc(ROOT, ['.rtc.bss'], []))
+        rules['rtc_text'].append(InputSectionDesc(ROOT, ['.rtc.text', '.rtc.literal'], []))
 
         return rules
 
     def compare_rules(self, expected, actual):
-        self.assertEqual(set(expected.keys()), set(actual.keys()))
-
-        for target in sorted(actual.keys()):
-            message = 'failed target %s' % target
-            a_cmds = actual[target]
-            e_cmds = expected[target]
-
-            self.assertEqual(len(a_cmds), len(e_cmds), message)
-
-            for a, e in zip(a_cmds, e_cmds):
-                self.assertEqual(a, e, message)
+        self.assertEqual(expected, actual)
 
     def get_default(self, target, rules):
         return rules[target][0]
@@ -139,7 +122,7 @@ class DefaultMappingTest(GenerationTest):
         # Checks that default rules are generated from
         # the default scheme properly and even if no mappings
         # are defined.
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         self.compare_rules(expected, actual)
@@ -250,7 +233,7 @@ entries:
     * (noflash)                     #1
 """
         self.add_fragments(alt if alt else mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -288,7 +271,7 @@ entries:
 """
 
         self.add_fragments(alt if alt else mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -327,7 +310,7 @@ entries:
     croutine:prvCheckPendingReadyList (noflash)         #1
 """
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -383,7 +366,7 @@ entries:
 """
 
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -444,7 +427,7 @@ entries:
     croutine:prvCheckPendingReadyList (default)         #2
 """
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -513,7 +496,7 @@ entries:
 """
 
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -607,7 +590,7 @@ entries:
 """
 
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -658,7 +641,7 @@ entries:
 """
 
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         # Generate default command                              A
@@ -706,7 +689,7 @@ entries:
     croutine (noflash_data)                         #2
 """
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -760,7 +743,7 @@ entries:
     croutine (noflash_data)                         #2
 """
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -799,7 +782,32 @@ entries:
         self.add_fragments(alt if alt else mapping)
 
         with self.assertRaises(GenerationException):
-            self.generation.generate(self.entities)
+            self.generation.generate(self.entities, False)
+
+    def test_same_entity_conflicting_section(self):
+        # Test same entity being mapped by scheme conflicting with another.
+        #
+        # custom_rtc = .text -> rtc_text
+        # noflash = .text -> iram0_text, .rodata -> dram0_data
+        #
+        # This operation should fail.
+        mapping = u"""
+[sections:custom_text]
+entries:
+    .text+
+    .literal+
+
+[scheme:custom_rtc]
+entries:
+    custom_text -> rtc_text
+
+[mapping:test]
+archive: libfreertos.a
+entries:
+    croutine (noflash)                              #1
+    croutine (custom_rtc)                           #2
+"""
+        self.test_same_entity_conflicting_scheme(mapping)
 
     def test_complex_mapping_case(self, alt=None):
         # Test a complex case where an object is mapped using
@@ -853,7 +861,7 @@ entries:
 """
 
         self.add_fragments(alt if alt else mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -942,7 +950,7 @@ entries:
 """
 
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1039,7 +1047,7 @@ entries:
 """
 
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1081,44 +1089,7 @@ entries:
         self.add_fragments(mapping)
 
         with self.assertRaises(GenerationException):
-            self.generation.generate(self.entities)
-
-    def test_disambiguated_obj(self):
-        # Test command generation for disambiguated entry. Should produce similar
-        # results to test_nondefault_mapping_symbol.
-        mapping = u"""
-[mapping:test]
-archive: libfreertos.a
-entries:
-    port.c:xPortGetTickRateHz (noflash)                 #1
-"""
-        port = Entity('libfreertos.a', 'port.c')
-        self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
-        expected = self.generate_default_rules()
-
-        flash_text = expected['flash_text']
-        iram0_text = expected['iram0_text']
-
-        # Generate exclusion in flash_text                                                A
-        flash_text[0].exclusions.add(port)
-
-        # Generate intermediate command                                                   B
-        # List all relevant sections except the symbol
-        # being mapped
-        port_sections = self.entities.get_sections('libfreertos.a', 'port.c')
-        filtered_sections = fnmatch.filter(port_sections, '.literal.*')
-        filtered_sections.extend(fnmatch.filter(port_sections, '.text.*'))
-
-        filtered_sections = [s for s in filtered_sections if not s.endswith('xPortGetTickRateHz')]
-        filtered_sections.append('.text')
-
-        flash_text.append(InputSectionDesc(port, set(filtered_sections), []))
-
-        # Input section commands in iram_text for #1                                     C
-        iram0_text.append(InputSectionDesc(port, set(['.text.xPortGetTickRateHz', '.literal.xPortGetTickRateHz']), []))
-
-        self.compare_rules(expected, actual)
+            self.generation.generate(self.entities, False)
 
     def test_root_mapping_fragment_conflict(self):
         # Test that root mapping fragments are also checked for
@@ -1139,7 +1110,7 @@ entries:
 
         self.add_fragments(mapping)
         with self.assertRaises(GenerationException):
-            self.generation.generate(self.entities)
+            self.generation.generate(self.entities, False)
 
     def test_root_mapping_fragment_duplicate(self):
         # Same root mappings have no effect.
@@ -1163,7 +1134,7 @@ entries:
 """
 
         self.add_fragments(mapping)
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         # Generate default command                              A
@@ -1208,7 +1179,7 @@ entries:
         self.add_fragments(scheme)
         self.add_fragments(alt if alt else mapping)
 
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         if perf >= 1:
@@ -1259,7 +1230,7 @@ entries:
             self.generation.mappings = {}
             self.add_fragments(alt if alt else mapping)
 
-            actual = self.generation.generate(self.entities)
+            actual = self.generation.generate(self.entities, False)
             expected = self.generate_default_rules()
 
             if perf_level < 4 and perf_level > 0:
@@ -1278,84 +1249,6 @@ entries:
                     dram0_data.append(InputSectionDesc(Entity('lib.a', obj_str), flash_rodata[0].sections, []))
 
             self.compare_rules(expected, actual)
-
-    def test_conditional_on_scheme_legacy_mapping_00(self):
-        # Test use of conditional scheme on legacy mapping fragment grammar.
-        mapping = u"""
-[mapping]
-archive: lib.a
-entries:
-    * (cond_noflash)
-"""
-        self._test_conditional_on_scheme(0, mapping)
-
-    def test_conditional_on_scheme_legacy_mapping_01(self):
-        # Test use of conditional scheme on legacy mapping fragment grammar.
-        mapping = u"""
-[mapping]
-archive: lib.a
-entries:
-    * (cond_noflash)
-"""
-        self._test_conditional_on_scheme(0, mapping)
-
-    def test_conditional_entries_legacy_mapping_fragment(self):
-        # Test conditional entries on legacy mapping fragment grammar.
-        mapping = u"""
-[mapping:default]
-archive: *
-entries:
-    * (default)
-
-[mapping]
-archive: lib.a
-entries:
-    : PERFORMANCE_LEVEL = 0
-    : PERFORMANCE_LEVEL = 1
-    obj1 (noflash)
-    : PERFORMANCE_LEVEL = 2
-    obj1 (noflash)
-    obj2 (noflash)
-    : PERFORMANCE_LEVEL = 3
-    obj1 (noflash)
-    obj2 (noflash)
-    obj3 (noflash)
-"""
-        self.test_conditional_mapping(mapping)
-
-    def test_multiple_fragment_same_lib_conditional_legacy(self):
-        # Test conditional entries on legacy mapping fragment grammar
-        # across multiple fragments.
-        mapping = u"""
-[mapping:default]
-archive: *
-entries:
-    * (default)
-
-[mapping]
-archive: lib.a
-entries:
-    : PERFORMANCE_LEVEL = 0
-    : PERFORMANCE_LEVEL = 1
-    obj1 (noflash)
-    : PERFORMANCE_LEVEL = 2
-    obj1 (noflash)
-    : PERFORMANCE_LEVEL = 3
-    obj1 (noflash)
-
-[mapping]
-archive: lib.a
-entries:
-    : PERFORMANCE_LEVEL = 1
-    obj1 (noflash) # ignore duplicate definition
-    : PERFORMANCE_LEVEL = 2
-    obj2 (noflash)
-    : PERFORMANCE_LEVEL = 3
-    obj2 (noflash)
-    obj3 (noflash)
-"""
-
-        self.test_conditional_mapping(mapping)
 
     def test_multiple_fragment_same_lib_conditional(self):
         # Test conditional entries on new mapping fragment grammar.
@@ -1437,7 +1330,7 @@ entries:
 
         self.add_fragments(mapping)
 
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1500,7 +1393,7 @@ entries:
         self.generation.mappings = {}
         self.add_fragments(mapping)
 
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1557,7 +1450,7 @@ entries:
 
         self.add_fragments(mapping)
 
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1613,7 +1506,7 @@ entries:
 
         self.add_fragments(mapping)
 
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1670,7 +1563,7 @@ entries:
         self.generation.mappings = {}
         self.add_fragments(mapping)
 
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1727,7 +1620,7 @@ entries:
 
         self.add_fragments(mapping)
 
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1771,7 +1664,7 @@ entries:
 
         self.add_fragments(mapping)
 
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1798,7 +1691,7 @@ entries:
 
         self.add_fragments(mapping)
 
-        actual = self.generation.generate(self.entities)
+        actual = self.generation.generate(self.entities, False)
         expected = self.generate_default_rules()
 
         flash_text = expected['flash_text']
@@ -1825,7 +1718,7 @@ entries:
         self.add_fragments(mapping)
 
         with self.assertRaises(GenerationException):
-            self.generation.generate(self.entities)
+            self.generation.generate(self.entities, False)
 
 
 if __name__ == '__main__':

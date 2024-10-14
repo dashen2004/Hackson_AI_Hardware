@@ -1,29 +1,40 @@
-| Supported Targets | ESP32|
-| ----------------- | ---- |
+| Supported Targets | ESP32 | ESP32-P4 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- |
 
 # SD Card example (SDMMC)
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
 
+__WARNING:__ This example can potentially delete all data from your SD card (when formatting is enabled). Back up your data first before proceeding.
+
 This example demonstrates how to use an SD card with an ESP device. Example does the following steps:
 
 1. Use an "all-in-one" `esp_vfs_fat_sdmmc_mount` function to:
     - initialize SDMMC peripheral,
-    - probe and initialize the card connected to SD/MMC slot 1 (HS2_CMD, HS2_CLK, HS2_D0, HS2_D1, HS2_D2, HS2_D3 lines),
+    - probe and initialize an SD card,
     - mount FAT filesystem using FATFS library (and format card, if the filesystem cannot be mounted),
     - register FAT filesystem in VFS, enabling C standard library and POSIX functions to be used.
-2. Print information about the card, such as name, type, capacity, and maximum supported frequency.
-3. Create a file using `fopen` and write to it using `fprintf`.
-4. Rename the file. Before renaming, check if destination file already exists using `stat` function, and remove it using `unlink` function.
-5. Open renamed file for reading, read back the line, and print it to the terminal.
+1. Print information about the card, such as name, type, capacity, and maximum supported frequency.
+1. Create a file using `fopen` and write to it using `fprintf`.
+1. Rename the file. Before renaming, check if destination file already exists using `stat` function, and remove it using `unlink` function.
+1. Open renamed file for reading, read back the line, and print it to the terminal.
+1. __OPTIONAL:__ Format the SD card, check if the file doesn't exist anymore.
 
-This example support SD (SDSC, SDHC, SDXC) cards and eMMC chips.
+This example supports SD (SDSC, SDHC, SDXC) cards and eMMC chips.
 
-## Hardware connection
+## Hardware
 
-This example runs on ESP-WROVER-KIT boards without any extra modifications required, only the SD card needs to be inserted into the slot.
+This example requires an ESP32 or ESP32-S3 development board with an SD card slot and an SD card.
 
-Other ESP32 development boards need to be connected to SD card as follows:
+Although it is possible to connect an SD card breakout adapter, keep in mind that connections using breakout cables are often unreliable and have poor signal integrity. You may need to use lower clock frequency when working with SD card breakout adapters.
+
+This example doesn't utilize card detect (CD) and write protect (WP) signals from SD card slot.
+
+### Pin assignments for ESP32
+
+On ESP32, SDMMC peripheral is connected to specific GPIO pins using the IO MUX. GPIO pins cannot be customized. Please see the table below for the pin connections.
+
+When using an ESP-WROVER-KIT board, this example runs without any extra modifications required. Only an SD card needs to be inserted into the slot.
 
 ESP32 pin     | SD card pin | Notes
 --------------|-------------|------------
@@ -34,8 +45,54 @@ GPIO4         | D1          | not used in 1-line SD mode; 10k pullup in 4-line S
 GPIO12 (MTDI) | D2          | not used in 1-line SD mode; 10k pullup in 4-line SD mode (see Note about GPIO12 below!)
 GPIO13 (MTCK) | D3          | not used in 1-line SD mode, but card's D3 pin must have a 10k pullup
 
-This example doesn't utilize card detect (CD) and write protect (WP) signals from SD card slot.
 
+### Pin assignments for ESP32-S3
+
+On ESP32-S3, SDMMC peripheral is connected to GPIO pins using GPIO matrix. This allows arbitrary GPIOs to be used to connect an SD card. In this example, GPIOs can be configured in two ways:
+
+1. Using menuconfig: Run `idf.py menuconfig` in the project directory and open "SD/MMC Example Configuration" menu.
+2. In the source code: See the initialization of `sdmmc_slot_config_t slot_config` structure in the example code.
+
+The table below lists the default pin assignments.
+
+When using an ESP32-S3-USB-OTG board, this example runs without any extra modifications required. Only an SD card needs to be inserted into the slot.
+
+ESP32-S3 pin  | SD card pin | Notes
+--------------|-------------|------------
+GPIO36        | CLK         | 10k pullup
+GPIO35        | CMD         | 10k pullup
+GPIO37        | D0          | 10k pullup
+GPIO38        | D1          | not used in 1-line SD mode; 10k pullup in 4-line mode
+GPIO33        | D2          | not used in 1-line SD mode; 10k pullup in 4-line mode
+GPIO34        | D3          | not used in 1-line SD mode, but card's D3 pin must have a 10k pullup
+
+### Pin assignments for ESP32-P4
+
+On ESP32-P4, Slot 1 of the SDMMC peripheral is connected to GPIO pins using GPIO matrix. This allows arbitrary GPIOs to be used to connect an SD card. In this example, GPIOs can be configured in two ways:
+
+1. Using menuconfig: Run `idf.py menuconfig` in the project directory and open `SD/MMC Example Configuration` menu.
+2. In the source code: See the initialization of `sdmmc_slot_config_t slot_config` structure in the example code.
+
+The table below lists the default pin assignments.
+
+ESP32-P4 pin  | SD card pin | Notes
+--------------|-------------|------------
+GPIO43        | CLK         | 10k pullup
+GPIO44        | CMD         | 10k pullup
+GPIO39        | D0          | 10k pullup
+GPIO40        | D1          | not used in 1-line SD mode; 10k pullup in 4-line mode
+GPIO41        | D2          | not used in 1-line SD mode; 10k pullup in 4-line mode
+GPIO42        | D3          | not used in 1-line SD mode, but card's D3 pin must have a 10k pullup
+
+Default dedicated pins on ESP32-P4 are able to connect to an ultra high-speed SD card (UHS-I) which requires 1.8V switching (instead of the regular 3.3V). This means the user has to provide an external LDO power supply to use them, or to enable and configure an internal LDO via `idf.py menuconfig` -> `SD/MMC Example Configuration` -> `SD power supply comes from internal LDO IO`.
+
+When using different GPIO pins this is not required and `SD power supply comes from internal LDO IO` setting can be disabled.
+
+### 4-line and 1-line SD modes
+
+By default, this example uses 4 line SD mode, utilizing 6 pins: CLK, CMD, D0 - D3. It is possible to use 1-line mode (CLK, CMD, D0) by changing "SD/MMC bus width" in the example configuration menu (see `CONFIG_EXAMPLE_SDMMC_BUS_WIDTH_1`).
+
+Note that even if card's D3 line is not connected to the ESP chip, it still has to be pulled up, otherwise the card will go into SPI protocol mode.
 
 ### Note about GPIO2 (ESP32 only)
 
@@ -66,18 +123,6 @@ This command will burn the `XPD_SDIO_TIEH`, `XPD_SDIO_FORCE`, and `XPD_SDIO_REG`
 See [the document about pullup requirements](https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/peripherals/sd_pullup_requirements.html) for more details about pullup support and compatibility of modules and development boards.
 
 ## How to use example
-
-### 4-line and 1-line SD modes
-
-By default, example code uses the following initializer for SDMMC slot configuration:
-
-```c++
-sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-```
-
-Among other things, this sets `slot_config.width = 0`, which means that SD/MMC driver will use the maximum bus width supported by the slot. For slot 1, it will switch to 4-line mode when initializing the card (initial communication always happens in 1-line mode). If some of the card's D1, D2, D3 pins are not connected to the ESP32, set `slot_config.width = 1` — then the SD/MMC driver will not attempt to switch to 4-line mode.
-
-Note that even if card's D3 line is not connected to the ESP32, it still has to be pulled up, otherwise the card will go into SPI protocol mode.
 
 ### Build and flash
 
@@ -144,3 +189,72 @@ Connections between the card and the ESP32 are too long for the frequency used. 
 example: Failed to mount filesystem. If you want the card to be formatted, set the EXAMPLE_FORMAT_IF_MOUNT_FAILED menuconfig option.
 ```
 The example will be able to mount only cards formatted using FAT32 filesystem. If the card is formatted as exFAT or some other filesystem, you have an option to format it in the example code. Enable the `EXAMPLE_FORMAT_IF_MOUNT_FAILED` menuconfig option, then build and flash the example.
+
+### Debug SD connections and pullup strength
+
+> If the initialization of the SD card fails, initially follow the above options. If the issue persists, confirm the connection of pullups to the SD pins. To do this, enable the` Debug sd pin connections and pullup strength` option from menuconfig and rerun the code. This will provide the following result:
+
+```
+**** PIN recovery time ****
+
+PIN 14 CLK  10044 cycles
+PIN 15 CMD  10034 cycles
+PIN  2  D0  10034 cycles
+PIN  4  D1  10034 cycles
+PIN 12  D2  10034 cycles
+PIN 13  D3  10034 cycles
+
+**** PIN recovery time with weak pullup ****
+
+PIN 14 CLK  100 cycles
+PIN 15 CMD  100 cycles
+PIN  2  D0  100 cycles
+PIN  4  D1  100 cycles
+PIN 12  D2  100 cycles
+PIN 13  D3  100 cycles
+
+**** PIN voltage levels ****
+
+PIN 14 CLK  0.6V
+PIN 15 CMD  0.3V
+PIN  2  D0  0.8V
+PIN  4  D1  0.6V
+PIN 12  D2  0.4V
+PIN 13  D3  0.8V
+
+**** PIN voltage levels with weak pullup ****
+
+PIN 14 CLK  1.0V
+PIN 15 CMD  1.1V
+PIN  2  D0  1.0V
+PIN  4  D1  1.0V
+PIN 12  D2  1.0V
+PIN 13  D3  1.2V
+
+**** PIN cross-talk ****
+
+              CLK   CMD    D0    D1    D2    D3
+PIN 14 CLK     --   0.2V  0.1V  0.1V  0.1V  0.2V
+PIN 15 CMD    0.1V   --   0.1V  0.1V  0.1V  0.1V
+PIN  2  D0    0.1V  0.1V   --   0.2V  0.1V  0.1V
+PIN  4  D1    0.1V  0.1V  0.3V   --   0.1V  0.1V
+PIN 12  D2    0.1V  0.2V  0.2V  0.1V   --   0.1V
+PIN 13  D3    0.1V  0.2V  0.1V  0.1V  0.1V   --
+
+**** PIN cross-talk with weak pullup ****
+
+              CLK   CMD    D0    D1    D2    D3
+PIN 14 CLK     --   1.0V  1.0V  1.0V  1.0V  1.2V
+PIN 15 CMD    0.9V   --   1.0V  1.0V  1.0V  1.2V
+PIN  2  D0    0.9V  1.0V   --   1.0V  1.0V  1.2V
+PIN  4  D1    0.9V  1.0V  1.2V   --   1.0V  1.2V
+PIN 12  D2    0.9V  1.1V  1.2V  0.9V   --   1.2V
+PIN 13  D3    0.9V  1.2V  1.1V  0.9V  0.9V   --
+I (845) main_task: Returned from app_main()
+```
+
+In the absence of connected pullups and having the weak pullups enabled, you can assess the pullup connections by comparing PIN recovery time measured in CPU cycles. To check pullup connections, configure the pin as open drain, set it to low state, and count the cpu cycles consumed before returning to high state. If a pullup is connected, the pin will get back to high state after reasonably small cycle count, typically around 50-300 cycles, depending on pullup strength. If no pullup is connected, the PIN stays low and the measurement times out after 10000 cycles.
+
+It will also provide the voltage levels at the corresponding SD pins. By default, this information is provided for ESP32 chip only, and for other chipsets, verify the availability of ADC pins for the respective GPIO using [this](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/gpio.html#gpio-summary) and configure ADC mapped pins using menuconfig. Then test the voltage levels accordingly.
+
+You can monitor the voltage levels of individual pins using `PIN voltage levels` and `PIN voltage levels with weak pullup`. However, if one pin being pulled low and experiencing interference with another pin, you can detect it through `PIN cross-talk` and `PIN cross-talk with weak pullup`. In the absence of pullups, voltage levels at each pin should range from 0 to 0.3V. With 10k pullups connected, the voltage will be between 3.1V to 3.3V, contingent on the connection between ADC pins and SD pins, and with weak pullups connected, it can fluctuate between 0.8V to 1.2V, depending on pullup strength.

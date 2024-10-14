@@ -45,8 +45,6 @@
 
 namespace ot {
 
-class TaskletScheduler;
-
 /**
  * @addtogroup core-tasklet
  *
@@ -58,14 +56,14 @@ class TaskletScheduler;
  */
 
 /**
- * This class is used to represent a tasklet.
+ * Is used to represent a tasklet.
  *
  */
 class Tasklet : public InstanceLocator
 {
 public:
     /**
-     * This class implements the tasklet scheduler.
+     * Implements the tasklet scheduler.
      *
      */
     class Scheduler : private NonCopyable
@@ -74,7 +72,7 @@ public:
 
     public:
         /**
-         * This constructor initializes the object.
+         * Initializes the object.
          *
          */
         Scheduler(void)
@@ -83,7 +81,7 @@ public:
         }
 
         /**
-         * This method indicates whether or not there are tasklets pending.
+         * Indicates whether or not there are tasklets pending.
          *
          * @retval TRUE   If there are tasklets pending.
          * @retval FALSE  If there are no tasklets pending.
@@ -92,7 +90,7 @@ public:
         bool AreTaskletsPending(void) const { return mTail != nullptr; }
 
         /**
-         * This method processes all tasklets queued when this is called.
+         * Processes all tasklets queued when this is called.
          *
          */
         void ProcessQueuedTasklets(void);
@@ -104,7 +102,7 @@ public:
     };
 
     /**
-     * This function reference is called when the tasklet is run.
+     * Reference is called when the tasklet is run.
      *
      * @param[in]  aTasklet  A reference to the tasklet being run.
      *
@@ -112,7 +110,7 @@ public:
     typedef void (&Handler)(Tasklet &aTasklet);
 
     /**
-     * This constructor creates a tasklet instance.
+     * Creates a tasklet instance.
      *
      * @param[in]  aInstance   A reference to the OpenThread instance object.
      * @param[in]  aHandler    A pointer to a function that is called when the tasklet is run.
@@ -126,7 +124,7 @@ public:
     }
 
     /**
-     * This method puts the tasklet on the tasklet scheduler run queue.
+     * Puts the tasklet on the tasklet scheduler run queue.
      *
      * If the tasklet is already posted, no change is made and run queue stays as before.
      *
@@ -134,7 +132,7 @@ public:
     void Post(void);
 
     /**
-     * This method indicates whether the tasklet is posted or not.
+     * Indicates whether the tasklet is posted or not.
      *
      * @retval TRUE  The tasklet is posted.
      * @retval FALSE The tasklet is not posted.
@@ -150,7 +148,34 @@ private:
 };
 
 /**
- * This class defines a tasklet that also maintains a user context pointer.
+ * Defines a tasklet owned by specific type and using a method on owner type as the callback.
+ *
+ * @tparam Owner              The type of owner of this tasklet.
+ * @tparam HandleTaskletPtr   A pointer to a non-static member method of `Owner` to use as tasklet handler.
+ *
+ * The `Owner` MUST be a type that is accessible using `InstanceLocator::Get<Owner>()`.
+ *
+ */
+template <typename Owner, void (Owner::*HandleTaskletPtr)(void)> class TaskletIn : public Tasklet
+{
+public:
+    /**
+     * Initializes the tasklet.
+     *
+     * @param[in]  aInstance   The OpenThread instance.
+     *
+     */
+    explicit TaskletIn(Instance &aInstance)
+        : Tasklet(aInstance, HandleTasklet)
+    {
+    }
+
+private:
+    static void HandleTasklet(Tasklet &aTasklet); // Implemented in `locator_getters.hpp`
+};
+
+/**
+ * Defines a tasklet that also maintains a user context pointer.
  *
  * In typical `Tasklet` use, in the handler callback, the owner of the tasklet is determined using `GetOwner<Type>`
  * method. This method works if there is a single instance of `Type` within OpenThread instance hierarchy. The
@@ -162,7 +187,7 @@ class TaskletContext : public Tasklet
 {
 public:
     /**
-     * This constructor creates a tasklet instance.
+     * Creates a tasklet instance.
      *
      * @param[in]  aInstance   A reference to the OpenThread instance.
      * @param[in]  aHandler    A pointer to a function that is called when the tasklet is run.
@@ -176,7 +201,7 @@ public:
     }
 
     /**
-     * This method returns the pointer to the arbitrary context information.
+     * Returns the pointer to the arbitrary context information.
      *
      * @returns Pointer to the arbitrary context information.
      *

@@ -1,22 +1,20 @@
-/* AliGenie - Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/*
+ * AliGenie - Example
+ *
+ * SPDX-FileCopyrightText: 2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
 
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
-#include "driver/gpio.h"
-
-#include "light_driver.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif /**< __cplusplus */
+
+#include "driver/gpio.h"
+#include "lightbulb.h"
 
 #define LED_ON    1
 #define LED_OFF   0
@@ -82,4 +80,4 @@ uint8_t *mac_str2hex(const char *mac_str, uint8_t *mac_hex);
 }
 #endif /**< __cplusplus */
 
-#endif
+#endif /* _BOARD_H_ */

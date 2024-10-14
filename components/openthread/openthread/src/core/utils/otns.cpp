@@ -38,17 +38,16 @@
 
 #include "common/debug.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
 
 namespace ot {
 namespace Utils {
 
+RegisterLogModule("Otns");
+
 const int kMaxStatusStringLength = 128;
 
-void Otns::EmitShortAddress(uint16_t aShortAddress)
-{
-    EmitStatus("rloc16=%d", aShortAddress);
-}
+void Otns::EmitShortAddress(uint16_t aShortAddress) { EmitStatus("rloc16=%d", aShortAddress); }
 
 void Otns::EmitExtendedAddress(const Mac::ExtAddress &aExtAddress)
 {
@@ -155,7 +154,7 @@ void Otns::EmitTransmit(const Mac::TxFrame &aFrame)
 void Otns::EmitDeviceMode(Mle::DeviceMode aMode)
 {
     EmitStatus("mode=%s%s%s", aMode.IsRxOnWhenIdle() ? "r" : "", aMode.IsFullThreadDevice() ? "d" : "",
-               aMode.IsFullNetworkData() ? "n" : "");
+               (aMode.GetNetworkDataType() == NetworkData::kFullSet) ? "n" : "");
 }
 
 void Otns::EmitCoapSend(const Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
@@ -167,11 +166,9 @@ void Otns::EmitCoapSend(const Coap::Message &aMessage, const Ip6::MessageInfo &a
 
     EmitStatus("coap=send,%d,%d,%d,%s,%s,%d", aMessage.GetMessageId(), aMessage.GetType(), aMessage.GetCode(), uriPath,
                aMessageInfo.GetPeerAddr().ToString().AsCString(), aMessageInfo.GetPeerPort());
+
 exit:
-    if (error != kErrorNone)
-    {
-        otLogWarnCore("Otns::EmitCoapSend failed: %s", ErrorToString(error));
-    }
+    LogWarnOnError(error, "EmitCoapSend");
 }
 
 void Otns::EmitCoapReceive(const Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
@@ -184,10 +181,7 @@ void Otns::EmitCoapReceive(const Coap::Message &aMessage, const Ip6::MessageInfo
     EmitStatus("coap=recv,%d,%d,%d,%s,%s,%d", aMessage.GetMessageId(), aMessage.GetType(), aMessage.GetCode(), uriPath,
                aMessageInfo.GetPeerAddr().ToString().AsCString(), aMessageInfo.GetPeerPort());
 exit:
-    if (error != kErrorNone)
-    {
-        otLogWarnCore("Otns::EmitCoapReceive failed: %s", ErrorToString(error));
-    }
+    LogWarnOnError(error, "EmitCoapReceive");
 }
 
 void Otns::EmitCoapSendFailure(Error aError, Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
@@ -201,10 +195,7 @@ void Otns::EmitCoapSendFailure(Error aError, Coap::Message &aMessage, const Ip6:
                uriPath, aMessageInfo.GetPeerAddr().ToString().AsCString(), aMessageInfo.GetPeerPort(),
                ErrorToString(aError));
 exit:
-    if (error != kErrorNone)
-    {
-        otLogWarnCore("Otns::EmitCoapSendFailure failed: %s", ErrorToString(error));
-    }
+    LogWarnOnError(error, "EmitCoapSendFailure");
 }
 
 } // namespace Utils

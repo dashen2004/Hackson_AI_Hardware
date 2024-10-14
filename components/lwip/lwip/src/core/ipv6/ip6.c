@@ -166,7 +166,7 @@ ip6_route(const ip6_addr_t *src, const ip6_addr_t *dest)
         }
         for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
           if (ip6_addr_isvalid(netif_ip6_addr_state(netif, i)) &&
-              ip6_addr_cmp_zoneless(src, netif_ip6_addr(netif, i))) {
+              ip6_addr_zoneless_eq(src, netif_ip6_addr(netif, i))) {
             return netif;
           }
         }
@@ -174,15 +174,7 @@ ip6_route(const ip6_addr_t *src, const ip6_addr_t *dest)
     }
     /* Again, do not use any other netif in this case, as that could result in
      * zone boundary violations. */
-#if ESP_IPV6
-    if (ip6_addr_ismulticast(dest) || ip6_addr_isany(src)) { 
-      return netif_default;
-    } else {
-      return NULL;
-    }
-#else
     return NULL;
-#endif /* ESP_IPV6 */
   }
 
   /* We come here only if neither source nor destination is scoped. */
@@ -207,16 +199,18 @@ ip6_route(const ip6_addr_t *src, const ip6_addr_t *dest)
     }
     for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
       if (ip6_addr_isvalid(netif_ip6_addr_state(netif, i)) &&
-          ip6_addr_netcmp(dest, netif_ip6_addr(netif, i)) &&
+          ip6_addr_net_eq(dest, netif_ip6_addr(netif, i)) &&
           (netif_ip6_addr_isstatic(netif, i) ||
-          ip6_addr_nethostcmp(dest, netif_ip6_addr(netif, i)))) {
+          ip6_addr_nethost_eq(dest, netif_ip6_addr(netif, i)))) {
         return netif;
       }
     }
   }
 
   /* Get the netif for a suitable router-announced route. */
+#if LWIP_ND6
   netif = nd6_find_route(dest);
+#endif /* LWIP_ND6 */
   if (netif != NULL) {
     return netif;
   }
@@ -230,7 +224,7 @@ ip6_route(const ip6_addr_t *src, const ip6_addr_t *dest)
       }
       for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
         if (ip6_addr_isvalid(netif_ip6_addr_state(netif, i)) &&
-            ip6_addr_cmp(src, netif_ip6_addr(netif, i))) {
+            ip6_addr_eq(src, netif_ip6_addr(netif, i))) {
           return netif;
         }
       }
@@ -298,6 +292,14 @@ ip6_select_source_address(struct netif *netif, const ip6_addr_t *dest)
   u8_t best_pref = 0;
   u8_t best_bits = 0;
 
+  best_addr = NULL;
+  
+#ifdef LWIP_HOOK_IP6_SELECT_SRC_ADDR
+  if ((best_addr = LWIP_HOOK_IP6_SELECT_SRC_ADDR(netif, dest)) != NULL) {
+    return best_addr;
+  }
+#endif
+
   /* Start by determining the scope of the given destination address. These
    * tests are hopefully (roughly) in order of likeliness to match. */
   if (ip6_addr_isglobal(dest)) {
@@ -314,8 +316,6 @@ ip6_select_source_address(struct netif *netif, const ip6_addr_t *dest)
     /* no match, consider scope global */
     dest_scope = IP6_MULTICAST_SCOPE_GLOBAL;
   }
-
-  best_addr = NULL;
 
   for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
     /* Consider only valid (= preferred and deprecated) addresses. */
@@ -340,8 +340,8 @@ ip6_select_source_address(struct netif *netif, const ip6_addr_t *dest)
     /* @todo compute the actual common bits, for longest matching prefix. */
     /* We cannot count on the destination address having a proper zone
      * assignment, so do not compare zones in this case. */
-    cand_bits = ip6_addr_netcmp_zoneless(cand_addr, dest); /* just 1 or 0 for now */
-    if (cand_bits && ip6_addr_nethostcmp(cand_addr, dest)) {
+    cand_bits = ip6_addr_net_zoneless_eq(cand_addr, dest); /* just 1 or 0 for now */
+    if (cand_bits && ip6_addr_nethost_eq(cand_addr, dest)) {
       return netif_ip_addr6(netif, i); /* Rule 1 */
     }
     if ((best_addr == NULL) || /* no alternative yet */
@@ -485,7 +485,7 @@ ip6_input_accept(struct netif *netif)
       * scope as well (e.g., is this interface on the same link?). */
     for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
       if (ip6_addr_isvalid(netif_ip6_addr_state(netif, i)) &&
-          ip6_addr_cmp(ip6_current_dest_addr(), netif_ip6_addr(netif, i))
+          ip6_addr_eq(ip6_current_dest_addr(), netif_ip6_addr(netif, i))
 #if IPV6_CUSTOM_SCOPES
           && (!ip6_addr_has_zone(ip6_current_src_addr()) ||
               ip6_addr_test_zone(ip6_current_src_addr(), netif))
@@ -619,7 +619,7 @@ ip6_input(struct pbuf *p, struct netif *inp)
       netif = NULL;
       for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
         if (ip6_addr_isvalid(netif_ip6_addr_state(inp, i)) &&
-            ip6_addr_cmp_solicitednode(ip6_current_dest_addr(), netif_ip6_addr(inp, i))) {
+            ip6_addr_solicitednode_eq(ip6_current_dest_addr(), netif_ip6_addr(inp, i))) {
           netif = inp;
           LWIP_DEBUGF(IP6_DEBUG, ("ip6_input: solicited node packet accepted on interface %c%c\n",
               netif->name[0], netif->name[1]));
@@ -710,6 +710,10 @@ netif_found:
 
   /* Init header length. */
   hlen = hlen_tot = IP6_HLEN;
+
+  LWIP_DEBUGF(IP6_DEBUG, ("ip6_input: \n"));
+  ip6_debug_print(p);
+  LWIP_DEBUGF(IP6_DEBUG, ("ip6_input: p->len %"U16_F" p->tot_len %"U16_F"\n", p->len, p->tot_len));
 
   /* Move to payload. */
   pbuf_remove_header(p, IP6_HLEN);
@@ -1050,12 +1054,8 @@ netif_found:
 options_done:
 
   /* send to upper layers */
-  LWIP_DEBUGF(IP6_DEBUG, ("ip6_input: \n"));
-  ip6_debug_print(p);
-  LWIP_DEBUGF(IP6_DEBUG, ("ip6_input: p->len %"U16_F" p->tot_len %"U16_F"\n", p->len, p->tot_len));
-
   ip_data.current_ip_header_tot_len = hlen_tot;
-  
+
 #if LWIP_RAW
   /* p points to IPv6 header again for raw_input. */
   pbuf_add_header_force(p, hlen_tot);
@@ -1253,7 +1253,7 @@ ip6_output_if_src(struct pbuf *p, const ip6_addr_t *src, const ip6_addr_t *dest,
 #endif /* !LWIP_HAVE_LOOPIF */
     for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
       if (ip6_addr_isvalid(netif_ip6_addr_state(netif, i)) &&
-          ip6_addr_cmp(dest, netif_ip6_addr(netif, i))) {
+          ip6_addr_eq(dest, netif_ip6_addr(netif, i))) {
         /* Packet to self, enqueue it for loopback */
         LWIP_DEBUGF(IP6_DEBUG, ("netif_loop_output()\n"));
         return netif_loop_output(netif, p);
@@ -1268,11 +1268,15 @@ ip6_output_if_src(struct pbuf *p, const ip6_addr_t *src, const ip6_addr_t *dest,
 #endif /* ENABLE_LOOPBACK */
 #if LWIP_IPV6_FRAG
   /* don't fragment if interface has mtu set to 0 [loopif] */
+#if LWIP_ND6
   if (netif_mtu6(netif) && (p->tot_len > nd6_get_destination_mtu(dest, netif))) {
+#else
+  if (netif_mtu6(netif) && (p->tot_len > IP6_MIN_MTU_LENGTH)) {
+#endif /* LWIP_ND6 */
     return ip6_frag(p, netif, dest);
   }
 #else
-  LWIP_ERROR("ip6_output_if: Packets larger than MTU, discarded!!!",!(netif->mtu && p->tot_len > netif->mtu),return ERR_IF;);
+  LWIP_ERROR("ip6_output_if: Packet larger than MTU discarded", !(netif->mtu && p->tot_len > netif->mtu), return ERR_IF;);
 #endif /* LWIP_IPV6_FRAG */
 
   LWIP_DEBUGF(IP6_DEBUG, ("netif->output_ip6()\n"));
@@ -1315,6 +1319,7 @@ ip6_output(struct pbuf *p, const ip6_addr_t *src, const ip6_addr_t *dest,
     ip6_addr_copy_from_packed(src_addr, ip6hdr->src);
     ip6_addr_copy_from_packed(dest_addr, ip6hdr->dest);
     netif = ip6_route(&src_addr, &dest_addr);
+    dest = &dest_addr;
   }
 
   if (netif == NULL) {
@@ -1374,6 +1379,7 @@ ip6_output_hinted(struct pbuf *p, const ip6_addr_t *src, const ip6_addr_t *dest,
     ip6_addr_copy_from_packed(src_addr, ip6hdr->src);
     ip6_addr_copy_from_packed(dest_addr, ip6hdr->dest);
     netif = ip6_route(&src_addr, &dest_addr);
+    dest = &dest_addr;
   }
 
   if (netif == NULL) {
@@ -1464,7 +1470,7 @@ ip6_debug_print(struct pbuf *p)
 
   LWIP_DEBUGF(IP6_DEBUG, ("IPv6 header:\n"));
   LWIP_DEBUGF(IP6_DEBUG, ("+-------------------------------+\n"));
-  LWIP_DEBUGF(IP6_DEBUG, ("| %2"U16_F" |  %3"U16_F"  |      %7"U32_F"     | (ver, class, flow)\n",
+  LWIP_DEBUGF(IP6_DEBUG, ("| %2"U32_F" |  %3"U32_F"  |      %7"U32_F"     | (ver, class, flow)\n",
                     IP6H_V(ip6hdr),
                     IP6H_TC(ip6hdr),
                     IP6H_FL(ip6hdr)));
@@ -1474,23 +1480,23 @@ ip6_debug_print(struct pbuf *p)
                     IP6H_NEXTH(ip6hdr),
                     IP6H_HOPLIM(ip6hdr)));
   LWIP_DEBUGF(IP6_DEBUG, ("+-------------------------------+\n"));
-  LWIP_DEBUGF(IP6_DEBUG, ("|  %4"X32_F" |  %4"X32_F" |  %4"X32_F" |  %4"X32_F" | (src)\n",
+  LWIP_DEBUGF(IP6_DEBUG, ("|  %4"X16_F" |  %4"X16_F" |  %4"X16_F" |  %4"X16_F" | (src)\n",
                     IP6_ADDR_BLOCK1(&(ip6hdr->src)),
                     IP6_ADDR_BLOCK2(&(ip6hdr->src)),
                     IP6_ADDR_BLOCK3(&(ip6hdr->src)),
                     IP6_ADDR_BLOCK4(&(ip6hdr->src))));
-  LWIP_DEBUGF(IP6_DEBUG, ("|  %4"X32_F" |  %4"X32_F" |  %4"X32_F" |  %4"X32_F" |\n",
+  LWIP_DEBUGF(IP6_DEBUG, ("|  %4"X16_F" |  %4"X16_F" |  %4"X16_F" |  %4"X16_F" |\n",
                     IP6_ADDR_BLOCK5(&(ip6hdr->src)),
                     IP6_ADDR_BLOCK6(&(ip6hdr->src)),
                     IP6_ADDR_BLOCK7(&(ip6hdr->src)),
                     IP6_ADDR_BLOCK8(&(ip6hdr->src))));
   LWIP_DEBUGF(IP6_DEBUG, ("+-------------------------------+\n"));
-  LWIP_DEBUGF(IP6_DEBUG, ("|  %4"X32_F" |  %4"X32_F" |  %4"X32_F" |  %4"X32_F" | (dest)\n",
+  LWIP_DEBUGF(IP6_DEBUG, ("|  %4"X16_F" |  %4"X16_F" |  %4"X16_F" |  %4"X16_F" | (dest)\n",
                     IP6_ADDR_BLOCK1(&(ip6hdr->dest)),
                     IP6_ADDR_BLOCK2(&(ip6hdr->dest)),
                     IP6_ADDR_BLOCK3(&(ip6hdr->dest)),
                     IP6_ADDR_BLOCK4(&(ip6hdr->dest))));
-  LWIP_DEBUGF(IP6_DEBUG, ("|  %4"X32_F" |  %4"X32_F" |  %4"X32_F" |  %4"X32_F" |\n",
+  LWIP_DEBUGF(IP6_DEBUG, ("|  %4"X16_F" |  %4"X16_F" |  %4"X16_F" |  %4"X16_F" |\n",
                     IP6_ADDR_BLOCK5(&(ip6hdr->dest)),
                     IP6_ADDR_BLOCK6(&(ip6hdr->dest)),
                     IP6_ADDR_BLOCK7(&(ip6hdr->dest)),

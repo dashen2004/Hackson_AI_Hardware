@@ -34,10 +34,12 @@
 #include "ip6_mpl.hpp"
 
 #include "common/code_utils.hpp"
-#include "common/instance.hpp"
+#include "common/debug.hpp"
 #include "common/locator_getters.hpp"
 #include "common/message.hpp"
 #include "common/random.hpp"
+#include "common/serial_number.hpp"
+#include "instance/instance.hpp"
 #include "net/ip6.hpp"
 
 namespace ot {
@@ -45,52 +47,73 @@ namespace Ip6 {
 
 Mpl::Mpl(Instance &aInstance)
     : InstanceLocator(aInstance)
-    , mMatchingAddress(nullptr)
-    , mSeedSetTimer(aInstance, Mpl::HandleSeedSetTimer)
-    , mSeedId(0)
     , mSequence(0)
 #if OPENTHREAD_FTD
-    , mRetransmissionTimer(aInstance, Mpl::HandleRetransmissionTimer)
-    , mTimerExpirations(0)
+    , mRetransmissionTimer(aInstance)
 #endif
 {
-    memset(mSeedSet, 0, sizeof(mSeedSet));
+    ClearAllBytes(mSeedSet);
 }
 
-void Mpl::InitOption(OptionMpl &aOption, const Address &aAddress)
+void MplOption::Init(SeedIdLength aSeedIdLength)
 {
-    aOption.Init();
-    aOption.SetSequence(mSequence++);
+    SetType(kType);
 
-    // Check if Seed Id can be elided.
-    if (mMatchingAddress && aAddress == *mMatchingAddress)
+    switch (aSeedIdLength)
     {
-        aOption.SetSeedIdLength(OptionMpl::kSeedIdLength0);
+    case kSeedIdLength0:
+        SetLength(sizeof(*this) - sizeof(Option) - sizeof(mSeedId));
+        break;
+    case kSeedIdLength2:
+        SetLength(sizeof(*this) - sizeof(Option));
+        break;
+    default:
+        OT_ASSERT(false);
+    }
 
-        // Decrease default option length.
-        aOption.SetLength(aOption.GetLength() - sizeof(mSeedId));
+    mControl = aSeedIdLength;
+}
+
+void Mpl::InitOption(MplOption &aOption, const Address &aAddress)
+{
+    if (aAddress == Get<Mle::Mle>().GetMeshLocalRloc())
+    {
+        // Seed ID can be elided when `aAddress` is RLOC.
+        aOption.Init(MplOption::kSeedIdLength0);
     }
     else
     {
-        aOption.SetSeedIdLength(OptionMpl::kSeedIdLength2);
-        aOption.SetSeedId(mSeedId);
+        aOption.Init(MplOption::kSeedIdLength2);
+        aOption.SetSeedId(Get<Mle::Mle>().GetRloc16());
     }
+
+    aOption.SetSequence(mSequence++);
 }
 
-Error Mpl::ProcessOption(Message &aMessage, const Address &aAddress, bool aIsOutbound, bool &aReceive)
+Error Mpl::ProcessOption(Message &aMessage, const OffsetRange &aOffsetRange, const Address &aAddress, bool &aReceive)
 {
     Error     error;
-    OptionMpl option;
+    MplOption option;
 
-    VerifyOrExit(aMessage.ReadBytes(aMessage.GetOffset(), &option, sizeof(option)) >= OptionMpl::kMinLength &&
-                     (option.GetSeedIdLength() == OptionMpl::kSeedIdLength0 ||
-                      option.GetSeedIdLength() == OptionMpl::kSeedIdLength2),
-                 error = kErrorParse);
+    // Read the min size bytes first, then check the expected
+    // `SeedIdLength` and read the full `MplOption` if needed.
+    SuccessOrExit(error = aMessage.Read(aOffsetRange, &option, MplOption::kMinSize));
 
-    if (option.GetSeedIdLength() == OptionMpl::kSeedIdLength0)
+    switch (option.GetSeedIdLength())
     {
-        // Retrieve MPL Seed Id from the IPv6 Source Address.
-        option.SetSeedId(HostSwap16(aAddress.mFields.m16[7]));
+    case MplOption::kSeedIdLength0:
+        // Retrieve Seed ID from the IPv6 Source Address RLOC.
+        VerifyOrExit(aAddress.GetIid().IsLocator(), error = kErrorDrop);
+        option.SetSeedId(aAddress.GetIid().GetLocator());
+        break;
+
+    case MplOption::kSeedIdLength2:
+        SuccessOrExit(error = aMessage.Read(aOffsetRange, option));
+        break;
+
+    case MplOption::kSeedIdLength8:
+    case MplOption::kSeedIdLength16:
+        ExitNow(error = kErrorParse);
     }
 
     // Check if the MPL Data Message is new.
@@ -99,10 +122,10 @@ Error Mpl::ProcessOption(Message &aMessage, const Address &aAddress, bool aIsOut
     if (error == kErrorNone)
     {
 #if OPENTHREAD_FTD
-        AddBufferedMessage(aMessage, option.GetSeedId(), option.GetSequence(), aIsOutbound);
+        AddBufferedMessage(aMessage, option.GetSeedId(), option.GetSequence());
 #endif
     }
-    else if (aIsOutbound)
+    else if (!aMessage.IsOriginThreadNetif())
     {
         aReceive = false;
         // In case MPL Data Message is generated locally, ignore potential error of the MPL Seed Set
@@ -187,14 +210,14 @@ Error Mpl::UpdateSeedSet(uint16_t aSeedId, uint8_t aSequence)
         {
             // have existing entries for aSeedId
 
-            int8_t diff = static_cast<int8_t>(aSequence - mSeedSet[i].mSequence);
-
-            if (diff == 0)
+            if (aSequence == mSeedSet[i].mSequence)
             {
                 // already received, drop message
+
+                mSeedSet[i].mLifetime = kSeedEntryLifetime;
                 ExitNow(error = kErrorDrop);
             }
-            else if (insert == nullptr && diff < 0)
+            else if (insert == nullptr && SerialNumber::IsLess(aSequence, mSeedSet[i].mSequence))
             {
                 // insert in order of sequence
                 insert = &mSeedSet[i];
@@ -253,24 +276,16 @@ Error Mpl::UpdateSeedSet(uint16_t aSeedId, uint8_t aSequence)
     insert->mSequence = aSequence;
     insert->mLifetime = kSeedEntryLifetime;
 
-    if (!mSeedSetTimer.IsRunning())
-    {
-        mSeedSetTimer.Start(kSeedEntryLifetimeDt);
-    }
+    Get<TimeTicker>().RegisterReceiver(TimeTicker::kIp6Mpl);
 
 exit:
     return error;
 }
 
-void Mpl::HandleSeedSetTimer(Timer &aTimer)
+void Mpl::HandleTimeTick(void)
 {
-    aTimer.Get<Mpl>().HandleSeedSetTimer();
-}
-
-void Mpl::HandleSeedSetTimer(void)
-{
-    bool startTimer = false;
-    int  j          = 0;
+    bool continueRxingTicks = false;
+    int  j                  = 0;
 
     for (int i = 0; i < kNumSeedEntries && mSeedSet[i].mLifetime; i++)
     {
@@ -278,8 +293,8 @@ void Mpl::HandleSeedSetTimer(void)
 
         if (mSeedSet[i].mLifetime > 0)
         {
-            mSeedSet[j++] = mSeedSet[i];
-            startTimer    = true;
+            mSeedSet[j++]      = mSeedSet[i];
+            continueRxingTicks = true;
         }
     }
 
@@ -288,41 +303,72 @@ void Mpl::HandleSeedSetTimer(void)
         mSeedSet[j].mLifetime = 0;
     }
 
-    if (startTimer)
+    if (!continueRxingTicks)
     {
-        mSeedSetTimer.Start(kSeedEntryLifetimeDt);
+        Get<TimeTicker>().UnregisterReceiver(TimeTicker::kIp6Mpl);
     }
 }
 
 #if OPENTHREAD_FTD
 
-void Mpl::AddBufferedMessage(Message &aMessage, uint16_t aSeedId, uint8_t aSequence, bool aIsOutbound)
+uint8_t Mpl::DetermineMaxRetransmissions(void) const
+{
+    uint8_t maxRetx = 0;
+
+    switch (Get<Mle::Mle>().GetRole())
+    {
+    case Mle::kRoleDisabled:
+    case Mle::kRoleDetached:
+        break;
+
+    case Mle::kRoleChild:
+        maxRetx = kChildRetransmissions;
+        break;
+
+    case Mle::kRoleRouter:
+    case Mle::kRoleLeader:
+        maxRetx = kRouterRetransmissions;
+        break;
+    }
+
+    return maxRetx;
+}
+
+void Mpl::AddBufferedMessage(Message &aMessage, uint16_t aSeedId, uint8_t aSequence)
 {
     Error    error       = kErrorNone;
     Message *messageCopy = nullptr;
     Metadata metadata;
     uint8_t  hopLimit = 0;
+    uint8_t  interval;
 
 #if OPENTHREAD_CONFIG_MPL_DYNAMIC_INTERVAL_ENABLE
     // adjust the first MPL forward interval dynamically according to the network scale
-    uint8_t interval = (kDataMessageInterval / Mle::kMaxRouters) * Get<RouterTable>().GetNeighborCount();
+    interval = (kDataMessageInterval / Mle::kMaxRouters) * Get<RouterTable>().GetNeighborCount(kLinkQuality1);
 #else
-    uint8_t interval = kDataMessageInterval;
+    interval = kDataMessageInterval;
 #endif
 
-    VerifyOrExit(GetTimerExpirations() > 0);
+    VerifyOrExit(DetermineMaxRetransmissions() > 0);
     VerifyOrExit((messageCopy = aMessage.Clone()) != nullptr, error = kErrorNoBufs);
 
-    if (!aIsOutbound)
+    if (aMessage.IsOriginThreadNetif())
     {
         IgnoreError(aMessage.Read(Header::kHopLimitFieldOffset, hopLimit));
         VerifyOrExit(hopLimit-- > 1, error = kErrorDrop);
         messageCopy->Write(Header::kHopLimitFieldOffset, hopLimit);
     }
 
+    // If the message originates from Thread Netif (i.e., it was
+    // received over Thread radio), set the `mTransmissionCount` to
+    // zero. Otherwise, the message originates from the host and will
+    // be forwarded by `Ip6` to the Thread mesh, so the message itself
+    // will be the first transmission and we set `mTransmissionCount`
+    // to one.
+
     metadata.mSeedId            = aSeedId;
     metadata.mSequence          = aSequence;
-    metadata.mTransmissionCount = aIsOutbound ? 1 : 0;
+    metadata.mTransmissionCount = aMessage.IsOriginThreadNetif() ? 0 : 1;
     metadata.mIntervalOffset    = 0;
     metadata.GenerateNextTransmissionTime(TimerMilli::GetNow(), interval);
 
@@ -335,86 +381,76 @@ exit:
     FreeMessageOnError(messageCopy, error);
 }
 
-void Mpl::HandleRetransmissionTimer(Timer &aTimer)
-{
-    aTimer.Get<Mpl>().HandleRetransmissionTimer();
-}
-
 void Mpl::HandleRetransmissionTimer(void)
 {
-    TimeMilli now      = TimerMilli::GetNow();
-    TimeMilli nextTime = now.GetDistantFuture();
-    Metadata  metadata;
-    Message * message;
-    Message * nextMessage;
+    NextFireTime nextTime;
 
-    for (message = mBufferedMessageSet.GetHead(); message != nullptr; message = nextMessage)
+    for (Message &message : mBufferedMessageSet)
     {
-        nextMessage = message->GetNext();
+        Metadata metadata;
+        Message *messageCopy;
+        uint8_t  maxRetx;
 
-        metadata.ReadFrom(*message);
+        metadata.ReadFrom(message);
 
-        if (now < metadata.mTransmissionTime)
+        if (nextTime.GetNow() < metadata.mTransmissionTime)
         {
-            if (nextTime > metadata.mTransmissionTime)
-            {
-                nextTime = metadata.mTransmissionTime;
-            }
+            nextTime.UpdateIfEarlier(metadata.mTransmissionTime);
+            continue;
+        }
+
+        metadata.mTransmissionCount++;
+
+        maxRetx = DetermineMaxRetransmissions();
+
+        if (metadata.mTransmissionCount > maxRetx)
+        {
+            // If the number of tx already exceeds the limit, remove
+            // the message. This situation can potentially happen on
+            // a device role change, which then updates the max MPL
+            // retx.
+
+            mBufferedMessageSet.DequeueAndFree(message);
+            continue;
+        }
+
+        if (metadata.mTransmissionCount < maxRetx)
+        {
+            metadata.GenerateNextTransmissionTime(nextTime.GetNow(), kDataMessageInterval);
+            metadata.UpdateIn(message);
+
+            nextTime.UpdateIfEarlier(metadata.mTransmissionTime);
+
+            messageCopy = message.Clone();
         }
         else
         {
-            // Update the number of transmission timer expirations.
-            metadata.mTransmissionCount++;
+            // This is the last retx of message, we can use the
+            // `message` directly.
 
-            if (metadata.mTransmissionCount < GetTimerExpirations())
+            mBufferedMessageSet.Dequeue(message);
+            messageCopy = &message;
+        }
+
+        if (messageCopy != nullptr)
+        {
+            if (metadata.mTransmissionCount > 1)
             {
-                Message *messageCopy = message->Clone(message->GetLength() - sizeof(Metadata));
+                // Mark all transmissions after the first one as "MPL
+                // retx". This is used to decide whether to send this
+                // message to the device's sleepy children.
 
-                if (messageCopy != nullptr)
-                {
-                    if (metadata.mTransmissionCount > 1)
-                    {
-                        messageCopy->SetSubType(Message::kSubTypeMplRetransmission);
-                    }
-
-                    Get<Ip6>().EnqueueDatagram(*messageCopy);
-                }
-
-                metadata.GenerateNextTransmissionTime(now, kDataMessageInterval);
-                metadata.UpdateIn(*message);
-
-                if (nextTime > metadata.mTransmissionTime)
-                {
-                    nextTime = metadata.mTransmissionTime;
-                }
+                messageCopy->SetSubType(Message::kSubTypeMplRetransmission);
             }
-            else
-            {
-                mBufferedMessageSet.Dequeue(*message);
 
-                if (metadata.mTransmissionCount == GetTimerExpirations())
-                {
-                    if (metadata.mTransmissionCount > 1)
-                    {
-                        message->SetSubType(Message::kSubTypeMplRetransmission);
-                    }
-
-                    metadata.RemoveFrom(*message);
-                    Get<Ip6>().EnqueueDatagram(*message);
-                }
-                else
-                {
-                    // Stop retransmitting if the number of timer expirations is already exceeded.
-                    message->Free();
-                }
-            }
+            metadata.RemoveFrom(*messageCopy);
+            messageCopy->SetLoopbackToHostAllowed(true);
+            messageCopy->SetOrigin(Message::kOriginHostTrusted);
+            Get<Ip6>().EnqueueDatagram(*messageCopy);
         }
     }
 
-    if (nextTime < now.GetDistantFuture())
-    {
-        mRetransmissionTimer.FireAt(nextTime);
-    }
+    mRetransmissionTimer.FireAt(nextTime);
 }
 
 void Mpl::Metadata::ReadFrom(const Message &aMessage)
@@ -425,18 +461,9 @@ void Mpl::Metadata::ReadFrom(const Message &aMessage)
     IgnoreError(aMessage.Read(length - sizeof(*this), *this));
 }
 
-void Mpl::Metadata::RemoveFrom(Message &aMessage) const
-{
-    Error error = aMessage.SetLength(aMessage.GetLength() - sizeof(*this));
+void Mpl::Metadata::RemoveFrom(Message &aMessage) const { aMessage.RemoveFooter(sizeof(*this)); }
 
-    OT_ASSERT(error == kErrorNone);
-    OT_UNUSED_VARIABLE(error);
-}
-
-void Mpl::Metadata::UpdateIn(Message &aMessage) const
-{
-    aMessage.Write(aMessage.GetLength() - sizeof(*this), *this);
-}
+void Mpl::Metadata::UpdateIn(Message &aMessage) const { aMessage.Write(aMessage.GetLength() - sizeof(*this), *this); }
 
 void Mpl::Metadata::GenerateNextTransmissionTime(TimeMilli aCurrentTime, uint8_t aInterval)
 {

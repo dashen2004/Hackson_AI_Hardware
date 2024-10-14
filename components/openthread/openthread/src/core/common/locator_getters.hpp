@@ -37,31 +37,38 @@
 
 #include "openthread-core-config.h"
 
-#include "common/instance.hpp"
 #include "common/locator.hpp"
+#include "common/tasklet.hpp"
+#include "instance/instance.hpp"
 
 namespace ot {
 
-/**
- * This method returns a reference to the parent OpenThread Instance.
- *
- * This definition is a specialization of template `Get<Type>` for `Get<Instance>()`,
- *
- * @returns A reference to `Instance` object.
- *
- */
-template <> inline Instance &InstanceLocator::Get(void) const
+template <typename InstanceGetProvider>
+template <typename Type>
+inline Type &GetProvider<InstanceGetProvider>::Get(void) const
 {
-    return GetInstance();
+    return static_cast<const InstanceGetProvider *>(this)->GetInstance().template Get<Type>();
 }
 
-template <typename Type> inline Type &InstanceLocator::Get(void) const
+template <typename Owner, void (Owner::*HandleTaskletPtr)(void)>
+void TaskletIn<Owner, HandleTaskletPtr>::HandleTasklet(Tasklet &aTasklet)
 {
-    // This method uses the `Instance` template method `Get<Type>`
-    // to get to the given `Type` from the single OpenThread
-    // instance.
-    return GetInstance().Get<Type>();
+    (aTasklet.Get<Owner>().*HandleTaskletPtr)();
 }
+
+template <typename Owner, void (Owner::*HandleTimertPtr)(void)>
+void TimerMilliIn<Owner, HandleTimertPtr>::HandleTimer(Timer &aTimer)
+{
+    (aTimer.Get<Owner>().*HandleTimertPtr)();
+}
+
+#if OPENTHREAD_CONFIG_PLATFORM_USEC_TIMER_ENABLE
+template <typename Owner, void (Owner::*HandleTimertPtr)(void)>
+void TimerMicroIn<Owner, HandleTimertPtr>::HandleTimer(Timer &aTimer)
+{
+    (aTimer.Get<Owner>().*HandleTimertPtr)();
+}
+#endif
 
 } // namespace ot
 

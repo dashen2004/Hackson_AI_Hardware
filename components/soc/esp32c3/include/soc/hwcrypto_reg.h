@@ -1,20 +1,14 @@
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+/*
+ * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 #ifndef __HWCRYPTO_REG_H__
 #define __HWCRYPTO_REG_H__
 
 #include "soc.h"
+#include "soc/xts_aes_reg.h"
 
 /* registers for RSA acceleration via Multiple Precision Integer ops */
 #define RSA_MEM_M_BLOCK_BASE          ((DR_REG_RSA_BASE)+0x000)
@@ -113,11 +107,6 @@
 #define AES_J_BASE              ((DR_REG_AES_BASE) + 0x70)
 #define AES_T_BASE              ((DR_REG_AES_BASE) + 0x80)
 
-#define AES_INT_CLR_REG         ((DR_REG_AES_BASE) + 0xAC)
-#define AES_INT_ENA_REG         ((DR_REG_AES_BASE) + 0xB0)
-#define AES_DATE_REG            ((DR_REG_AES_BASE) + 0xB4)
-#define AES_DMA_EXIT_REG        ((DR_REG_AES_BASE) + 0xB8)
-
 /* AES_STATE_REG values */
 #define AES_STATE_IDLE 0
 #define AES_STATE_BUSY 1
@@ -147,19 +136,6 @@
 #define HMAC_WR_JTAG_REG               ((DR_REG_HMAC_BASE) + 0xFC)
 
 #define HMAC_DATE_REG                  ((DR_REG_HMAC_BASE) + 0xF8)
-
-
-/* AES-XTS registers */
-#define AES_XTS_PLAIN_BASE        ((DR_REG_AES_XTS_BASE) + 0x00)
-#define AES_XTS_SIZE_REG          ((DR_REG_AES_XTS_BASE) + 0x40)
-#define AES_XTS_DESTINATION_REG   ((DR_REG_AES_XTS_BASE) + 0x44)
-#define AES_XTS_PHYSICAL_ADDR_REG ((DR_REG_AES_XTS_BASE) + 0x48)
-
-#define AES_XTS_TRIGGER_REG       ((DR_REG_AES_XTS_BASE) + 0x4C)
-#define AES_XTS_RELEASE_REG       ((DR_REG_AES_XTS_BASE) + 0x50)
-#define AES_XTS_DESTROY_REG       ((DR_REG_AES_XTS_BASE) + 0x54)
-#define AES_XTS_STATE_REG         ((DR_REG_AES_XTS_BASE) + 0x58)
-#define AES_XTS_DATE_REG          ((DR_REG_AES_XTS_BASE) + 0x5C)
 
 /* Digital Signature registers and memory blocks */
 #define DS_C_BASE                 ((DR_REG_DIGITAL_SIGNATURE_BASE) + 0x000 )

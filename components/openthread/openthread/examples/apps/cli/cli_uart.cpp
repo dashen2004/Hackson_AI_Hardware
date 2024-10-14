@@ -33,11 +33,11 @@
 
 #include <openthread-system.h>
 #include <openthread/cli.h>
+#include <openthread/logging.h>
 
 #include "cli/cli_config.h"
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
-#include "common/logging.hpp"
 #include "utils/uart.h"
 
 #if OPENTHREAD_POSIX
@@ -137,7 +137,7 @@ static void ReceiveTask(const uint8_t *aBuf, uint16_t aBufLength)
     static const char sEraseString[] = {'\b', ' ', '\b'};
     static const char CRNL[]         = {'\r', '\n'};
     static uint8_t    sLastChar      = '\0';
-    const uint8_t *   end;
+    const uint8_t    *end;
 
     end = aBuf + aBufLength;
 
@@ -343,9 +343,9 @@ static int CliUartOutput(void *aContext, const char *aFormat, va_list aArguments
                 }
                 else
                 {
-                    // Flush did not succeed, so abort here.
+                    // Flush did not succeed, so abandon buffered output.
                     otLogWarnPlat("Failed to output CLI: %s", otThreadErrorToString(error));
-                    ExitNow();
+                    break;
                 }
             }
             rval = vsnprintf(sTxBuffer, kTxBufferSize, aFormat, retryArguments);
@@ -368,15 +368,9 @@ exit:
     return rval;
 }
 
-void otPlatUartReceived(const uint8_t *aBuf, uint16_t aBufLength)
-{
-    ReceiveTask(aBuf, aBufLength);
-}
+void otPlatUartReceived(const uint8_t *aBuf, uint16_t aBufLength) { ReceiveTask(aBuf, aBufLength); }
 
-void otPlatUartSendDone(void)
-{
-    SendDoneTask();
-}
+void otPlatUartSendDone(void) { SendDoneTask(); }
 
 extern "C" void otAppCliInit(otInstance *aInstance)
 {

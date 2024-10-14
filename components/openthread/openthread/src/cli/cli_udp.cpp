@@ -34,6 +34,7 @@
 #include "cli_udp.hpp"
 
 #include <openthread/message.h>
+#include <openthread/nat64.h>
 #include <openthread/udp.h>
 
 #include "cli/cli.hpp"
@@ -42,28 +43,43 @@
 namespace ot {
 namespace Cli {
 
-constexpr UdpExample::Command UdpExample::sCommands[];
-
-UdpExample::UdpExample(Output &aOutput)
-    : OutputWrapper(aOutput)
+UdpExample::UdpExample(otInstance *aInstance, OutputImplementer &aOutputImplementer)
+    : Utils(aInstance, aOutputImplementer)
     , mLinkSecurityEnabled(true)
 {
-    memset(&mSocket, 0, sizeof(mSocket));
+    ClearAllBytes(mSocket);
 }
 
-otError UdpExample::ProcessHelp(Arg aArgs[])
-{
-    OT_UNUSED_VARIABLE(aArgs);
-
-    for (const Command &command : sCommands)
-    {
-        OutputLine(command.mName);
-    }
-
-    return OT_ERROR_NONE;
-}
-
-otError UdpExample::ProcessBind(Arg aArgs[])
+/**
+ * @cli udp bind
+ * @code
+ * udp bind :: 1234
+ * Done
+ * @endcode
+ * @code
+ * udp bind -u :: 1234
+ * Done
+ * @endcode
+ * @code
+ * udp bind -b :: 1234
+ * Done
+ * @endcode
+ * @cparam udp bind [@ca{netif}] @ca{ip} @ca{port}
+ * - `netif`: The binding network interface, which is determined as follows:
+ *   - No value (leaving out this parameter from the command): Thread network interface is used.
+ *   - `-u`: Unspecified network interface, which means that the UDP/IPv6 stack determines which
+ *   network interface to bind the socket to.
+ *   - `-b`: Backbone network interface is used.
+ * - `ip`: Unicast IPv6 address to bind to. If you wish to have the UDP/IPv6 stack assign the binding
+ *   IPv6 address, or if you wish to bind to multicast IPv6 addresses, then you can use the following
+ *   value to use the unspecified IPv6 address: `::`. Each example uses the unspecified IPv6 address.
+ * - `port`: UDP port number to bind to. Each of the examples is using port number 1234.
+ * @par
+ * Assigns an IPv6 address and a port to an open socket, which binds the socket for communication.
+ * Assigning the IPv6 address and port is referred to as naming the socket. @moreinfo{@udp}.
+ * @sa otUdpBind
+ */
+template <> otError UdpExample::Process<Cmd("bind")>(Arg aArgs[])
 {
     otError           error;
     otSockAddr        sockaddr;
@@ -90,12 +106,42 @@ exit:
     return error;
 }
 
-otError UdpExample::ProcessConnect(Arg aArgs[])
+/**
+ * @cli udp connect
+ * @code
+ * udp connect fdde:ad00:beef:0:bb1:ebd6:ad10:f33 1234
+ * Done
+ * @endcode
+ * @code
+ * udp connect 172.17.0.1 1234
+ * Connecting to synthesized IPv6 address: fdde:ad00:beef:2:0:0:ac11:1
+ * Done
+ * @endcode
+ * @cparam udp connect @ca{ip} @ca{port}
+ * The following parameters are required:
+ * - `ip`: IP address of the peer.
+ * - `port`: UDP port number of the peer.
+ * The address can be an IPv4 address, which gets synthesized to an IPv6 address
+ * using the preferred NAT64 prefix from the network data. The command returns
+ * `InvalidState` when the preferred NAT64 prefix is unavailable.
+ * @par api_copy
+ * #otUdpConnect
+ * @moreinfo{@udp}.
+ */
+template <> otError UdpExample::Process<Cmd("connect")>(Arg aArgs[])
 {
     otError    error;
     otSockAddr sockaddr;
+    bool       nat64Synth;
 
-    SuccessOrExit(error = aArgs[0].ParseAsIp6Address(sockaddr.mAddress));
+    SuccessOrExit(error = ParseToIp6Address(GetInstancePtr(), aArgs[0], sockaddr.mAddress, nat64Synth));
+
+    if (nat64Synth)
+    {
+        OutputFormat("Connecting to synthesized IPv6 address: ");
+        OutputIp6AddressLine(sockaddr.mAddress);
+    }
+
     SuccessOrExit(error = aArgs[1].ParseAsUint16(sockaddr.mPort));
     VerifyOrExit(aArgs[2].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
 
@@ -105,14 +151,32 @@ exit:
     return error;
 }
 
-otError UdpExample::ProcessClose(Arg aArgs[])
+/**
+ * @cli udp close
+ * @code
+ * udp close
+ * Done
+ * @endcode
+ * @par api_copy
+ * #otUdpClose
+ */
+template <> otError UdpExample::Process<Cmd("close")>(Arg aArgs[])
 {
     OT_UNUSED_VARIABLE(aArgs);
 
     return otUdpClose(GetInstancePtr(), &mSocket);
 }
 
-otError UdpExample::ProcessOpen(Arg aArgs[])
+/**
+ * @cli udp open
+ * @code
+ * udp open
+ * Done
+ * @endcode
+ * @par api_copy
+ * #otUdpOpen
+ */
+template <> otError UdpExample::Process<Cmd("open")>(Arg aArgs[])
 {
     OT_UNUSED_VARIABLE(aArgs);
 
@@ -125,14 +189,76 @@ exit:
     return error;
 }
 
-otError UdpExample::ProcessSend(Arg aArgs[])
+/**
+ * @cli udp send
+ * @code
+ * udp send hello
+ * Done
+ * @endcode
+ * @code
+ * udp send -t hello
+ * Done
+ * @endcode
+ * @code
+ * udp send -x 68656c6c6f
+ * Done
+ * @endcode
+ * @code
+ * udp send -s 800
+ * Done
+ * @endcode
+ * @code
+ * udp send fdde:ad00:beef:0:bb1:ebd6:ad10:f33 1234 hello
+ * Done
+ * @endcode
+ * @code
+ * udp send 172.17.0.1 1234 hello
+ * Sending to synthesized IPv6 address: fdde:ad00:beef:2:0:0:ac11:1
+ * Done
+ * @endcode
+ * @code
+ * udp send fdde:ad00:beef:0:bb1:ebd6:ad10:f33 1234 -t hello
+ * Done
+ * @endcode
+ * @code
+ * udp send fdde:ad00:beef:0:bb1:ebd6:ad10:f33 1234 -x 68656c6c6f
+ * Done
+ * @endcode
+ * @code
+ * udp send fdde:ad00:beef:0:bb1:ebd6:ad10:f33 1234 -s 800
+ * Done
+ * @endcode
+ * @cparam udp send [@ca{ip} @ca{port}] [@ca{type}] @ca{value}
+ * The `ip` and `port` are optional as a pair, but if you specify one you must
+ * specify the other. If `ip` and `port` are not specified, the socket peer address
+ * is used from `udp connect`.
+ * - `ip`: Destination address. This address can be either an IPv4 or IPv6 address,
+ *   An IPv4 address gets synthesized to an IPv6 address with the preferred
+ *   NAT64 prefix from the network data. (If the preferred NAT64 prefix
+ *   is unavailable, the command returns `InvalidState`).
+ * - `port`: UDP destination port.
+ * - `type`/`value` combinations:
+ *   - `-t`: The payload in the `value` parameter is treated as text. If no `type` value
+ *   is entered, the payload in the `value` parameter is also treated as text.
+ *   - `-s`: Auto-generated payload with the specified length given in the `value` parameter.
+ *   - `-x`: Binary data in hexadecimal representation given in the `value` parameter.
+ * @par
+ * Sends a UDP message using the socket. @moreinfo{@udp}.
+ * @csa{udp open}
+ * @csa{udp bind}
+ * @csa{udp connect}
+ * @sa otUdpSend
+ */
+template <> otError UdpExample::Process<Cmd("send")>(Arg aArgs[])
 {
     otError           error   = OT_ERROR_NONE;
-    otMessage *       message = nullptr;
+    otMessage        *message = nullptr;
     otMessageInfo     messageInfo;
     otMessageSettings messageSettings = {mLinkSecurityEnabled, OT_MESSAGE_PRIORITY_NORMAL};
 
-    memset(&messageInfo, 0, sizeof(messageInfo));
+    VerifyOrExit(otUdpIsOpen(GetInstancePtr(), &mSocket), error = OT_ERROR_INVALID_STATE);
+
+    ClearAllBytes(messageInfo);
 
     // Possible argument formats:
     //
@@ -143,7 +269,16 @@ otError UdpExample::ProcessSend(Arg aArgs[])
 
     if (!aArgs[2].IsEmpty())
     {
-        SuccessOrExit(error = aArgs[0].ParseAsIp6Address(messageInfo.mPeerAddr));
+        bool nat64Synth;
+
+        SuccessOrExit(error = ParseToIp6Address(GetInstancePtr(), aArgs[0], messageInfo.mPeerAddr, nat64Synth));
+
+        if (nat64Synth)
+        {
+            OutputFormat("Sending to synthesized IPv6 address: ");
+            OutputIp6AddressLine(messageInfo.mPeerAddr);
+        }
+
         SuccessOrExit(error = aArgs[1].ParseAsUint16(messageInfo.mPeerPort));
         aArgs += 2;
     }
@@ -165,7 +300,7 @@ otError UdpExample::ProcessSend(Arg aArgs[])
         // Binary hex data payload
 
         VerifyOrExit(!aArgs[1].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
-        SuccessOrExit(error = PrepareHexStringPaylod(*message, aArgs[1].GetCString()));
+        SuccessOrExit(error = PrepareHexStringPayload(*message, aArgs[1].GetCString()));
     }
     else
     {
@@ -193,17 +328,40 @@ exit:
     return error;
 }
 
-otError UdpExample::ProcessLinkSecurity(Arg aArgs[])
+template <> otError UdpExample::Process<Cmd("linksecurity")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
 
+    /**
+     * @cli udp linksecurity
+     * @code
+     * udp linksecurity
+     * Enabled
+     * Done
+     * @endcode
+     * @par
+     * Indicates whether link security is enabled or disabled.
+     */
     if (aArgs[0].IsEmpty())
     {
         OutputEnabledDisabledStatus(mLinkSecurityEnabled);
     }
+    /**
+     * @cli udp linksecurity (enable,disable)
+     * @code
+     * udp linksecurity enable
+     * Done
+     * @endcode
+     * @code
+     * udp linksecurity disable
+     * Done
+     * @endcode
+     * @par
+     * Enables or disables link security.
+     */
     else
     {
-        error = Interpreter::ParseEnableOrDisable(aArgs[0], mLinkSecurityEnabled);
+        error = ParseEnableOrDisable(aArgs[0], mLinkSecurityEnabled);
     }
 
     return error;
@@ -239,12 +397,9 @@ exit:
     return error;
 }
 
-otError UdpExample::PrepareHexStringPaylod(otMessage &aMessage, const char *aHexString)
+otError UdpExample::PrepareHexStringPayload(otMessage &aMessage, const char *aHexString)
 {
-    enum : uint8_t
-    {
-        kBufferSize = 50,
-    };
+    static constexpr uint16_t kBufferSize = 50;
 
     otError  error;
     uint8_t  buf[kBufferSize];
@@ -254,7 +409,7 @@ otError UdpExample::PrepareHexStringPaylod(otMessage &aMessage, const char *aHex
     while (!done)
     {
         length = sizeof(buf);
-        error  = Utils::CmdLineParser::ParseAsHexStringSegment(aHexString, length, buf);
+        error  = ot::Utils::CmdLineParser::ParseAsHexStringSegment(aHexString, length, buf);
 
         VerifyOrExit((error == OT_ERROR_NONE) || (error == OT_ERROR_PENDING));
         done = (error == OT_ERROR_NONE);
@@ -268,17 +423,29 @@ exit:
 
 otError UdpExample::Process(Arg aArgs[])
 {
-    otError        error = OT_ERROR_INVALID_ARGS;
-    const Command *command;
-
-    if (aArgs[0].IsEmpty())
-    {
-        IgnoreError(ProcessHelp(aArgs));
-        ExitNow();
+#define CmdEntry(aCommandString)                                  \
+    {                                                             \
+        aCommandString, &UdpExample::Process<Cmd(aCommandString)> \
     }
 
-    command = Utils::LookupTable::Find(aArgs[0].GetCString(), sCommands);
-    VerifyOrExit(command != nullptr, error = OT_ERROR_INVALID_COMMAND);
+    static constexpr Command kCommands[] = {
+        CmdEntry("bind"),         CmdEntry("close"), CmdEntry("connect"),
+        CmdEntry("linksecurity"), CmdEntry("open"),  CmdEntry("send"),
+    };
+
+    static_assert(BinarySearch::IsSorted(kCommands), "kCommands is not sorted");
+
+    otError        error = OT_ERROR_INVALID_COMMAND;
+    const Command *command;
+
+    if (aArgs[0].IsEmpty() || (aArgs[0] == "help"))
+    {
+        OutputCommandTable(kCommands);
+        ExitNow(error = aArgs[0].IsEmpty() ? error : OT_ERROR_NONE);
+    }
+
+    command = BinarySearch::Find(aArgs[0].GetCString(), kCommands);
+    VerifyOrExit(command != nullptr);
 
     error = (this->*command->mHandler)(aArgs + 1);
 

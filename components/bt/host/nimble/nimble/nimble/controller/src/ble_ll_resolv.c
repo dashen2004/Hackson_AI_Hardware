@@ -31,6 +31,7 @@
 #include "controller/ble_ll_sync.h"
 #include "controller/ble_hw.h"
 #include "ble_ll_conn_priv.h"
+#include "ble_ll_priv.h"
 
 #if MYNEWT_VAL(BLE_LL_CFG_FEAT_LL_PRIVACY)
 struct ble_ll_resolv_data
@@ -47,18 +48,6 @@ struct ble_ll_resolv_data g_ble_ll_resolv_data;
 __attribute__((aligned(4)))
 struct ble_ll_resolv_entry g_ble_ll_resolv_list[MYNEWT_VAL(BLE_LL_RESOLV_LIST_SIZE)];
 
-static int
-ble_ll_is_controller_busy(void)
-{
-#if MYNEWT_VAL(BLE_LL_CFG_FEAT_LL_PERIODIC_ADV)
-    if (ble_ll_sync_enabled()) {
-        return 1;
-    }
-#endif
-
-    return ble_ll_adv_enabled() || ble_ll_scan_enabled() ||
-           g_ble_ll_conn_create_sm;
-}
 /**
  * Called to determine if a change is allowed to the resolving list at this
  * time. We are not allowed to modify the resolving list if address translation
@@ -73,7 +62,7 @@ ble_ll_resolv_list_chg_allowed(void)
     int rc;
 
     if (g_ble_ll_resolv_data.addr_res_enabled &&
-       ble_ll_is_controller_busy()) {
+        ble_ll_is_busy(BLE_LL_BUSY_EXCLUDE_CONNECTIONS)) {
         rc = 0;
     } else {
         rc = 1;
@@ -155,7 +144,9 @@ ble_ll_resolv_rpa_timer_cb(struct ble_npl_event *ev)
     ble_npl_callout_reset(&g_ble_ll_resolv_data.rpa_timer,
                           g_ble_ll_resolv_data.rpa_tmo);
 
+#if MYNEWT_VAL(BLE_LL_ROLE_BROADCASTER)
     ble_ll_adv_rpa_timeout();
+#endif
 }
 
 /**
@@ -437,8 +428,8 @@ ble_ll_resolv_enable_cmd(const uint8_t *cmdbuf, uint8_t len)
         return BLE_ERR_INV_HCI_CMD_PARMS;
     }
 
-    if (ble_ll_is_controller_busy()) {
-        return  BLE_ERR_CMD_DISALLOWED;
+    if (ble_ll_is_busy(BLE_LL_BUSY_EXCLUDE_CONNECTIONS)) {
+        return BLE_ERR_CMD_DISALLOWED;
 
     }
 
@@ -455,8 +446,8 @@ int
 ble_ll_resolv_peer_addr_rd(const uint8_t *cmdbuf, uint8_t len,
                            uint8_t *rspbuf, uint8_t *rsplen)
 {
-    const struct ble_hci_le_rd_peer_recolv_addr_cp *cmd = (const void *) cmdbuf;
-    struct ble_hci_le_rd_peer_recolv_addr_rp *rsp = (void *) rspbuf;
+    const struct ble_hci_le_rd_peer_resolv_addr_cp *cmd = (const void *) cmdbuf;
+    struct ble_hci_le_rd_peer_resolv_addr_rp *rsp = (void *) rspbuf;
     struct ble_ll_resolv_entry *rl;
     int rc;
 
@@ -481,8 +472,8 @@ int
 ble_ll_resolv_local_addr_rd(const uint8_t *cmdbuf, uint8_t len,
                             uint8_t *rspbuf, uint8_t *rsplen)
 {
-    const struct ble_hci_le_rd_local_recolv_addr_cp *cmd = (const void *) cmdbuf;
-    struct ble_hci_le_rd_local_recolv_addr_rp *rsp = (void *) rspbuf;
+    const struct ble_hci_le_rd_local_resolv_addr_cp *cmd = (const void *) cmdbuf;
+    struct ble_hci_le_rd_local_resolv_addr_rp *rsp = (void *) rspbuf;
     struct ble_ll_resolv_entry *rl;
     int rc;
 
@@ -542,7 +533,7 @@ ble_ll_resolve_set_priv_mode(const uint8_t *cmdbuf, uint8_t len)
     const struct ble_hci_le_set_privacy_mode_cp *cmd = (const void *) cmdbuf;
     struct ble_ll_resolv_entry *rl;
 
-    if (ble_ll_is_controller_busy()) {
+    if (ble_ll_is_busy(BLE_LL_BUSY_EXCLUDE_CONNECTIONS)) {
         return BLE_ERR_CMD_DISALLOWED;
     }
 

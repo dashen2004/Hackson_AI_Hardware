@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,9 +11,16 @@
 #include "multi_heap.h"
 #include <sdkconfig.h>
 #include "esp_err.h"
+#include "esp_attr.h"
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#if CONFIG_HEAP_PLACE_FUNCTION_INTO_FLASH
+#define HEAP_IRAM_ATTR
+#else
+#define HEAP_IRAM_ATTR IRAM_ATTR
 #endif
 
 /**
@@ -33,15 +40,19 @@ extern "C" {
 #define MALLOC_CAP_INTERNAL         (1<<11) ///< Memory must be internal; specifically it should not disappear when flash/spiram cache is switched off
 #define MALLOC_CAP_DEFAULT          (1<<12) ///< Memory can be returned in a non-capability-specific memory allocation (e.g. malloc(), calloc()) call
 #define MALLOC_CAP_IRAM_8BIT        (1<<13) ///< Memory must be in IRAM and allow unaligned access
-#define MALLOC_CAP_RETENTION        (1<<14)
+#define MALLOC_CAP_RETENTION        (1<<14) ///< Memory must be able to accessed by retention DMA
 #define MALLOC_CAP_RTCRAM           (1<<15) ///< Memory must be in RTC fast memory
+#define MALLOC_CAP_TCM              (1<<16) ///< Memory must be in TCM memory
+#define MALLOC_CAP_DMA_DESC_AHB     (1<<17) ///< Memory must be capable of containing AHB DMA descriptors
+#define MALLOC_CAP_DMA_DESC_AXI     (1<<18) ///< Memory must be capable of containing AXI DMA descriptors
+#define MALLOC_CAP_CACHE_ALIGNED    (1<<19) ///< Memory must be aligned to the cache line size of any intermediate caches
 
 #define MALLOC_CAP_INVALID          (1<<31) ///< Memory can't be used / list end marker
 
 /**
- * @brief callback called when a allocation operation fails, if registered
+ * @brief callback called when an allocation operation fails, if registered
  * @param size in bytes of failed allocation
- * @param caps capabillites requested of failed allocation
+ * @param caps capabilities requested of failed allocation
  * @param function_name function which generated the failure
  */
 typedef void (*esp_alloc_failed_hook_t) (size_t size, uint32_t caps, const char * function_name);
@@ -53,12 +64,30 @@ typedef void (*esp_alloc_failed_hook_t) (size_t size, uint32_t caps, const char 
  */
 esp_err_t heap_caps_register_failed_alloc_callback(esp_alloc_failed_hook_t callback);
 
+#ifdef CONFIG_HEAP_USE_HOOKS
+/**
+ * @brief callback called after every allocation
+ * @param ptr the allocated memory
+ * @param size in bytes of the allocation
+ * @param caps Bitwise OR of MALLOC_CAP_* flags indicating the type of memory allocated.
+ * @note this hook is called on the same thread as the allocation, which may be within a low level operation.
+ * You should refrain from doing heavy work, logging, flash writes, or any locking.
+ */
+__attribute__((weak)) HEAP_IRAM_ATTR void esp_heap_trace_alloc_hook(void* ptr, size_t size, uint32_t caps);
+
+/**
+ * @brief callback called after every free
+ * @param ptr the memory that was freed
+ * @note this hook is called on the same thread as the allocation, which may be within a low level operation.
+ * You should refrain from doing heavy work, logging, flash writes, or any locking.
+ */
+__attribute__((weak)) HEAP_IRAM_ATTR void esp_heap_trace_free_hook(void* ptr);
+#endif
+
 /**
  * @brief Allocate a chunk of memory which has the given capabilities
  *
  * Equivalent semantics to libc malloc(), for capability-aware memory.
- *
- * In IDF, ``malloc(p)`` is equivalent to ``heap_caps_malloc(p, MALLOC_CAP_8BIT)``.
  *
  * @param size Size, in bytes, of the amount of memory to allocate
  * @param caps        Bitwise OR of MALLOC_CAP_* flags indicating the type
@@ -100,7 +129,7 @@ void heap_caps_free( void *ptr);
 void *heap_caps_realloc( void *ptr, size_t size, uint32_t caps);
 
 /**
- * @brief Allocate a aligned chunk of memory which has the given capabilities
+ * @brief Allocate an aligned chunk of memory which has the given capabilities
  *
  * Equivalent semantics to libc aligned_alloc(), for capability-aware memory.
  * @param alignment  How the pointer received needs to be aligned
@@ -119,12 +148,12 @@ void *heap_caps_aligned_alloc(size_t alignment, size_t size, uint32_t caps);
  * @brief Used to deallocate memory previously allocated with heap_caps_aligned_alloc
  *
  * @param ptr Pointer to the memory allocated
- * @note This function is deprecated, plase consider using heap_caps_free() instead
+ * @note This function is deprecated, please consider using heap_caps_free() instead
  */
 void __attribute__((deprecated))  heap_caps_aligned_free(void *ptr);
 
 /**
- * @brief Allocate a aligned chunk of memory which has the given capabilities. The initialized value in the memory is set to zero.
+ * @brief Allocate an aligned chunk of memory which has the given capabilities. The initialized value in the memory is set to zero.
  *
  * @param alignment  How the pointer received needs to be aligned
  *                   must be a power of two
@@ -175,7 +204,7 @@ size_t heap_caps_get_total_size(uint32_t caps);
  * This function takes all regions capable of having the given capabilities allocated in them
  * and adds up the free space they have.
  *
- * Note that because of heap fragmentation it is probably not possible to allocate a single block of memory
+ * @note Note that because of heap fragmentation it is probably not possible to allocate a single block of memory
  * of this size. Use heap_caps_get_largest_free_block() for this purpose.
 
  * @param caps        Bitwise OR of MALLOC_CAP_* flags indicating the type
@@ -189,11 +218,11 @@ size_t heap_caps_get_free_size( uint32_t caps );
 /**
  * @brief Get the total minimum free memory of all regions with the given capabilities
  *
- * This adds all the low water marks of the regions capable of delivering the memory
+ * This adds all the low watermarks of the regions capable of delivering the memory
  * with the given capabilities.
  *
- * Note the result may be less than the global all-time minimum available heap of this kind, as "low water marks" are
- * tracked per-region. Individual regions' heaps may have reached their "low water marks" at different points in time. However
+ * @note Note the result may be less than the global all-time minimum available heap of this kind, as "low watermarks" are
+ * tracked per-region. Individual regions' heaps may have reached their "low watermarks" at different points in time. However,
  * this result still gives a "worst case" indication for all-time minimum free heap.
  *
  * @param caps        Bitwise OR of MALLOC_CAP_* flags indicating the type
@@ -211,16 +240,37 @@ size_t heap_caps_get_minimum_free_size( uint32_t caps );
  * @param caps        Bitwise OR of MALLOC_CAP_* flags indicating the type
  *                    of memory
  *
- * @return Size of largest free block in bytes.
+ * @return Size of the largest free block in bytes.
  */
 size_t heap_caps_get_largest_free_block( uint32_t caps );
 
+/**
+ * @brief Start monitoring the value of minimum_free_bytes from the moment this
+ * function is called instead of from startup.
+ *
+ * @note This allows to detect local lows of the minimum_free_bytes value
+ * that wouldn't be detected otherwise.
+ *
+ * @return esp_err_t ESP_OK if the function executed properly
+ *                   ESP_FAIL if called when monitoring already active
+ */
+esp_err_t heap_caps_monitor_local_minimum_free_size_start(void);
+
+/**
+ * @brief Stop monitoring the value of minimum_free_bytes. After this call
+ * the minimum_free_bytes value calculated from startup will be returned in
+ * heap_caps_get_info and heap_caps_get_minimum_free_size.
+ *
+ * @return esp_err_t ESP_OK if the function executed properly
+ *                   ESP_FAIL if called when monitoring not active
+ */
+esp_err_t heap_caps_monitor_local_minimum_free_size_stop(void);
 
 /**
  * @brief Get heap info for all regions with the given capabilities.
  *
- * Calls multi_heap_info() on all heaps which share the given capabilities.  The information returned is an aggregate
- * across all matching heaps.  The meanings of fields are the same as defined for multi_heap_info_t, except that
+ * Calls multi_heap_info() on all heaps which share the given capabilities. The information returned is an aggregate
+ * across all matching heaps. The meanings of fields are the same as defined for multi_heap_info_t, except that
  * ``minimum_free_bytes`` has the same caveats described in heap_caps_get_minimum_free_size().
  *
  * @param info        Pointer to a structure which will be filled with relevant
@@ -254,6 +304,9 @@ void heap_caps_print_heap_info( uint32_t caps );
  *
  * @param print_errors Print specific errors if heap corruption is found.
  *
+ * @note Please increase the value of `CONFIG_ESP_INT_WDT_TIMEOUT_MS` when using this API
+ * with PSRAM enabled.
+ *
  * @return True if all heaps are valid, False if at least one heap is corrupt.
  */
 bool heap_caps_check_integrity_all(bool print_errors);
@@ -272,6 +325,9 @@ bool heap_caps_check_integrity_all(bool print_errors);
  *                    of memory
  * @param print_errors Print specific errors if heap corruption is found.
  *
+ * @note Please increase the value of `CONFIG_ESP_INT_WDT_TIMEOUT_MS` when using this API
+ * with PSRAM capability flag.
+ *
  * @return True if all heaps are valid, False if at least one heap is corrupt.
  */
 bool heap_caps_check_integrity(uint32_t caps, bool print_errors);
@@ -285,7 +341,7 @@ bool heap_caps_check_integrity(uint32_t caps, bool print_errors);
  * This can be useful if debugging heap integrity for corruption at a known address,
  * as it has a lower overhead than checking all heap regions. Note that if the corrupt
  * address moves around between runs (due to timing or other factors) then this approach
- * won't work and you should call heap_caps_check_integrity or
+ * won't work, and you should call heap_caps_check_integrity or
  * heap_caps_check_integrity_all instead.
  *
  * @note The entire heap region around the address is checked, not only the adjacent
@@ -321,18 +377,18 @@ void heap_caps_malloc_extmem_enable(size_t limit);
  *            or fail to allocate memories with any of the parameters.
  *
  * @param size Size, in bytes, of the amount of memory to allocate
- * @param num Number of variable paramters
+ * @param num Number of variable parameters
  *
  * @return A pointer to the memory allocated on success, NULL on failure
  */
 void *heap_caps_malloc_prefer( size_t size, size_t num, ... );
 
 /**
- * @brief Allocate a chunk of memory as preference in decreasing order.
+ * @brief Reallocate a chunk of memory as preference in decreasing order.
  *
  * @param ptr Pointer to previously allocated memory, or NULL for a new allocation.
  * @param size Size of the new buffer requested, or 0 to free the buffer.
- * @param num Number of variable paramters
+ * @param num Number of variable parameters
  *
  * @return Pointer to a new buffer of size 'size', or NULL if allocation failed.
  */
@@ -343,7 +399,7 @@ void *heap_caps_realloc_prefer( void *ptr, size_t size, size_t num, ... );
  *
  * @param n    Number of continuing chunks of memory to allocate
  * @param size Size, in bytes, of a chunk of memory to allocate
- * @param num  Number of variable paramters
+ * @param num  Number of variable parameters
  *
  * @return A pointer to the memory allocated on success, NULL on failure
  */
@@ -382,7 +438,7 @@ void heap_caps_dump_all(void);
  * @brief Return the size that a particular pointer was allocated with.
  *
  * @param ptr Pointer to currently allocated heap memory. Must be a pointer value previously
- * returned by heap_caps_malloc,malloc,calloc, etc. and not yet freed.
+ * returned by heap_caps_malloc, malloc, calloc, etc. and not yet freed.
  *
  * @note The app will crash with an assertion failure if the pointer is not valid.
  *
@@ -390,6 +446,56 @@ void heap_caps_dump_all(void);
  *
  */
 size_t heap_caps_get_allocated_size( void *ptr );
+
+/**
+ * @brief Structure used to store heap related data passed to
+ * the walker callback function
+ */
+typedef struct walker_heap_info {
+    intptr_t start; ///< Start address of the heap in which the block is located
+    intptr_t end; ///< End address of the heap in which the block is located
+} walker_heap_into_t;
+
+/**
+ * @brief Structure used to store block related data passed to
+ * the walker callback function
+ */
+typedef struct walker_block_info {
+    void *ptr; ///< Pointer to the block data
+    size_t size; ///< The size of the block
+    bool used; ///< Block status. True: used, False: free
+} walker_block_info_t;
+
+/**
+ * @brief Function callback used to get information of memory block
+ * during calls to heap_caps_walk or heap_caps_walk_all
+ *
+ * @param heap_info See walker_heap_into_t
+ * @param block_info See walker_block_info_t
+ * @param user_data Opaque pointer to user defined data
+ *
+ * @return True to proceed with the heap traversal
+ *         False to stop the traversal of the current heap and continue
+ *         with the traversal of the next heap (if any)
+ */
+typedef bool (*heap_caps_walker_cb_t)(walker_heap_into_t heap_info, walker_block_info_t block_info, void *user_data);
+
+/**
+ * @brief Function called to walk through the heaps with the given set of capabilities
+ *
+ * @param caps The set of capabilities assigned to the heaps to walk through
+ * @param walker_func Callback called for each block of the heaps being traversed
+ * @param user_data Opaque pointer to user defined data
+ */
+void heap_caps_walk(uint32_t caps, heap_caps_walker_cb_t walker_func, void *user_data);
+
+/**
+ * @brief Function called to walk through all heaps defined by the heap component
+ *
+ * @param walker_func Callback called for each block of the heaps being traversed
+ * @param user_data Opaque pointer to user defined data
+ */
+void heap_caps_walk_all(heap_caps_walker_cb_t walker_func, void *user_data);
 
 #ifdef __cplusplus
 }

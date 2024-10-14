@@ -1,16 +1,8 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -28,6 +20,15 @@
 
 /* Defines compile-time configuration macros */
 #include "multi_heap_config.h"
+
+#if CONFIG_HEAP_TLSF_USE_ROM_IMPL
+/* Header containing the declaration of tlsf_poison_fill_pfunc_set()
+ * and tlsf_poison_check_pfunc_set() used to register callbacks to
+ * fill and check memory region with given patterns in the heap
+ * components.
+ */
+#include "esp_rom_tlsf.h"
+#endif
 
 #ifdef MULTI_HEAP_POISONING
 
@@ -50,7 +51,6 @@
 
 typedef struct {
     uint32_t head_canary;
-    MULTI_HEAP_BLOCK_OWNER
     size_t alloc_size;
 } poison_head_t;
 
@@ -65,13 +65,12 @@ typedef struct {
 
    Returns the pointer to the actual usable data buffer (ie after 'head')
 */
-static uint8_t *poison_allocated_region(poison_head_t *head, size_t alloc_size)
+__attribute__((noinline))  static uint8_t *poison_allocated_region(poison_head_t *head, size_t alloc_size)
 {
     uint8_t *data = (uint8_t *)(&head[1]); /* start of data ie 'real' allocated buffer */
     poison_tail_t *tail = (poison_tail_t *)(data + alloc_size);
     head->alloc_size = alloc_size;
     head->head_canary = HEAD_CANARY_PATTERN;
-    MULTI_HEAP_SET_BLOCK_OWNER(head);
 
     uint32_t tail_canary = TAIL_CANARY_PATTERN;
     if ((intptr_t)tail % sizeof(void *) == 0) {
@@ -89,7 +88,7 @@ static uint8_t *poison_allocated_region(poison_head_t *head, size_t alloc_size)
 
    Returns a pointer to the poison header structure, or NULL if the poison structures are corrupt.
 */
-static poison_head_t *verify_allocated_region(void *data, bool print_errors)
+__attribute__((noinline)) static poison_head_t *verify_allocated_region(void *data, bool print_errors)
 {
     poison_head_t *head = (poison_head_t *)((intptr_t)data - sizeof(poison_head_t));
     poison_tail_t *tail = (poison_tail_t *)((intptr_t)data + head->alloc_size);
@@ -131,8 +130,12 @@ static poison_head_t *verify_allocated_region(void *data, bool print_errors)
    if swap_pattern is true, swap patterns in the buffer (ie replace MALLOC_FILL_PATTERN with FREE_FILL_PATTERN, and vice versa.)
 
    Returns true if verification checks out.
+
+   This function has the attribute noclone to prevent the compiler to create a clone on flash where expect_free is removed (as this
+   function is called only with expect_free == true throughout the component).
 */
-static bool verify_fill_pattern(void *data, size_t size, bool print_errors, bool expect_free, bool swap_pattern)
+__attribute__((noinline)) NOCLONE_ATTR
+static bool verify_fill_pattern(void *data, size_t size, const bool print_errors, const bool expect_free, bool swap_pattern)
 {
     const uint32_t FREE_FILL_WORD = (FREE_FILL_PATTERN << 24) | (FREE_FILL_PATTERN << 16) | (FREE_FILL_PATTERN << 8) | FREE_FILL_PATTERN;
     const uint32_t MALLOC_FILL_WORD = (MALLOC_FILL_PATTERN << 24) | (MALLOC_FILL_PATTERN << 16) | (MALLOC_FILL_PATTERN << 8) | MALLOC_FILL_PATTERN;
@@ -183,9 +186,30 @@ static bool verify_fill_pattern(void *data, size_t size, bool print_errors, bool
     }
     return valid;
 }
+
+/*!
+ * @brief Definition of the weak function declared in TLSF repository.
+ * The call of this function assures that the header of an absorbed
+ * block is filled with the correct pattern in case of comprehensive
+ * heap poisoning.
+ *
+ * @param start: pointer to the start of the memory region to fill
+ * @param size: size of the memory region to fill
+ * @param is_free: Indicate if the pattern to use the fill the region should be
+ * an after free or after allocation pattern.
+ */
+void block_absorb_post_hook(void *start, size_t size, bool is_free)
+{
+    multi_heap_internal_poison_fill_region(start, size, is_free);
+}
 #endif
 
 void *multi_heap_aligned_alloc(multi_heap_handle_t heap, size_t size, size_t alignment)
+{
+    return multi_heap_aligned_alloc_offs(heap, size, alignment, 0);
+}
+
+void *multi_heap_aligned_alloc_offs(multi_heap_handle_t heap, size_t size, size_t alignment, size_t offset)
 {
     if (!size) {
         return NULL;
@@ -197,7 +221,7 @@ void *multi_heap_aligned_alloc(multi_heap_handle_t heap, size_t size, size_t ali
 
     multi_heap_internal_lock(heap);
     poison_head_t *head = multi_heap_aligned_alloc_impl_offs(heap, size + POISON_OVERHEAD,
-                                                             alignment, sizeof(poison_head_t));
+                                                             alignment, offset + sizeof(poison_head_t));
     uint8_t *data = NULL;
     if (head != NULL) {
         data = poison_allocated_region(head, size);
@@ -242,7 +266,9 @@ void *multi_heap_malloc(multi_heap_handle_t heap, size_t size)
     return data;
 }
 
-void multi_heap_free(multi_heap_handle_t heap, void *p)
+/* This function has the noclone attribute to prevent the compiler to optimize out the
+ * check for p == NULL and create a clone function placed in flash. */
+NOCLONE_ATTR void multi_heap_free(multi_heap_handle_t heap, void *p)
 {
     if (p == NULL) {
         return;
@@ -328,11 +354,6 @@ void *multi_heap_get_block_address(multi_heap_block_handle_t block)
     return head + sizeof(poison_head_t);
 }
 
-void *multi_heap_get_block_owner(multi_heap_block_handle_t block)
-{
-    return MULTI_HEAP_GET_BLOCK_OWNER((poison_head_t*)multi_heap_get_block_address_impl(block));
-}
-
 multi_heap_handle_t multi_heap_register(void *start, size_t size)
 {
 #ifdef SLOW
@@ -340,10 +361,14 @@ multi_heap_handle_t multi_heap_register(void *start, size_t size)
         memset(start, FREE_FILL_PATTERN, size);
     }
 #endif
+#if CONFIG_HEAP_TLSF_USE_ROM_IMPL
+    tlsf_poison_fill_pfunc_set(multi_heap_internal_poison_fill_region);
+    tlsf_poison_check_pfunc_set(multi_heap_internal_check_block_poisoning);
+#endif // CONFIG_HEAP_TLSF_USE_ROM_IMPL
     return multi_heap_register_impl(start, size);
 }
 
-static inline void subtract_poison_overhead(size_t *arg) {
+static inline __attribute__((always_inline)) void subtract_poison_overhead(size_t *arg) {
     if (*arg > POISON_OVERHEAD) {
         *arg -= POISON_OVERHEAD;
     } else {
@@ -356,6 +381,7 @@ size_t multi_heap_get_allocated_size(multi_heap_handle_t heap, void *p)
     poison_head_t *head = verify_allocated_region(p, true);
     assert(head != NULL);
     size_t result = multi_heap_get_allocated_size_impl(heap, head);
+    subtract_poison_overhead(&result);
     return result;
 }
 

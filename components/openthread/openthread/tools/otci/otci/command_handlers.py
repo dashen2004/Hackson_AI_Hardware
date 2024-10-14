@@ -31,7 +31,7 @@ import queue
 import re
 import threading
 import time
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from typing import Any, Callable, Optional, Union, List, Pattern
 
 from .connectors import OtCliHandler
@@ -39,7 +39,7 @@ from .errors import ExpectLineTimeoutError, CommandError
 from .utils import match_line
 
 
-class OTCommandHandler:
+class OTCommandHandler(ABC):
     """This abstract class defines interfaces of a OT Command Handler."""
 
     @abstractmethod
@@ -50,12 +50,10 @@ class OTCommandHandler:
         Note: each line SHOULD NOT contain '\r\n' at the end. The last line of output should be 'Done' or
         'Error <code>: <msg>' following OT CLI conventions.
         """
-        pass
 
     @abstractmethod
     def close(self):
         """Method close should close the OT Command Handler."""
-        pass
 
     @abstractmethod
     def wait(self, duration: float) -> List[str]:
@@ -64,7 +62,6 @@ class OTCommandHandler:
         Normally, OT CLI does not output when it's not executing any command. But OT CLI can also output
         asynchronously in some cases (e.g. `Join Success` when Joiner joins successfully).
         """
-        pass
 
     @abstractmethod
     def set_line_read_callback(self, callback: Optional[Callable[[str], Any]]):
@@ -76,17 +73,29 @@ class OTCommandHandler:
         """
         pass
 
+    def shell(self, cmd: str, timeout: float) -> List[str]:
+        raise NotImplementedError("shell command is not supported on %s" % self.__class__.__name__)
+
 
 class OtCliCommandRunner(OTCommandHandler):
     __PATTERN_COMMAND_DONE_OR_ERROR = re.compile(
         r'(Done|Error|Error \d+:.*|.*: command not found)$')  # "Error" for spinel-cli.py
 
     __PATTERN_LOG_LINE = re.compile(r'((\[(NONE|CRIT|WARN|NOTE|INFO|DEBG)\])'
-                                    r'|(-.*-+: )'  # e.g. -CLI-----: 
+                                    r'|(-.*-+: )'  # e.g. -CLI-----:
+                                    r'|(\[[DINWC\-]\] (?=[\w\-]{14}:)\w+-*:)'  # e.g. [I] Mac-----------:
                                     r')')
     """regex used to filter logs"""
 
-    __ASYNC_COMMANDS = {'scan', 'ping'}
+    assert __PATTERN_LOG_LINE.match('[I] ChannelMonitor: debug log')
+    assert __PATTERN_LOG_LINE.match('[I] Mac-----------: info log')
+    assert __PATTERN_LOG_LINE.match('[N] MeshForwarder-: note    log')
+    assert __PATTERN_LOG_LINE.match('[W] Notifier------: warn log')
+    assert __PATTERN_LOG_LINE.match('[C] Mle-----------: critical log')
+    assert __PATTERN_LOG_LINE.match('[-] Settings------: none log')
+    assert not __PATTERN_LOG_LINE.match('[-] Settings-----: none log')  # not enough `-` after module name
+
+    __ASYNC_COMMANDS = {'scan', 'ping', 'discover'}
 
     def __init__(self, otcli: OtCliHandler, is_spinel_cli=False):
         self.__otcli: OtCliHandler = otcli
@@ -96,14 +105,14 @@ class OtCliCommandRunner(OTCommandHandler):
 
         self.__pending_lines = queue.Queue()
         self.__should_close = threading.Event()
-        self.__otcli_reader = threading.Thread(target=self.__otcli_read_routine)
-        self.__otcli_reader.setDaemon(True)
+        self.__otcli_reader = threading.Thread(target=self.__otcli_read_routine, daemon=True)
         self.__otcli_reader.start()
 
     def __repr__(self):
         return repr(self.__otcli)
 
     def execute_command(self, cmd, timeout=10) -> List[str]:
+        assert not self.__should_close.is_set(), "OT CLI is already closed."
         self.__otcli.writeline(cmd)
 
         if cmd in ('reset', 'factoryreset'):
@@ -137,6 +146,7 @@ class OtCliCommandRunner(OTCommandHandler):
     def close(self):
         self.__should_close.set()
         self.__otcli.close()
+        self.__otcli_reader.join()
 
     def set_line_read_callback(self, callback: Optional[Callable[[str], Any]]):
         self.__line_read_callback = callback
@@ -178,9 +188,19 @@ class OtCliCommandRunner(OTCommandHandler):
         return output
 
     def __otcli_read_routine(self):
-        while not self.__should_close.isSet():
-            line = self.__otcli.readline()
+        while not self.__should_close.is_set():
+            try:
+                line = self.__otcli.readline()
+            except Exception:
+                if self.__should_close.is_set():
+                    break
+                else:
+                    raise
+
             logging.debug('%s: %r', self.__otcli, line)
+
+            if line is None:
+                break
 
             if line.startswith('> '):
                 line = line[2:]
@@ -216,7 +236,9 @@ class OtbrSshCommandRunner(OTCommandHandler):
                                look_for_keys=False)
         except paramiko.ssh_exception.AuthenticationException:
             if not password:
-                self.__ssh.get_transport().auth_none(username)
+                transport = self.__ssh.get_transport()
+                assert transport is not None
+                transport.auth_none(username)
             else:
                 raise
 
@@ -224,16 +246,11 @@ class OtbrSshCommandRunner(OTCommandHandler):
         return f'{self.__host}:{self.__port}'
 
     def execute_command(self, cmd: str, timeout: float) -> List[str]:
-        sh_cmd = f'ot-ctl -- {cmd}'
+        sh_cmd = f'ot-ctl {cmd}'
         if self.__sudo:
             sh_cmd = 'sudo ' + sh_cmd
 
-        cmd_in, cmd_out, cmd_err = self.__ssh.exec_command(sh_cmd, timeout=int(timeout), bufsize=1024)
-        err = cmd_err.read().decode('utf-8')
-        if err:
-            raise CommandError(cmd, [err])
-
-        output = [l.rstrip('\r\n') for l in cmd_out.readlines()]
+        output = self.shell(sh_cmd, timeout=timeout)
 
         if self.__line_read_callback is not None:
             for line in output:
@@ -241,6 +258,16 @@ class OtbrSshCommandRunner(OTCommandHandler):
 
         if cmd in ('reset', 'factoryreset'):
             self.wait(3)
+
+        return output
+
+    def shell(self, cmd: str, timeout: float) -> List[str]:
+        cmd_in, cmd_out, cmd_err = self.__ssh.exec_command(cmd, timeout=int(timeout), bufsize=1024)
+        errput = [l.rstrip('\r\n') for l in cmd_err.readlines()]
+        output = [l.rstrip('\r\n') for l in cmd_out.readlines()]
+
+        if errput:
+            raise CommandError(cmd, errput)
 
         return output
 
@@ -253,3 +280,69 @@ class OtbrSshCommandRunner(OTCommandHandler):
 
     def set_line_read_callback(self, callback: Optional[Callable[[str], Any]]):
         self.__line_read_callback = callback
+
+
+class OtbrAdbCommandRunner(OTCommandHandler):
+
+    from adb_shell.adb_device import AdbDevice
+
+    def __init__(self, adb: AdbDevice):
+        self.__adb = adb
+        self.__line_read_callback = None
+        self.__adb.connect(rsa_keys=None, auth_timeout_s=0.1)
+
+    def execute_command(self, cmd: str, timeout: float) -> List[str]:
+        sh_cmd = f'ot-ctl {cmd}'
+
+        output = self.shell(sh_cmd, timeout=timeout)
+
+        if self.__line_read_callback is not None:
+            for line in output:
+                self.__line_read_callback(line)
+
+        if cmd in ('reset', 'factoryreset'):
+            self.wait(3)
+
+        return output
+
+    def shell(self, cmd: str, timeout: float) -> List[str]:
+        return self.__adb.shell(cmd, timeout_s=timeout).splitlines()
+
+    def close(self):
+        self.__adb.close()
+
+    def wait(self, duration: float) -> List[str]:
+        time.sleep(duration)
+        return []
+
+    def set_line_read_callback(self, callback: Optional[Callable[[str], Any]]):
+        self.__line_read_callback = callback
+
+
+class OtbrAdbTcpCommandRunner(OtbrAdbCommandRunner):
+
+    def __init__(self, host: str, port: int):
+        from adb_shell.adb_device import AdbDeviceTcp
+
+        self.__host = host
+        self.__port = port
+
+        adb = AdbDeviceTcp(host, port, default_transport_timeout_s=9.0)
+        super(OtbrAdbTcpCommandRunner, self).__init__(adb)
+
+    def __repr__(self):
+        return f'{self.__host}:{self.__port}'
+
+
+class OtbrAdbUsbCommandRunner(OtbrAdbCommandRunner):
+
+    def __init__(self, serial: str):
+        from adb_shell.adb_device import AdbDeviceUsb
+
+        self.__serial = serial
+
+        adb = AdbDeviceUsb(serial, port_path=None, default_transport_timeout_s=9.0)
+        super(OtbrAdbUsbCommandRunner, self).__init__(adb)
+
+    def __repr__(self):
+        return f'USB:{self.__serial}'

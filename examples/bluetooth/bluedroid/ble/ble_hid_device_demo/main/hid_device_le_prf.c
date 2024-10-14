@@ -1,16 +1,8 @@
-// Copyright 2017-2018 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
 
 #include "hidd_le_prf_int.h"
 #include <string.h>
@@ -88,11 +80,11 @@ static const uint8_t hidReportMap[] = {
     0x81, 0x01,  //   Input: (Constant)
     //
     //   LED report
-    0x95, 0x05,  //   Report Count (5)
-    0x75, 0x01,  //   Report Size (1)
     0x05, 0x08,  //   Usage Pg (LEDs)
     0x19, 0x01,  //   Usage Min (1)
     0x29, 0x05,  //   Usage Max (5)
+    0x95, 0x05,  //   Report Count (5)
+    0x75, 0x01,  //   Report Size (1)
     0x91, 0x02,  //   Output: (Data, Variable, Absolute)
     //
     //   LED report padding
@@ -291,6 +283,7 @@ static const uint8_t char_prop_write_nr = ESP_GATT_CHAR_PROP_BIT_WRITE_NR;
 static const uint8_t char_prop_read_write = ESP_GATT_CHAR_PROP_BIT_WRITE|ESP_GATT_CHAR_PROP_BIT_READ;
 static const uint8_t char_prop_read_notify = ESP_GATT_CHAR_PROP_BIT_READ|ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 static const uint8_t char_prop_read_write_notify = ESP_GATT_CHAR_PROP_BIT_READ|ESP_GATT_CHAR_PROP_BIT_WRITE|ESP_GATT_CHAR_PROP_BIT_NOTIFY;
+static const uint8_t char_prop_read_write_write_nr = ESP_GATT_CHAR_PROP_BIT_READ|ESP_GATT_CHAR_PROP_BIT_WRITE|ESP_GATT_CHAR_PROP_BIT_WRITE_NR;
 
 /// battary Service
 static const uint16_t battary_svc = ESP_GATT_UUID_BATTERY_SERVICE_SVC;
@@ -433,7 +426,7 @@ static esp_gatts_attr_db_t hidd_le_gatt_db[HIDD_LE_IDX_NB] =
     [HIDD_LE_IDX_REPORT_LED_OUT_CHAR]         = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid,
                                                                          ESP_GATT_PERM_READ,
                                                                          CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE,
-                                                                         (uint8_t *)&char_prop_read_write}},
+                                                                         (uint8_t *)&char_prop_read_write_write_nr}},
 
     [HIDD_LE_IDX_REPORT_LED_OUT_VAL]            = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&hid_report_uuid,
                                                                        ESP_GATT_PERM_READ|ESP_GATT_PERM_WRITE,
@@ -593,8 +586,15 @@ void esp_hidd_prf_cb_hdl(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
         case ESP_GATTS_CLOSE_EVT:
             break;
         case ESP_GATTS_WRITE_EVT: {
-#if (SUPPORT_REPORT_VENDOR == true)
             esp_hidd_cb_param_t cb_param = {0};
+            if (param->write.handle == hidd_le_env.hidd_inst.att_tbl[HIDD_LE_IDX_REPORT_LED_OUT_VAL]) {
+                cb_param.led_write.conn_id = param->write.conn_id;
+                cb_param.led_write.report_id = HID_RPT_ID_LED_OUT;
+                cb_param.led_write.length = param->write.len;
+                cb_param.led_write.data = param->write.value;
+                (hidd_le_env.hidd_cb)(ESP_HIDD_EVENT_BLE_LED_REPORT_WRITE_EVT, &cb_param);
+            }
+#if (SUPPORT_REPORT_VENDOR == true)
             if (param->write.handle == hidd_le_env.hidd_inst.att_tbl[HIDD_LE_IDX_REPORT_VENDOR_OUT_VAL] &&
                 hidd_le_env.hidd_cb != NULL) {
                 cb_param.vendor_write.conn_id = param->write.conn_id;
@@ -695,7 +695,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
         if (param->reg.status == ESP_GATT_OK) {
             heart_rate_profile_tab[PROFILE_APP_IDX].gatts_if = gatts_if;
         } else {
-            ESP_LOGI(HID_LE_PRF_TAG, "Reg app failed, app_id %04x, status %d\n",
+            ESP_LOGI(HID_LE_PRF_TAG, "Reg app failed, app_id %04x, status %d",
                     param->reg.app_id,
                     param->reg.status);
             return;

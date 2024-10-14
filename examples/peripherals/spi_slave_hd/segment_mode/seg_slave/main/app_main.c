@@ -15,8 +15,9 @@
 
 #define TIME_IS_OUT(start, end, timeout)     (timeout) > ((end)-(start)) ? 0 : 1
 
-//Pin setting
-#ifdef CONFIG_IDF_TARGET_ESP32S2
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////// Please update the following configuration according to your Hardware spec /////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define GPIO_MOSI 11
 #define GPIO_MISO 13
 #define GPIO_SCLK 12
@@ -25,7 +26,6 @@
 #define SLAVE_HOST SPI2_HOST
 #define DMA_CHAN   SPI_DMA_CH_AUTO
 #define QUEUE_SIZE 4
-#endif
 
 /**
  * Helper Macros for Master-Slave synchronization, each setting is 4-byte-width
@@ -47,7 +47,6 @@
 //Value in these 4 registers indicates number of the RX buffer that Slave has loaded to the DMA
 #define SLAVE_RX_READY_BUF_NUM_REG      16
 
-
 static const char TAG[] = "SEG_SLAVE";
 
 /* Used for Master-Slave synchronization */
@@ -55,7 +54,6 @@ static uint32_t s_tx_ready_buf_size;  //See ``cb_set_tx_ready_buf_size()``
 static uint32_t s_rx_ready_buf_num;   //See ``cb_set_rx_ready_buf_num()``
 
 static uint32_t s_tx_data_id;
-
 
 //-------------------------------Function used for Master-Slave Synchronization---------------------------//
 /**
@@ -151,7 +149,7 @@ static bool get_tx_data(uint8_t *data, uint32_t max_len, uint32_t *out_len)
         return false;
     }
 
-    snprintf((char *)data, *out_len, "Transaction No.%d from slave, length: %d", s_tx_data_id, *out_len);
+    snprintf((char *)data, *out_len, "Transaction No.%"PRIu32" from slave, length: %"PRIu32, s_tx_data_id, *out_len);
     s_tx_data_id++;
     return true;
 }
@@ -290,14 +288,14 @@ void app_main(void)
     uint8_t init_value[SOC_SPI_MAXIMUM_BUFFER_SIZE] = {0x0};
     spi_slave_hd_write_buffer(SLAVE_HOST, 0, init_value, SOC_SPI_MAXIMUM_BUFFER_SIZE);
 
-    uint32_t send_buf_size = 5000;
-    spi_slave_hd_write_buffer(SLAVE_HOST, SLAVE_MAX_TX_BUF_LEN_REG, (uint8_t *)&send_buf_size, 4);
+    static uint32_t send_buf_size = 5000;
+    spi_slave_hd_write_buffer(SLAVE_HOST, SLAVE_MAX_TX_BUF_LEN_REG, (uint8_t *)&send_buf_size, sizeof(send_buf_size));
 
-    uint32_t recv_buf_size = 120;
-    spi_slave_hd_write_buffer(SLAVE_HOST, SLAVE_MAX_RX_BUF_LEN_REG, (uint8_t *)&recv_buf_size, 4);
+    static uint32_t recv_buf_size = 120;
+    spi_slave_hd_write_buffer(SLAVE_HOST, SLAVE_MAX_RX_BUF_LEN_REG, (uint8_t *)&recv_buf_size, sizeof(recv_buf_size));
 
     uint32_t slave_ready_flag = SLAVE_READY_FLAG;
-    spi_slave_hd_write_buffer(SLAVE_HOST, SLAVE_READY_FLAG_REG, (uint8_t *)&slave_ready_flag, 4);
+    spi_slave_hd_write_buffer(SLAVE_HOST, SLAVE_READY_FLAG_REG, (uint8_t *)&slave_ready_flag, sizeof(slave_ready_flag));
 
     xTaskCreate(sender, "sendTask", 4096, &send_buf_size, 1, NULL);
     xTaskCreate(receiver, "recvTask", 4096, &recv_buf_size, 1, NULL);

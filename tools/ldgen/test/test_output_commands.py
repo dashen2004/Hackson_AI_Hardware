@@ -1,30 +1,20 @@
 #!/usr/bin/env python
 #
-# Copyright 2021 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
+import os
 import sys
 import unittest
 
 try:
-    from output_commands import AlignAtAddress, InputSectionDesc, SymbolAtAddress
+    from ldgen.entity import Entity
+    from ldgen.output_commands import AlignAtAddress, InputSectionDesc, SymbolAtAddress
 except ImportError:
-    sys.path.append('../')
-    from output_commands import InputSectionDesc, SymbolAtAddress, AlignAtAddress
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+    from ldgen.entity import Entity
+    from ldgen.output_commands import AlignAtAddress, InputSectionDesc, SymbolAtAddress
 
-from entity import Entity
 
 SECTIONS = ['.text', '.text.*', '.literal', '.literal.*']
 
@@ -131,14 +121,14 @@ class InputSectionDescTest(unittest.TestCase):
 
     def test_empty_sections(self):
         # Test empty sections
-        expected = '*libfreertos.a:croutine.*( )'
+        expected = '*libfreertos.a:croutine.*'
 
         desc = InputSectionDesc(Entity('libfreertos.a', 'croutine'), [])
         self.assertEqual(expected, str(desc))
 
     def test_keep(self):
         # Test KEEP
-        expected = 'KEEP(*libfreertos.a:croutine.*( ))'
+        expected = 'KEEP(*libfreertos.a:croutine.*)'
 
         desc = InputSectionDesc(Entity('libfreertos.a', 'croutine'), [], keep=True)
         self.assertEqual(expected, str(desc))

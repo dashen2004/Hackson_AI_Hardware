@@ -1,16 +1,8 @@
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -67,7 +59,7 @@ static void matrix_kbd_debounce_timer_callback(TimerHandle_t xTimer)
     uint32_t row_out = dedic_gpio_bundle_read_out(mkbd->row_bundle);
     uint32_t col_in = dedic_gpio_bundle_read_in(mkbd->col_bundle);
     row_out = (~row_out) & ((1 << mkbd->nr_row_gpios) - 1);
-    ESP_LOGD(TAG, "row_out=%x, col_in=%x", row_out, col_in);
+    ESP_LOGD(TAG, "row_out=%"PRIx32", col_in=%"PRIx32, row_out, col_in);
     int row = -1;
     int col = -1;
     uint32_t key_code = 0;
@@ -94,7 +86,7 @@ static void matrix_kbd_debounce_timer_callback(TimerHandle_t xTimer)
     // col lines set to low level
     dedic_gpio_bundle_write(mkbd->col_bundle, (1 << mkbd->nr_col_gpios) - 1, 0);
     dedic_gpio_bundle_set_interrupt_and_callback(mkbd->row_bundle, (1 << mkbd->nr_row_gpios) - 1,
-            DEDIC_GPIO_INTR_BOTH_EDGE, matrix_kbd_row_isr_callback, mkbd);
+                                                 DEDIC_GPIO_INTR_BOTH_EDGE, matrix_kbd_row_isr_callback, mkbd);
 }
 
 esp_err_t matrix_kbd_install(const matrix_kbd_config_t *config, matrix_kbd_handle_t *mkbd_handle)
@@ -153,9 +145,9 @@ esp_err_t matrix_kbd_install(const matrix_kbd_config_t *config, matrix_kbd_handl
 
     // Disable interrupt
     dedic_gpio_bundle_set_interrupt_and_callback(mkbd->row_bundle, (1 << config->nr_row_gpios) - 1,
-            DEDIC_GPIO_INTR_NONE, NULL, NULL);
+                                                 DEDIC_GPIO_INTR_NONE, NULL, NULL);
     dedic_gpio_bundle_set_interrupt_and_callback(mkbd->col_bundle, (1 << config->nr_col_gpios) - 1,
-            DEDIC_GPIO_INTR_NONE, NULL, NULL);
+                                                 DEDIC_GPIO_INTR_NONE, NULL, NULL);
 
     // Create a ont-shot os timer, used for key debounce
     mkbd->debounce_timer = xTimerCreate("kb_debounce", pdMS_TO_TICKS(config->debounce_ms), pdFALSE, mkbd, matrix_kbd_debounce_timer_callback);
@@ -208,7 +200,7 @@ esp_err_t matrix_kbd_start(matrix_kbd_handle_t mkbd_handle)
 
     // only enable row line interrupt
     dedic_gpio_bundle_set_interrupt_and_callback(mkbd_handle->row_bundle, (1 << mkbd_handle->nr_row_gpios) - 1,
-            DEDIC_GPIO_INTR_BOTH_EDGE, matrix_kbd_row_isr_callback, mkbd_handle);
+                                                 DEDIC_GPIO_INTR_BOTH_EDGE, matrix_kbd_row_isr_callback, mkbd_handle);
 
     return ESP_OK;
 err:
@@ -224,9 +216,9 @@ esp_err_t matrix_kbd_stop(matrix_kbd_handle_t mkbd_handle)
 
     // Disable interrupt
     dedic_gpio_bundle_set_interrupt_and_callback(mkbd_handle->row_bundle, (1 << mkbd_handle->nr_row_gpios) - 1,
-            DEDIC_GPIO_INTR_NONE, NULL, NULL);
+                                                 DEDIC_GPIO_INTR_NONE, NULL, NULL);
     dedic_gpio_bundle_set_interrupt_and_callback(mkbd_handle->col_bundle, (1 << mkbd_handle->nr_col_gpios) - 1,
-            DEDIC_GPIO_INTR_NONE, NULL, NULL);
+                                                 DEDIC_GPIO_INTR_NONE, NULL, NULL);
 
     return ESP_OK;
 err:

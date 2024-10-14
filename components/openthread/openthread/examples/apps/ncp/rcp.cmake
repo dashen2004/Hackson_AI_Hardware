@@ -33,13 +33,26 @@ add_executable(ot-rcp
 
 target_include_directories(ot-rcp PRIVATE ${COMMON_INCLUDES})
 
+if(NOT DEFINED OT_PLATFORM_LIB_RCP)
+    set(OT_PLATFORM_LIB_RCP ${OT_PLATFORM_LIB})
+endif()
+
 target_link_libraries(ot-rcp PRIVATE
     openthread-rcp
-    ${OT_PLATFORM_LIB}
+    ${OT_PLATFORM_LIB_RCP}
     openthread-radio
-    ${OT_PLATFORM_LIB}
+    ${OT_PLATFORM_LIB_RCP}
     openthread-rcp
+    ot-config-radio
     ot-config
 )
+
+if(OT_LINKER_MAP)
+    if("${CMAKE_CXX_COMPILER_ID}" MATCHES "AppleClang")
+        target_link_libraries(ot-rcp PRIVATE -Wl,-map,ot-rcp.map)
+    else()
+        target_link_libraries(ot-rcp PRIVATE -Wl,-Map=ot-rcp.map)
+    endif()
+endif()
 
 install(TARGETS ot-rcp DESTINATION bin)

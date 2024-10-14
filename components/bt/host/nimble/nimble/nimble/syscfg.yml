@@ -59,11 +59,23 @@ syscfg.defs:
         description: >
             This enables periodic advertising feature.
         value: 0
+        restrictions:
+            - 'BLE_EXT_ADV if 1'
     BLE_PERIODIC_ADV_SYNC_TRANSFER:
         description: >
             This enables Periodic Advertising Sync Transfer Feature.
         value: 0
-
+        restrictions:
+            - 'BLE_PERIODIC_ADV if 1'
+            - '(BLE_ROLE_CENTRAL || BLE_ROLE_PERIPHERAL) if 1'
+    BLE_PERIODIC_ADV_SYNC_BIGINFO_REPORTS:
+        description: >
+            This enables BIGInfo reports.
+        value: 0
+        restrictions:
+            - 'BLE_PERIODIC_ADV if 1'
+            - '(BLE_VERSION >= 52) if 1'
+        experimental: 1
     BLE_EXT_ADV_MAX_SIZE:
         description: >
             This allows to configure maximum size of advertising data and
@@ -75,9 +87,52 @@ syscfg.defs:
             This allows to configure supported Bluetooth Core version. Some
             features may not be available if version is too low. Version is
             integer for easy comparison.
-        range: 50, 51, 52
+        range: 50, 51, 52, 53, 54
         value: 50
+    BLE_ISO:
+        description: >
+            This enables LE Isochronous Channels as per Bluetooth v5.2
+        value: 0
+        restrictions:
+            - '(BLE_VERSION >= 52) if 1'
+
+    BLE_ISO_TEST:
+        description: >
+            Enables BLE ISO Testing commands
+        value: 0
+        restrictions:
+            - 'BLE_ISO if 1'
+
+    BLE_HCI_VS:
+        description: >
+            Enables support for NimBLE specific vendor HCI commands
+        value: 0
+
+    BLE_HCI_VS_OCF_OFFSET:
+        description: >
+            This defines starting offset for NimBLE specific vendor HCI commands.
+            Purpose of this is to improve compatibility with other custom
+            implementations.
+        value: 0
+
+    BLE_POWER_CONTROL:
+        description: >
+            This enabled LE Power Control feature
+        value: 0
+
+    BLE_CONN_SUBRATING:
+        description: >
+            This enables LE Connection Subrating feature
+        value: 0
+    BLE_GATT_BLOB_TRANSFER:
+        description: >
+            This enables write blob feature
+        value: 1
 
 # Allow periodic sync transfer only if 5.1 or higher
 syscfg.restrictions:
     - "'BLE_PERIODIC_ADV_SYNC_TRANSFER == 0' || 'BLE_VERSION >= 51'"
+
+# Enable VS HCI by default for combined or standalone controller build
+syscfg.vals.BLE_CONTROLLER:
+    BLE_HCI_VS: 1

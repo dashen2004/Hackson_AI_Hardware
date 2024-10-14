@@ -40,50 +40,46 @@
 
 #include <openthread/coap.h>
 
-#include "cli/cli_output.hpp"
-#include "utils/lookup_table.hpp"
-#include "utils/parse_cmdline.hpp"
+#include "cli/cli_utils.hpp"
 
 namespace ot {
 namespace Cli {
 
 /**
- * This class implements the CLI CoAP server and client.
+ * Implements the CLI CoAP server and client.
  *
  */
-class Coap : private OutputWrapper
+class Coap : private Utils
 {
 public:
-    typedef Utils::CmdLineParser::Arg Arg;
-
     /**
      * Constructor
      *
-     * @param[in]  aOutput The CLI console output context
+     * @param[in]  aInstance            The OpenThread Instance.
+     * @param[in]  aOutputImplementer   An `OutputImplementer`.
      *
      */
-    explicit Coap(Output &aOutput);
+    Coap(otInstance *aInstance, OutputImplementer &aOutputImplementer);
 
     /**
-     * This method interprets a list of CLI arguments.
+     * Processes a CLI sub-command.
      *
-     * @param[in]  aArgs        An array of command line arguments.
+     * @param[in]  aArgs     An array of command line arguments.
+     *
+     * @retval OT_ERROR_NONE              Successfully executed the CLI command.
+     * @retval OT_ERROR_PENDING           The CLI command was successfully started but final result is pending.
+     * @retval OT_ERROR_INVALID_COMMAND   Invalid or unknown CLI command.
+     * @retval OT_ERROR_INVALID_ARGS      Invalid arguments.
+     * @retval ...                        Error during execution of the CLI command.
      *
      */
     otError Process(Arg aArgs[]);
 
 private:
-    enum
-    {
-        kMaxUriLength  = 32,
-        kMaxBufferSize = 16
-    };
+    static constexpr uint16_t kMaxUriLength  = 32;
+    static constexpr uint16_t kMaxBufferSize = 16;
 
-    struct Command
-    {
-        const char *mName;
-        otError (Coap::*mHandler)(Arg aArgs[]);
-    };
+    using Command = CommandEntry<Coap>;
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
     enum BlockType : uint8_t{
@@ -92,29 +88,14 @@ private:
     };
 #endif
 
+    template <CommandId kCommandId> otError Process(Arg aArgs[]);
+
 #if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
     otError CancelResourceSubscription(void);
     void    CancelSubscriber(void);
 #endif
 
     void PrintPayload(otMessage *aMessage);
-
-    otError ProcessHelp(Arg aArgs[]);
-#if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-    otError ProcessCancel(Arg aArgs[]);
-#endif
-    otError ProcessDelete(Arg aArgs[]);
-    otError ProcessGet(Arg aArgs[]);
-#if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-    otError ProcessObserve(Arg aArgs[]);
-#endif
-    otError ProcessParameters(Arg aArgs[]);
-    otError ProcessPost(Arg aArgs[]);
-    otError ProcessPut(Arg aArgs[]);
-    otError ProcessResource(Arg aArgs[]);
-    otError ProcessSet(Arg aArgs[]);
-    otError ProcessStart(Arg aArgs[]);
-    otError ProcessStop(Arg aArgs[]);
 
 #if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
     otError ProcessRequest(Arg aArgs[], otCoapCode aCoapCode, bool aCoapObserve = false);
@@ -126,8 +107,8 @@ private:
     void        HandleRequest(otMessage *aMessage, const otMessageInfo *aMessageInfo);
 
 #if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-    static void HandleNotificationResponse(void *               aContext,
-                                           otMessage *          aMessage,
+    static void HandleNotificationResponse(void                *aContext,
+                                           otMessage           *aMessage,
                                            const otMessageInfo *aMessageInfo,
                                            otError              aError);
     void        HandleNotificationResponse(otMessage *aMessage, const otMessageInfo *aMessageInfo, otError aError);
@@ -138,7 +119,7 @@ private:
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
 
-    static otError BlockwiseReceiveHook(void *         aContext,
+    static otError BlockwiseReceiveHook(void          *aContext,
                                         const uint8_t *aBlock,
                                         uint32_t       aPosition,
                                         uint16_t       aBlockLength,
@@ -149,11 +130,11 @@ private:
                                         uint16_t       aBlockLength,
                                         bool           aMore,
                                         uint32_t       aTotalLength);
-    static otError BlockwiseTransmitHook(void *    aContext,
-                                         uint8_t * aBlock,
+    static otError BlockwiseTransmitHook(void     *aContext,
+                                         uint8_t  *aBlock,
                                          uint32_t  aPosition,
                                          uint16_t *aBlockLength,
-                                         bool *    aMore);
+                                         bool     *aMore);
     otError        BlockwiseTransmitHook(uint8_t *aBlock, uint32_t aPosition, uint16_t *aBlockLength, bool *aMore);
 #endif
 
@@ -166,27 +147,6 @@ private:
     {
         return mUseDefaultResponseTxParameters ? nullptr : &mResponseTxParameters;
     }
-
-    static constexpr Command sCommands[] = {
-#if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-        {"cancel", &Coap::ProcessCancel},
-#endif
-        {"delete", &Coap::ProcessDelete},
-        {"get", &Coap::ProcessGet},
-        {"help", &Coap::ProcessHelp},
-#if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-        {"observe", &Coap::ProcessObserve},
-#endif
-        {"parameters", &Coap::ProcessParameters},
-        {"post", &Coap::ProcessPost},
-        {"put", &Coap::ProcessPut},
-        {"resource", &Coap::ProcessResource},
-        {"set", &Coap::ProcessSet},
-        {"start", &Coap::ProcessStart},
-        {"stop", &Coap::ProcessStop},
-    };
-
-    static_assert(Utils::LookupTable::IsSorted(sCommands), "Command Table is not sorted");
 
     bool mUseDefaultRequestTxParameters;
     bool mUseDefaultResponseTxParameters;

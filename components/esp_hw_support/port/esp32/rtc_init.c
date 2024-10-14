@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,12 +10,26 @@
 #include "soc/rtc.h"
 #include "soc/rtc_periph.h"
 #include "soc/dport_reg.h"
-#include "soc/efuse_periph.h"
+#include "hal/efuse_ll.h"
 #include "soc/gpio_periph.h"
+#ifndef BOOTLOADER_BUILD
+#include "esp_private/sar_periph_ctrl.h"
+#endif
 
 
 void rtc_init(rtc_config_t cfg)
 {
+    /**
+     * When run rtc_init, it maybe deep sleep reset. Since we power down modem in deep sleep, after wakeup
+     * from deep sleep, these fields are changed and not reset. We will access two BB regs(BBPD_CTRL and
+     * NRXPD_CTRL) in rtc_sleep_pu. If PD modem and no iso, CPU will stuck when access these two BB regs
+     * and finally triggle RTC WDT. So need to clear modem Force PD.
+     *
+     * No worry about the power consumption, Because modem Force PD will be set at the end of this function.
+     */
+    CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
+    CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
+
     CLEAR_PERI_REG_MASK(RTC_CNTL_ANA_CONF_REG, RTC_CNTL_PVTMON_PU | RTC_CNTL_TXRF_I2C_PU |
             RTC_CNTL_RFRX_PBUS_PU | RTC_CNTL_CKGEN_I2C_PU | RTC_CNTL_PLL_I2C_PU);
 
@@ -88,12 +102,17 @@ void rtc_init(rtc_config_t cfg)
         CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_DG_PAD_FORCE_UNHOLD);
         CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_DG_PAD_FORCE_NOISO);
     }
-    /* force power down wifi and bt power domain */
+    /* force power down modem(wifi and btdm) power domain */
     SET_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
     SET_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
 
     REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
     REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
+
+#ifndef BOOTLOADER_BUILD
+    //initialise SAR related peripheral register settings
+    sar_periph_ctrl_init();
+#endif
 }
 
 rtc_vddsdio_config_t rtc_vddsdio_get_config(void)
@@ -110,20 +129,19 @@ rtc_vddsdio_config_t rtc_vddsdio_get_config(void)
         result.tieh = (sdio_conf_reg & RTC_CNTL_SDIO_TIEH_M) >> RTC_CNTL_SDIO_TIEH_S;
         return result;
     }
-    uint32_t efuse_reg = REG_READ(EFUSE_BLK0_RDATA4_REG);
-    if (efuse_reg & EFUSE_RD_SDIO_FORCE) {
+    if (efuse_ll_get_sdio_force()) {
         // Get configuration from EFUSE
         result.force = 0;
-        result.enable = (efuse_reg & EFUSE_RD_XPD_SDIO_REG_M) >> EFUSE_RD_XPD_SDIO_REG_S;
-        result.tieh = (efuse_reg & EFUSE_RD_SDIO_TIEH_M) >> EFUSE_RD_SDIO_TIEH_S;
+        result.enable = efuse_ll_get_xpd_sdio();
+        result.tieh = efuse_ll_get_sdio_tieh();
         //DREFH/M/L eFuse are used for EFUSE_ADC_VREF instead. Therefore tuning
         //will only be available on older chips that don't have EFUSE_ADC_VREF
-        if(REG_GET_FIELD(EFUSE_BLK0_RDATA3_REG ,EFUSE_RD_BLK3_PART_RESERVE) == 0){
+        if(efuse_ll_get_blk3_part_reserve() == 0){
             //BLK3_PART_RESERVE indicates the presence of EFUSE_ADC_VREF
             // in this case, DREFH/M/L are also set from EFUSE
-            result.drefh = (efuse_reg & EFUSE_RD_SDIO_DREFH_M) >> EFUSE_RD_SDIO_DREFH_S;
-            result.drefm = (efuse_reg & EFUSE_RD_SDIO_DREFM_M) >> EFUSE_RD_SDIO_DREFM_S;
-            result.drefl = (efuse_reg & EFUSE_RD_SDIO_DREFL_M) >> EFUSE_RD_SDIO_DREFL_S;
+            result.drefh = efuse_ll_get_sdio_drefh();
+            result.drefm = efuse_ll_get_sdio_drefm();
+            result.drefl = efuse_ll_get_sdio_drefl();
         }
         return result;
     }

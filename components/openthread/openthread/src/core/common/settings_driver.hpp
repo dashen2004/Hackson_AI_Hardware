@@ -50,7 +50,7 @@ class SettingsDriver : public InstanceLocator, private NonCopyable
 {
 public:
     /**
-     * This constructor initializes the `SettingsDriver`.
+     * Initializes the `SettingsDriver`.
      *
      * @param[in]  aInstance     A reference to the OpenThread instance.
      *
@@ -64,20 +64,26 @@ public:
     }
 
     /**
-     * This method initializes the settings storage driver.
+     * Initializes the settings storage driver.
+     *
+     * @param[in]  aSensitiveKeys        A pointer to an array containing the list of sensitive keys.
+     * @param[in]  aSensitiveKeysLength  The number of entries in the @p aSensitiveKeys array.
      *
      */
-    void Init(void)
+    void Init(const uint16_t *aSensitiveKeys, uint16_t aSensitiveKeysLength)
     {
 #if OPENTHREAD_CONFIG_PLATFORM_FLASH_API_ENABLE
+        OT_UNUSED_VARIABLE(aSensitiveKeys);
+        OT_UNUSED_VARIABLE(aSensitiveKeysLength);
+
         mFlash.Init();
 #else
-        otPlatSettingsInit(GetInstancePtr());
+        otPlatSettingsInit(GetInstancePtr(), aSensitiveKeys, aSensitiveKeysLength);
 #endif
     }
 
     /**
-     * This method deinitializes the settings driver.
+     * Deinitializes the settings driver.
      *
      */
     void Deinit(void)
@@ -88,28 +94,11 @@ public:
     }
 
     /**
-     * This method sets the critical keys that should be stored in a secure area.
-     *
-     * @param[in]  aKeys        A pointer to an array containing the list of critical keys.
-     * @param[in]  aKeysLength  The number of entries in the @p aKeys array.
-     *
-     */
-    void SetCriticalKeys(const uint16_t *aKeys, uint16_t aKeysLength)
-    {
-#if OPENTHREAD_CONFIG_PLATFORM_FLASH_API_ENABLE
-        OT_UNUSED_VARIABLE(aKeys);
-        OT_UNUSED_VARIABLE(aKeysLength);
-#else
-        otPlatSettingsSetCriticalKeys(GetInstancePtr(), aKeys, aKeysLength);
-#endif
-    }
-
-    /**
-     * This method adds a value to @p aKey.
+     * Adds a value to @p aKey.
      *
      * @param[in]  aKey          The key associated with the value.
      * @param[in]  aValue        A pointer to where the new value of the setting should be read from.
-     *                           MUST NOT be nullptr if @p aValueLength is non-zero.
+     *                           MUST NOT be `nullptr` if @p aValueLength is non-zero.
      * @param[in]  aValueLength  The length of the data pointed to by @p aValue. May be zero.
      *
      * @retval kErrorNone     The value was added.
@@ -130,7 +119,7 @@ public:
     }
 
     /**
-     * This method removes a value from @p aKey.
+     * Removes a value from @p aKey.
      *
      * @param[in] aKey    The key associated with the value.
      * @param[in] aIndex  The index of the value to be removed.
@@ -153,17 +142,17 @@ public:
     }
 
     /**
-     * This method fetches the value identified by @p aKey at a given @p aIndex.
+     * Fetches the value identified by @p aKey at a given @p aIndex.
      *
-     * @param[in]     aKey          The key associated with the requested value.
-     * @param[in]     aIndex        The index of the specific item to get.
-     * @param[out]    aValue        A pointer to where the value of the setting should be written.
-     *                              May be nullptr if just testing for the presence or length of a key.
-     * @param[inout]  aValueLength  A pointer to the length of the value.
-     *                              When called, this should point to an integer containing the maximum bytes that
-     *                              can be written to @p aValue.
-     *                              At return, the actual length of the setting is written.
-     *                              May be nullptr if performing a presence check.
+     * @param[in]      aKey          The key associated with the requested value.
+     * @param[in]      aIndex        The index of the specific item to get.
+     * @param[out]     aValue        A pointer to where the value of the setting should be written.
+     *                               May be `nullptr` if just testing for the presence or length of a key.
+     * @param[in,out]  aValueLength  A pointer to the length of the value.
+     *                               When called, this should point to an integer containing the maximum bytes that
+     *                               can be written to @p aValue.
+     *                               At return, the actual length of the setting is written.
+     *                               May be `nullptr` if performing a presence check.
      *
      * @retval kErrorNone        The value was fetched successfully.
      * @retval kErrorNotFound    The key was not found.
@@ -183,16 +172,16 @@ public:
     }
 
     /**
-     * This method fetches the value identified by @p aKey.
+     * Fetches the value identified by @p aKey.
      *
-     * @param[in]     aKey          The key associated with the requested value.
-     * @param[out]    aValue        A pointer to where the value of the setting should be written.
-     *                              May be nullptr if just testing for the presence or length of a key.
-     * @param[inout]  aValueLength  A pointer to the length of the value.
-     *                              When called, this should point to an integer containing the maximum bytes that
-     *                              can be written to @p aValue.
-     *                              At return, the actual length of the setting is written.
-     *                              May be nullptr if performing a presence check.
+     * @param[in]      aKey          The key associated with the requested value.
+     * @param[out]     aValue        A pointer to where the value of the setting should be written.
+     *                               May be `nullptr` if just testing for the presence or length of a key.
+     * @param[in,out]  aValueLength  A pointer to the length of the value.
+     *                               When called, this should point to an integer containing the maximum bytes that
+     *                               can be written to @p aValue.
+     *                               At return, the actual length of the setting is written.
+     *                               May be `nullptr` if performing a presence check.
      *
      * @retval kErrorNone        The value was fetched successfully.
      * @retval kErrorNotFound    The key was not found.
@@ -201,14 +190,14 @@ public:
     Error Get(uint16_t aKey, void *aValue, uint16_t *aValueLength) const { return Get(aKey, 0, aValue, aValueLength); }
 
     /**
-     * This method sets or replaces the value identified by @p aKey.
+     * Sets or replaces the value identified by @p aKey.
      *
      * If there was more than one value previously associated with @p aKey, then they are all deleted and replaced with
      * this single entry.
      *
      * @param[in]  aKey          The key associated with the value.
      * @param[in]  aValue        A pointer to where the new value of the setting should be read from.
-     *                           MUST NOT be nullptr if @p aValueLength is non-zero.
+     *                           MUST NOT be `nullptr` if @p aValueLength is non-zero.
      * @param[in]  aValueLength  The length of the data pointed to by @p aValue. May be zero.
      *
      * @retval kErrorNone     The value was changed.
@@ -229,7 +218,7 @@ public:
     }
 
     /**
-     * This method removes all values.
+     * Removes all values.
      *
      */
     void Wipe(void)

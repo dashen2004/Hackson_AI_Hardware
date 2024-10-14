@@ -1,25 +1,19 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #ifndef nvs_storage_hpp
 #define nvs_storage_hpp
 
 #include <memory>
+#include <cstdlib>
 #include <unordered_map>
 #include "nvs.hpp"
 #include "nvs_types.hpp"
 #include "nvs_page.hpp"
 #include "nvs_pagemanager.hpp"
+#include "nvs_memory_management.hpp"
 #include "partition.hpp"
 
 //extern void dumpBytes(const uint8_t* data, size_t count);
@@ -27,14 +21,14 @@
 namespace nvs
 {
 
-class Storage : public intrusive_list_node<Storage>
+class Storage : public intrusive_list_node<Storage>, public ExceptionlessAllocatable
 {
     enum class StorageState : uint32_t {
         INVALID,
         ACTIVE,
     };
 
-    struct NamespaceEntry : public intrusive_list_node<NamespaceEntry> {
+    struct NamespaceEntry : public intrusive_list_node<NamespaceEntry>, public ExceptionlessAllocatable {
     public:
         char mName[Item::MAX_KEY_LENGTH + 1];
         uint8_t mIndex;
@@ -42,18 +36,21 @@ class Storage : public intrusive_list_node<Storage>
 
     typedef intrusive_list<NamespaceEntry> TNamespaces;
 
-    struct UsedPageNode: public intrusive_list_node<UsedPageNode> {
+    struct UsedPageNode: public intrusive_list_node<UsedPageNode>, public ExceptionlessAllocatable {
         public: Page* mPage;
     };
 
     typedef intrusive_list<UsedPageNode> TUsedPageList;
 
-    struct BlobIndexNode: public intrusive_list_node<BlobIndexNode> {
+    struct BlobIndexNode: public intrusive_list_node<BlobIndexNode>, public ExceptionlessAllocatable {
         public:
             char key[Item::MAX_KEY_LENGTH + 1];
             uint8_t nsIndex;
             uint8_t chunkCount;
             VerOffset chunkStart;
+            size_t dataSize;
+            size_t observedDataSize;
+            size_t observedChunkCount;
     };
 
     typedef intrusive_list<BlobIndexNode> TBlobIndexList;
@@ -76,6 +73,8 @@ public:
     esp_err_t writeItem(uint8_t nsIndex, ItemType datatype, const char* key, const void* data, size_t dataSize);
 
     esp_err_t readItem(uint8_t nsIndex, ItemType datatype, const char* key, void* data, size_t dataSize);
+
+    esp_err_t findKey(const uint8_t nsIndex, const char* key, ItemType* datatype);
 
     esp_err_t getItemDataSize(uint8_t nsIndex, ItemType datatype, const char* key, size_t& dataSize);
 
@@ -131,7 +130,9 @@ public:
 
     esp_err_t calcEntriesInNamespace(uint8_t nsIndex, size_t& usedEntries);
 
-    bool findEntry(nvs_opaque_iterator_t*, const char* name);
+    bool findEntry(nvs_opaque_iterator_t* it, const char* name);
+
+    bool findEntryNs(nvs_opaque_iterator_t* it, uint8_t nsIndex);
 
     bool nextEntry(nvs_opaque_iterator_t* it);
 
@@ -145,6 +146,8 @@ protected:
     void clearNamespaces();
 
     esp_err_t populateBlobIndices(TBlobIndexList&);
+
+    void eraseMismatchedBlobIndexes(TBlobIndexList&);
 
     void eraseOrphanDataBlobs(TBlobIndexList&);
 

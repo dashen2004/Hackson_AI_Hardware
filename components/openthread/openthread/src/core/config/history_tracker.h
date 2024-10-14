@@ -36,6 +36,16 @@
 #define CONFIG_HISTORY_TRACKER_H_
 
 /**
+ * @addtogroup config-history-tracker
+ *
+ * @brief
+ *   This module includes configuration variables for History Tracker.
+ *
+ * @{
+ *
+ */
+
+/**
  * @def OPENTHREAD_CONFIG_HISTORY_TRACKER_ENABLE
  *
  * Define as 1 to enable History Tracker module.
@@ -126,5 +136,46 @@
 #ifndef OPENTHREAD_CONFIG_HISTORY_TRACKER_NEIGHBOR_LIST_SIZE
 #define OPENTHREAD_CONFIG_HISTORY_TRACKER_NEIGHBOR_LIST_SIZE 64
 #endif
+
+/**
+ * @def OPENTHREAD_CONFIG_HISTORY_TRACKER_ROUTER_LIST_SIZE
+ *
+ * Specifies the maximum number of entries in router table history list.
+ *
+ * Can be set to zero to configure History Tracker module not to collect any router table history.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_HISTORY_TRACKER_ROUTER_LIST_SIZE
+#define OPENTHREAD_CONFIG_HISTORY_TRACKER_ROUTER_LIST_SIZE 256
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_HISTORY_TRACKER_ON_MESH_PREFIX_LIST_SIZE
+ *
+ * Specifies the maximum number of entries in Network Data On Mesh Prefix history list.
+ *
+ * Can be set to zero to configure History Tracker module not to collect prefix info.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_HISTORY_TRACKER_ON_MESH_PREFIX_LIST_SIZE
+#define OPENTHREAD_CONFIG_HISTORY_TRACKER_ON_MESH_PREFIX_LIST_SIZE 32
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_HISTORY_TRACKER_EXTERNAL_ROUTE_LIST_SIZE
+ *
+ * Specifies the maximum number of entries in Network Data External Route history list.
+ *
+ * Can be set to zero to configure History Tracker module not to collect route info.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_HISTORY_TRACKER_EXTERNAL_ROUTE_LIST_SIZE
+#define OPENTHREAD_CONFIG_HISTORY_TRACKER_EXTERNAL_ROUTE_LIST_SIZE 32
+#endif
+
+/**
+ * @}
+ *
+ */
 
 #endif // CONFIG_HISTORY_TRACKER_H_

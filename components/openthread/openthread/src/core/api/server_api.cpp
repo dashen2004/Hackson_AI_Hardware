@@ -44,7 +44,8 @@ using namespace ot;
 
 otError otServerGetNetDataLocal(otInstance *aInstance, bool aStable, uint8_t *aData, uint8_t *aDataLength)
 {
-    return AsCoreType(aInstance).Get<NetworkData::Local>().CopyNetworkData(aStable, aData, *aDataLength);
+    return AsCoreType(aInstance).Get<NetworkData::Local>().CopyNetworkData(
+        aStable ? NetworkData::kStableSubset : NetworkData::kFullSet, aData, *aDataLength);
 }
 
 otError otServerAddService(otInstance *aInstance, const otServiceConfig *aConfig)
@@ -59,7 +60,7 @@ otError otServerAddService(otInstance *aInstance, const otServiceConfig *aConfig
                                                                       aConfig->mServerConfig.mStable, serverData);
 }
 
-otError otServerRemoveService(otInstance *   aInstance,
+otError otServerRemoveService(otInstance    *aInstance,
                               uint32_t       aEnterpriseNumber,
                               const uint8_t *aServiceData,
                               uint8_t        aServiceDataLength)

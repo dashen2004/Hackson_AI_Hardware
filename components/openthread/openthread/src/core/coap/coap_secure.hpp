@@ -31,11 +31,12 @@
 
 #include "openthread-core-config.h"
 
-#if OPENTHREAD_CONFIG_DTLS_ENABLE
+#if OPENTHREAD_CONFIG_SECURE_TRANSPORT_ENABLE
 
 #include "coap/coap.hpp"
-#include "meshcop/dtls.hpp"
+#include "common/callback.hpp"
 #include "meshcop/meshcop.hpp"
+#include "meshcop/secure_transport.hpp"
 
 #include <openthread/coap_secure.h>
 
@@ -52,7 +53,7 @@ class CoapSecure : public CoapBase
 {
 public:
     /**
-     * This function pointer is called once DTLS connection is established.
+     * Pointer is called once DTLS connection is established.
      *
      * @param[in]  aConnected  TRUE if a connection was established, FALSE otherwise.
      * @param[in]  aContext    A pointer to arbitrary context information.
@@ -61,7 +62,14 @@ public:
     typedef void (*ConnectedCallback)(bool aConnected, void *aContext);
 
     /**
-     * This constructor initializes the object.
+     * Callback to notify when the agent is automatically stopped due to reaching the maximum number of connection
+     * attempts.
+     *
+     */
+    typedef otCoapSecureAutoStopCallback AutoStopCallback;
+
+    /**
+     * Initializes the object.
      *
      * @param[in]  aInstance           A reference to the OpenThread instance.
      * @param[in]  aLayerTwoSecurity   Specifies whether to use layer two security or not.
@@ -70,7 +78,7 @@ public:
     explicit CoapSecure(Instance &aInstance, bool aLayerTwoSecurity = false);
 
     /**
-     * This method starts the secure CoAP agent.
+     * Starts the secure CoAP agent.
      *
      * @param[in]  aPort      The local UDP port to bind to.
      *
@@ -81,7 +89,22 @@ public:
     Error Start(uint16_t aPort);
 
     /**
-     * This method starts the secure CoAP agent, but do not use socket to transmit/receive messages.
+     * Starts the secure CoAP agent and sets the maximum number of allowed connection attempts before stopping the
+     * agent automatically.
+     *
+     * @param[in] aPort           The local UDP port to bind to.
+     * @param[in] aMaxAttempts    Maximum number of allowed connection request attempts. Zero indicates no limit.
+     * @param[in] aCallback       Callback to notify if max number of attempts has reached and agent is stopped.
+     * @param[in] aContext        A pointer to arbitrary context to use with `AutoStopCallback`.
+     *
+     * @retval kErrorNone        Successfully started the CoAP agent.
+     * @retval kErrorAlready     Already started.
+     *
+     */
+    Error Start(uint16_t aPort, uint16_t aMaxAttempts, AutoStopCallback aCallback, void *aContext);
+
+    /**
+     * Starts the secure CoAP agent, but do not use socket to transmit/receive messages.
      *
      * @param[in]  aCallback  A pointer to a function for sending messages.
      * @param[in]  aContext   A pointer to arbitrary context information.
@@ -90,10 +113,10 @@ public:
      * @retval kErrorAlready     Already started.
      *
      */
-    Error Start(MeshCoP::Dtls::TransportCallback aCallback, void *aContext);
+    Error Start(MeshCoP::SecureTransport::TransportCallback aCallback, void *aContext);
 
     /**
-     * This method sets connected callback of this secure CoAP agent.
+     * Sets connected callback of this secure CoAP agent.
      *
      * @param[in]  aCallback  A pointer to a function to get called when connection state changes.
      * @param[in]  aContext   A pointer to arbitrary context information.
@@ -101,18 +124,17 @@ public:
      */
     void SetConnectedCallback(ConnectedCallback aCallback, void *aContext)
     {
-        mConnectedCallback = aCallback;
-        mConnectedContext  = aContext;
+        mConnectedCallback.Set(aCallback, aContext);
     }
 
     /**
-     * This method stops the secure CoAP agent.
+     * Stops the secure CoAP agent.
      *
      */
     void Stop(void);
 
     /**
-     * This method initializes DTLS session with a peer.
+     * Initializes DTLS session with a peer.
      *
      * @param[in]  aSockAddr               A reference to the remote socket address,
      * @param[in]  aCallback               A pointer to a function that will be called once DTLS connection is
@@ -124,7 +146,7 @@ public:
     Error Connect(const Ip6::SockAddr &aSockAddr, ConnectedCallback aCallback, void *aContext);
 
     /**
-     * This method indicates whether or not the DTLS session is active.
+     * Indicates whether or not the DTLS session is active.
      *
      * @retval TRUE  If DTLS session is active.
      * @retval FALSE If DTLS session is not active.
@@ -133,7 +155,7 @@ public:
     bool IsConnectionActive(void) const { return mDtls.IsConnectionActive(); }
 
     /**
-     * This method indicates whether or not the DTLS session is connected.
+     * Indicates whether or not the DTLS session is connected.
      *
      * @retval TRUE   The DTLS session is connected.
      * @retval FALSE  The DTLS session is not connected.
@@ -142,21 +164,30 @@ public:
     bool IsConnected(void) const { return mDtls.IsConnected(); }
 
     /**
-     * This method stops the DTLS connection.
+     * Indicates whether or not the DTLS session is closed.
+     *
+     * @retval TRUE   The DTLS session is closed
+     * @retval FALSE  The DTLS session is not closed.
+     *
+     */
+    bool IsClosed(void) const { return mDtls.IsClosed(); }
+
+    /**
+     * Stops the DTLS connection.
      *
      */
     void Disconnect(void) { mDtls.Disconnect(); }
 
     /**
-     * This method returns a reference to the DTLS object.
+     * Returns a reference to the DTLS object.
      *
      * @returns  A reference to the DTLS object.
      *
      */
-    MeshCoP::Dtls &GetDtls(void) { return mDtls; }
+    MeshCoP::SecureTransport &GetDtls(void) { return mDtls; }
 
     /**
-     * This method gets the UDP port of this agent.
+     * Gets the UDP port of this agent.
      *
      * @returns  UDP port number.
      *
@@ -164,7 +195,7 @@ public:
     uint16_t GetUdpPort(void) const { return mDtls.GetUdpPort(); }
 
     /**
-     * This method sets the PSK.
+     * Sets the PSK.
      *
      * @param[in]  aPsk        A pointer to the PSK.
      * @param[in]  aPskLength  The PSK length.
@@ -176,7 +207,7 @@ public:
     Error SetPsk(const uint8_t *aPsk, uint8_t aPskLength) { return mDtls.SetPsk(aPsk, aPskLength); }
 
     /**
-     * This method sets the PSK.
+     * Sets the PSK.
      *
      * @param[in]  aPskd  A Joiner PSKd.
      *
@@ -187,7 +218,7 @@ public:
 
 #ifdef MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
     /**
-     * This method sets the Pre-Shared Key (PSK) for DTLS sessions identified by a PSK.
+     * Sets the Pre-Shared Key (PSK) for DTLS sessions identified by a PSK.
      *
      * DTLS mode "TLS with AES 128 CCM 8" for Application CoAPS.
      *
@@ -205,12 +236,12 @@ public:
 
 #ifdef MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED
     /**
-     * This method sets a X509 certificate with corresponding private key for DTLS session.
+     * Sets a X509 certificate with corresponding private key for DTLS session.
      *
      * DTLS mode "ECDHE ECDSA with AES 128 CCM 8" for Application CoAPS.
      *
-     * @param[in]  aX509Certificate   A pointer to the PEM formatted X509 PEM certificate.
-     * @param[in]  aX509CertLength    The length of certificate.
+     * @param[in]  aX509Cert          A pointer to the PEM formatted X509 PEM certificate.
+     * @param[in]  aX509Length        The length of certificate.
      * @param[in]  aPrivateKey        A pointer to the PEM formatted private key.
      * @param[in]  aPrivateKeyLength  The length of the private key.
      *
@@ -224,7 +255,7 @@ public:
     }
 
     /**
-     * This method sets the trusted top level CAs. It is needed for validate the certificate of the peer.
+     * Sets the trusted top level CAs. It is needed for validate the certificate of the peer.
      *
      * DTLS mode "ECDHE ECDSA with AES 128 CCM 8" for Application CoAPS.
      *
@@ -240,7 +271,7 @@ public:
 
 #if defined(MBEDTLS_BASE64_C) && defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
     /**
-     * This method returns the peer x509 certificate base64 encoded.
+     * Returns the peer x509 certificate base64 encoded.
      *
      * DTLS mode "ECDHE ECDSA with AES 128 CCM 8" for Application CoAPS.
      *
@@ -259,20 +290,7 @@ public:
 #endif // defined(MBEDTLS_BASE64_C) && defined(MBEDTLS_SSL_KEEP_PEER_CERTIFICATE)
 
     /**
-     * This method sets the connected callback to indicate, when a Client connect to the CoAP Secure server.
-     *
-     * @param[in]  aCallback     A pointer to a function that will be called once DTLS connection is established.
-     * @param[in]  aContext      A pointer to arbitrary context information.
-     *
-     */
-    void SetClientConnectedCallback(ConnectedCallback aCallback, void *aContext)
-    {
-        mConnectedCallback = aCallback;
-        mConnectedContext  = aContext;
-    }
-
-    /**
-     * This method sets the authentication mode for the CoAP secure connection. It disables or enables the verification
+     * Sets the authentication mode for the CoAP secure connection. It disables or enables the verification
      * of peer certificate.
      *
      * @param[in]  aVerifyPeerCertificate  true, if the peer certificate should be verified
@@ -284,7 +302,7 @@ public:
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
     /**
-     * This method sends a CoAP message over secure DTLS connection.
+     * Sends a CoAP message over secure DTLS connection.
      *
      * If a response for a request is expected, respective function and context information should be provided.
      * If no response is expected, these arguments should be NULL pointers.
@@ -301,14 +319,14 @@ public:
      * @retval kErrorInvalidState  DTLS connection was not initialized.
      *
      */
-    Error SendMessage(Message &                   aMessage,
+    Error SendMessage(Message                    &aMessage,
                       ResponseHandler             aHandler      = nullptr,
-                      void *                      aContext      = nullptr,
+                      void                       *aContext      = nullptr,
                       otCoapBlockwiseTransmitHook aTransmitHook = nullptr,
                       otCoapBlockwiseReceiveHook  aReceiveHook  = nullptr);
 
     /**
-     * This method sends a CoAP message over secure DTLS connection.
+     * Sends a CoAP message over secure DTLS connection.
      *
      * If a response for a request is expected, respective function and context information should be provided.
      * If no response is expected, these arguments should be NULL pointers.
@@ -326,15 +344,15 @@ public:
      * @retval kErrorInvalidState  DTLS connection was not initialized.
      *
      */
-    Error SendMessage(Message &                   aMessage,
-                      const Ip6::MessageInfo &    aMessageInfo,
+    Error SendMessage(Message                    &aMessage,
+                      const Ip6::MessageInfo     &aMessageInfo,
                       ResponseHandler             aHandler      = nullptr,
-                      void *                      aContext      = nullptr,
+                      void                       *aContext      = nullptr,
                       otCoapBlockwiseTransmitHook aTransmitHook = nullptr,
                       otCoapBlockwiseReceiveHook  aReceiveHook  = nullptr);
 #else  // OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
     /**
-     * This method sends a CoAP message over secure DTLS connection.
+     * Sends a CoAP message over secure DTLS connection.
      *
      * If a response for a request is expected, respective function and context information should be provided.
      * If no response is expected, these arguments should be nullptr pointers.
@@ -352,7 +370,7 @@ public:
     Error SendMessage(Message &aMessage, ResponseHandler aHandler = nullptr, void *aContext = nullptr);
 
     /**
-     * This method sends a CoAP message over secure DTLS connection.
+     * Sends a CoAP message over secure DTLS connection.
      *
      * If a response for a request is expected, respective function and context information should be provided.
      * If no response is expected, these arguments should be nullptr pointers.
@@ -368,14 +386,14 @@ public:
      * @retval kErrorInvalidState  DTLS connection was not initialized.
      *
      */
-    Error SendMessage(Message &               aMessage,
+    Error SendMessage(Message                &aMessage,
                       const Ip6::MessageInfo &aMessageInfo,
                       ResponseHandler         aHandler = nullptr,
-                      void *                  aContext = nullptr);
+                      void                   *aContext = nullptr);
 #endif // OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
 
     /**
-     * This method is used to pass UDP messages to the secure CoAP server.
+     * Is used to pass UDP messages to the secure CoAP server.
      *
      * @param[in]  aMessage      A reference to the received message.
      * @param[in]  aMessageInfo  A reference to the message info associated with @p aMessage.
@@ -383,11 +401,11 @@ public:
      */
     void HandleUdpReceive(ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
     {
-        return mDtls.HandleUdpReceive(aMessage, aMessageInfo);
+        return mDtls.HandleReceive(aMessage, aMessageInfo);
     }
 
     /**
-     * This method returns the DTLS session's peer address.
+     * Returns the DTLS session's peer address.
      *
      * @return DTLS session's message info.
      *
@@ -395,6 +413,8 @@ public:
     const Ip6::MessageInfo &GetMessageInfo(void) const { return mDtls.GetMessageInfo(); }
 
 private:
+    Error Open(uint16_t aMaxAttempts, AutoStopCallback aCallback, void *aContext);
+
     static Error Send(CoapBase &aCoapBase, ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
     {
         return static_cast<CoapSecure &>(aCoapBase).Send(aMessage, aMessageInfo);
@@ -404,22 +424,25 @@ private:
     static void HandleDtlsConnected(void *aContext, bool aConnected);
     void        HandleDtlsConnected(bool aConnected);
 
+    static void HandleDtlsAutoClose(void *aContext);
+    void        HandleDtlsAutoClose(void);
+
     static void HandleDtlsReceive(void *aContext, uint8_t *aBuf, uint16_t aLength);
     void        HandleDtlsReceive(uint8_t *aBuf, uint16_t aLength);
 
     static void HandleTransmit(Tasklet &aTasklet);
     void        HandleTransmit(void);
 
-    MeshCoP::Dtls     mDtls;
-    ConnectedCallback mConnectedCallback;
-    void *            mConnectedContext;
-    ot::MessageQueue  mTransmitQueue;
-    TaskletContext    mTransmitTask;
+    MeshCoP::SecureTransport    mDtls;
+    Callback<ConnectedCallback> mConnectedCallback;
+    Callback<AutoStopCallback>  mAutoStopCallback;
+    ot::MessageQueue            mTransmitQueue;
+    TaskletContext              mTransmitTask;
 };
 
 } // namespace Coap
 } // namespace ot
 
-#endif // OPENTHREAD_CONFIG_DTLS_ENABLE
+#endif // OPENTHREAD_CONFIG_SECURE_TRANSPORT_ENABLE
 
 #endif // COAP_SECURE_HPP_

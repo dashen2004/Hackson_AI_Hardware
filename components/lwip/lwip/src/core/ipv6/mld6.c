@@ -5,12 +5,12 @@
  * @defgroup mld6 MLD6
  * @ingroup ip6
  * Multicast listener discovery for IPv6. Aims to be compliant with RFC 2710.
- * No support for MLDv2.\n
- * Note: The allnodes (ff01::1, ff02::1) group is assumed be received by your 
+ * No support for MLDv2.<br>
+ * Note: The allnodes (ff01::1, ff02::1) group is assumed be received by your
  * netif since it must always be received for correct IPv6 operation (e.g. SLAAC).
- * Ensure the netif filters are configured accordingly!\n
+ * Ensure the netif filters are configured accordingly!<br>
  * The netif flags also need NETIF_FLAG_MLD6 flag set to enable MLD6 on a
- * netif ("netif->flags |= NETIF_FLAG_MLD6;").\n
+ * netif ("netif->flags |= NETIF_FLAG_MLD6;").<br>
  * To be called from TCPIP thread.
  */
 
@@ -88,7 +88,7 @@ static void mld6_delayed_report(struct mld_group *group, u16_t maxresp);
 static void mld6_send(struct netif *netif, struct mld_group *group, u8_t type);
 
 #if ESP_LWIP_MLD6_TIMERS_ONDEMAND
-#include "stdbool.h"
+#include <stdbool.h>
 static bool is_tmr_start = false;
 #endif
 
@@ -151,7 +151,7 @@ mld6_lookfor_group(struct netif *ifp, const ip6_addr_t *addr)
   struct mld_group *group = netif_mld6_data(ifp);
 
   while (group != NULL) {
-    if (ip6_addr_cmp(&(group->group_address), addr)) {
+    if (ip6_addr_eq(&(group->group_address), addr)) {
       return group;
     }
     group = group->next;
@@ -258,7 +258,7 @@ mld6_input(struct pbuf *p, struct netif *inp)
       while (group != NULL) {
         if ((!(ip6_addr_ismulticast_iflocal(&(group->group_address)))) &&
             (!(ip6_addr_isallnodes_linklocal(&(group->group_address))))) {
-          mld6_delayed_report(group, mld_hdr->max_resp_delay);
+          mld6_delayed_report(group, lwip_ntohs(mld_hdr->max_resp_delay));
         }
         group = group->next;
       }
@@ -270,7 +270,7 @@ mld6_input(struct pbuf *p, struct netif *inp)
       group = mld6_lookfor_group(inp, ip6_current_dest_addr());
       if (group != NULL) {
         /* Schedule a report. */
-        mld6_delayed_report(group, mld_hdr->max_resp_delay);
+        mld6_delayed_report(group, lwip_ntohs(mld_hdr->max_resp_delay));
       }
     }
     break; /* ICMP6_TYPE_MLQ */
@@ -321,7 +321,9 @@ mld6_joingroup(const ip6_addr_t *srcaddr, const ip6_addr_t *groupaddr)
 {
   err_t         err = ERR_VAL; /* no matching interface */
   struct netif *netif;
+
   LWIP_ASSERT_CORE_LOCKED();
+
   /* loop through netif's */
   NETIF_FOREACH(netif) {
     /* Should we join this interface ? */
@@ -352,9 +354,10 @@ mld6_joingroup_netif(struct netif *netif, const ip6_addr_t *groupaddr)
   struct mld_group *group;
 #if LWIP_IPV6_SCOPES
   ip6_addr_t ip6addr;
-#if ESP_IPV6
+
+  /* make sure it is multicast address */
   LWIP_ERROR("mld6_joingroup: attempt to join non-multicast address", ip6_addr_ismulticast(groupaddr), return ERR_VAL;);
-#endif
+
   /* If the address has a particular scope but no zone set, use the netif to
    * set one now. Within the mld6 module, all addresses are properly zoned. */
   if (ip6_addr_lacks_zone(groupaddr, IP6_MULTICAST)) {

@@ -116,7 +116,7 @@
 
 - OpenThread uses `script/make-pretty` to reformat code and enforce code format and style. `script/make-pretty check` build target is included in OpenThread's continuous integration and must pass before a pull request is merged.
 
-- `script/make-pretty` requires [clang-format v9.0.0](https://releases.llvm.org/download.html#9.0.0) for C/C++ and [yapf v0.31.0](https://github.com/google/yapf) for Python.
+- `script/make-pretty` requires [clang-format v14.0.0](https://releases.llvm.org/download.html#14.0.0) for C/C++ and [yapf v0.31.0](https://github.com/google/yapf) for Python.
 
 ### File Names
 
@@ -175,6 +175,14 @@
   - Describes in detail, optionally, what it is and what it does.
   - Describes the purpose, function, and influence of each parameter as well as whether it is an input, an output, or both.
   - Describes the return value, if present, and the expected range or constraints of it.
+
+If your description is longer than 120 characters, continue the comment on the next line:
+
+```
+ * @brief
+ *   Records the history of different events, for example RX and TX messages or network info changes. All tracked
+ *   entries are timestamped.
+```
 
 # Python
 

@@ -35,15 +35,14 @@
 
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
-#include "common/instance.hpp"
-#include "common/logging.hpp"
+#include "common/num_utils.hpp"
+#include "common/numeric_limits.hpp"
 #include "common/random.hpp"
 #include "common/string.hpp"
+#include "instance/instance.hpp"
 
 namespace ot {
 namespace Dns {
-
-using ot::Encoding::BigEndian::HostSwap16;
 
 Error Header::SetRandomMessageId(void)
 {
@@ -77,6 +76,7 @@ Error Header::ResponseCodeToError(Response aResponse)
         break;
 
     case kResponseNotImplemented: // Server does not support the query type (OpCode).
+    case kDsoTypeNotImplemented:  // DSO TLV type is not implemented.
         error = kErrorNotImplemented;
         break;
 
@@ -99,6 +99,69 @@ Error Header::ResponseCodeToError(Response aResponse)
     }
 
     return error;
+}
+
+bool Name::Matches(const char *aFirstLabel, const char *aLabels, const char *aDomain) const
+{
+    bool matches = false;
+
+    VerifyOrExit(!IsEmpty());
+
+    if (IsFromCString())
+    {
+        const char *namePtr = mString;
+
+        if (aFirstLabel != nullptr)
+        {
+            matches = CompareAndSkipLabels(namePtr, aFirstLabel, kLabelSeparatorChar);
+            VerifyOrExit(matches);
+        }
+
+        matches = CompareAndSkipLabels(namePtr, aLabels, kLabelSeparatorChar);
+        VerifyOrExit(matches);
+
+        matches = CompareAndSkipLabels(namePtr, aDomain, kNullChar);
+    }
+    else
+    {
+        uint16_t offset = mOffset;
+
+        if (aFirstLabel != nullptr)
+        {
+            SuccessOrExit(CompareLabel(*mMessage, offset, aFirstLabel));
+        }
+
+        SuccessOrExit(CompareMultipleLabels(*mMessage, offset, aLabels));
+        SuccessOrExit(CompareName(*mMessage, offset, aDomain));
+        matches = true;
+    }
+
+exit:
+    return matches;
+}
+
+bool Name::CompareAndSkipLabels(const char *&aNamePtr, const char *aLabels, char aExpectedNextChar)
+{
+    // Compares `aNamePtr` to the label string `aLabels` followed by
+    // the `aExpectedNextChar`(using case-insensitive match). Upon
+    // successful comparison, `aNamePtr` is advanced to point after
+    // the matched portion.
+
+    bool     matches = false;
+    uint16_t len     = StringLength(aLabels, kMaxNameSize);
+
+    VerifyOrExit(len < kMaxNameSize);
+
+    VerifyOrExit(StringStartsWith(aNamePtr, aLabels, kStringCaseInsensitiveMatch));
+    aNamePtr += len;
+
+    VerifyOrExit(*aNamePtr == aExpectedNextChar);
+    aNamePtr++;
+
+    matches = true;
+
+exit:
+    return matches;
 }
 
 Error Name::AppendTo(Message &aMessage) const
@@ -166,11 +229,6 @@ exit:
 
 Error Name::AppendMultipleLabels(const char *aLabels, Message &aMessage)
 {
-    return AppendMultipleLabels(aLabels, kMaxNameLength, aMessage);
-}
-
-Error Name::AppendMultipleLabels(const char *aLabels, uint8_t aLength, Message &aMessage)
-{
     Error    error           = kErrorNone;
     uint16_t index           = 0;
     uint16_t labelStartIndex = 0;
@@ -180,9 +238,9 @@ Error Name::AppendMultipleLabels(const char *aLabels, uint8_t aLength, Message &
 
     do
     {
-        ch = index < aLength ? aLabels[index] : static_cast<char>(kNullChar);
+        ch = aLabels[index];
 
-        if ((ch == kNullChar) || (ch == kLabelSeperatorChar))
+        if ((ch == kNullChar) || (ch == kLabelSeparatorChar))
         {
             uint8_t labelLength = static_cast<uint8_t>(index - labelStartIndex);
 
@@ -248,7 +306,7 @@ Error Name::AppendPointerLabel(uint16_t aOffset, Message &aMessage)
 
     OT_ASSERT(aOffset < kPointerLabelTypeUint16);
 
-    value = HostSwap16(aOffset | kPointerLabelTypeUint16);
+    value = BigEndian::HostSwap16(aOffset | kPointerLabelTypeUint16);
 
     ExitNow(error = aMessage.Append(value));
 
@@ -327,15 +385,15 @@ Error Name::ReadName(const Message &aMessage, uint16_t &aOffset, char *aNameBuff
 
             if (!firstLabel)
             {
-                *aNameBuffer++ = kLabelSeperatorChar;
+                *aNameBuffer++ = kLabelSeparatorChar;
                 aNameBufferSize--;
 
                 // No need to check if we have reached end of the name buffer
                 // here since `iterator.ReadLabel()` would verify it.
             }
 
-            labelLength = static_cast<uint8_t>(OT_MIN(static_cast<uint8_t>(kMaxLabelSize), aNameBufferSize));
-            SuccessOrExit(error = iterator.ReadLabel(aNameBuffer, labelLength, /* aAllowDotCharInLabel */ false));
+            labelLength = static_cast<uint8_t>(Min(static_cast<uint16_t>(kMaxLabelSize), aNameBufferSize));
+            SuccessOrExit(error = iterator.ReadLabel(aNameBuffer, labelLength, /* aAllowDotCharInLabel */ firstLabel));
             aNameBuffer += labelLength;
             aNameBufferSize -= labelLength;
             firstLabel = false;
@@ -344,7 +402,7 @@ Error Name::ReadName(const Message &aMessage, uint16_t &aOffset, char *aNameBuff
         case kErrorNotFound:
             // We reach the end of name successfully. Always add a terminating dot
             // at the end.
-            *aNameBuffer++ = kLabelSeperatorChar;
+            *aNameBuffer++ = kLabelSeparatorChar;
             aNameBufferSize--;
             VerifyOrExit(aNameBufferSize >= sizeof(uint8_t), error = kErrorNoBufs);
             *aNameBuffer = kNullChar;
@@ -368,8 +426,29 @@ Error Name::CompareLabel(const Message &aMessage, uint16_t &aOffset, const char 
     LabelIterator iterator(aMessage, aOffset);
 
     SuccessOrExit(error = iterator.GetNextLabel());
-    VerifyOrExit(iterator.CompareLabel(aLabel, /* aIsSingleLabel */ true), error = kErrorNotFound);
+    VerifyOrExit(iterator.CompareLabel(aLabel, kIsSingleLabel), error = kErrorNotFound);
     aOffset = iterator.mNextLabelOffset;
+
+exit:
+    return error;
+}
+
+Error Name::CompareMultipleLabels(const Message &aMessage, uint16_t &aOffset, const char *aLabels)
+{
+    Error         error;
+    LabelIterator iterator(aMessage, aOffset);
+
+    while (true)
+    {
+        SuccessOrExit(error = iterator.GetNextLabel());
+        VerifyOrExit(iterator.CompareLabel(aLabels, !kIsSingleLabel), error = kErrorNotFound);
+
+        if (*aLabels == kNullChar)
+        {
+            aOffset = iterator.mNextLabelOffset;
+            ExitNow();
+        }
+    }
 
 exit:
     return error;
@@ -381,7 +460,7 @@ Error Name::CompareName(const Message &aMessage, uint16_t &aOffset, const char *
     LabelIterator iterator(aMessage, aOffset);
     bool          matches = true;
 
-    if (*aName == kLabelSeperatorChar)
+    if (*aName == kLabelSeparatorChar)
     {
         aName++;
         VerifyOrExit(*aName == kNullChar, error = kErrorInvalidArgs);
@@ -394,7 +473,7 @@ Error Name::CompareName(const Message &aMessage, uint16_t &aOffset, const char *
         switch (error)
         {
         case kErrorNone:
-            if (matches && !iterator.CompareLabel(aName, /* aIsSingleLabel */ false))
+            if (matches && !iterator.CompareLabel(aName, !kIsSingleLabel))
             {
                 matches = false;
             }
@@ -521,6 +600,7 @@ Error Name::LabelIterator::GetNextLabel(void)
             // specify an offset value from the start of the DNS header.
 
             uint16_t pointerValue;
+            uint16_t nextLabelOffset;
 
             SuccessOrExit(error = mMessage.Read(mNextLabelOffset, pointerValue));
 
@@ -531,7 +611,10 @@ Error Name::LabelIterator::GetNextLabel(void)
 
             // `mMessage.GetOffset()` must point to the start of the
             // DNS header.
-            mNextLabelOffset = mMessage.GetOffset() + (HostSwap16(pointerValue) & kPointerLabelOffsetMask);
+            nextLabelOffset = mMessage.GetOffset() + (BigEndian::HostSwap16(pointerValue) & kPointerLabelOffsetMask);
+            VerifyOrExit(nextLabelOffset < mMinLabelOffset, error = kErrorParse);
+            mNextLabelOffset = nextLabelOffset;
+            mMinLabelOffset  = nextLabelOffset;
 
             // Go back through the `while(true)` loop to get the next label.
         }
@@ -557,11 +640,16 @@ Error Name::LabelIterator::ReadLabel(char *aLabelBuffer, uint8_t &aLabelLength, 
 
     if (!aAllowDotCharInLabel)
     {
-        VerifyOrExit(StringFind(aLabelBuffer, kLabelSeperatorChar) == nullptr, error = kErrorParse);
+        VerifyOrExit(StringFind(aLabelBuffer, kLabelSeparatorChar) == nullptr, error = kErrorParse);
     }
 
 exit:
     return error;
+}
+
+bool Name::LabelIterator::CaseInsensitiveMatch(uint8_t aFirst, uint8_t aSecond)
+{
+    return ToLowercase(static_cast<char>(aFirst)) == ToLowercase(static_cast<char>(aSecond));
 }
 
 bool Name::LabelIterator::CompareLabel(const char *&aName, bool aIsSingleLabel) const
@@ -577,7 +665,7 @@ bool Name::LabelIterator::CompareLabel(const char *&aName, bool aIsSingleLabel) 
     bool matches = false;
 
     VerifyOrExit(StringLength(aName, mLabelLength) == mLabelLength);
-    matches = mMessage.CompareBytes(mLabelStartOffset, aName, mLabelLength);
+    matches = mMessage.CompareBytes(mLabelStartOffset, aName, mLabelLength, CaseInsensitiveMatch);
 
     VerifyOrExit(matches);
 
@@ -589,7 +677,7 @@ bool Name::LabelIterator::CompareLabel(const char *&aName, bool aIsSingleLabel) 
 
     matches = (*aName == kNullChar);
 
-    if (!aIsSingleLabel && (*aName == kLabelSeperatorChar))
+    if (!aIsSingleLabel && (*aName == kLabelSeparatorChar))
     {
         matches = true;
         aName++;
@@ -606,7 +694,7 @@ bool Name::LabelIterator::CompareLabel(const LabelIterator &aOtherIterator) cons
 
     return (mLabelLength == aOtherIterator.mLabelLength) &&
            mMessage.CompareBytes(mLabelStartOffset, aOtherIterator.mMessage, aOtherIterator.mLabelStartOffset,
-                                 mLabelLength);
+                                 mLabelLength, CaseInsensitiveMatch);
 }
 
 Error Name::LabelIterator::AppendLabel(Message &aMessage) const
@@ -624,35 +712,96 @@ exit:
     return error;
 }
 
+Error Name::ExtractLabels(const char *aName, const char *aSuffixName, char *aLabels, uint16_t aLabelsSize)
+{
+    Error       error        = kErrorParse;
+    uint16_t    nameLength   = StringLength(aName, kMaxNameSize);
+    uint16_t    suffixLength = StringLength(aSuffixName, kMaxNameSize);
+    const char *suffixStart;
+
+    VerifyOrExit(nameLength < kMaxNameSize);
+    VerifyOrExit(suffixLength < kMaxNameSize);
+
+    VerifyOrExit(nameLength > suffixLength);
+
+    suffixStart = aName + nameLength - suffixLength;
+    VerifyOrExit(StringMatch(suffixStart, aSuffixName, kStringCaseInsensitiveMatch));
+    suffixStart--;
+    VerifyOrExit(*suffixStart == kLabelSeparatorChar);
+
+    // Determine the labels length to copy
+    nameLength -= (suffixLength + 1);
+    VerifyOrExit(nameLength < aLabelsSize, error = kErrorNoBufs);
+
+    if (aLabels != aName)
+    {
+        memmove(aLabels, aName, nameLength);
+    }
+
+    aLabels[nameLength] = kNullChar;
+    error               = kErrorNone;
+
+exit:
+    return error;
+}
+
 bool Name::IsSubDomainOf(const char *aName, const char *aDomain)
 {
-    bool     match        = false;
-    uint16_t nameLength   = StringLength(aName, kMaxNameLength);
-    uint16_t domainLength = StringLength(aDomain, kMaxNameLength);
+    bool     match             = false;
+    bool     nameEndsWithDot   = false;
+    bool     domainEndsWithDot = false;
+    uint16_t nameLength        = StringLength(aName, kMaxNameLength);
+    uint16_t domainLength      = StringLength(aDomain, kMaxNameLength);
 
-    if (nameLength > 0 && aName[nameLength - 1] == kLabelSeperatorChar)
+    if (nameLength > 0 && aName[nameLength - 1] == kLabelSeparatorChar)
     {
+        nameEndsWithDot = true;
         --nameLength;
     }
 
-    if (domainLength > 0 && aDomain[domainLength - 1] == kLabelSeperatorChar)
+    if (domainLength > 0 && aDomain[domainLength - 1] == kLabelSeparatorChar)
     {
+        domainEndsWithDot = true;
         --domainLength;
     }
 
     VerifyOrExit(nameLength >= domainLength);
+
     aName += nameLength - domainLength;
 
     if (nameLength > domainLength)
     {
-        VerifyOrExit(aName[-1] == kLabelSeperatorChar);
+        VerifyOrExit(aName[-1] == kLabelSeparatorChar);
     }
-    VerifyOrExit(memcmp(aName, aDomain, domainLength) == 0);
 
-    match = true;
+    // This method allows either `aName` or `aDomain` to include or
+    // exclude the last `.` character. If both include it or if both
+    // do not, we do a full comparison using `StringMatch()`.
+    // Otherwise (i.e., when one includes and the other one does not)
+    // we use `StringStartWith()` to allow the extra `.` character.
+
+    if (nameEndsWithDot == domainEndsWithDot)
+    {
+        match = StringMatch(aName, aDomain, kStringCaseInsensitiveMatch);
+    }
+    else if (nameEndsWithDot)
+    {
+        // `aName` ends with dot, but `aDomain` does not.
+        match = StringStartsWith(aName, aDomain, kStringCaseInsensitiveMatch);
+    }
+    else
+    {
+        // `aDomain` ends with dot, but `aName` does not.
+        match = StringStartsWith(aDomain, aName, kStringCaseInsensitiveMatch);
+    }
 
 exit:
     return match;
+}
+
+bool Name::IsSameDomain(const char *aDomain1, const char *aDomain2)
+{
+    return IsSubDomainOf(aDomain1, aDomain2) && IsSubDomainOf(aDomain2, aDomain1);
 }
 
 Error ResourceRecord::ParseRecords(const Message &aMessage, uint16_t &aOffset, uint16_t aNumRecords)
@@ -707,11 +856,11 @@ exit:
     return error;
 }
 
-Error ResourceRecord::FindRecord(const Message & aMessage,
-                                 uint16_t &      aOffset,
+Error ResourceRecord::FindRecord(const Message  &aMessage,
+                                 uint16_t       &aOffset,
                                  uint16_t        aNumRecords,
                                  uint16_t        aIndex,
-                                 const Name &    aName,
+                                 const Name     &aName,
                                  uint16_t        aType,
                                  ResourceRecord &aRecord,
                                  uint16_t        aMinRecordSize)
@@ -766,8 +915,8 @@ exit:
     return error;
 }
 
-Error ResourceRecord::ReadRecord(const Message & aMessage,
-                                 uint16_t &      aOffset,
+Error ResourceRecord::ReadRecord(const Message  &aMessage,
+                                 uint16_t       &aOffset,
                                  uint16_t        aType,
                                  ResourceRecord &aRecord,
                                  uint16_t        aMinRecordSize)
@@ -800,9 +949,9 @@ exit:
 }
 
 Error ResourceRecord::ReadName(const Message &aMessage,
-                               uint16_t &     aOffset,
+                               uint16_t      &aOffset,
                                uint16_t       aStartOffset,
-                               char *         aNameBuffer,
+                               char          *aNameBuffer,
                                uint16_t       aNameBufferSize,
                                bool           aSkipRecord) const
 {
@@ -890,9 +1039,9 @@ Error TxtEntry::Iterator::GetNextEntry(TxtEntry &aEntry)
     uint8_t     length;
     uint8_t     index;
     const char *cur;
-    char *      keyBuffer = GetKeyBuffer();
+    char       *keyBuffer = GetKeyBuffer();
 
-    static_assert(sizeof(mChar) == TxtEntry::kMaxKeyLength + 1, "KeyBuffer cannot fit the max key length");
+    static_assert(sizeof(mChar) >= TxtEntry::kMaxKeyLength + 1, "KeyBuffer cannot fit the max key length");
 
     VerifyOrExit(GetTxtData() != nullptr, error = kErrorParse);
 
@@ -924,9 +1073,9 @@ Error TxtEntry::Iterator::GetNextEntry(TxtEntry &aEntry)
                 ExitNow();
             }
 
-            if (index >= kMaxKeyLength)
+            if (index >= sizeof(mChar) - 1)
             {
-                // The key is larger than recommended max key length.
+                // The key is larger than supported key string length.
                 // In this case, we return the full encoded string in
                 // `mValue` and `mValueLength` and set `mKey` to
                 // `nullptr`.
@@ -957,6 +1106,13 @@ exit:
 
 Error TxtEntry::AppendTo(Message &aMessage) const
 {
+    Appender appender(aMessage);
+
+    return AppendTo(appender);
+}
+
+Error TxtEntry::AppendTo(Appender &aAppender) const
+{
     Error    error = kErrorNone;
     uint16_t keyLength;
     char     separator = kKeyValueSeparator;
@@ -964,7 +1120,7 @@ Error TxtEntry::AppendTo(Message &aMessage) const
     if (mKey == nullptr)
     {
         VerifyOrExit((mValue != nullptr) && (mValueLength != 0));
-        error = aMessage.AppendBytes(mValue, mValueLength);
+        error = aAppender.AppendBytes(mValue, mValueLength);
         ExitNow();
     }
 
@@ -975,8 +1131,8 @@ Error TxtEntry::AppendTo(Message &aMessage) const
     if (mValue == nullptr)
     {
         // Treat as a boolean attribute and encoded as "key" (with no `=`).
-        SuccessOrExit(error = aMessage.Append<uint8_t>(static_cast<uint8_t>(keyLength)));
-        error = aMessage.AppendBytes(mKey, keyLength);
+        SuccessOrExit(error = aAppender.Append<uint8_t>(static_cast<uint8_t>(keyLength)));
+        error = aAppender.AppendBytes(mKey, keyLength);
         ExitNow();
     }
 
@@ -984,28 +1140,46 @@ Error TxtEntry::AppendTo(Message &aMessage) const
 
     VerifyOrExit(mValueLength + keyLength + sizeof(char) <= kMaxKeyValueEncodedSize, error = kErrorInvalidArgs);
 
-    SuccessOrExit(error = aMessage.Append<uint8_t>(static_cast<uint8_t>(keyLength + mValueLength + sizeof(char))));
-    SuccessOrExit(error = aMessage.AppendBytes(mKey, keyLength));
-    SuccessOrExit(error = aMessage.Append(separator));
-    error = aMessage.AppendBytes(mValue, mValueLength);
+    SuccessOrExit(error = aAppender.Append<uint8_t>(static_cast<uint8_t>(keyLength + mValueLength + sizeof(char))));
+    SuccessOrExit(error = aAppender.AppendBytes(mKey, keyLength));
+    SuccessOrExit(error = aAppender.Append(separator));
+    error = aAppender.AppendBytes(mValue, mValueLength);
 
 exit:
     return error;
 }
 
-Error TxtEntry::AppendEntries(const TxtEntry *aEntries, uint8_t aNumEntries, Message &aMessage)
+Error TxtEntry::AppendEntries(const TxtEntry *aEntries, uint16_t aNumEntries, Message &aMessage)
 {
-    Error    error       = kErrorNone;
-    uint16_t startOffset = aMessage.GetLength();
+    Appender appender(aMessage);
 
-    for (uint8_t index = 0; index < aNumEntries; index++)
+    return AppendEntries(aEntries, aNumEntries, appender);
+}
+
+Error TxtEntry::AppendEntries(const TxtEntry *aEntries, uint16_t aNumEntries, MutableData<kWithUint16Length> &aData)
+{
+    Error    error;
+    Appender appender(aData.GetBytes(), aData.GetLength());
+
+    SuccessOrExit(error = AppendEntries(aEntries, aNumEntries, appender));
+    appender.GetAsData(aData);
+
+exit:
+    return error;
+}
+
+Error TxtEntry::AppendEntries(const TxtEntry *aEntries, uint16_t aNumEntries, Appender &aAppender)
+{
+    Error error = kErrorNone;
+
+    for (uint16_t index = 0; index < aNumEntries; index++)
     {
-        SuccessOrExit(error = aEntries[index].AppendTo(aMessage));
+        SuccessOrExit(error = aEntries[index].AppendTo(aAppender));
     }
 
-    if (aMessage.GetLength() == startOffset)
+    if (aAppender.GetAppendedLength() == 0)
     {
-        error = aMessage.Append<uint8_t>(0);
+        error = aAppender.Append<uint8_t>(0);
     }
 
 exit:
@@ -1017,10 +1191,7 @@ bool AaaaRecord::IsValid(void) const
     return GetType() == Dns::ResourceRecord::kTypeAaaa && GetSize() == sizeof(*this);
 }
 
-bool KeyRecord::IsValid(void) const
-{
-    return GetType() == Dns::ResourceRecord::kTypeKey;
-}
+bool KeyRecord::IsValid(void) const { return GetType() == Dns::ResourceRecord::kTypeKey; }
 
 #if OPENTHREAD_CONFIG_SRP_SERVER_ENABLE
 void Ecdsa256KeyRecord::Init(void)
@@ -1041,16 +1212,75 @@ bool SigRecord::IsValid(void) const
     return GetType() == Dns::ResourceRecord::kTypeSig && GetLength() >= sizeof(*this) - sizeof(ResourceRecord);
 }
 
+void LeaseOption::InitAsShortVariant(uint32_t aLeaseInterval)
+{
+    SetOptionCode(kUpdateLease);
+    SetOptionLength(kShortLength);
+    SetLeaseInterval(aLeaseInterval);
+}
+
+void LeaseOption::InitAsLongVariant(uint32_t aLeaseInterval, uint32_t aKeyLeaseInterval)
+{
+    SetOptionCode(kUpdateLease);
+    SetOptionLength(kLongLength);
+    SetLeaseInterval(aLeaseInterval);
+    SetKeyLeaseInterval(aKeyLeaseInterval);
+}
+
 bool LeaseOption::IsValid(void) const
 {
-    return GetLeaseInterval() <= GetKeyLeaseInterval();
+    bool isValid = false;
+
+    VerifyOrExit((GetOptionLength() == kShortLength) || (GetOptionLength() >= kLongLength));
+    isValid = (GetLeaseInterval() <= GetKeyLeaseInterval());
+
+exit:
+    return isValid;
+}
+
+Error LeaseOption::ReadFrom(const Message &aMessage, uint16_t aOffset, uint16_t aLength)
+{
+    Error    error = kErrorNone;
+    uint16_t endOffset;
+
+    VerifyOrExit(static_cast<uint32_t>(aOffset) + aLength <= aMessage.GetLength(), error = kErrorParse);
+
+    endOffset = aOffset + aLength;
+
+    while (aOffset < endOffset)
+    {
+        uint16_t size;
+
+        SuccessOrExit(error = aMessage.Read(aOffset, this, sizeof(Option)));
+
+        VerifyOrExit(aOffset + GetSize() <= endOffset, error = kErrorParse);
+
+        size = static_cast<uint16_t>(GetSize());
+
+        if (GetOptionCode() == kUpdateLease)
+        {
+            VerifyOrExit(GetOptionLength() >= kShortLength, error = kErrorParse);
+
+            IgnoreError(aMessage.Read(aOffset, this, Min(size, static_cast<uint16_t>(sizeof(LeaseOption)))));
+            VerifyOrExit(IsValid(), error = kErrorParse);
+
+            ExitNow();
+        }
+
+        aOffset += size;
+    }
+
+    error = kErrorNotFound;
+
+exit:
+    return error;
 }
 
 Error PtrRecord::ReadPtrName(const Message &aMessage,
-                             uint16_t &     aOffset,
-                             char *         aLabelBuffer,
+                             uint16_t      &aOffset,
+                             char          *aLabelBuffer,
                              uint8_t        aLabelBufferSize,
-                             char *         aNameBuffer,
+                             char          *aNameBuffer,
                              uint16_t       aNameBufferSize) const
 {
     Error    error       = kErrorNone;
@@ -1076,17 +1306,18 @@ exit:
 }
 
 Error TxtRecord::ReadTxtData(const Message &aMessage,
-                             uint16_t &     aOffset,
-                             uint8_t *      aTxtBuffer,
-                             uint16_t &     aTxtBufferSize) const
+                             uint16_t      &aOffset,
+                             uint8_t       *aTxtBuffer,
+                             uint16_t      &aTxtBufferSize) const
 {
     Error error = kErrorNone;
 
-    VerifyOrExit(GetLength() <= aTxtBufferSize, error = kErrorNoBufs);
-    SuccessOrExit(error = aMessage.Read(aOffset, aTxtBuffer, GetLength()));
-    VerifyOrExit(VerifyTxtData(aTxtBuffer, GetLength(), /* aAllowEmpty */ true), error = kErrorParse);
-    aTxtBufferSize = GetLength();
+    SuccessOrExit(error = aMessage.Read(aOffset, aTxtBuffer, Min(GetLength(), aTxtBufferSize)));
     aOffset += GetLength();
+
+    VerifyOrExit(GetLength() <= aTxtBufferSize, error = kErrorNoBufs);
+    aTxtBufferSize = GetLength();
+    VerifyOrExit(VerifyTxtData(aTxtBuffer, aTxtBufferSize, /* aAllowEmpty */ true), error = kErrorParse);
 
 exit:
     return error;
@@ -1116,6 +1347,36 @@ bool TxtRecord::VerifyTxtData(const uint8_t *aTxtData, uint16_t aTxtLength, bool
 
 exit:
     return valid;
+}
+
+void NsecRecord::TypeBitMap::AddType(uint16_t aType)
+{
+    if ((aType >> 8) == mBlockNumber)
+    {
+        uint8_t  type  = static_cast<uint8_t>(aType & 0xff);
+        uint8_t  index = (type / kBitsPerByte);
+        uint16_t mask  = (0x80 >> (type % kBitsPerByte));
+
+        mBitmaps[index] |= mask;
+        mBitmapLength = Max<uint8_t>(mBitmapLength, index + 1);
+    }
+}
+
+bool NsecRecord::TypeBitMap::ContainsType(uint16_t aType) const
+{
+    bool     contains = false;
+    uint8_t  type     = static_cast<uint8_t>(aType & 0xff);
+    uint8_t  index    = (type / kBitsPerByte);
+    uint16_t mask     = (0x80 >> (type % kBitsPerByte));
+
+    VerifyOrExit((aType >> 8) == mBlockNumber);
+
+    VerifyOrExit(index < mBitmapLength);
+
+    contains = (mBitmaps[index] & mask);
+
+exit:
+    return contains;
 }
 
 } // namespace Dns

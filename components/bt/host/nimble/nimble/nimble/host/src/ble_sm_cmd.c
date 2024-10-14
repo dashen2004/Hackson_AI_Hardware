@@ -24,6 +24,7 @@
 #include "host/ble_sm.h"
 #include "ble_hs_priv.h"
 
+#if NIMBLE_BLE_CONNECT
 void *
 ble_sm_cmd_get(uint8_t opcode, size_t len, struct os_mbuf **txom)
 {
@@ -62,7 +63,11 @@ ble_sm_tx(uint16_t conn_handle, struct os_mbuf *txom)
                                          &conn, &chan);
     if (rc == 0) {
         rc = ble_l2cap_tx(conn, chan, txom);
+    } else {
+        os_mbuf_free_chain(txom);
     }
 
     return rc;
 }
+
+#endif

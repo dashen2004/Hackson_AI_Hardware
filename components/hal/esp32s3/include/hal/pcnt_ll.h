@@ -1,16 +1,8 @@
-// Copyright 2015-2021 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /*******************************************************************************
  * NOTICE
@@ -22,28 +14,34 @@
 
 #pragma once
 
+#include <limits.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include "soc/pcnt_struct.h"
 #include "hal/pcnt_types.h"
+#include "soc/system_struct.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define PCNT_LL_GET_HW(num) (((num) == 0) ? (&PCNT) : NULL)
+#define PCNT_LL_GET_HW(num)      (((num) == 0) ? (&PCNT) : NULL)
 #define PCNT_LL_MAX_GLITCH_WIDTH 1023
+#define PCNT_LL_MAX_LIM          SHRT_MAX
+#define PCNT_LL_MIN_LIN          SHRT_MIN
 
 typedef enum {
-    PCNT_LL_EVENT_THRES1,
-    PCNT_LL_EVENT_THRES0,
-    PCNT_LL_EVENT_LOW_LIMIT,
-    PCNT_LL_EVENT_HIGH_LIMIT,
-    PCNT_LL_EVENT_ZERO_CROSS,
-    PCNT_LL_EVENT_MAX
-} pcnt_ll_event_id_t;
+    PCNT_LL_WATCH_EVENT_INVALID = -1,
+    PCNT_LL_WATCH_EVENT_THRES1,
+    PCNT_LL_WATCH_EVENT_THRES0,
+    PCNT_LL_WATCH_EVENT_LOW_LIMIT,
+    PCNT_LL_WATCH_EVENT_HIGH_LIMIT,
+    PCNT_LL_WATCH_EVENT_ZERO_CROSS,
+    PCNT_LL_WATCH_EVENT_MAX
+} pcnt_ll_watch_event_id_t;
 
-#define PCNT_LL_EVENT_MASK ((1 << PCNT_LL_EVENT_MAX) - 1)
+#define PCNT_LL_WATCH_EVENT_MASK          ((1 << PCNT_LL_WATCH_EVENT_MAX) - 1)
+#define PCNT_LL_UNIT_WATCH_EVENT(unit_id) (1 << (unit_id))
 
 /**
  * @brief Set PCNT channel edge action
@@ -92,9 +90,12 @@ static inline void pcnt_ll_set_level_action(pcnt_dev_t *hw, uint32_t unit, uint3
  * @param unit  Pulse Counter unit number
  * @return PCNT count value (a signed integer)
  */
+__attribute__((always_inline))
 static inline int pcnt_ll_get_count(pcnt_dev_t *hw, uint32_t unit)
 {
-    pcnt_un_cnt_reg_t cnt_reg = hw->cnt_unit[unit];
+    pcnt_un_cnt_reg_t cnt_reg;
+    cnt_reg.val = hw->cnt_unit[unit].val;
+
     int16_t value = cnt_reg.pulse_cnt_un;
     return value;
 }
@@ -105,6 +106,7 @@ static inline int pcnt_ll_get_count(pcnt_dev_t *hw, uint32_t unit)
  * @param hw Peripheral PCNT hardware instance address.
  * @param unit PCNT unit number
  */
+__attribute__((always_inline))
 static inline void pcnt_ll_stop_count(pcnt_dev_t *hw, uint32_t unit)
 {
     hw->ctrl.val |= 1 << (2 * unit + 1);
@@ -116,6 +118,7 @@ static inline void pcnt_ll_stop_count(pcnt_dev_t *hw, uint32_t unit)
  * @param hw Peripheral PCNT hardware instance address.
  * @param unit PCNT unit number, select from uint32_t
  */
+__attribute__((always_inline))
 static inline void pcnt_ll_start_count(pcnt_dev_t *hw, uint32_t unit)
 {
     hw->ctrl.val &= ~(1 << (2 * unit + 1));
@@ -127,6 +130,7 @@ static inline void pcnt_ll_start_count(pcnt_dev_t *hw, uint32_t unit)
  * @param hw Peripheral PCNT hardware instance address.
  * @param  unit PCNT unit number, select from uint32_t
  */
+__attribute__((always_inline))
 static inline void pcnt_ll_clear_count(pcnt_dev_t *hw, uint32_t unit)
 {
     hw->ctrl.val |= 1 << (2 * unit);
@@ -156,7 +160,8 @@ static inline void pcnt_ll_enable_intr(pcnt_dev_t *hw, uint32_t unit_mask, bool 
  * @param hw Peripheral PCNT hardware instance address.
  * @return Interrupt status word
  */
-__attribute__((always_inline)) static inline uint32_t pcnt_ll_get_intr_status(pcnt_dev_t *hw)
+__attribute__((always_inline))
+static inline uint32_t pcnt_ll_get_intr_status(pcnt_dev_t *hw)
 {
     return hw->int_st.val;
 }
@@ -167,7 +172,8 @@ __attribute__((always_inline)) static inline uint32_t pcnt_ll_get_intr_status(pc
  * @param hw Peripheral PCNT hardware instance address.
  * @param status value to clear interrupt status
  */
-__attribute__((always_inline)) static inline void pcnt_ll_clear_intr_status(pcnt_dev_t *hw, uint32_t status)
+__attribute__((always_inline))
+static inline void pcnt_ll_clear_intr_status(pcnt_dev_t *hw, uint32_t status)
 {
     hw->int_clr.val = status;
 }
@@ -233,7 +239,7 @@ static inline void pcnt_ll_enable_thres_event(pcnt_dev_t *hw, uint32_t unit, uin
  */
 static inline void pcnt_ll_disable_all_events(pcnt_dev_t *hw, uint32_t unit)
 {
-    hw->conf_unit[unit].conf0.val &= ~(PCNT_LL_EVENT_MASK << 11);
+    hw->conf_unit[unit].conf0.val &= ~(PCNT_LL_WATCH_EVENT_MASK << 11);
 }
 
 /**
@@ -245,9 +251,11 @@ static inline void pcnt_ll_disable_all_events(pcnt_dev_t *hw, uint32_t unit)
  */
 static inline void pcnt_ll_set_high_limit_value(pcnt_dev_t *hw, uint32_t unit, int value)
 {
-    pcnt_un_conf2_reg_t conf2_reg = hw->conf_unit[unit].conf2;
+    pcnt_un_conf2_reg_t conf2_reg;
+    conf2_reg.val = hw->conf_unit[unit].conf2.val;
+
     conf2_reg.cnt_h_lim_un = value;
-    hw->conf_unit[unit].conf2 = conf2_reg;
+    hw->conf_unit[unit].conf2.val = conf2_reg.val;
 }
 
 /**
@@ -259,9 +267,11 @@ static inline void pcnt_ll_set_high_limit_value(pcnt_dev_t *hw, uint32_t unit, i
  */
 static inline void pcnt_ll_set_low_limit_value(pcnt_dev_t *hw, uint32_t unit, int value)
 {
-    pcnt_un_conf2_reg_t conf2_reg = hw->conf_unit[unit].conf2;
+    pcnt_un_conf2_reg_t conf2_reg;
+    conf2_reg.val = hw->conf_unit[unit].conf2.val;
+
     conf2_reg.cnt_l_lim_un = value;
-    hw->conf_unit[unit].conf2 = conf2_reg;
+    hw->conf_unit[unit].conf2.val = conf2_reg.val;
 }
 
 /**
@@ -274,13 +284,15 @@ static inline void pcnt_ll_set_low_limit_value(pcnt_dev_t *hw, uint32_t unit, in
  */
 static inline void pcnt_ll_set_thres_value(pcnt_dev_t *hw, uint32_t unit, uint32_t thres, int value)
 {
-    pcnt_un_conf1_reg_t conf1_reg = hw->conf_unit[unit].conf1;
+    pcnt_un_conf1_reg_t conf1_reg;
+    conf1_reg.val = hw->conf_unit[unit].conf1.val;
+
     if (thres == 0) {
         conf1_reg.cnt_thres0_un = value;
     } else {
         conf1_reg.cnt_thres1_un = value;
     }
-    hw->conf_unit[unit].conf1 = conf1_reg;
+    hw->conf_unit[unit].conf1.val = conf1_reg.val;
 }
 
 /**
@@ -292,7 +304,9 @@ static inline void pcnt_ll_set_thres_value(pcnt_dev_t *hw, uint32_t unit, uint32
  */
 static inline int pcnt_ll_get_high_limit_value(pcnt_dev_t *hw, uint32_t unit)
 {
-    pcnt_un_conf2_reg_t conf2_reg = hw->conf_unit[unit].conf2;
+    pcnt_un_conf2_reg_t conf2_reg;
+    conf2_reg.val = hw->conf_unit[unit].conf2.val;
+
     int16_t value = conf2_reg.cnt_h_lim_un;
     return value;
 }
@@ -306,7 +320,9 @@ static inline int pcnt_ll_get_high_limit_value(pcnt_dev_t *hw, uint32_t unit)
  */
 static inline int pcnt_ll_get_low_limit_value(pcnt_dev_t *hw, uint32_t unit)
 {
-    pcnt_un_conf2_reg_t conf2_reg = hw->conf_unit[unit].conf2;
+    pcnt_un_conf2_reg_t conf2_reg;
+    conf2_reg.val = hw->conf_unit[unit].conf2.val;
+
     int16_t value = conf2_reg.cnt_l_lim_un;
     return value;
 }
@@ -319,10 +335,13 @@ static inline int pcnt_ll_get_low_limit_value(pcnt_dev_t *hw, uint32_t unit)
  * @param thres Threshold ID
  * @return PCNT threshold value
  */
+__attribute__((always_inline))
 static inline int pcnt_ll_get_thres_value(pcnt_dev_t *hw, uint32_t unit, uint32_t thres)
 {
     int16_t value;
-    pcnt_un_conf1_reg_t conf1_reg = hw->conf_unit[unit].conf1;
+    pcnt_un_conf1_reg_t conf1_reg;
+    conf1_reg.val = hw->conf_unit[unit].conf1.val;
+
     if (thres == 0) {
         value = conf1_reg.cnt_thres0_un;
     } else {
@@ -344,15 +363,16 @@ static inline uint32_t pcnt_ll_get_unit_status(pcnt_dev_t *hw, uint32_t unit)
 }
 
 /**
- * @brief Get PCNT count sign
+ * @brief Get PCNT zero cross mode
  *
  * @param hw Peripheral PCNT hardware instance address.
  * @param unit PCNT unit number
- * @return Count sign
+ * @return Zero cross mode
  */
-static inline pcnt_unit_count_sign_t pcnt_ll_get_count_sign(pcnt_dev_t *hw, uint32_t unit)
+__attribute__((always_inline))
+static inline pcnt_unit_zero_cross_mode_t pcnt_ll_get_zero_cross_mode(pcnt_dev_t *hw, uint32_t unit)
 {
-    return hw->status_unit[unit].val & 0x03;
+    return (pcnt_unit_zero_cross_mode_t)((hw->status_unit[unit].val) & 0x03);
 }
 
 /**
@@ -362,6 +382,7 @@ static inline pcnt_unit_count_sign_t pcnt_ll_get_count_sign(pcnt_dev_t *hw, uint
  * @param unit PCNT unit number
  * @return Event status word
  */
+__attribute__((always_inline))
 static inline uint32_t pcnt_ll_get_event_status(pcnt_dev_t *hw, uint32_t unit)
 {
     return hw->status_unit[unit].val >> 2;
@@ -403,6 +424,47 @@ static inline void pcnt_ll_enable_glitch_filter(pcnt_dev_t *hw, uint32_t unit, b
 {
     hw->conf_unit[unit].conf0.filter_en_un = enable;
 }
+
+/**
+ * @brief Get interrupt status register address.
+ *
+ * @param hw Beginning address of the peripheral registers.
+ *
+ * @return Interrupt status register address
+ */
+static inline volatile void *pcnt_ll_get_intr_status_reg(pcnt_dev_t *hw)
+{
+    return &hw->int_st.val;
+}
+
+/**
+ * @brief Enable or disable the bus clock for the PCNT module
+ *
+ * @param set_bit True to set bit, false to clear bit
+ */
+static inline void pcnt_ll_enable_bus_clock(int group_id, bool enable)
+{
+    (void)group_id;
+    SYSTEM.perip_clk_en0.pcnt_clk_en = enable;
+}
+
+/// use a macro to wrap the function, force the caller to use it in a critical section
+/// the critical section needs to declare the __DECLARE_RCC_ATOMIC_ENV variable in advance
+#define pcnt_ll_enable_bus_clock(...) (void)__DECLARE_RCC_ATOMIC_ENV; pcnt_ll_enable_bus_clock(__VA_ARGS__)
+
+/**
+ * @brief Reset the PCNT module
+ */
+static inline void pcnt_ll_reset_register(int group_id)
+{
+    (void)group_id;
+    SYSTEM.perip_rst_en0.pcnt_rst = 1;
+    SYSTEM.perip_rst_en0.pcnt_rst = 0;
+}
+
+/// use a macro to wrap the function, force the caller to use it in a critical section
+/// the critical section needs to declare the __DECLARE_RCC_ATOMIC_ENV variable in advance
+#define pcnt_ll_reset_register(...) (void)__DECLARE_RCC_ATOMIC_ENV; pcnt_ll_reset_register(__VA_ARGS__)
 
 #ifdef __cplusplus
 }

@@ -1,10 +1,9 @@
 /*
- * SPDX-FileCopyrightText: 2020-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "sdkconfig.h"
-#include "soc/rtc_cntl_reg.h"
 #include "esp_rom_sys.h"
 
 #pragma once
@@ -50,10 +49,14 @@ extern "C" {
         if(!(CONDITION)) _ESP_FAULT_RESET();            \
 } while(0)
 
-#ifndef CONFIG_IDF_TARGET_ARCH_RISCV
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
 #define _ESP_FAULT_ILLEGAL_INSTRUCTION asm volatile("ill.n; ill.n; ill.n; ill.n; ill.n; ill.n; ill.n;")
-#else
+#elif CONFIG_IDF_TARGET_ARCH_RISCV
 #define _ESP_FAULT_ILLEGAL_INSTRUCTION asm volatile("unimp; unimp; unimp; unimp; unimp;")
+#elif CONFIG_IDF_TARGET_LINUX
+#define _ESP_FAULT_ILLEGAL_INSTRUCTION
+#else
+#error "_ESP_FAULT_ILLEGAL_INSTRUCTION is not defined for this TARGET"
 #endif
 
 // Uncomment this macro to get debug output if ESP_FAULT_ASSERT() fails
@@ -70,9 +73,9 @@ extern "C" {
 */
 #ifndef ESP_FAULT_ASSERT_DEBUG
 
-#define _ESP_FAULT_RESET()  do {                                \
-        REG_WRITE(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_SYS_RST);  \
-        _ESP_FAULT_ILLEGAL_INSTRUCTION;                         \
+#define _ESP_FAULT_RESET()  do {        \
+        esp_rom_software_reset_system();       \
+        _ESP_FAULT_ILLEGAL_INSTRUCTION; \
     } while(0)
 
 #else // ESP_FAULT_ASSERT_DEBUG

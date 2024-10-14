@@ -8,7 +8,7 @@
 */
 #include <string.h>
 #include "esp_wifi.h"
-#include "esp_system.h"
+#include "esp_mac.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_mesh.h"
@@ -213,6 +213,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
         last_layer = mesh_layer;
         mesh_connected_indicator(mesh_layer);
         if (esp_mesh_is_root()) {
+            esp_netif_dhcpc_stop(netif_sta);
             esp_netif_dhcpc_start(netif_sta);
         }
     }
@@ -268,7 +269,7 @@ void mesh_event_handler(void *arg, esp_event_base_t event_base,
     }
     break;
     default:
-        ESP_LOGD(MESH_TAG, "event id:%d", event_id);
+        ESP_LOGD(MESH_TAG, "event id:%" PRId32 "", event_id);
         break;
     }
 }
@@ -300,17 +301,8 @@ void app_main(void)
     /* mesh initialization */
     ESP_ERROR_CHECK(esp_mesh_init());
     ESP_ERROR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &mesh_event_handler, NULL));
-    /* mesh enable IE crypto */
+    /* mesh config */
     mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
-#if CONFIG_MESH_IE_CRYPTO_FUNCS
-    /* modify IE crypto key */
-    ESP_ERROR_CHECK(esp_mesh_set_ie_crypto_funcs(&g_wifi_default_mesh_crypto_funcs));
-    ESP_ERROR_CHECK(esp_mesh_set_ie_crypto_key(CONFIG_MESH_IE_CRYPTO_KEY, strlen(CONFIG_MESH_IE_CRYPTO_KEY)));
-#else
-    /* disable IE crypto */
-    ESP_LOGI(MESH_TAG, "<Config>disable IE crypto");
-    ESP_ERROR_CHECK(esp_mesh_set_ie_crypto_funcs(NULL));
-#endif
     /* mesh ID */
     memcpy((uint8_t *) &cfg.mesh_id, MESH_ID, 6);
     /* router */
@@ -326,7 +318,17 @@ void app_main(void)
     memcpy((uint8_t *) &cfg.mesh_ap.password, CONFIG_MESH_AP_PASSWD,
            strlen(CONFIG_MESH_AP_PASSWD));
     ESP_ERROR_CHECK(esp_mesh_set_config(&cfg));
+    /* mesh enable IE crypto */
+#if CONFIG_MESH_IE_CRYPTO_FUNCS
+    /* modify IE crypto key */
+    ESP_ERROR_CHECK(esp_mesh_set_ie_crypto_funcs(&g_wifi_default_mesh_crypto_funcs));
+    ESP_ERROR_CHECK(esp_mesh_set_ie_crypto_key(CONFIG_MESH_IE_CRYPTO_KEY, strlen(CONFIG_MESH_IE_CRYPTO_KEY)));
+#else
+    /* disable IE crypto */
+    ESP_LOGI(MESH_TAG, "<Config>disable IE crypto");
+    ESP_ERROR_CHECK(esp_mesh_set_ie_crypto_funcs(NULL));
+#endif
     /* mesh start */
     ESP_ERROR_CHECK(esp_mesh_start());
-    ESP_LOGI(MESH_TAG, "mesh starts successfully, heap:%d\n",  esp_get_free_heap_size());
+    ESP_LOGI(MESH_TAG, "mesh starts successfully, heap:%" PRId32,  esp_get_free_heap_size());
 }

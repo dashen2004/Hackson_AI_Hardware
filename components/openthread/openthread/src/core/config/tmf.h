@@ -36,13 +36,30 @@
 #define CONFIG_TMF_H_
 
 /**
+ * @addtogroup config-tmf
+ *
+ * @brief
+ *   This module includes configuration variables for the Thread Management
+ *   Framework service.
+ *
+ * @{
+ *
+ */
+
+#include "config/border_router.h"
+
+/**
  * @def OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_ENTRIES
  *
  * The number of EID-to-RLOC cache entries.
  *
  */
 #ifndef OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_ENTRIES
-#define OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_ENTRIES 10
+#if OPENTHREAD_CONFIG_BORDER_ROUTER_ENABLE
+#define OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_ENTRIES 256
+#else
+#define OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_ENTRIES 32
+#endif
 #endif
 
 /**
@@ -51,9 +68,11 @@
  * The maximum number of EID-to-RLOC cache entries that can be used for "snoop optimization" where an entry is created
  * by inspecting a received message.
  *
+ * By default a 1/16 fraction of `OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_ENTRIES` is used.
+ *
  */
 #ifndef OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_MAX_SNOOP_ENTRIES
-#define OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_MAX_SNOOP_ENTRIES 2
+#define OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_MAX_SNOOP_ENTRIES (OPENTHREAD_CONFIG_TMF_ADDRESS_CACHE_ENTRIES / 16)
 #endif
 
 /**
@@ -104,6 +123,16 @@
  */
 #ifndef OPENTHREAD_CONFIG_TMF_ADDRESS_QUERY_MAX_RETRY_DELAY
 #define OPENTHREAD_CONFIG_TMF_ADDRESS_QUERY_MAX_RETRY_DELAY 120
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_TMF_ALLOW_ADDRESS_RESOLUTION_USING_NET_DATA_SERVICES
+ *
+ * Define as 1 to allow address resolution of on-mesh addresses using Thread Network Data DNS/SRP Service entries.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_TMF_ALLOW_ADDRESS_RESOLUTION_USING_NET_DATA_SERVICES
+#define OPENTHREAD_CONFIG_TMF_ALLOW_ADDRESS_RESOLUTION_USING_NET_DATA_SERVICES 1
 #endif
 
 /**
@@ -163,13 +192,16 @@
 #endif
 
 /**
- * @def OPENTHREAD_CONFIG_TMF_NETWORK_DIAG_MTD_ENABLE
+ * @def OPENTHREAD_CONFIG_TMF_NETDIAG_CLIENT_ENABLE
  *
- * Define to 1 to enable TMF network diagnostics on MTDs.
+ * Define to 1 to enable TMF network diagnostics client.
+ *
+ * The network diagnostic client add API to send diagnostic requests and queries to other node and process the response.
+ * It is enabled by default on Border Routers.
  *
  */
-#ifndef OPENTHREAD_CONFIG_TMF_NETWORK_DIAG_MTD_ENABLE
-#define OPENTHREAD_CONFIG_TMF_NETWORK_DIAG_MTD_ENABLE 0
+#ifndef OPENTHREAD_CONFIG_TMF_NETDIAG_CLIENT_ENABLE
+#define OPENTHREAD_CONFIG_TMF_NETDIAG_CLIENT_ENABLE OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
 #endif
 
 /**
@@ -213,8 +245,9 @@
 #endif
 
 /**
+ * @def OPENTHREAD_CONFIG_TMF_PROXY_MLR_ENABLE
  *
- * This setting configures the Multicast Listener Registration parent proxing in Thread 1.2.
+ * This setting configures the Multicast Listener Registration parent proxying in Thread 1.2.
  *
  */
 #ifndef OPENTHREAD_CONFIG_TMF_PROXY_MLR_ENABLE
@@ -224,5 +257,10 @@
 #if OPENTHREAD_CONFIG_TMF_PROXY_MLR_ENABLE && OPENTHREAD_CONFIG_THREAD_VERSION < OT_THREAD_VERSION_1_2
 #error "Thread 1.2 or higher version is required for OPENTHREAD_CONFIG_TMF_PROXY_MLR_ENABLE"
 #endif
+
+/**
+ * @}
+ *
+ */
 
 #endif // CONFIG_TMF_H_

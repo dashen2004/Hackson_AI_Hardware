@@ -13,21 +13,11 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "soc/efuse_periph.h"
-#include "bootloader_random.h"
 #include "sys/param.h"
 
 static __attribute__((unused)) const char *TAG = "efuse";
 
 // Contains functions that provide access to efuse fields which are often used in IDF.
-
-// Returns chip version from efuse
-uint8_t esp_efuse_get_chip_ver(void)
-{
-    // should return the same value as bootloader_common_get_chip_revision()
-    uint32_t chip_ver = 0;
-    // TODO: ESP32S2 does not have this field
-    return chip_ver;
-}
 
 // Returns chip package from efuse
 uint32_t esp_efuse_get_pkg_ver(void)

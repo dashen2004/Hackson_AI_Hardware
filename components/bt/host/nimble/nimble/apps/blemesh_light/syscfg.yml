@@ -21,6 +21,10 @@ syscfg.defs:
         value: 0
 
 syscfg.vals:
+    CONSOLE_IMPLEMENTATION: full
+    LOG_IMPLEMENTATION: full
+    STATS_IMPLEMENTATION: full
+
     # Enable the shell task.
     SHELL_TASK: 1
 
@@ -54,6 +58,9 @@ syscfg.vals:
     CONFIG_NFFS: 0
 
     USE_NEOPIXEL: 0
+
+    # Whether to save data to sys/config, or just keep it in RAM.
+    BLE_STORE_CONFIG_PERSIST: 0
 
 syscfg.vals.BLE_MESH_SHELL_MODELS:
     PWM_0: 1

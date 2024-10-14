@@ -14,10 +14,12 @@
 #include <sys/param.h>
 #include "esp_netif.h"
 #include "esp_eth.h"
+#include "esp_wifi.h"
 #include "protocol_examples_common.h"
-
+#include "lwip/sockets.h"
 #include <esp_https_server.h>
 #include "keep_alive.h"
+#include "sdkconfig.h"
 
 #if !CONFIG_HTTPD_WS_SUPPORT
 #error This example cannot be used unless HTTPD_WS_SUPPORT is enabled in esp-http-server component configuration
@@ -73,8 +75,18 @@ static esp_err_t ws_handler(httpd_req_t *req)
                 httpd_req_to_sockfd(req));
 
     // If it was a TEXT message, just echo it back
-    } else if (ws_pkt.type == HTTPD_WS_TYPE_TEXT) {
-        ESP_LOGI(TAG, "Received packet with message: %s", ws_pkt.payload);
+    } else if (ws_pkt.type == HTTPD_WS_TYPE_TEXT || ws_pkt.type == HTTPD_WS_TYPE_PING || ws_pkt.type == HTTPD_WS_TYPE_CLOSE) {
+        if (ws_pkt.type == HTTPD_WS_TYPE_TEXT) {
+            ESP_LOGI(TAG, "Received packet with message: %s", ws_pkt.payload);
+        } else if (ws_pkt.type == HTTPD_WS_TYPE_PING) {
+            // Response PONG packet to peer
+            ESP_LOGI(TAG, "Got a WS PING frame, Replying PONG");
+            ws_pkt.type = HTTPD_WS_TYPE_PONG;
+        } else if (ws_pkt.type == HTTPD_WS_TYPE_CLOSE) {
+            // Response CLOSE packet with no payload to peer
+            ws_pkt.len = 0;
+            ws_pkt.payload = NULL;
+        }
         ret = httpd_ws_send_frame(req, &ws_pkt);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "httpd_ws_send_frame failed with %d", ret);
@@ -100,6 +112,7 @@ void wss_close_fd(httpd_handle_t hd, int sockfd)
     ESP_LOGI(TAG, "Client disconnected %d", sockfd);
     wss_keep_alive_t h = httpd_get_global_user_ctx(hd);
     wss_keep_alive_remove_client(h, sockfd);
+    close(sockfd);
 }
 
 static const httpd_uri_t ws = {
@@ -154,6 +167,7 @@ bool check_client_alive_cb(wss_keep_alive_t h, int fd)
 {
     ESP_LOGD(TAG, "Checking if client (fd=%d) is alive", fd);
     struct async_resp_arg *resp_arg = malloc(sizeof(struct async_resp_arg));
+    assert(resp_arg != NULL);
     resp_arg->hd = wss_keep_alive_get_user_ctx(h);
     resp_arg->fd = fd;
 
@@ -182,10 +196,10 @@ static httpd_handle_t start_wss_echo_server(void)
     conf.httpd.open_fn = wss_open_fd;
     conf.httpd.close_fn = wss_close_fd;
 
-    extern const unsigned char cacert_pem_start[] asm("_binary_cacert_pem_start");
-    extern const unsigned char cacert_pem_end[]   asm("_binary_cacert_pem_end");
-    conf.cacert_pem = cacert_pem_start;
-    conf.cacert_len = cacert_pem_end - cacert_pem_start;
+    extern const unsigned char servercert_start[] asm("_binary_servercert_pem_start");
+    extern const unsigned char servercert_end[]   asm("_binary_servercert_pem_end");
+    conf.servercert = servercert_start;
+    conf.servercert_len = servercert_end - servercert_start;
 
     extern const unsigned char prvtkey_pem_start[] asm("_binary_prvtkey_pem_start");
     extern const unsigned char prvtkey_pem_end[]   asm("_binary_prvtkey_pem_end");
@@ -206,12 +220,12 @@ static httpd_handle_t start_wss_echo_server(void)
     return server;
 }
 
-static void stop_wss_echo_server(httpd_handle_t server)
+static esp_err_t stop_wss_echo_server(httpd_handle_t server)
 {
     // Stop keep alive thread
     wss_keep_alive_stop(httpd_get_global_user_ctx(server));
     // Stop the httpd server
-    httpd_ssl_stop(server);
+    return httpd_ssl_stop(server);
 }
 
 static void disconnect_handler(void* arg, esp_event_base_t event_base,
@@ -219,8 +233,11 @@ static void disconnect_handler(void* arg, esp_event_base_t event_base,
 {
     httpd_handle_t* server = (httpd_handle_t*) arg;
     if (*server) {
-        stop_wss_echo_server(*server);
-        *server = NULL;
+        if (stop_wss_echo_server(*server) == ESP_OK) {
+            *server = NULL;
+        } else {
+            ESP_LOGE(TAG, "Failed to stop https server");
+        }
     }
 }
 
@@ -253,6 +270,7 @@ static void wss_server_send_messages(httpd_handle_t* server)
                 if (httpd_ws_get_fd_info(*server, sock) == HTTPD_WS_CLIENT_WEBSOCKET) {
                     ESP_LOGI(TAG, "Active client (fd=%d) -> sending async message", sock);
                     struct async_resp_arg *resp_arg = malloc(sizeof(struct async_resp_arg));
+                    assert(resp_arg != NULL);
                     resp_arg->hd = *server;
                     resp_arg->fd = sock;
                     if (httpd_queue_work(resp_arg->hd, send_hello, resp_arg) != ESP_OK) {

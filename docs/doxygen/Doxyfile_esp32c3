@@ -1,4 +1,4 @@
 INPUT += \
-         $(PROJECT_PATH)/components/driver/esp32c3/include/driver/temp_sensor.h \
-         $(PROJECT_PATH)/components/esp_hw_support/include/soc/esp32c3/esp_ds.h \
-         $(PROJECT_PATH)/components/esp_hw_support/include/soc/esp32c3/esp_hmac.h
+    $(PROJECT_PATH)/components/bt/include/esp32c3/include/esp_bt.h \
+    $(PROJECT_PATH)/components/esp_phy/include/esp_phy_init.h \
+    $(PROJECT_PATH)/components/esp_phy/include/esp_phy_cert_test.h \

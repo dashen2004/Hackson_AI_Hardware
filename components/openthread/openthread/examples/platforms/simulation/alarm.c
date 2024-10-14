@@ -47,11 +47,11 @@
 timer_t sMicroTimer;
 #endif // __linux__
 
+#include <openthread/logging.h>
 #include <openthread/platform/alarm-micro.h>
 #include <openthread/platform/alarm-milli.h>
 #include <openthread/platform/diag.h>
 
-#include "core/common/logging.hpp"
 #include "lib/platform/exit_code.h"
 
 #define MS_PER_S 1000
@@ -162,10 +162,7 @@ uint64_t platformGetNow(void)
 }
 #endif // defined(CLOCK_MONOTONIC_RAW) || defined(CLOCK_MONOTONIC)
 
-uint32_t otPlatAlarmMilliGetNow(void)
-{
-    return (uint32_t)(platformGetNow() / US_PER_MS);
-}
+uint32_t otPlatAlarmMilliGetNow(void) { return (uint32_t)(platformGetNow() / US_PER_MS); }
 
 void otPlatAlarmMilliStartAt(otInstance *aInstance, uint32_t aT0, uint32_t aDt)
 {
@@ -182,10 +179,7 @@ void otPlatAlarmMilliStop(otInstance *aInstance)
     sIsMsRunning = false;
 }
 
-uint32_t otPlatAlarmMicroGetNow(void)
-{
-    return (uint32_t)platformGetNow();
-}
+uint32_t otPlatAlarmMicroGetNow(void) { return (uint32_t)platformGetNow(); }
 
 void otPlatAlarmMicroStartAt(otInstance *aInstance, uint32_t aT0, uint32_t aDt)
 {
@@ -270,7 +264,7 @@ void platformAlarmUpdateTimeout(struct timeval *aTimeout)
             remaining = 1;
         }
 
-        aTimeout->tv_sec  = (time_t)remaining / US_PER_S;
+        aTimeout->tv_sec  = (time_t)(remaining / US_PER_S);
         aTimeout->tv_usec = remaining % US_PER_S;
     }
 }
@@ -303,14 +297,8 @@ void platformAlarmProcess(otInstance *aInstance)
 #endif
 }
 
-uint64_t otPlatTimeGet(void)
-{
-    return platformGetNow();
-}
+uint64_t otPlatTimeGet(void) { return platformGetNow(); }
 
-uint16_t otPlatTimeGetXtalAccuracy(void)
-{
-    return 0;
-}
+uint16_t otPlatTimeGetXtalAccuracy(void) { return 0; }
 
 #endif // OPENTHREAD_SIMULATION_VIRTUAL_TIME == 0

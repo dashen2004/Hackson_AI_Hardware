@@ -79,6 +79,18 @@ otError otThreadSetPreferredRouterId(otInstance *aInstance, uint8_t aRouterId)
     return AsCoreType(aInstance).Get<Mle::MleRouter>().SetPreferredRouterId(aRouterId);
 }
 
+#if OPENTHREAD_CONFIG_MLE_DEVICE_PROPERTY_LEADER_WEIGHT_ENABLE
+const otDeviceProperties *otThreadGetDeviceProperties(otInstance *aInstance)
+{
+    return &AsCoreType(aInstance).Get<Mle::MleRouter>().GetDeviceProperties();
+}
+
+void otThreadSetDeviceProperties(otInstance *aInstance, const otDeviceProperties *aDeviceProperties)
+{
+    AsCoreType(aInstance).Get<Mle::MleRouter>().SetDeviceProperties(AsCoreType(aDeviceProperties));
+}
+#endif
+
 uint8_t otThreadGetLocalLeaderWeight(otInstance *aInstance)
 {
     return AsCoreType(aInstance).Get<Mle::MleRouter>().GetLeaderWeight();
@@ -143,6 +155,16 @@ void otThreadSetRouterUpgradeThreshold(otInstance *aInstance, uint8_t aThreshold
     AsCoreType(aInstance).Get<Mle::MleRouter>().SetRouterUpgradeThreshold(aThreshold);
 }
 
+uint8_t otThreadGetChildRouterLinks(otInstance *aInstance)
+{
+    return AsCoreType(aInstance).Get<Mle::MleRouter>().GetChildRouterLinks();
+}
+
+otError otThreadSetChildRouterLinks(otInstance *aInstance, uint8_t aChildRouterLinks)
+{
+    return AsCoreType(aInstance).Get<Mle::MleRouter>().SetChildRouterLinks(aChildRouterLinks);
+}
+
 otError otThreadReleaseRouterId(otInstance *aInstance, uint8_t aRouterId)
 {
     Error error = kErrorNone;
@@ -200,46 +222,35 @@ uint8_t otThreadGetRouterSelectionJitter(otInstance *aInstance)
 
 void otThreadSetRouterSelectionJitter(otInstance *aInstance, uint8_t aRouterJitter)
 {
-    IgnoreError(AsCoreType(aInstance).Get<Mle::MleRouter>().SetRouterSelectionJitter(aRouterJitter));
+    AsCoreType(aInstance).Get<Mle::MleRouter>().SetRouterSelectionJitter(aRouterJitter);
 }
 
 otError otThreadGetChildInfoById(otInstance *aInstance, uint16_t aChildId, otChildInfo *aChildInfo)
 {
-    OT_ASSERT(aChildInfo != nullptr);
-
     return AsCoreType(aInstance).Get<ChildTable>().GetChildInfoById(aChildId, AsCoreType(aChildInfo));
 }
 
 otError otThreadGetChildInfoByIndex(otInstance *aInstance, uint16_t aChildIndex, otChildInfo *aChildInfo)
 {
-    OT_ASSERT(aChildInfo != nullptr);
-
     return AsCoreType(aInstance).Get<ChildTable>().GetChildInfoByIndex(aChildIndex, AsCoreType(aChildInfo));
 }
 
-otError otThreadGetChildNextIp6Address(otInstance *               aInstance,
+otError otThreadGetChildNextIp6Address(otInstance                *aInstance,
                                        uint16_t                   aChildIndex,
                                        otChildIp6AddressIterator *aIterator,
-                                       otIp6Address *             aAddress)
+                                       otIp6Address              *aAddress)
 {
     Error        error = kErrorNone;
     const Child *child;
 
-    OT_ASSERT(aIterator != nullptr && aAddress != nullptr);
+    AssertPointerIsNotNull(aIterator);
+    AssertPointerIsNotNull(aAddress);
 
     child = AsCoreType(aInstance).Get<ChildTable>().GetChildAtIndex(aChildIndex);
     VerifyOrExit(child != nullptr, error = kErrorInvalidArgs);
     VerifyOrExit(child->IsStateValidOrRestoring(), error = kErrorInvalidArgs);
 
-    {
-        Child::AddressIterator iter(*child, *aIterator);
-
-        VerifyOrExit(!iter.IsDone(), error = kErrorNotFound);
-        *aAddress = *iter.GetAddress();
-
-        iter++;
-        *aIterator = iter.GetAsIndex();
-    }
+    error = child->GetNextIp6Address(*aIterator, AsCoreType(aAddress));
 
 exit:
     return error;
@@ -258,16 +269,13 @@ uint8_t otThreadGetMaxRouterId(otInstance *aInstance)
 
 otError otThreadGetRouterInfo(otInstance *aInstance, uint16_t aRouterId, otRouterInfo *aRouterInfo)
 {
-    OT_ASSERT(aRouterInfo != nullptr);
-
     return AsCoreType(aInstance).Get<RouterTable>().GetRouterInfo(aRouterId, AsCoreType(aRouterInfo));
 }
 
 otError otThreadGetNextCacheEntry(otInstance *aInstance, otCacheEntryInfo *aEntryInfo, otCacheEntryIterator *aIterator)
 {
-    OT_ASSERT((aIterator != nullptr) && (aEntryInfo != nullptr));
-
-    return AsCoreType(aInstance).Get<AddressResolver>().GetNextCacheEntry(*aEntryInfo, *aIterator);
+    return AsCoreType(aInstance).Get<AddressResolver>().GetNextCacheEntry(AsCoreType(aEntryInfo),
+                                                                          AsCoreType(aIterator));
 }
 
 #if OPENTHREAD_CONFIG_MLE_STEERING_DATA_SET_OOB_ENABLE
@@ -283,10 +291,7 @@ void otThreadGetPskc(otInstance *aInstance, otPskc *aPskc)
 }
 
 #if OPENTHREAD_CONFIG_PLATFORM_KEY_REFERENCES_ENABLE
-otPskcRef otThreadGetPskcRef(otInstance *aInstance)
-{
-    return AsCoreType(aInstance).Get<KeyManager>().GetPskcRef();
-}
+otPskcRef otThreadGetPskcRef(otInstance *aInstance) { return AsCoreType(aInstance).Get<KeyManager>().GetPskcRef(); }
 #endif
 
 otError otThreadSetPskc(otInstance *aInstance, const otPskc *aPskc)
@@ -296,8 +301,8 @@ otError otThreadSetPskc(otInstance *aInstance, const otPskc *aPskc)
     VerifyOrExit(AsCoreType(aInstance).Get<Mle::MleRouter>().IsDisabled(), error = kErrorInvalidState);
 
     AsCoreType(aInstance).Get<KeyManager>().SetPskc(AsCoreType(aPskc));
-    AsCoreType(aInstance).Get<MeshCoP::ActiveDataset>().Clear();
-    AsCoreType(aInstance).Get<MeshCoP::PendingDataset>().Clear();
+    AsCoreType(aInstance).Get<MeshCoP::ActiveDatasetManager>().Clear();
+    AsCoreType(aInstance).Get<MeshCoP::PendingDatasetManager>().Clear();
 
 exit:
     return error;
@@ -313,8 +318,8 @@ otError otThreadSetPskcRef(otInstance *aInstance, otPskcRef aKeyRef)
     VerifyOrExit(instance.Get<Mle::MleRouter>().IsDisabled(), error = kErrorInvalidState);
 
     instance.Get<KeyManager>().SetPskcRef(aKeyRef);
-    instance.Get<MeshCoP::ActiveDataset>().Clear();
-    instance.Get<MeshCoP::PendingDataset>().Clear();
+    instance.Get<MeshCoP::ActiveDatasetManager>().Clear();
+    instance.Get<MeshCoP::PendingDatasetManager>().Clear();
 
 exit:
     return error;
@@ -336,17 +341,18 @@ void otThreadRegisterNeighborTableCallback(otInstance *aInstance, otNeighborTabl
     AsCoreType(aInstance).Get<NeighborTable>().RegisterCallback(aCallback);
 }
 
-void otThreadSetDiscoveryRequestCallback(otInstance *                     aInstance,
+void otThreadSetDiscoveryRequestCallback(otInstance                      *aInstance,
                                          otThreadDiscoveryRequestCallback aCallback,
-                                         void *                           aContext)
+                                         void                            *aContext)
 {
     AsCoreType(aInstance).Get<Mle::MleRouter>().SetDiscoveryRequestCallback(aCallback, aContext);
 }
 
 #if OPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE
-void otThreadSendAddressNotification(otInstance *              aInstance,
-                                     otIp6Address *            aDestination,
-                                     otIp6Address *            aTarget,
+
+void otThreadSendAddressNotification(otInstance               *aInstance,
+                                     otIp6Address             *aDestination,
+                                     otIp6Address             *aTarget,
                                      otIp6InterfaceIdentifier *aMlIid)
 {
     AsCoreType(aInstance).Get<AddressResolver>().SendAddressQueryResponse(AsCoreType(aTarget), AsCoreType(aMlIid),
@@ -354,8 +360,8 @@ void otThreadSendAddressNotification(otInstance *              aInstance,
 }
 
 #if OPENTHREAD_CONFIG_BACKBONE_ROUTER_DUA_NDPROXYING_ENABLE
-otError otThreadSendProactiveBackboneNotification(otInstance *              aInstance,
-                                                  otIp6Address *            aTarget,
+otError otThreadSendProactiveBackboneNotification(otInstance               *aInstance,
+                                                  otIp6Address             *aTarget,
                                                   otIp6InterfaceIdentifier *aMlIid,
                                                   uint32_t                  aTimeSinceLastTransaction)
 {
@@ -363,6 +369,63 @@ otError otThreadSendProactiveBackboneNotification(otInstance *              aIns
         AsCoreType(aTarget), AsCoreType(aMlIid), aTimeSinceLastTransaction);
 }
 #endif
-#endif
+
+void otThreadSetCcmEnabled(otInstance *aInstance, bool aEnabled)
+{
+    AsCoreType(aInstance).Get<Mle::MleRouter>().SetCcmEnabled(aEnabled);
+}
+
+void otThreadSetThreadVersionCheckEnabled(otInstance *aInstance, bool aEnabled)
+{
+    AsCoreType(aInstance).Get<Mle::MleRouter>().SetThreadVersionCheckEnabled(aEnabled);
+}
+
+void otThreadSetTmfOriginFilterEnabled(otInstance *aInstance, bool aEnabled)
+{
+    AsCoreType(aInstance).Get<Ip6::Ip6>().SetTmfOriginFilterEnabled(aEnabled);
+}
+
+bool otThreadIsTmfOriginFilterEnabled(otInstance *aInstance)
+{
+    return AsCoreType(aInstance).Get<Ip6::Ip6>().IsTmfOriginFilterEnabled();
+}
+
+void otThreadGetRouterIdRange(otInstance *aInstance, uint8_t *aMinRouterId, uint8_t *aMaxRouterId)
+{
+    AssertPointerIsNotNull(aMinRouterId);
+    AssertPointerIsNotNull(aMaxRouterId);
+
+    AsCoreType(aInstance).Get<RouterTable>().GetRouterIdRange(*aMinRouterId, *aMaxRouterId);
+}
+
+otError otThreadSetRouterIdRange(otInstance *aInstance, uint8_t aMinRouterId, uint8_t aMaxRouterId)
+{
+    return AsCoreType(aInstance).Get<RouterTable>().SetRouterIdRange(aMinRouterId, aMaxRouterId);
+}
+
+uint32_t otThreadGetAdvertisementTrickleIntervalMax(otInstance *aInstance)
+{
+    return AsCoreType(aInstance).Get<Mle::MleRouter>().GetAdvertisementTrickleIntervalMax();
+}
+
+#endif // OPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE
+
+bool otThreadIsRouterIdAllocated(otInstance *aInstance, uint8_t aRouterId)
+{
+    return AsCoreType(aInstance).Get<RouterTable>().IsAllocated(aRouterId);
+}
+
+void otThreadGetNextHopAndPathCost(otInstance *aInstance,
+                                   uint16_t    aDestRloc16,
+                                   uint16_t   *aNextHopRloc16,
+                                   uint8_t    *aPathCost)
+{
+    uint8_t  pathcost;
+    uint16_t nextHopRloc16;
+
+    AsCoreType(aInstance).Get<RouterTable>().GetNextHopAndPathCost(
+        aDestRloc16, (aNextHopRloc16 != nullptr) ? *aNextHopRloc16 : nextHopRloc16,
+        (aPathCost != nullptr) ? *aPathCost : pathcost);
+}
 
 #endif // OPENTHREAD_FTD

@@ -1,25 +1,17 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include "soc/spi_periph.h"
-#include "stddef.h"
 
 /*
  Bunch of constants for every SPI peripheral: GPIO signals, irqs, hw addr of registers etc
 */
 const spi_signal_conn_t spi_periph_signal[SOC_SPI_PERIPH_NUM] = {
     {
+        // MSPI has dedicated iomux pins
         .spiclk_out = SPICLK_OUT_MUX_IDX,
         .spiclk_in = 0,/* SPI clock is not an input signal*/
         .spid_out = SPID_OUT_IDX,
@@ -32,17 +24,18 @@ const spi_signal_conn_t spi_periph_signal[SOC_SPI_PERIPH_NUM] = {
         .spihd_in = SPIHD_IN_IDX,
         .spics_out = {SPICS0_OUT_IDX, SPICS1_OUT_IDX},/* SPI0/1 do not have CS2 now */
         .spics_in = 0,/* SPI cs is not an input signal*/
-        .spiclk_iomux_pin = SPI_IOMUX_PIN_NUM_CLK,
-        .spid_iomux_pin = SPI_IOMUX_PIN_NUM_MOSI,
-        .spiq_iomux_pin = SPI_IOMUX_PIN_NUM_MISO,
-        .spiwp_iomux_pin = SPI_IOMUX_PIN_NUM_WP,
-        .spihd_iomux_pin = SPI_IOMUX_PIN_NUM_HD,
-        .spics0_iomux_pin = SPI_IOMUX_PIN_NUM_CS,
+        .spiclk_iomux_pin = MSPI_IOMUX_PIN_NUM_CLK,
+        .spid_iomux_pin = MSPI_IOMUX_PIN_NUM_MOSI,
+        .spiq_iomux_pin = MSPI_IOMUX_PIN_NUM_MISO,
+        .spiwp_iomux_pin = MSPI_IOMUX_PIN_NUM_WP,
+        .spihd_iomux_pin = MSPI_IOMUX_PIN_NUM_HD,
+        .spics0_iomux_pin = MSPI_IOMUX_PIN_NUM_CS0,
         .irq = ETS_SPI1_INTR_SOURCE,
         .irq_dma = -1,
         .module = PERIPH_SPI_MODULE,
         .hw = (spi_dev_t *) &SPIMEM1,
-        .func = SPI_FUNC_NUM,
+        .func = MSPI_FUNC_NUM,
+
     }, {
         .spiclk_out = FSPICLK_OUT_MUX_IDX,
         .spiclk_in = FSPICLK_IN_IDX,
@@ -62,7 +55,7 @@ const spi_signal_conn_t spi_periph_signal[SOC_SPI_PERIPH_NUM] = {
         .spid5_in = FSPIIO5_IN_IDX,
         .spid6_in = FSPIIO6_IN_IDX,
         .spid7_in = FSPIIO7_IN_IDX,
-        .spics_out = {FSPICS0_OUT_IDX, FSPICS1_OUT_IDX, FSPICS2_OUT_IDX},
+        .spics_out = {FSPICS0_OUT_IDX, FSPICS1_OUT_IDX, FSPICS2_OUT_IDX, FSPICS3_OUT_IDX, FSPICS4_OUT_IDX, FSPICS5_OUT_IDX},
         .spics_in = FSPICS0_IN_IDX,
         .spiclk_iomux_pin = FSPI_IOMUX_PIN_NUM_CLK,
         .spid_iomux_pin = FSPI_IOMUX_PIN_NUM_MOSI,

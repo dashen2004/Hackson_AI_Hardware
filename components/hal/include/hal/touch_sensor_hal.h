@@ -1,16 +1,8 @@
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /*******************************************************************************
  * NOTICE
@@ -22,13 +14,16 @@
 
 #pragma once
 
+#if SOC_TOUCH_SENSOR_SUPPORTED
 #include "hal/touch_sensor_ll.h"
 #include "hal/touch_sensor_types.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#if SOC_TOUCH_SENSOR_SUPPORTED
 typedef struct {
     touch_high_volt_t refh;
     touch_low_volt_t refl;
@@ -199,7 +194,7 @@ void touch_hal_get_meas_mode(touch_pad_t touch_num, touch_hal_meas_mode_t *meas)
  * @return
  *      - If touch sensors measure done.
  */
-#define touch_hal_meas_is_done() touch_ll_meas_is_done()
+#define touch_hal_meas_is_done() touch_ll_is_measure_done()
 
 /**
  * Initialize touch module.
@@ -219,6 +214,8 @@ void touch_hal_deinit(void);
  * Configure touch sensor for each channel.
  */
 void touch_hal_config(touch_pad_t touch_num);
+
+#endif
 
 #ifdef __cplusplus
 }

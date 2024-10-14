@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- | -------- |
+
 # Ethernet Examples
 
 See the [README.md](../README.md) file in the upper level [examples](../) directory for more information about examples.
@@ -16,6 +19,14 @@ See the [README.md](../README.md) file in the upper level [examples](../) direct
 | GPIO25 | RX0         | EMAC_RXD0    |
 | GPIO26 | RX1         | EMAC_RXD1    |
 | GPIO27 | CRS_DV      | EMAC_RX_DRV  |
+
+* One of the following GPIO pins can be used as RMII REF_CLK input/output:
+
+| GPIO   | Function             | Notes        |
+| ------ | -------------------- | ------------ |
+| GPIO0  | EMAC_TX_CLK/CLK_OUT1 | input/output |
+| GPIO16 | EMAC_CLK_OUT         | output       |
+| GPIO17 | EMAC_CLK_180         | output       |
 
 * SMI (Serial Management Interface) wiring is not fixed. You may need to changed it according to your board schematic. By default they're connected as follows:
 
@@ -39,11 +50,16 @@ See the [README.md](../README.md) file in the upper level [examples](../) direct
 | GPIO4  | Interrupt   |
 | NC     | Reset       |
 
-Please consult Espressif Technical reference manual along with datasheet for specific ESP Module you use when assigning any other pins, especially when choosing from system configuration menu for the ethernet examples, some pins cannot be used (they may already be utilized for different purpose like SPI Flash/RAM, etc.).
+---
+
+**Warning:**
+Please consult Espressif Technical reference manual along with datasheet for specific ESP Module you use when assigning any other pins, especially when choosing from system configuration menu for the ethernet examples, some pins cannot be used (they may already be utilized for different purpose like SPI Flash/RAM, some pins might be inputs only, etc.).
+
+---
 
 ## Common Configurations
 
-1. In the `Example Configuration` menu:
+1. In the `Example Ethernet Configuration` menu:
     * Choose the kind of Ethernet.
     * If `Internal EMAC` is selected:
         * Choose PHY device under `Ethernet PHY Device`, by default, the **ESP32-Ethernet-Kit** has an `IP101` on board.
@@ -67,3 +83,8 @@ Please consult Espressif Technical reference manual along with datasheet for spe
 
 * The data panel between ESP32's MAC and PHY needs a fixed 50MHz clock to do synchronization, which also called RMII clock. It can either be provided by an external oscillator or generated from internal APLL. The signal integrity of RMII clock is strict, so keep the trace as short as possible!
 * If the RMII clock is generated from internal APLL, then APLL can't be used for other purpose (e.g. I2S).
+* If you observe undefined behavior (e.g. LCD glitches) of any **SPI device** which works normally when Ethernet is not connected over internal EMAC, you need to adjust EMAC DMA burst length (the DMA is shared resource between EMAC and the SPI). The same applies when you observe Ethernet frames corruption at the output of SPI Ethernet module and you use combination of internal EMAC and SPI Ethernet module as network interfaces. To configure the EMAC DMA burst length, modify internal Ethernet initialization as follows:
+
+```c
+esp32_emac_config.dma_burst_len = ETH_DMA_BURST_LEN_4; // or other appropriate value
+```

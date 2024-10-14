@@ -53,41 +53,13 @@ extern "C" {
  */
 
 /**
- * This type is an opaque representation of an OpenThread message buffer.
+ * An opaque representation of an OpenThread message buffer.
  *
  */
 typedef struct otMessage otMessage;
 
 /**
- * This structure represents the message buffer information.
- *
- */
-typedef struct otBufferInfo
-{
-    uint16_t mTotalBuffers;            ///< The number of buffers in the pool.
-    uint16_t mFreeBuffers;             ///< The number of free message buffers.
-    uint16_t m6loSendMessages;         ///< The number of messages in the 6lo send queue.
-    uint16_t m6loSendBuffers;          ///< The number of buffers in the 6lo send queue.
-    uint16_t m6loReassemblyMessages;   ///< The number of messages in the 6LoWPAN reassembly queue.
-    uint16_t m6loReassemblyBuffers;    ///< The number of buffers in the 6LoWPAN reassembly queue.
-    uint16_t mIp6Messages;             ///< The number of messages in the IPv6 send queue.
-    uint16_t mIp6Buffers;              ///< The number of buffers in the IPv6 send queue.
-    uint16_t mMplMessages;             ///< The number of messages in the MPL send queue.
-    uint16_t mMplBuffers;              ///< The number of buffers in the MPL send queue.
-    uint16_t mMleMessages;             ///< The number of messages in the MLE send queue.
-    uint16_t mMleBuffers;              ///< The number of buffers in the MLE send queue.
-    uint16_t mArpMessages;             ///< The number of messages in the ARP send queue.
-    uint16_t mArpBuffers;              ///< The number of buffers in the ARP send queue.
-    uint16_t mCoapMessages;            ///< The number of messages in the CoAP send queue.
-    uint16_t mCoapBuffers;             ///< The number of buffers in the CoAP send queue.
-    uint16_t mCoapSecureMessages;      ///< The number of messages in the CoAP secure send queue.
-    uint16_t mCoapSecureBuffers;       ///< The number of buffers in the CoAP secure send queue.
-    uint16_t mApplicationCoapMessages; ///< The number of messages in the application CoAP send queue.
-    uint16_t mApplicationCoapBuffers;  ///< The number of buffers in the application CoAP send queue.
-} otBufferInfo;
-
-/**
- * This enumeration defines the OpenThread message priority levels.
+ * Defines the OpenThread message priority levels.
  *
  */
 typedef enum otMessagePriority
@@ -98,7 +70,18 @@ typedef enum otMessagePriority
 } otMessagePriority;
 
 /**
- * This structure represents a message settings.
+ * Defines the OpenThread message origins.
+ *
+ */
+typedef enum otMessageOrigin
+{
+    OT_MESSAGE_ORIGIN_THREAD_NETIF   = 0, ///< Message from Thread Netif.
+    OT_MESSAGE_ORIGIN_HOST_TRUSTED   = 1, ///< Message from a trusted source on host.
+    OT_MESSAGE_ORIGIN_HOST_UNTRUSTED = 2, ///< Message from an untrusted source on host.
+} otMessageOrigin;
+
+/**
+ * Represents a message settings.
  *
  */
 typedef struct otMessageSettings
@@ -106,6 +89,27 @@ typedef struct otMessageSettings
     bool    mLinkSecurityEnabled; ///< TRUE if the message should be secured at Layer 2.
     uint8_t mPriority;            ///< Priority level (MUST be a `OT_MESSAGE_PRIORITY_*` from `otMessagePriority`).
 } otMessageSettings;
+
+/**
+ * Represents link-specific information for messages received from the Thread radio.
+ *
+ */
+typedef struct otThreadLinkInfo
+{
+    uint16_t mPanId;                   ///< Source PAN ID
+    uint8_t  mChannel;                 ///< 802.15.4 Channel
+    int8_t   mRss;                     ///< Received Signal Strength in dBm (averaged over fragments)
+    uint8_t  mLqi;                     ///< Average Link Quality Indicator (averaged over fragments)
+    bool     mLinkSecurity : 1;        ///< Indicates whether or not link security is enabled.
+    bool     mIsDstPanIdBroadcast : 1; ///< Indicates whether or not destination PAN ID is broadcast.
+
+    // Applicable/Required only when time sync feature (`OPENTHREAD_CONFIG_TIME_SYNC_ENABLE`) is enabled.
+    uint8_t mTimeSyncSeq;       ///< The time sync sequence.
+    int64_t mNetworkTimeOffset; ///< The time offset to the Thread network time, in microseconds.
+
+    // Applicable only when OPENTHREAD_CONFIG_MULTI_RADIO feature is enabled.
+    uint8_t mRadioType; ///< Radio link type.
+} otThreadLinkInfo;
 
 /**
  * Free an allocated message buffer.
@@ -198,7 +202,7 @@ uint16_t otMessageGetOffset(const otMessage *aMessage);
 void otMessageSetOffset(otMessage *aMessage, uint16_t aOffset);
 
 /**
- * This function indicates whether or not link security is enabled for the message.
+ * Indicates whether or not link security is enabled for the message.
  *
  * @param[in]  aMessage  A pointer to a message buffer.
  *
@@ -209,7 +213,68 @@ void otMessageSetOffset(otMessage *aMessage, uint16_t aOffset);
 bool otMessageIsLinkSecurityEnabled(const otMessage *aMessage);
 
 /**
- * This function sets/forces the message to be forwarded using direct transmission.
+ * Indicates whether or not the message is allowed to be looped back to host.
+ *
+ * @param[in]  aMessage  A pointer to a message buffer.
+ *
+ * @retval TRUE   If the message is allowed to be looped back to host.
+ * @retval FALSE  If the message is not allowed to be looped back to host.
+ *
+ */
+bool otMessageIsLoopbackToHostAllowed(const otMessage *aMessage);
+
+/**
+ * Sets whether or not the message is allowed to be looped back to host.
+ *
+ * @param[in]  aMessage              A pointer to a message buffer.
+ * @param[in]  aAllowLoopbackToHost  Whether to allow the message to be looped back to host.
+ *
+ */
+void otMessageSetLoopbackToHostAllowed(otMessage *aMessage, bool aAllowLoopbackToHost);
+
+/**
+ * Indicates whether the given message may be looped back in a case of a multicast destination address.
+ *
+ * If @p aMessage is used along with an `otMessageInfo`, the `mMulticastLoop` field from `otMessageInfo` structure
+ * takes precedence and will be used instead of the the value set on @p aMessage.
+ *
+ * This API is mainly intended for use along with `otIp6Send()` which expects an already prepared IPv6 message.
+ *
+ * @param[in]  aMessage A pointer to the message.
+ *
+ */
+bool otMessageIsMulticastLoopEnabled(otMessage *aMessage);
+
+/**
+ * Controls whether the given message may be looped back in a case of a multicast destination address.
+ *
+ * @param[in]  aMessage  A pointer to the message.
+ * @param[in]  aEnabled  The configuration value.
+ *
+ */
+void otMessageSetMulticastLoopEnabled(otMessage *aMessage, bool aEnabled);
+
+/**
+ * Gets the message origin.
+ *
+ * @param[in]  aMessage  A pointer to a message buffer.
+ *
+ * @returns The message origin.
+ *
+ */
+otMessageOrigin otMessageGetOrigin(const otMessage *aMessage);
+
+/**
+ * Sets the message origin.
+ *
+ * @param[in]  aMessage  A pointer to a message buffer.
+ * @param[in]  aOrigin   The message origin.
+ *
+ */
+void otMessageSetOrigin(otMessage *aMessage, otMessageOrigin aOrigin);
+
+/**
+ * Sets/forces the message to be forwarded using direct transmission.
  * Default setting for a new message is `false`.
  *
  * @param[in]  aMessage  A pointer to a message buffer.
@@ -220,12 +285,26 @@ bool otMessageIsLinkSecurityEnabled(const otMessage *aMessage);
 void otMessageSetDirectTransmission(otMessage *aMessage, bool aEnabled);
 
 /**
- * This function returns the average RSS (received signal strength) associated with the message.
+ * Returns the average RSS (received signal strength) associated with the message.
+ *
+ * @param[in]  aMessage  A pointer to a message buffer.
  *
  * @returns The average RSS value (in dBm) or OT_RADIO_RSSI_INVALID if no average RSS is available.
  *
  */
 int8_t otMessageGetRss(const otMessage *aMessage);
+
+/**
+ * Retrieves the link-specific information for a message received over Thread radio.
+ *
+ * @param[in] aMessage    The message from which to retrieve `otThreadLinkInfo`.
+ * @pram[out] aLinkInfo   A pointer to an `otThreadLinkInfo` to populate.
+ *
+ * @retval OT_ERROR_NONE       Successfully retrieved the link info, @p `aLinkInfo` is updated.
+ * @retval OT_ERROR_NOT_FOUND  Message origin is not `OT_MESSAGE_ORIGIN_THREAD_NETIF`.
+ *
+ */
+otError otMessageGetThreadLinkInfo(const otMessage *aMessage, otThreadLinkInfo *aLinkInfo);
 
 /**
  * Append bytes to a message.
@@ -291,7 +370,7 @@ uint16_t otMessageRead(const otMessage *aMessage, uint16_t aOffset, void *aBuf, 
 int otMessageWrite(otMessage *aMessage, uint16_t aOffset, const void *aBuf, uint16_t aLength);
 
 /**
- * This structure represents an OpenThread message queue.
+ * Represents an OpenThread message queue.
  */
 typedef struct
 {
@@ -299,9 +378,46 @@ typedef struct
 } otMessageQueue;
 
 /**
+ * Represents information about a message queue.
+ *
+ */
+typedef struct otMessageQueueInfo
+{
+    uint16_t mNumMessages; ///< Number of messages in the queue.
+    uint16_t mNumBuffers;  ///< Number of data buffers used by messages in the queue.
+    uint32_t mTotalBytes;  ///< Total number of bytes used by all messages in the queue.
+} otMessageQueueInfo;
+
+/**
+ * Represents the message buffer information for different queues used by OpenThread stack.
+ *
+ */
+typedef struct otBufferInfo
+{
+    uint16_t mTotalBuffers; ///< The total number of buffers in the messages pool (0xffff if unknown).
+    uint16_t mFreeBuffers;  ///< The number of free buffers (0xffff if unknown).
+
+    /**
+     * The maximum number of used buffers at the same time since OT stack initialization or last call to
+     * `otMessageResetBufferInfo()`.
+     *
+     */
+    uint16_t mMaxUsedBuffers;
+
+    otMessageQueueInfo m6loSendQueue;         ///< Info about 6LoWPAN send queue.
+    otMessageQueueInfo m6loReassemblyQueue;   ///< Info about 6LoWPAN reassembly queue.
+    otMessageQueueInfo mIp6Queue;             ///< Info about IPv6 send queue.
+    otMessageQueueInfo mMplQueue;             ///< Info about MPL send queue.
+    otMessageQueueInfo mMleQueue;             ///< Info about MLE delayed message queue.
+    otMessageQueueInfo mCoapQueue;            ///< Info about CoAP/TMF send queue.
+    otMessageQueueInfo mCoapSecureQueue;      ///< Info about CoAP secure send queue.
+    otMessageQueueInfo mApplicationCoapQueue; ///< Info about application CoAP send queue.
+} otBufferInfo;
+
+/**
  * Initialize the message queue.
  *
- * This function MUST be called once and only once for a `otMessageQueue` instance before any other `otMessageQueue`
+ * MUST be called once and only once for a `otMessageQueue` instance before any other `otMessageQueue`
  * functions. The behavior is undefined if other queue APIs are used with an `otMessageQueue` before it being
  * initialized or if it is initialized more than once.
  *
@@ -311,7 +427,7 @@ typedef struct
 void otMessageQueueInit(otMessageQueue *aQueue);
 
 /**
- * This function adds a message to the end of the given message queue.
+ * Adds a message to the end of the given message queue.
  *
  * @param[in]  aQueue    A pointer to the message queue.
  * @param[in]  aMessage  The message to add.
@@ -320,7 +436,7 @@ void otMessageQueueInit(otMessageQueue *aQueue);
 void otMessageQueueEnqueue(otMessageQueue *aQueue, otMessage *aMessage);
 
 /**
- * This function adds a message at the head/front of the given message queue.
+ * Adds a message at the head/front of the given message queue.
  *
  * @param[in]  aQueue    A pointer to the message queue.
  * @param[in]  aMessage  The message to add.
@@ -329,7 +445,7 @@ void otMessageQueueEnqueue(otMessageQueue *aQueue, otMessage *aMessage);
 void otMessageQueueEnqueueAtHead(otMessageQueue *aQueue, otMessage *aMessage);
 
 /**
- * This function removes a message from the given message queue.
+ * Removes a message from the given message queue.
  *
  * @param[in]  aQueue    A pointer to the message queue.
  * @param[in]  aMessage  The message to remove.
@@ -338,7 +454,7 @@ void otMessageQueueEnqueueAtHead(otMessageQueue *aQueue, otMessage *aMessage);
 void otMessageQueueDequeue(otMessageQueue *aQueue, otMessage *aMessage);
 
 /**
- * This function returns a pointer to the message at the head of the queue.
+ * Returns a pointer to the message at the head of the queue.
  *
  * @param[in]  aQueue    A pointer to a message queue.
  *
@@ -348,7 +464,7 @@ void otMessageQueueDequeue(otMessageQueue *aQueue, otMessage *aMessage);
 otMessage *otMessageQueueGetHead(otMessageQueue *aQueue);
 
 /**
- * This function returns a pointer to the next message in the queue by iterating forward (from head to tail).
+ * Returns a pointer to the next message in the queue by iterating forward (from head to tail).
  *
  * @param[in]  aQueue    A pointer to a message queue.
  * @param[in]  aMessage  A pointer to current message buffer.
@@ -367,6 +483,16 @@ otMessage *otMessageQueueGetNext(otMessageQueue *aQueue, const otMessage *aMessa
  *
  */
 void otMessageGetBufferInfo(otInstance *aInstance, otBufferInfo *aBufferInfo);
+
+/**
+ * Reset the Message Buffer information counter tracking the maximum number buffers in use at the same time.
+ *
+ * This resets `mMaxUsedBuffers` in `otBufferInfo`.
+ *
+ * @param[in]   aInstance    A pointer to the OpenThread instance.
+ *
+ */
+void otMessageResetBufferInfo(otInstance *aInstance);
 
 /**
  * @}

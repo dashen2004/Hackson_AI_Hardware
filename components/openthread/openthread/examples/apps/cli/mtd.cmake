@@ -33,15 +33,28 @@ add_executable(ot-cli-mtd
 
 target_include_directories(ot-cli-mtd PRIVATE ${COMMON_INCLUDES})
 
+if(NOT DEFINED OT_PLATFORM_LIB_MTD)
+    set(OT_PLATFORM_LIB_MTD ${OT_PLATFORM_LIB})
+endif()
+
 target_link_libraries(ot-cli-mtd PRIVATE
     openthread-cli-mtd
-    ${OT_PLATFORM_LIB}
+    ${OT_PLATFORM_LIB_MTD}
     openthread-mtd
-    ${OT_PLATFORM_LIB}
+    ${OT_PLATFORM_LIB_MTD}
     openthread-cli-mtd
     ${OT_MBEDTLS}
+    ot-config-mtd
     ot-config
 )
+
+if(OT_LINKER_MAP)
+    if("${CMAKE_CXX_COMPILER_ID}" MATCHES "AppleClang")
+        target_link_libraries(ot-cli-mtd PRIVATE -Wl,-map,ot-cli-mtd.map)
+    else()
+        target_link_libraries(ot-cli-mtd PRIVATE -Wl,-Map=ot-cli-mtd.map)
+    endif()
+endif()
 
 install(TARGETS ot-cli-mtd
     DESTINATION bin)

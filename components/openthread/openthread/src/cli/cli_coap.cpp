@@ -44,10 +44,8 @@
 namespace ot {
 namespace Cli {
 
-constexpr Coap::Command Coap::sCommands[];
-
-Coap::Coap(Output &aOutput)
-    : OutputWrapper(aOutput)
+Coap::Coap(otInstance *aInstance, OutputImplementer &aOutputImplementer)
+    : Utils(aInstance, aOutputImplementer)
     , mUseDefaultRequestTxParameters(true)
     , mUseDefaultResponseTxParameters(true)
 #if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
@@ -60,15 +58,15 @@ Coap::Coap(Output &aOutput)
     , mBlockCount(1)
 #endif
 {
-    memset(&mResource, 0, sizeof(mResource));
+    ClearAllBytes(mResource);
 #if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-    memset(&mRequestAddr, 0, sizeof(mRequestAddr));
-    memset(&mSubscriberSock, 0, sizeof(mSubscriberSock));
-    memset(&mRequestToken, 0, sizeof(mRequestToken));
-    memset(&mSubscriberToken, 0, sizeof(mSubscriberToken));
-    memset(&mRequestUri, 0, sizeof(mRequestUri));
+    ClearAllBytes(mRequestAddr);
+    ClearAllBytes(mSubscriberSock);
+    ClearAllBytes(mRequestToken);
+    ClearAllBytes(mSubscriberToken);
+    ClearAllBytes(mRequestUri);
 #endif
-    memset(&mUriPath, 0, sizeof(mUriPath));
+    ClearAllBytes(mUriPath);
     strncpy(mResourceContent, "0", sizeof(mResourceContent));
     mResourceContent[sizeof(mResourceContent) - 1] = '\0';
 }
@@ -77,10 +75,10 @@ Coap::Coap(Output &aOutput)
 otError Coap::CancelResourceSubscription(void)
 {
     otError       error   = OT_ERROR_NONE;
-    otMessage *   message = nullptr;
+    otMessage    *message = nullptr;
     otMessageInfo messageInfo;
 
-    memset(&messageInfo, 0, sizeof(messageInfo));
+    ClearAllBytes(messageInfo);
     messageInfo.mPeerAddr = mRequestAddr;
     messageInfo.mPeerPort = OT_DEFAULT_COAP_PORT;
 
@@ -96,8 +94,8 @@ otError Coap::CancelResourceSubscription(void)
     SuccessOrExit(error = otCoapMessageAppendUriPathOptions(message, mRequestUri));
     SuccessOrExit(error = otCoapSendRequest(GetInstancePtr(), message, &messageInfo, &Coap::HandleResponse, this));
 
-    memset(&mRequestAddr, 0, sizeof(mRequestAddr));
-    memset(&mRequestUri, 0, sizeof(mRequestUri));
+    ClearAllBytes(mRequestAddr);
+    ClearAllBytes(mRequestUri);
     mRequestTokenLength = 0;
 
 exit:
@@ -112,7 +110,7 @@ exit:
 
 void Coap::CancelSubscriber(void)
 {
-    memset(&mSubscriberSock, 0, sizeof(mSubscriberSock));
+    ClearAllBytes(mSubscriberSock);
     mSubscriberTokenLength = 0;
 }
 #endif // OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
@@ -130,7 +128,7 @@ void Coap::PrintPayload(otMessage *aMessage)
 
         while (length > 0)
         {
-            bytesToPrint = (length < sizeof(buf)) ? length : sizeof(buf);
+            bytesToPrint = Min(length, static_cast<uint16_t>(sizeof(buf)));
             otMessageRead(aMessage, otMessageGetOffset(aMessage) + bytesPrinted, buf, bytesToPrint);
 
             OutputBytes(buf, static_cast<uint8_t>(bytesToPrint));
@@ -140,11 +138,22 @@ void Coap::PrintPayload(otMessage *aMessage)
         }
     }
 
-    OutputLine("");
+    OutputNewLine();
 }
 
 #if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-otError Coap::ProcessCancel(Arg aArgs[])
+/**
+ * @cli coap cancel
+ * @code
+ * coap cancel
+ * Done
+ * @endcode
+ * @par
+ * Cancels an existing observation subscription to a remote resource on the CoAP server.
+ * @note This command is available only when `OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE` is set.
+ * @csa{coap observe}
+ */
+template <> otError Coap::Process<Cmd("cancel")>(Arg aArgs[])
 {
     OT_UNUSED_VARIABLE(aArgs);
 
@@ -152,19 +161,24 @@ otError Coap::ProcessCancel(Arg aArgs[])
 }
 #endif
 
-otError Coap::ProcessHelp(Arg aArgs[])
-{
-    OT_UNUSED_VARIABLE(aArgs);
-
-    for (const Command &command : sCommands)
-    {
-        OutputLine(command.mName);
-    }
-
-    return OT_ERROR_NONE;
-}
-
-otError Coap::ProcessResource(Arg aArgs[])
+/**
+ * @cli coap resource (get,set)
+ * @code
+ * coap resource test-resource
+ * Done
+ * @endcode
+ * @code
+ * coap resource
+ * test-resource
+ * Done
+ * @endcode
+ * @cparam coap resource [@ca{uri-path}]
+ * @par
+ * Gets or sets the URI path of the CoAP server resource.
+ * @sa otCoapAddResource
+ * @sa otCoapAddBlockWiseResource
+ */
+template <> otError Coap::Process<Cmd("resource")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
 
@@ -203,10 +217,24 @@ exit:
     return error;
 }
 
-otError Coap::ProcessSet(Arg aArgs[])
+/**
+ * @cli coap set
+ * @code
+ * coap set Testing123
+ * Done
+ * @endcode
+ * @cparam coap set @ca{new-content}
+ * @par
+ * Sets the content sent by the resource on the CoAP server.
+ * If a CoAP client is observing the resource, a notification is sent to that client.
+ * @csa{coap observe}
+ * @sa otCoapMessageInit
+ * @sa otCoapNewMessage
+ */
+template <> otError Coap::Process<Cmd("set")>(Arg aArgs[])
 {
 #if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-    otMessage *   notificationMessage = nullptr;
+    otMessage    *notificationMessage = nullptr;
     otMessageInfo messageInfo;
 #endif
     otError error = OT_ERROR_NONE;
@@ -221,7 +249,7 @@ otError Coap::ProcessSet(Arg aArgs[])
         if (mSubscriberTokenLength > 0)
         {
             // Notify the subscriber
-            memset(&messageInfo, 0, sizeof(messageInfo));
+            ClearAllBytes(messageInfo);
             messageInfo.mPeerAddr = mSubscriberSock.mAddress;
             messageInfo.mPeerPort = mSubscriberSock.mPort;
 
@@ -264,14 +292,33 @@ exit:
     return error;
 }
 
-otError Coap::ProcessStart(Arg aArgs[])
+/**
+ * @cli coap start
+ * @code
+ * coap start
+ * Done
+ * @endcode
+ * @par
+ * Starts the CoAP server. @moreinfo{@coap}.
+ * @sa otCoapStart
+ */
+template <> otError Coap::Process<Cmd("start")>(Arg aArgs[])
 {
     OT_UNUSED_VARIABLE(aArgs);
 
     return otCoapStart(GetInstancePtr(), OT_DEFAULT_COAP_PORT);
 }
 
-otError Coap::ProcessStop(Arg aArgs[])
+/**
+ * @cli coap stop
+ * @code
+ * coap stop
+ * Done
+ * @endcode
+ * @par api_copy
+ * #otCoapStop
+ */
+template <> otError Coap::Process<Cmd("stop")>(Arg aArgs[])
 {
     OT_UNUSED_VARIABLE(aArgs);
 
@@ -284,10 +331,57 @@ otError Coap::ProcessStop(Arg aArgs[])
     return otCoapStop(GetInstancePtr());
 }
 
-otError Coap::ProcessParameters(Arg aArgs[])
+/**
+ * @cli coap parameters(get,set)
+ * @code
+ * coap parameters request
+ * Transmission parameters for request:
+ * ACK_TIMEOUT=1000 ms, ACK_RANDOM_FACTOR=255/254, MAX_RETRANSMIT=2
+ * Done
+ * @endcode
+ * @code
+ * coap parameters request default
+ * Transmission parameters for request:
+ * default
+ * Done
+ * @endcode
+ * @code
+ * coap parameters request 1000 255 254 2
+ * Transmission parameters for request:
+ * ACK_TIMEOUT=1000 ms, ACK_RANDOM_FACTOR=255/254, MAX_RETRANSMIT=2
+ * Done
+ * @endcode
+ * @cparam coap parameters @ca{type} [@ca{default} | <!--
+ * -->@ca{ack_timeout ack_random_factor_numerator <!--
+ * -->ack_random_factor_denominator max_retransmit}]
+ *   * `type`: `request` for CoAP requests, or `response` for CoAP responses.
+        If no more parameters are given, the command prints the current configuration.
+ *   * `default`: Sets the transmission parameters to
+        the following default values:
+ *       * `ack_timeout`: 2000 milliseconds
+ *       * `ack_random_factor_numerator`: 3
+ *       * `ack_random_factor_denominator`: 2
+ *       * `max_retransmit`: 4
+ *   * `ack_timeout`: The `ACK_TIMEOUT` (0-UINT32_MAX) in milliseconds.
+       Refer to RFC7252.
+ *   * `ack_random_factor_numerator`:
+       The `ACK_RANDOM_FACTOR` numerator, with possible values
+       of 0-255. Refer to RFC7252.
+ *   * `ack_random_factor_denominator`:
+ *     The `ACK_RANDOM_FACTOR` denominator, with possible values
+ *     of 0-255. Refer to RFC7252.
+ *   * `max_retransmit`: The `MAX_RETRANSMIT` (0-255). Refer to RFC7252.
+ * @par
+ * Gets current CoAP parameter values if the command is run with no optional
+ * parameters.
+ * @par
+ * Sets the CoAP parameters either to their default values or to the values
+ * you specify, depending on the syntax chosen.
+ */
+template <> otError Coap::Process<Cmd("parameters")>(Arg aArgs[])
 {
     otError             error = OT_ERROR_NONE;
-    bool *              defaultTxParameters;
+    bool               *defaultTxParameters;
     otCoapTxParameters *txParameters;
 
     if (aArgs[0] == "request")
@@ -333,7 +427,7 @@ otError Coap::ProcessParameters(Arg aArgs[])
     }
     else
     {
-        OutputLine("ACK_TIMEOUT=%u ms, ACK_RANDOM_FACTOR=%u/%u, MAX_RETRANSMIT=%u", txParameters->mAckTimeout,
+        OutputLine("ACK_TIMEOUT=%lu ms, ACK_RANDOM_FACTOR=%u/%u, MAX_RETRANSMIT=%u", ToUlong(txParameters->mAckTimeout),
                    txParameters->mAckRandomFactorNumerator, txParameters->mAckRandomFactorDenominator,
                    txParameters->mMaxRetransmit);
     }
@@ -342,28 +436,139 @@ exit:
     return error;
 }
 
-otError Coap::ProcessGet(Arg aArgs[])
-{
-    return ProcessRequest(aArgs, OT_COAP_CODE_GET);
-}
+/**
+ * @cli coap get
+ * @code
+ * coap get fdde:ad00:beef:0:2780:9423:166c:1aac test-resource
+ * Done
+ * @endcode
+ * @code
+ * coap get fdde:ad00:beef:0:2780:9423:166c:1aac test-resource block-1024
+ * Done
+ * @endcode
+ * @cparam coap get @ca{address} @ca{uri-path} [@ca{type}]
+ *   * `address`: IPv6 address of the CoAP server.
+ *   * `uri-path`: URI path of the resource.
+ *   * `type`:
+ *       * `con`: Confirmable
+ *       * `non-con`: Non-confirmable (default)
+ *       * `block-`: Use this option, followed by the block-wise value,
+ *          if the response should be transferred block-wise. Valid
+ *          values are: `block-16`, `block-32`, `block-64`, `block-128`,
+ *          `block-256`, `block-512`, or `block-1024`.
+ * @par
+ * Gets information about the specified CoAP resource on the CoAP server.
+ */
+template <> otError Coap::Process<Cmd("get")>(Arg aArgs[]) { return ProcessRequest(aArgs, OT_COAP_CODE_GET); }
 
-otError Coap::ProcessPost(Arg aArgs[])
-{
-    return ProcessRequest(aArgs, OT_COAP_CODE_POST);
-}
+/**
+ * @cli coap post
+ * @code
+ * coap post fdde:ad00:beef:0:2780:9423:166c:1aac test-resource con hellothere
+ * Done
+ * @endcode
+ * @code
+ * coap post fdde:ad00:beef:0:2780:9423:166c:1aac test-resource block-1024 10
+ * Done
+ * @endcode
+ * @cparam coap post @ca{address} @ca{uri-path} [@ca{type}] [@ca{payload}]
+ *   * `address`: IPv6 address of the CoAP server.
+ *   * `uri-path`: URI path of the resource.
+ *   * `type`:
+ *         * `con`: Confirmable
+ *         * `non-con`: Non-confirmable (default)
+ *         * `block-`: Use this option, followed by the block-wise value,
+ *            to send blocks with a randomly generated number of bytes
+ *            for the payload. Valid values are:
+ *            `block-16`, `block-32`, `block-64`, `block-128`,
+ *            `block-256`, `block-512`, or `block-1024`.
+ *   * `payload`: CoAP payload request, which if used is either a string or an
+ *     integer, depending on the `type`. If the `type` is `con` or `non-con`,
+ *     the `payload` parameter is optional. If you leave out the
+ *     `payload` parameter, an empty payload is sent. However, If you use the
+ *     `payload` parameter, its value must be a string, such as
+ *     `hellothere`.  If the `type` is `block-`,
+ *     the value of the`payload` parameter must be an integer that specifies
+ *     the number of blocks to send. The `block-` type requires
+ *     `OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE` to be set.
+ * @par
+ * Creates the specified CoAP resource. @moreinfo{@coap}.
+ */
+template <> otError Coap::Process<Cmd("post")>(Arg aArgs[]) { return ProcessRequest(aArgs, OT_COAP_CODE_POST); }
 
-otError Coap::ProcessPut(Arg aArgs[])
-{
-    return ProcessRequest(aArgs, OT_COAP_CODE_PUT);
-}
+/**
+ * @cli coap put
+ * @code
+ * coap put fdde:ad00:beef:0:2780:9423:166c:1aac test-resource con hellothere
+ * Done
+ * @endcode
+ * @code
+ * coap put fdde:ad00:beef:0:2780:9423:166c:1aac test-resource block-1024 10
+ * Done
+ * @endcode
+ * @cparam coap put @ca{address} @ca{uri-path} [@ca{type}] [@ca{payload}]
+ *   * `address`: IPv6 address of the CoAP server.
+ *   * `uri-path`: URI path of the resource.
+ *   * `type`:
+ *         * `con`: Confirmable
+ *         * `non-con`: Non-confirmable (default)
+ *         * `block-`: Use this option, followed by the block-wise value,
+ *            to send blocks with a randomly generated number of bytes
+ *            for the payload. Valid values are:
+ *            `block-16`, `block-32`, `block-64`, `block-128`,
+ *            `block-256`, `block-512`, or `block-1024`.
+ *   * `payload`: CoAP payload request, which if used is either a string or an
+ *     integer, depending on the `type`. If the `type` is `con` or `non-con`,
+ *     the `payload` parameter is optional. If you leave out the
+ *     `payload` parameter, an empty payload is sent. However, If you use the
+ *     `payload` parameter, its value must be a string, such as
+ *     `hellothere`. If the `type` is `block-`,
+ *     the value of the`payload` parameter must be an integer that specifies
+ *     the number of blocks to send. The `block-` type requires
+ *     `OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE` to be set.
+ * @par
+ * Modifies the specified CoAP resource. @moreinfo{@coap}.
+ */
+template <> otError Coap::Process<Cmd("put")>(Arg aArgs[]) { return ProcessRequest(aArgs, OT_COAP_CODE_PUT); }
 
-otError Coap::ProcessDelete(Arg aArgs[])
-{
-    return ProcessRequest(aArgs, OT_COAP_CODE_DELETE);
-}
+/**
+ * @cli coap delete
+ * @code
+ * coap delete fdde:ad00:beef:0:2780:9423:166c:1aac test-resource con hellothere
+ * Done
+ * @endcode
+ * @cparam coap delete @ca{address} @ca{uri-path} [@ca{type}] [@ca{payload}]
+ *   * `address`: IPv6 address of the CoAP server.
+ *   * `uri-path`: URI path of the resource.
+ *   * `type`:
+ *       * `con`: Confirmable
+ *       * `non-con`: Non-confirmable (default)
+ *   * `payload`: The CoAP payload string. For example, `hellothere`.
+ *  @par
+ *  Deletes the specified CoAP resource.
+ */
+template <> otError Coap::Process<Cmd("delete")>(Arg aArgs[]) { return ProcessRequest(aArgs, OT_COAP_CODE_DELETE); }
 
 #if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-otError Coap::ProcessObserve(Arg aArgs[])
+/**
+ * @cli coap observe
+ * @code
+ * coap observe fdde:ad00:beef:0:2780:9423:166c:1aac test-resource
+ * Done
+ * @endcode
+ * @cparam coap observe @ca{address} @ca{uri-path} [@ca{type}]
+ *   * `address`: IPv6 address of the CoAP server.
+ *   * `uri-path`: URI path of the resource.
+ *   * `type`:
+ *       * `con`: Confirmable
+ *       * `non-con`: Non-confirmable (default).
+ * @par
+ * Triggers a subscription request which allows the CoAP client to
+ * observe the specified resource on the CoAP server for possible changes
+ * in its state.
+ * @note This command is available only when `OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE` is set.
+ */
+template <> otError Coap::Process<Cmd("observe")>(Arg aArgs[])
 {
     return ProcessRequest(aArgs, OT_COAP_CODE_GET, /* aCoapObserve */ true);
 }
@@ -376,9 +581,10 @@ otError Coap::ProcessRequest(Arg aArgs[], otCoapCode aCoapCode)
 #endif
 {
     otError       error   = OT_ERROR_NONE;
-    otMessage *   message = nullptr;
+    otMessage    *message = nullptr;
     otMessageInfo messageInfo;
-    uint16_t      payloadLength = 0;
+    uint16_t      payloadLength    = 0;
+    char         *uriQueryStartPtr = nullptr;
 
     // Default parameters
     char         coapUri[kMaxUriLength] = "test";
@@ -477,7 +683,20 @@ otError Coap::ProcessRequest(Arg aArgs[], otCoapCode aCoapCode)
     }
 #endif
 
-    SuccessOrExit(error = otCoapMessageAppendUriPathOptions(message, coapUri));
+    uriQueryStartPtr = const_cast<char *>(StringFind(coapUri, '?'));
+
+    if (uriQueryStartPtr == nullptr)
+    {
+        // "?" doesn't present in URI --> contains only URI path parts
+        SuccessOrExit(error = otCoapMessageAppendUriPathOptions(message, coapUri));
+    }
+    else
+    {
+        // "?" presents in URI --> contains URI path AND URI query parts
+        *uriQueryStartPtr++ = '\0';
+        SuccessOrExit(error = otCoapMessageAppendUriPathOptions(message, coapUri));
+        SuccessOrExit(error = otCoapMessageAppendUriQueryOptions(message, uriQueryStartPtr));
+    }
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
     if (coapBlock)
@@ -520,7 +739,7 @@ otError Coap::ProcessRequest(Arg aArgs[], otCoapCode aCoapCode)
         SuccessOrExit(error = otMessageAppend(message, aArgs[3].GetCString(), payloadLength));
     }
 
-    memset(&messageInfo, 0, sizeof(messageInfo));
+    ClearAllBytes(messageInfo);
     messageInfo.mPeerAddr = coapDestinationIp;
     messageInfo.mPeerPort = OT_DEFAULT_COAP_PORT;
 
@@ -577,17 +796,44 @@ exit:
 
 otError Coap::Process(Arg aArgs[])
 {
-    otError        error = OT_ERROR_INVALID_ARGS;
-    const Command *command;
-
-    if (aArgs[0].IsEmpty())
-    {
-        IgnoreError(ProcessHelp(aArgs));
-        ExitNow();
+#define CmdEntry(aCommandString)                            \
+    {                                                       \
+        aCommandString, &Coap::Process<Cmd(aCommandString)> \
     }
 
-    command = Utils::LookupTable::Find(aArgs[0].GetCString(), sCommands);
-    VerifyOrExit(command != nullptr, error = OT_ERROR_INVALID_COMMAND);
+    static constexpr Command kCommands[] = {
+#if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
+        CmdEntry("cancel"),
+#endif
+        CmdEntry("delete"),
+        CmdEntry("get"),
+#if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
+        CmdEntry("observe"),
+#endif
+        CmdEntry("parameters"),
+        CmdEntry("post"),
+        CmdEntry("put"),
+        CmdEntry("resource"),
+        CmdEntry("set"),
+        CmdEntry("start"),
+        CmdEntry("stop"),
+    };
+
+#undef CmdEntry
+
+    static_assert(BinarySearch::IsSorted(kCommands), "kCommands is not sorted");
+
+    otError        error = OT_ERROR_INVALID_COMMAND;
+    const Command *command;
+
+    if (aArgs[0].IsEmpty() || (aArgs[0] == "help"))
+    {
+        OutputCommandTable(kCommands);
+        ExitNow(error = aArgs[0].IsEmpty() ? OT_ERROR_INVALID_ARGS : OT_ERROR_NONE);
+    }
+
+    command = BinarySearch::Find(aArgs[0].GetCString(), kCommands);
+    VerifyOrExit(command != nullptr);
 
     error = (this->*command->mHandler)(aArgs + 1);
 
@@ -634,7 +880,8 @@ void Coap::HandleRequest(otMessage *aMessage, const otMessageInfo *aMessageInfo)
             SuccessOrExit(error = otCoapOptionIteratorGetOptionUintValue(&iterator, &observe));
             observePresent = true;
 
-            OutputFormat(" OBS=%lu", static_cast<uint32_t>(observe));
+            OutputFormat(" OBS=");
+            OutputUint64(observe);
         }
 #endif
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
@@ -716,7 +963,7 @@ void Coap::HandleRequest(otMessage *aMessage, const otMessageInfo *aMessageInfo)
         }
         else
         {
-            responseCode = OT_COAP_CODE_VALID;
+            responseCode = OT_COAP_CODE_CHANGED;
         }
 
         responseMessage = otCoapNewMessage(GetInstancePtr(), nullptr);
@@ -786,8 +1033,8 @@ exit:
 }
 
 #if OPENTHREAD_CONFIG_COAP_OBSERVE_API_ENABLE
-void Coap::HandleNotificationResponse(void *               aContext,
-                                      otMessage *          aMessage,
+void Coap::HandleNotificationResponse(void                *aContext,
+                                      otMessage           *aMessage,
                                       const otMessageInfo *aMessageInfo,
                                       otError              aError)
 {
@@ -849,7 +1096,8 @@ void Coap::HandleResponse(otMessage *aMessage, const otMessageInfo *aMessageInfo
 
                 if (error == OT_ERROR_NONE)
                 {
-                    OutputFormat(" OBS=%u", observeVal);
+                    OutputFormat(" OBS=");
+                    OutputUint64(observeVal);
                 }
             }
         }
@@ -859,7 +1107,7 @@ void Coap::HandleResponse(otMessage *aMessage, const otMessageInfo *aMessageInfo
 }
 
 #if OPENTHREAD_CONFIG_COAP_BLOCKWISE_TRANSFER_ENABLE
-otError Coap::BlockwiseReceiveHook(void *         aContext,
+otError Coap::BlockwiseReceiveHook(void          *aContext,
                                    const uint8_t *aBlock,
                                    uint32_t       aPosition,
                                    uint16_t       aBlockLength,
@@ -888,11 +1136,11 @@ otError Coap::BlockwiseReceiveHook(const uint8_t *aBlock,
     return OT_ERROR_NONE;
 }
 
-otError Coap::BlockwiseTransmitHook(void *    aContext,
-                                    uint8_t * aBlock,
+otError Coap::BlockwiseTransmitHook(void     *aContext,
+                                    uint8_t  *aBlock,
                                     uint32_t  aPosition,
                                     uint16_t *aBlockLength,
-                                    bool *    aMore)
+                                    bool     *aMore)
 {
     return static_cast<Coap *>(aContext)->BlockwiseTransmitHook(aBlock, aPosition, aBlockLength, aMore);
 }

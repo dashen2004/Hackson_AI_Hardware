@@ -1,73 +1,41 @@
-// Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 // The LL layer for I2C register operations
 
 #pragma once
+#include <stdbool.h>
 #include "soc/i2c_periph.h"
 #include "soc/i2c_struct.h"
+#include "soc/clk_tree_defs.h"
+#include "soc/system_reg.h"
 #include "hal/i2c_types.h"
+#include "esp_attr.h"
+#include "hal/misc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define I2C_LL_INTR_MASK          (0x1ffff) /*!< I2C all interrupt bitmap */
 
 /**
  * @brief I2C hardware cmd register fields.
  */
 typedef union {
     struct {
-        uint32_t byte_num:    8,
-                 ack_en:      1,
-                 ack_exp:     1,
-                 ack_val:     1,
-                 op_code:     3,
-                 reserved14: 17,
-                 done:        1;
+        uint32_t byte_num:    8,  /*!< Specifies the length of data (in bytes) to be read or written */
+                 ack_en:      1,  /*!< Used to enable the I2C controller during a write operation to check whether ACK */
+                 ack_exp:     1,  /*!< Used to configure the level of the ACK bit expected by the I2C controller during a write operation */
+                 ack_val:     1,  /*!< Used to configure the level of the ACK bit sent by the I2C controller during a read operation */
+                 op_code:     3,  /*!< Indicates the command */
+                 reserved14: 17, /*!< Reserved bits */
+                 done:        1;  /*!< Indicates that a command has been executed */
     };
     uint32_t val;
-} i2c_hw_cmd_t;
-
-/**
- * @brief I2C interrupt event
- */
-typedef enum {
-    I2C_INTR_EVENT_ERR,
-    I2C_INTR_EVENT_ARBIT_LOST,   /*!< I2C arbition lost event */
-    I2C_INTR_EVENT_NACK,         /*!< I2C NACK event */
-    I2C_INTR_EVENT_TOUT,         /*!< I2C time out event */
-    I2C_INTR_EVENT_END_DET,      /*!< I2C end detected event */
-    I2C_INTR_EVENT_TRANS_DONE,   /*!< I2C trans done event */
-    I2C_INTR_EVENT_RXFIFO_FULL,  /*!< I2C rxfifo full event */
-    I2C_INTR_EVENT_TXFIFO_EMPTY, /*!< I2C txfifo empty event */
-} i2c_intr_event_t;
-
-/**
- * @brief Data structure for calculating I2C bus timing.
- */
-typedef struct {
-    uint16_t scl_low;           /*!< I2C scl low period */
-    uint16_t scl_high;          /*!< I2C scl hight period */
-    uint16_t scl_wait_high;     /*!< I2C scl wait_high period */
-    uint16_t sda_hold;          /*!< I2C scl low period */
-    uint16_t sda_sample;        /*!< I2C sda sample time */
-    uint16_t setup;             /*!< I2C start and stop condition setup period */
-    uint16_t hold;              /*!< I2C start and stop condition hold period  */
-    uint16_t tout;              /*!< I2C bus timeout period */
-} i2c_clk_cal_t;
+} i2c_ll_hw_cmd_t;
 
 // I2C operation mode command
 #define I2C_LL_CMD_RESTART    0    /*!<I2C restart command */
@@ -76,22 +44,34 @@ typedef struct {
 #define I2C_LL_CMD_STOP       3    /*!<I2C stop command */
 #define I2C_LL_CMD_END        4    /*!<I2C end command */
 
+typedef enum {
+    I2C_INTR_MST_TXFIFO_WM = (1 << 1),
+    I2C_INTR_MST_RXFIFO_WM = (1 << 0),
+    I2C_LL_INTR_NACK = (1 << 10),
+    I2C_LL_INTR_TIMEOUT = (1 << 8),
+    I2C_LL_INTR_MST_COMPLETE = (1 << 7),
+    I2C_LL_INTR_ARBITRATION = (1 << 5),
+    I2C_LL_INTR_END_DETECT = (1 << 3),
+    I2C_LL_INTR_ST_TO = (1 << 13),
+} i2c_ll_master_intr_t;
+
+typedef enum {
+    I2C_INTR_SLV_TXFIFO_WM = (1 << 1),
+    I2C_INTR_SLV_RXFIFO_WM = (1 << 0),
+    I2C_INTR_SLV_COMPLETE = (1 << 7),
+    I2C_INTR_START = (1 << 15),
+    I2C_INTR_STRETCH = (1 << 16),
+} i2c_ll_slave_intr_t;
+
 // Get the I2C hardware instance
 #define I2C_LL_GET_HW(i2c_num)        (((i2c_num) == 0) ? &I2C0 : &I2C1)
-// Get the I2C hardware FIFO address
-#define I2C_LL_GET_FIFO_ADDR(i2c_num) (I2C_DATA_APB_REG(i2c_num))
-// I2C master TX interrupt bitmap
-#define I2C_LL_MASTER_TX_INT          (I2C_NACK_INT_ENA_M|I2C_TIME_OUT_INT_ENA_M|I2C_TRANS_COMPLETE_INT_ENA_M|I2C_ARBITRATION_LOST_INT_ENA_M|I2C_END_DETECT_INT_ENA_M)
-// I2C master RX interrupt bitmap
-#define I2C_LL_MASTER_RX_INT          (I2C_TIME_OUT_INT_ENA_M|I2C_TRANS_COMPLETE_INT_ENA_M|I2C_ARBITRATION_LOST_INT_ENA_M|I2C_END_DETECT_INT_ENA_M)
-// I2C slave TX interrupt bitmap
-#define I2C_LL_SLAVE_TX_INT           (I2C_TXFIFO_WM_INT_ENA_M)
-// I2C slave RX interrupt bitmap
-#define I2C_LL_SLAVE_RX_INT           (I2C_RXFIFO_WM_INT_ENA_M | I2C_TRANS_COMPLETE_INT_ENA_M)
-// I2C source clock
-#define I2C_LL_CLK_SRC_FREQ(src_clk)  (((src_clk) == I2C_SCLK_REF_TICK) ? 1000*1000 : 80*1000*1000); // Another clock is APB clock
-// I2C max timeout value
-#define I2C_LL_MAX_TIMEOUT I2C_TIME_OUT_REG_V
+#define I2C_LL_MASTER_EVENT_INTR    (I2C_NACK_INT_ENA_M|I2C_TIME_OUT_INT_ENA_M|I2C_TRANS_COMPLETE_INT_ENA_M|I2C_ARBITRATION_LOST_INT_ENA_M|I2C_END_DETECT_INT_ENA_M)
+#define I2C_LL_SLAVE_EVENT_INTR     (I2C_TRANS_COMPLETE_INT_ENA_M|I2C_TXFIFO_WM_INT_ENA_M|I2C_RXFIFO_WM_INT_ENA_M | I2C_SLAVE_STRETCH_INT_ENA_M)
+#define I2C_LL_SLAVE_RX_EVENT_INTR  (I2C_TRANS_COMPLETE_INT_ENA_M | I2C_RXFIFO_WM_INT_ENA_M | I2C_SLAVE_STRETCH_INT_ENA_M)
+#define I2C_LL_SLAVE_TX_EVENT_INTR  (I2C_TXFIFO_WM_INT_ENA_M)
+#define I2C_LL_RESET_SLV_SCL_PULSE_NUM_DEFAULT   (9)
+#define I2C_LL_SCL_WAIT_US_VAL_DEFAULT   (2000)  // 2000 is not default value on esp32s2, but 0 is not good to be default
+
 /**
  * @brief  Calculate I2C bus frequency
  *
@@ -101,7 +81,7 @@ typedef struct {
  *
  * @return None
  */
-static inline void i2c_ll_cal_bus_clk(uint32_t source_clk, uint32_t bus_freq, i2c_clk_cal_t *clk_cal)
+static inline void i2c_ll_master_cal_bus_clk(uint32_t source_clk, uint32_t bus_freq, i2c_hal_clk_config_t *clk_cal)
 {
     uint32_t half_cycle = source_clk / bus_freq / 2;
     //SCL
@@ -126,7 +106,7 @@ static inline void i2c_ll_cal_bus_clk(uint32_t source_clk, uint32_t bus_freq, i2
  *
  * @return None
  */
-static inline void i2c_ll_set_bus_timing(i2c_dev_t *hw, i2c_clk_cal_t *bus_cfg)
+static inline void i2c_ll_master_set_bus_timing(i2c_dev_t *hw, i2c_hal_clk_config_t *bus_cfg)
 {
     //scl period
     hw->scl_low_period.period = bus_cfg->scl_low - 1;
@@ -145,12 +125,64 @@ static inline void i2c_ll_set_bus_timing(i2c_dev_t *hw, i2c_clk_cal_t *bus_cfg)
 }
 
 /**
+ * @brief Set fractional divider
+ *
+ * @param hw Beginning address of the peripheral registers
+ * @param div_a The denominator of the frequency divider factor of the i2c function clock
+ * @param div_b The numerator of the frequency divider factor of the i2c function clock.
+ */
+static inline void i2c_ll_master_set_fractional_divider(i2c_dev_t *hw, uint8_t div_a, uint8_t div_b)
+{
+    // Not supported on ESP32S2
+}
+
+/**
+ * @brief Set fractional divider
+ *
+ * @param hw Beginning address of the peripheral registers
+ * @param div_a The denominator of the frequency divider factor of the i2c function clock
+ * @param div_b The numerator of the frequency divider factor of the i2c function clock.
+ */
+static inline void i2c_ll_master_get_fractional_divider(i2c_dev_t *hw, uint32_t *div_a, uint32_t *div_b)
+{
+    // Not supported on ESP32S2
+}
+
+/**
+ * @brief Get clock configurations from registers
+ *
+ * @param hw Beginning address of the peripheral registers
+ * @param div_num div_num
+ * @param clk_sel clk_sel
+ * @param clk_active clk_active
+ */
+static inline void i2c_ll_master_save_clock_configurations(i2c_dev_t *hw, uint32_t *div_num, uint8_t *clk_sel, uint8_t *clk_active)
+{
+    // Not supported on ESP32S2
+}
+
+/**
+ * @brief Get clock configurations from registers
+ *
+ * @param hw Beginning address of the peripheral registers
+ * @param div_num div_num
+ * @param clk_sel clk_sel
+ * @param clk_active clk_active
+ */
+static inline void i2c_ll_master_restore_clock_configurations(i2c_dev_t *hw, uint32_t div_num, uint8_t clk_sel, uint8_t clk_active)
+{
+    // Not supported on ESP32S2
+}
+
+
+/**
  * @brief  Reset I2C txFIFO
  *
  * @param  hw Beginning address of the peripheral registers
  *
  * @return None
  */
+__attribute__((always_inline))
 static inline void i2c_ll_txfifo_rst(i2c_dev_t *hw)
 {
     hw->fifo_conf.tx_fifo_rst = 1;
@@ -164,26 +196,11 @@ static inline void i2c_ll_txfifo_rst(i2c_dev_t *hw)
  *
  * @return None
  */
+__attribute__((always_inline))
 static inline void i2c_ll_rxfifo_rst(i2c_dev_t *hw)
 {
     hw->fifo_conf.rx_fifo_rst = 1;
     hw->fifo_conf.rx_fifo_rst = 0;
-}
-
-/**
- * @brief  Configure I2C SCL timing
- *
- * @param  hw Beginning address of the peripheral registers
- * @param  hight_period The I2C SCL hight period (in APB cycle, hight_period > 2)
- * @param  low_period The I2C SCL low period (in APB cycle, low_period > 1)
- *
- * @return None.
- */
-static inline void i2c_ll_set_scl_timing(i2c_dev_t *hw, int hight_period, int low_period)
-{
-    hw->scl_low_period.period = low_period-1;
-    hw->scl_high_period.period = hight_period/2+2;
-    hw->scl_high_period.scl_wait_high_period = hight_period - hw->scl_high_period.period;
 }
 
 /**
@@ -194,7 +211,8 @@ static inline void i2c_ll_set_scl_timing(i2c_dev_t *hw, int hight_period, int lo
  *
  * @return None
  */
-static inline void i2c_ll_clr_intsts_mask(i2c_dev_t *hw, uint32_t mask)
+__attribute__((always_inline))
+static inline void i2c_ll_clear_intr_mask(i2c_dev_t *hw, uint32_t mask)
 {
     hw->int_clr.val = mask;
 }
@@ -207,6 +225,7 @@ static inline void i2c_ll_clr_intsts_mask(i2c_dev_t *hw, uint32_t mask)
  *
  * @return None
  */
+__attribute__((always_inline))
 static inline void i2c_ll_enable_intr_mask(i2c_dev_t *hw, uint32_t mask)
 {
     hw->int_ena.val |= mask;
@@ -220,6 +239,7 @@ static inline void i2c_ll_enable_intr_mask(i2c_dev_t *hw, uint32_t mask)
  *
  * @return None
  */
+__attribute__((always_inline))
 static inline void i2c_ll_disable_intr_mask(i2c_dev_t *hw, uint32_t mask)
 {
     hw->int_ena.val &= (~mask);
@@ -232,9 +252,10 @@ static inline void i2c_ll_disable_intr_mask(i2c_dev_t *hw, uint32_t mask)
  *
  * @return I2C interrupt status
  */
-static inline uint32_t i2c_ll_get_intsts_mask(i2c_dev_t *hw)
+__attribute__((always_inline))
+static inline void i2c_ll_get_intr_mask(i2c_dev_t *hw, uint32_t *intr_status)
 {
-    return hw->int_status.val;
+    *intr_status = hw->int_status.val;
 }
 
 /**
@@ -245,7 +266,7 @@ static inline uint32_t i2c_ll_get_intsts_mask(i2c_dev_t *hw)
  *
  * @return None
  */
-static inline void i2c_ll_set_fifo_mode(i2c_dev_t *hw, bool fifo_mode_en)
+static inline void i2c_ll_slave_set_fifo_mode(i2c_dev_t *hw, bool fifo_mode_en)
 {
     hw->fifo_conf.nonfifo_en = fifo_mode_en ? 0 : 1;
 }
@@ -265,6 +286,33 @@ static inline void i2c_ll_set_tout(i2c_dev_t *hw, int tout)
 }
 
 /**
+ * @brief  Configure I2C slave broadcasting mode.
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  broadcast_en Set true to enable broadcast, else, set it false
+ *
+ * @return None
+ */
+static inline void i2c_ll_slave_broadcast_enable(i2c_dev_t *hw, bool broadcast_en)
+{
+    // Not supported on esp32s2
+}
+
+/**
+ * @brief Get the cause of SCL clock stretching in slave mode
+ *
+ * @param hw Beginning address of the peripheral registers
+ * @param stretch_cause Pointer to stretch cause in the slave mode.
+ *
+ * @return None
+ */
+__attribute__((always_inline))
+static inline void i2c_ll_slave_get_stretch_cause(i2c_dev_t *hw, i2c_slave_stretch_cause_t *stretch_cause)
+{
+    // Not supported on esp32s2
+}
+
+/**
  * @brief  Configure I2C slave address
  *
  * @param  hw Beginning address of the peripheral registers
@@ -275,8 +323,14 @@ static inline void i2c_ll_set_tout(i2c_dev_t *hw, int tout)
  */
 static inline void i2c_ll_set_slave_addr(i2c_dev_t *hw, uint16_t slave_addr, bool addr_10bit_en)
 {
-    hw->slave_addr.addr = slave_addr;
     hw->slave_addr.en_10bit = addr_10bit_en;
+    if (addr_10bit_en) {
+        uint16_t addr_14_7 = (slave_addr & 0xff) << 7;
+        uint8_t addr_6_0 = ((slave_addr & 0x300) >> 8) | 0x78;
+        hw->slave_addr.addr = addr_14_7 | addr_6_0;
+    } else {
+        hw->slave_addr.addr = slave_addr;
+    }
 }
 
 /**
@@ -288,7 +342,8 @@ static inline void i2c_ll_set_slave_addr(i2c_dev_t *hw, uint16_t slave_addr, boo
  *
  * @return None
  */
-static inline void i2c_ll_write_cmd_reg(i2c_dev_t *hw, i2c_hw_cmd_t cmd, int cmd_idx)
+__attribute__((always_inline))
+static inline void i2c_ll_master_write_cmd_reg(i2c_dev_t *hw, i2c_ll_hw_cmd_t cmd, int cmd_idx)
 {
     hw->command[cmd_idx].val = cmd.val;
 }
@@ -302,7 +357,7 @@ static inline void i2c_ll_write_cmd_reg(i2c_dev_t *hw, i2c_hw_cmd_t cmd, int cmd
  *
  * @return None
  */
-static inline void i2c_ll_set_start_timing(i2c_dev_t *hw, int start_setup, int start_hold)
+static inline void i2c_ll_master_set_start_timing(i2c_dev_t *hw, int start_setup, int start_hold)
 {
     hw->scl_rstart_setup.time = start_setup;
     hw->scl_start_hold.time = start_hold-1;
@@ -317,7 +372,7 @@ static inline void i2c_ll_set_start_timing(i2c_dev_t *hw, int start_setup, int s
  *
  * @return None
  */
-static inline void i2c_ll_set_stop_timing(i2c_dev_t *hw, int stop_setup, int stop_hold)
+static inline void i2c_ll_master_set_stop_timing(i2c_dev_t *hw, int stop_setup, int stop_hold)
 {
     hw->scl_stop_setup.time = stop_setup;
     hw->scl_stop_hold.time = stop_hold;
@@ -361,6 +416,7 @@ static inline void i2c_ll_set_txfifo_empty_thr(i2c_dev_t *hw, uint8_t empty_thr)
  */
 static inline void i2c_ll_set_rxfifo_full_thr(i2c_dev_t *hw, uint8_t full_thr)
 {
+    hw->fifo_conf.fifo_prt_en = 1;
     hw->fifo_conf.rx_fifo_wm_thrhd = full_thr;
 }
 
@@ -377,21 +433,6 @@ static inline void i2c_ll_set_data_mode(i2c_dev_t *hw, i2c_trans_mode_t tx_mode,
 {
     hw->ctr.tx_lsb_first = tx_mode;
     hw->ctr.rx_lsb_first = rx_mode;
-}
-
-/**
- * @brief  Get the I2C data mode
- *
- * @param  hw Beginning address of the peripheral registers
- * @param  tx_mode Pointer to accept the received bytes mode
- * @param  rx_mode Pointer to accept the sended bytes mode
- *
- * @return None
- */
-static inline void i2c_ll_get_data_mode(i2c_dev_t *hw, i2c_trans_mode_t *tx_mode, i2c_trans_mode_t *rx_mode)
-{
-    *tx_mode = hw->ctr.tx_lsb_first;
-    *rx_mode = hw->ctr.rx_lsb_first;
 }
 
 /**
@@ -428,6 +469,7 @@ static inline uint32_t i2c_ll_get_hw_version(i2c_dev_t *hw)
  *
  * @return True if I2C state machine is busy, else false will be returned
  */
+__attribute__((always_inline))
 static inline bool i2c_ll_is_bus_busy(i2c_dev_t *hw)
 {
     return hw->status_reg.bus_busy;
@@ -452,9 +494,10 @@ static inline bool i2c_ll_is_master_mode(i2c_dev_t *hw)
  *
  * @return RxFIFO readable length
  */
-static inline uint32_t i2c_ll_get_rxfifo_cnt(i2c_dev_t *hw)
+__attribute__((always_inline))
+static inline void i2c_ll_get_rxfifo_cnt(i2c_dev_t *hw, uint32_t *length)
 {
-    return hw->status_reg.rx_fifo_cnt;
+    *length = hw->status_reg.rx_fifo_cnt;
 }
 
 /**
@@ -464,9 +507,10 @@ static inline uint32_t i2c_ll_get_rxfifo_cnt(i2c_dev_t *hw)
  *
  * @return TxFIFO writable length
  */
-static inline uint32_t i2c_ll_get_txfifo_len(i2c_dev_t *hw)
+__attribute__((always_inline))
+static inline void i2c_ll_get_txfifo_len(i2c_dev_t *hw, uint32_t *length)
 {
-    return SOC_I2C_FIFO_LEN - hw->status_reg.tx_fifo_cnt;
+    *length = SOC_I2C_FIFO_LEN - hw->status_reg.tx_fifo_cnt;
 }
 
 /**
@@ -476,9 +520,9 @@ static inline uint32_t i2c_ll_get_txfifo_len(i2c_dev_t *hw)
  *
  * @return The I2C timeout value
  */
-static inline uint32_t i2c_ll_get_tout(i2c_dev_t *hw)
+static inline void i2c_ll_get_tout(i2c_dev_t *hw, int *timeout)
 {
-    return hw->timeout.tout;
+    *timeout = hw->timeout.tout;
 }
 
 /**
@@ -488,7 +532,8 @@ static inline uint32_t i2c_ll_get_tout(i2c_dev_t *hw)
  *
  * @return None
  */
-static inline void i2c_ll_trans_start(i2c_dev_t *hw)
+__attribute__((always_inline))
+static inline void i2c_ll_master_trans_start(i2c_dev_t *hw)
 {
     hw->ctr.trans_start = 1;
 }
@@ -524,30 +569,16 @@ static inline void i2c_ll_get_stop_timing(i2c_dev_t *hw, int *setup_time, int *h
 }
 
 /**
- * @brief  Get I2C SCL timing configuration
- *
- * @param  hw Beginning address of the peripheral registers
- * @param  high_period Pointer to accept the SCL high period
- * @param  low_period Pointer to accept the SCL low period
- *
- * @return None
- */
-static inline void i2c_ll_get_scl_timing(i2c_dev_t *hw, int *high_period, int *low_period)
-{
-    *high_period = hw->scl_high_period.period + hw->scl_high_period.scl_wait_high_period;
-    *low_period = hw->scl_low_period.period + 1;
-}
-
-/**
  * @brief  Write the I2C hardware txFIFO
  *
  * @param  hw Beginning address of the peripheral registers
  * @param  ptr Pointer to data buffer
- * @param  len Amount of data needs to be writen
+ * @param  len Amount of data needs to be written
  *
  * @return None.
  */
-static inline void i2c_ll_write_txfifo(i2c_dev_t *hw, uint8_t *ptr, uint8_t len)
+__attribute__((always_inline))
+static inline void i2c_ll_write_txfifo(i2c_dev_t *hw, const uint8_t *ptr, uint8_t len)
 {
     uint32_t fifo_addr = (hw == &I2C0) ? 0x6001301c : 0x6002701c;
     for(int i = 0; i < len; i++) {
@@ -564,6 +595,7 @@ static inline void i2c_ll_write_txfifo(i2c_dev_t *hw, uint8_t *ptr, uint8_t len)
  *
  * @return None
  */
+__attribute__((always_inline))
 static inline void i2c_ll_read_rxfifo(i2c_dev_t *hw, uint8_t *ptr, uint8_t len)
 {
     uint32_t fifo_addr = (hw == &I2C0) ? 0x6001301c : 0x6002701c;
@@ -581,7 +613,7 @@ static inline void i2c_ll_read_rxfifo(i2c_dev_t *hw, uint8_t *ptr, uint8_t len)
  *
  * @return None
  */
-static inline void i2c_ll_set_filter(i2c_dev_t *hw, uint8_t filter_num)
+static inline void i2c_ll_master_set_filter(i2c_dev_t *hw, uint8_t filter_num)
 {
     if(filter_num > 0) {
         hw->scl_filter_cfg.thres = filter_num;
@@ -601,155 +633,9 @@ static inline void i2c_ll_set_filter(i2c_dev_t *hw, uint8_t filter_num)
  *
  * @return The hardware filter configuration
  */
-static inline uint8_t i2c_ll_get_filter(i2c_dev_t *hw)
+static inline void i2c_ll_master_get_filter(i2c_dev_t *hw, uint8_t *filter_conf)
 {
-    return hw->sda_filter_cfg.thres;
-}
-
-/**
- * @brief  Enable I2C master TX interrupt
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_master_enable_tx_it(i2c_dev_t *hw)
-{
-    hw->int_clr.val = ~0;
-    hw->int_ena.val =  I2C_LL_MASTER_TX_INT;
-}
-
-/**
- * @brief  Enable I2C master RX interrupt
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_master_enable_rx_it(i2c_dev_t *hw)
-{
-    hw->int_clr.val = ~0;
-    hw->int_ena.val = I2C_LL_MASTER_RX_INT;
-}
-
-/**
- * @brief  Disable I2C master TX interrupt
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_master_disable_tx_it(i2c_dev_t *hw)
-{
-    hw->int_ena.val &= (~I2C_LL_MASTER_TX_INT);
-}
-
-/**
- * @brief  Disable I2C master RX interrupt
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_master_disable_rx_it(i2c_dev_t *hw)
-{
-    hw->int_ena.val &= (~I2C_LL_MASTER_RX_INT);
-}
-
-/**
- * @brief  Clear I2C master TX interrupt status register
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_master_clr_tx_it(i2c_dev_t *hw)
-{
-    hw->int_clr.val = I2C_LL_MASTER_TX_INT;
-}
-
-/**
- * @brief  Clear I2C master RX interrupt status register
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_master_clr_rx_it(i2c_dev_t *hw)
-{
-    hw->int_clr.val = I2C_LL_MASTER_RX_INT;
-}
-
-/**
- * @brief Enable I2C slave TX interrupt
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_slave_enable_tx_it(i2c_dev_t *hw)
-{
-    hw->int_ena.val |= I2C_LL_SLAVE_TX_INT;
-}
-
-/**
- * @brief Enable I2C slave RX interrupt
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_slave_enable_rx_it(i2c_dev_t *hw)
-{
-    hw->int_ena.val |= I2C_LL_SLAVE_RX_INT;
-}
-
-/**
- * @brief Disable I2C slave TX interrupt
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_slave_disable_tx_it(i2c_dev_t *hw)
-{
-    hw->int_ena.val &= (~I2C_LL_SLAVE_TX_INT);
-}
-
-/**
- * @brief  Disable I2C slave RX interrupt
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_slave_disable_rx_it(i2c_dev_t *hw)
-{
-    hw->int_ena.val &= (~I2C_LL_SLAVE_RX_INT);
-}
-
-/**
- * @brief  Clear I2C slave TX interrupt status register
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_slave_clr_tx_it(i2c_dev_t *hw)
-{
-    hw->int_clr.val = I2C_LL_SLAVE_TX_INT;
-}
-
-/**
- * @brief Clear I2C slave RX interrupt status register.
- *
- * @param  hw Beginning address of the peripheral registers
- *
- * @return None
- */
-static inline void i2c_ll_slave_clr_rx_it(i2c_dev_t *hw)
-{
-    hw->int_clr.val = I2C_LL_SLAVE_RX_INT;
+    *filter_conf = hw->sda_filter_cfg.thres;
 }
 
 /**
@@ -771,14 +657,28 @@ static inline void i2c_ll_master_fsm_rst(i2c_dev_t *hw)
  * Note: The master cannot detect if deadlock happens, but when the scl_st_to interrupt is generated, a deadlock may occur.
  *
  * @param  hw Beginning address of the peripheral registers
+ * @param  slave_pulses When I2C master is IDLE, the number of pulses will be sent out.
+ * @param  enable True to start the state machine, otherwise, false
  *
  * @return None
  */
-static inline void i2c_ll_master_clr_bus(i2c_dev_t *hw)
+static inline void i2c_ll_master_clr_bus(i2c_dev_t *hw, uint32_t slave_pulses, bool enable)
 {
-    hw->scl_sp_conf.scl_rst_slv_num = 9;
+    hw->scl_sp_conf.scl_rst_slv_num = slave_pulses;
     hw->scl_sp_conf.scl_rst_slv_en = 0;
     hw->scl_sp_conf.scl_rst_slv_en = 1;
+}
+
+/**
+ * @brief Get the clear bus state
+ *
+ * @param hw Beginning address of the peripheral registers
+ *
+ * @return true: the clear bus not finish, otherwise, false.
+ */
+static inline bool i2c_ll_master_is_bus_clear_done(i2c_dev_t *hw)
+{
+    return false; // not supported on esp32s2
 }
 
 /**
@@ -789,58 +689,22 @@ static inline void i2c_ll_master_clr_bus(i2c_dev_t *hw)
  *
  * @return None
  */
-static inline void i2c_ll_set_source_clk(i2c_dev_t *hw, i2c_sclk_t src_clk)
+static inline void i2c_ll_set_source_clk(i2c_dev_t *hw, i2c_clock_source_t src_clk)
 {
     // src_clk : (1) for APB_CLK, (0) for REF_CLK
-    hw->ctr.ref_always_on = (src_clk == I2C_SCLK_REF_TICK) ? 0 : 1;
+    hw->ctr.ref_always_on = (src_clk == I2C_CLK_SRC_REF_TICK) ? 0 : 1;
 }
 
 /**
- * @brief  Get I2C master interrupt event
+ * @brief Enable I2C peripheral controller clock
  *
- * @param  hw Beginning address of the peripheral registers
- * @param  event Pointer to accept the interrupt event
- *
- * @return None
+ * @param dev Peripheral instance address
+ * @param en True to enable, False to disable
  */
-static inline void i2c_ll_master_get_event(i2c_dev_t *hw, i2c_intr_event_t *event)
+static inline void i2c_ll_enable_controller_clock(i2c_dev_t *hw, bool en)
 {
-    typeof(hw->int_status) int_sts = hw->int_status;
-    if (int_sts.arbitration_lost) {
-        *event = I2C_INTR_EVENT_ARBIT_LOST;
-    } else if (int_sts.nack) {
-        *event = I2C_INTR_EVENT_NACK;
-    } else if (int_sts.time_out) {
-        *event = I2C_INTR_EVENT_TOUT;
-    } else if (int_sts.end_detect) {
-        *event = I2C_INTR_EVENT_END_DET;
-    } else if (int_sts.trans_complete) {
-        *event = I2C_INTR_EVENT_TRANS_DONE;
-    } else {
-        *event = I2C_INTR_EVENT_ERR;
-    }
-}
-
-/**
- * @brief  Get I2C slave interrupt event
- *
- * @param  hw Beginning address of the peripheral registers
- * @param  event Pointer to accept the interrupt event
- *
- * @return None
- */
-static inline void i2c_ll_slave_get_event(i2c_dev_t *hw, i2c_intr_event_t *event)
-{
-    typeof(hw->int_status) int_sts = hw->int_status;
-    if (int_sts.tx_fifo_wm) {
-        *event = I2C_INTR_EVENT_TXFIFO_EMPTY;
-    } else if (int_sts.trans_complete) {
-        *event = I2C_INTR_EVENT_TRANS_DONE;
-    } else if (int_sts.rx_fifo_wm) {
-        *event = I2C_INTR_EVENT_RXFIFO_FULL;
-    } else {
-        *event = I2C_INTR_EVENT_ERR;
-    }
+    (void)hw;
+    (void)en;
 }
 
 /**
@@ -866,7 +730,7 @@ static inline void i2c_ll_master_init(i2c_dev_t *hw)
  *         Otherwise it is not needed.
  *
  * @param  hw Beginning address of the peripheral registers
- * @param  internal_od_ena Set true to enble internal open-drain, otherwise, set it false.
+ * @param  internal_od_ena Set true to enable internal open-drain, otherwise, set it false.
  *
  * @return None
  */
@@ -902,9 +766,389 @@ static inline void i2c_ll_slave_init(i2c_dev_t *hw)
  *
  * @return None
  */
+__attribute__((always_inline))
 static inline void i2c_ll_update(i2c_dev_t *hw)
 {
     ;// ESP32S2 do not support
+}
+
+/**
+ * @brief Enable the bus clock for I2C module
+ *
+ * @param i2c_port I2C port id
+ * @param enable true to enable, false to disable
+ */
+static inline void i2c_ll_enable_bus_clock(int i2c_port, bool enable)
+{
+    if (i2c_port == 0) {
+        uint32_t reg_val = READ_PERI_REG(DPORT_PERIP_CLK_EN0_REG);
+        reg_val &= ~DPORT_I2C_EXT0_CLK_EN_M;
+        reg_val |= enable << DPORT_I2C_EXT0_CLK_EN_S;
+        WRITE_PERI_REG(DPORT_PERIP_CLK_EN0_REG, reg_val);
+    } else if (i2c_port == 1) {
+        uint32_t reg_val = READ_PERI_REG(DPORT_PERIP_CLK_EN0_REG);
+        reg_val &= ~DPORT_I2C_EXT1_CLK_EN_M;
+        reg_val |= enable << DPORT_I2C_EXT1_CLK_EN_S;
+        WRITE_PERI_REG(DPORT_PERIP_CLK_EN0_REG, reg_val);
+    }
+}
+
+/// use a macro to wrap the function, force the caller to use it in a critical section
+/// the critical section needs to declare the __DECLARE_RCC_ATOMIC_ENV variable in advance
+#define i2c_ll_enable_bus_clock(...) do {(void)__DECLARE_RCC_ATOMIC_ENV; i2c_ll_enable_bus_clock(__VA_ARGS__);} while(0)
+
+/**
+ * @brief Reset the I2C module
+ *
+ * @param i2c_port Group ID
+ */
+static inline void i2c_ll_reset_register(int i2c_port)
+{
+    if (i2c_port == 0) {
+        WRITE_PERI_REG(DPORT_PERIP_RST_EN0_REG, DPORT_I2C_EXT0_RST_M);
+        WRITE_PERI_REG(DPORT_PERIP_RST_EN0_REG, 0);
+    } else if (i2c_port == 1) {
+        WRITE_PERI_REG(DPORT_PERIP_RST_EN0_REG, DPORT_I2C_EXT1_RST_M);
+        WRITE_PERI_REG(DPORT_PERIP_RST_EN0_REG, 0);
+    }
+}
+
+/// use a macro to wrap the function, force the caller to use it in a critical section
+/// the critical section needs to declare the __DECLARE_RCC_ATOMIC_ENV variable in advance
+#define i2c_ll_reset_register(...) do {(void)__DECLARE_RCC_ATOMIC_ENV; i2c_ll_reset_register(__VA_ARGS__);} while(0)
+
+/**
+ * @brief Set whether slave should auto start, or only start with start signal from master
+ *
+ * @param hw Beginning address of the peripheral registers
+ * @param slv_ex_auto_en 1 if slave auto start data transaction, otherwise, 0.
+ */
+static inline void i2c_ll_slave_tx_auto_start_en(i2c_dev_t *hw, bool slv_ex_auto_en)
+{
+    ;// ESP32-S2 do not support
+}
+
+/**
+ * @brief Get I2C interrupt status register address
+ */
+static inline volatile void *i2c_ll_get_interrupt_status_reg(i2c_dev_t *dev)
+{
+    return &dev->int_status;
+}
+
+/**
+ * @brief Enable I2C slave clock stretch.
+ *
+ * @param dev Beginning address of the peripheral registers.
+ * @param enable true: Enable, false: Disable.
+ */
+static inline void i2c_ll_slave_enable_scl_stretch(i2c_dev_t *dev, bool enable)
+{
+    dev->scl_stretch_conf.slave_scl_stretch_en = enable;
+}
+
+/**
+ * @brief Clear I2C clock stretch status
+ *
+ * @param dev Beginning address of the peripheral registers
+ */
+__attribute__((always_inline))
+static inline void i2c_ll_slave_clear_stretch(i2c_dev_t *dev)
+{
+    dev->scl_stretch_conf.slave_scl_stretch_clr = 1;
+}
+
+/**
+ * @brief Check if i2c command is done.
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  cmd_idx The index of the command register, must be less than 16
+ *
+ * @return True if the `cmd_idx` command is done. Otherwise false.
+ */
+__attribute__((always_inline))
+static inline bool i2c_ll_master_is_cmd_done(i2c_dev_t *hw, int cmd_idx)
+{
+    return hw->command[cmd_idx].done;
+}
+
+/**
+ * @brief Calculate SCL timeout us to reg value
+ *
+ * @param timeout_us timeout value in us
+ * @param src_clk_hz source clock frequency
+ * @return uint32_t reg value
+ */
+static inline uint32_t i2c_ll_calculate_timeout_us_to_reg_val(uint32_t src_clk_hz, uint32_t timeout_us)
+{
+    uint32_t clk_cycle_num_per_us = src_clk_hz / (1 * 1000 * 1000);
+    return clk_cycle_num_per_us * timeout_us;
+}
+
+//////////////////////////////////////////Deprecated Functions//////////////////////////////////////////////////////////
+/////////////////////////////The following functions are only used by the legacy driver/////////////////////////////////
+/////////////////////////////They might be removed in the next major release (ESP-IDF 6.0)//////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// I2C master TX interrupt bitmap
+#define I2C_LL_MASTER_TX_INT          (I2C_NACK_INT_ENA_M|I2C_TIME_OUT_INT_ENA_M|I2C_TRANS_COMPLETE_INT_ENA_M|I2C_ARBITRATION_LOST_INT_ENA_M|I2C_END_DETECT_INT_ENA_M)
+// I2C master RX interrupt bitmap
+#define I2C_LL_MASTER_RX_INT          (I2C_TIME_OUT_INT_ENA_M|I2C_TRANS_COMPLETE_INT_ENA_M|I2C_ARBITRATION_LOST_INT_ENA_M|I2C_END_DETECT_INT_ENA_M)
+// I2C slave TX interrupt bitmap
+#define I2C_LL_SLAVE_TX_INT           (I2C_TXFIFO_WM_INT_ENA_M)
+// I2C slave RX interrupt bitmap
+#define I2C_LL_SLAVE_RX_INT           (I2C_RXFIFO_WM_INT_ENA_M | I2C_TRANS_COMPLETE_INT_ENA_M)
+// I2C max timeout value
+#define I2C_LL_MAX_TIMEOUT I2C_TIME_OUT_REG_V
+
+#define I2C_LL_INTR_MASK          (0x1ffff) /*!< I2C all interrupt bitmap */
+
+/**
+ * @brief I2C interrupt event
+ */
+typedef enum {
+    I2C_INTR_EVENT_ERR,
+    I2C_INTR_EVENT_ARBIT_LOST,   /*!< I2C arbition lost event */
+    I2C_INTR_EVENT_NACK,         /*!< I2C NACK event */
+    I2C_INTR_EVENT_TOUT,         /*!< I2C time out event */
+    I2C_INTR_EVENT_END_DET,      /*!< I2C end detected event */
+    I2C_INTR_EVENT_TRANS_DONE,   /*!< I2C trans done event */
+    I2C_INTR_EVENT_RXFIFO_FULL,  /*!< I2C rxfifo full event */
+    I2C_INTR_EVENT_TXFIFO_EMPTY, /*!< I2C txfifo empty event */
+} i2c_intr_event_t;
+
+/**
+ * @brief  Configure I2C SCL timing
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  high_period The I2C SCL high period (in core clock cycle, hight_period > 2)
+ * @param  low_period The I2C SCL low period (in core clock cycle, low_period > 1)
+ * @param  wait_high_period The I2C SCL wait rising edge period.
+ *
+ * @return None.
+ */
+static inline void i2c_ll_set_scl_clk_timing(i2c_dev_t *hw, int high_period, int low_period, int wait_high_period)
+{
+    hw->scl_low_period.period = low_period;
+    hw->scl_high_period.period = high_period;
+    hw->scl_high_period.scl_wait_high_period = wait_high_period;
+}
+
+/**
+ * @brief  Get I2C SCL timing configuration
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  high_period Pointer to accept the SCL high period
+ * @param  low_period Pointer to accept the SCL low period
+ *
+ * @return None
+ */
+static inline void i2c_ll_get_scl_clk_timing(i2c_dev_t *hw, int *high_period, int *low_period, int *wait_high_period)
+{
+    *high_period = hw->scl_high_period.period;
+    *wait_high_period = hw->scl_high_period.scl_wait_high_period;
+    *low_period = hw->scl_low_period.period;
+}
+
+/**
+ * @brief  Get I2C master interrupt event
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  event Pointer to accept the interrupt event
+ *
+ * @return None
+ */
+__attribute__((always_inline))
+static inline void i2c_ll_master_get_event(i2c_dev_t *hw, i2c_intr_event_t *event)
+{
+    typeof(hw->int_status) int_sts;
+    int_sts.val = hw->int_status.val;
+    if (int_sts.arbitration_lost) {
+        *event = I2C_INTR_EVENT_ARBIT_LOST;
+    } else if (int_sts.nack) {
+        *event = I2C_INTR_EVENT_NACK;
+    } else if (int_sts.time_out) {
+        *event = I2C_INTR_EVENT_TOUT;
+    } else if (int_sts.end_detect) {
+        *event = I2C_INTR_EVENT_END_DET;
+    } else if (int_sts.trans_complete) {
+        *event = I2C_INTR_EVENT_TRANS_DONE;
+    } else {
+        *event = I2C_INTR_EVENT_ERR;
+    }
+}
+
+/**
+ * @brief  Get I2C slave interrupt event
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  event Pointer to accept the interrupt event
+ *
+ * @return None
+ */
+__attribute__((always_inline))
+static inline void i2c_ll_slave_get_event(i2c_dev_t *hw, i2c_intr_event_t *event)
+{
+    typeof(hw->int_status) int_sts;
+    int_sts.val = hw->int_status.val;
+    if (int_sts.tx_fifo_wm) {
+        *event = I2C_INTR_EVENT_TXFIFO_EMPTY;
+    } else if (int_sts.trans_complete) {
+        *event = I2C_INTR_EVENT_TRANS_DONE;
+    } else if (int_sts.rx_fifo_wm) {
+        *event = I2C_INTR_EVENT_RXFIFO_FULL;
+    } else {
+        *event = I2C_INTR_EVENT_ERR;
+    }
+}
+
+
+/**
+ * @brief  Enable I2C master TX interrupt
+ *
+ * @param  hw Beginning address of the peripheral registers
+ *
+ * @return None
+ */
+__attribute__((always_inline))
+static inline void i2c_ll_master_enable_tx_it(i2c_dev_t *hw)
+{
+    hw->int_clr.val = UINT32_MAX;
+    hw->int_ena.val =  I2C_LL_MASTER_TX_INT;
+}
+
+/**
+ * @brief  Enable I2C master RX interrupt
+ *
+ * @param  hw Beginning address of the peripheral registers
+ *
+ * @return None
+ */
+__attribute__((always_inline))
+static inline void i2c_ll_master_enable_rx_it(i2c_dev_t *hw)
+{
+    hw->int_clr.val = UINT32_MAX;
+    hw->int_ena.val = I2C_LL_MASTER_RX_INT;
+}
+
+/**
+ * @brief  Disable I2C master TX interrupt
+ *
+ * @param  hw Beginning address of the peripheral registers
+ *
+ * @return None
+ */
+static inline void i2c_ll_master_disable_tx_it(i2c_dev_t *hw)
+{
+    hw->int_ena.val &= (~I2C_LL_MASTER_TX_INT);
+}
+
+/**
+ * @brief  Disable I2C master RX interrupt
+ *
+ * @param  hw Beginning address of the peripheral registers
+ *
+ * @return None
+ */
+__attribute__((always_inline))
+static inline void i2c_ll_master_disable_rx_it(i2c_dev_t *hw)
+{
+    hw->int_ena.val &= (~I2C_LL_MASTER_RX_INT);
+}
+
+/**
+ * @brief Enable I2C slave TX interrupt
+ *
+ * @param  hw Beginning address of the peripheral registers
+ *
+ * @return None
+ */
+static inline void i2c_ll_slave_enable_tx_it(i2c_dev_t *hw)
+{
+    hw->int_ena.val |= I2C_LL_SLAVE_TX_INT;
+}
+
+/**
+ * @brief Enable I2C slave RX interrupt
+ *
+ * @param  hw Beginning address of the peripheral registers
+ *
+ * @return None
+ */
+static inline void i2c_ll_slave_enable_rx_it(i2c_dev_t *hw)
+{
+    hw->int_ena.val |= I2C_LL_SLAVE_RX_INT;
+}
+
+/**
+ * @brief Disable I2C slave TX interrupt
+ *
+ * @param  hw Beginning address of the peripheral registers
+ *
+ * @return None
+ */
+__attribute__((always_inline))
+static inline void i2c_ll_slave_disable_tx_it(i2c_dev_t *hw)
+{
+    hw->int_ena.val &= (~I2C_LL_SLAVE_TX_INT);
+}
+
+/**
+ * @brief  Disable I2C slave RX interrupt
+ *
+ * @param  hw Beginning address of the peripheral registers
+ *
+ * @return None
+ */
+static inline void i2c_ll_slave_disable_rx_it(i2c_dev_t *hw)
+{
+    hw->int_ena.val &= (~I2C_LL_SLAVE_RX_INT);
+}
+
+/**
+ * @brief  Configure I2C SCL timing
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  hight_period The I2C SCL high period (in APB cycle, hight_period > 2)
+ * @param  low_period The I2C SCL low period (in APB cycle, low_period > 1)
+ *
+ * @return None.
+ */
+static inline void i2c_ll_set_scl_timing(i2c_dev_t *hw, int hight_period, int low_period)
+{
+    hw->scl_low_period.period = low_period-1;
+    hw->scl_high_period.period = hight_period/2+2;
+    hw->scl_high_period.scl_wait_high_period = hight_period - hw->scl_high_period.period;
+}
+
+/**
+ * @brief  Get the I2C data mode
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  tx_mode Pointer to accept the received bytes mode
+ * @param  rx_mode Pointer to accept the sended bytes mode
+ *
+ * @return None
+ */
+static inline void i2c_ll_get_data_mode(i2c_dev_t *hw, i2c_trans_mode_t *tx_mode, i2c_trans_mode_t *rx_mode)
+{
+    *tx_mode = (i2c_trans_mode_t)(hw->ctr.tx_lsb_first);
+    *rx_mode = (i2c_trans_mode_t)(hw->ctr.rx_lsb_first);
+}
+
+/**
+ * @brief  Get I2C SCL timing configuration
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  high_period Pointer to accept the SCL high period
+ * @param  low_period Pointer to accept the SCL low period
+ *
+ * @return None
+ */
+static inline void i2c_ll_get_scl_timing(i2c_dev_t *hw, int *high_period, int *low_period)
+{
+    *high_period = hw->scl_high_period.period + hw->scl_high_period.scl_wait_high_period;
+    *low_period = hw->scl_low_period.period + 1;
 }
 
 #ifdef __cplusplus

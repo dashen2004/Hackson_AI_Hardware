@@ -36,11 +36,13 @@
 #if OPENTHREAD_FTD
 
 #include "common/code_utils.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
+#include "instance/instance.hpp"
 
 namespace ot {
+
+RegisterLogModule("DataPollHandlr");
 
 DataPollHandler::Callbacks::Callbacks(Instance &aInstance)
     : InstanceLocator(aInstance)
@@ -49,7 +51,7 @@ DataPollHandler::Callbacks::Callbacks(Instance &aInstance)
 
 inline Error DataPollHandler::Callbacks::PrepareFrameForChild(Mac::TxFrame &aFrame,
                                                               FrameContext &aContext,
-                                                              Child &       aChild)
+                                                              Child        &aChild)
 {
     return Get<IndirectSender>().PrepareFrameForChild(aFrame, aContext, aChild);
 }
@@ -57,7 +59,7 @@ inline Error DataPollHandler::Callbacks::PrepareFrameForChild(Mac::TxFrame &aFra
 inline void DataPollHandler::Callbacks::HandleSentFrameToChild(const Mac::TxFrame &aFrame,
                                                                const FrameContext &aContext,
                                                                Error               aError,
-                                                               Child &             aChild)
+                                                               Child              &aChild)
 {
     Get<IndirectSender>().HandleSentFrameToChild(aFrame, aContext, aError, aChild);
 }
@@ -119,6 +121,7 @@ void DataPollHandler::RequestFrameChange(FrameChange aChange, Child &aChild)
     }
     else
     {
+        ResetTxAttempts(aChild);
         mCallbacks.HandleFrameChangeDone(aChild);
     }
 }
@@ -126,7 +129,7 @@ void DataPollHandler::RequestFrameChange(FrameChange aChange, Child &aChild)
 void DataPollHandler::HandleDataPoll(Mac::RxFrame &aFrame)
 {
     Mac::Address macSource;
-    Child *      child;
+    Child       *child;
     uint16_t     indirectMsgCount;
 
     VerifyOrExit(aFrame.GetSecurityEnabled());
@@ -144,8 +147,8 @@ void DataPollHandler::HandleDataPoll(Mac::RxFrame &aFrame)
 
     indirectMsgCount = child->GetIndirectMessageCount();
 
-    otLogInfoMac("Rx data poll, src:0x%04x, qed_msgs:%d, rss:%d, ack-fp:%d", child->GetRloc16(), indirectMsgCount,
-                 aFrame.GetRssi(), aFrame.IsAckedWithFramePending());
+    LogInfo("Rx data poll, src:0x%04x, qed_msgs:%d, rss:%d, ack-fp:%d", child->GetRloc16(), indirectMsgCount,
+            aFrame.GetRssi(), aFrame.IsAckedWithFramePending());
 
     if (!aFrame.IsAckedWithFramePending())
     {
@@ -186,7 +189,11 @@ Mac::TxFrame *DataPollHandler::HandleFrameRequest(Mac::TxFrames &aTxFrames)
     VerifyOrExit(mCallbacks.PrepareFrameForChild(*frame, mFrameContext, *mIndirectTxChild) == kErrorNone,
                  frame = nullptr);
 
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+    if ((mIndirectTxChild->GetIndirectTxAttempts() > 0) || (mIndirectTxChild->GetCslTxAttempts() > 0))
+#else
     if (mIndirectTxChild->GetIndirectTxAttempts() > 0)
+#endif
     {
         // For a re-transmission of an indirect frame to a sleepy
         // child, we ensure to use the same frame counter, key id, and
@@ -229,7 +236,7 @@ void DataPollHandler::HandleSentFrame(const Mac::TxFrame &aFrame, Error aError, 
     {
         aChild.SetFramePurgePending(false);
         aChild.SetFrameReplacePending(false);
-        aChild.ResetIndirectTxAttempts();
+        ResetTxAttempts(aChild);
         mCallbacks.HandleFrameChangeDone(aChild);
         ExitNow();
     }
@@ -237,7 +244,7 @@ void DataPollHandler::HandleSentFrame(const Mac::TxFrame &aFrame, Error aError, 
     switch (aError)
     {
     case kErrorNone:
-        aChild.ResetIndirectTxAttempts();
+        ResetTxAttempts(aChild);
         aChild.SetFrameReplacePending(false);
         break;
 
@@ -245,8 +252,8 @@ void DataPollHandler::HandleSentFrame(const Mac::TxFrame &aFrame, Error aError, 
         OT_ASSERT(!aFrame.GetSecurityEnabled() || aFrame.IsHeaderUpdated());
 
         aChild.IncrementIndirectTxAttempts();
-        otLogInfoMac("Indirect tx to child %04x failed, attempt %d/%d", aChild.GetRloc16(),
-                     aChild.GetIndirectTxAttempts(), kMaxPollTriggeredTxAttempts);
+        LogInfo("Indirect tx to child %04x failed, attempt %d/%d", aChild.GetRloc16(), aChild.GetIndirectTxAttempts(),
+                kMaxPollTriggeredTxAttempts);
 
         OT_FALL_THROUGH;
 
@@ -256,7 +263,7 @@ void DataPollHandler::HandleSentFrame(const Mac::TxFrame &aFrame, Error aError, 
         if (aChild.IsFrameReplacePending())
         {
             aChild.SetFrameReplacePending(false);
-            aChild.ResetIndirectTxAttempts();
+            ResetTxAttempts(aChild);
             mCallbacks.HandleFrameChangeDone(aChild);
             ExitNow();
         }
@@ -273,17 +280,12 @@ void DataPollHandler::HandleSentFrame(const Mac::TxFrame &aFrame, Error aError, 
             {
                 uint32_t frameCounter;
                 uint8_t  keyId;
-                Error    error;
 
-                error = aFrame.GetFrameCounter(frameCounter);
-                OT_ASSERT(error == kErrorNone);
+                SuccessOrAssert(aFrame.GetFrameCounter(frameCounter));
                 aChild.SetIndirectFrameCounter(frameCounter);
 
-                error = aFrame.GetKeyId(keyId);
-                OT_ASSERT(error == kErrorNone);
+                SuccessOrAssert(aFrame.GetKeyId(keyId));
                 aChild.SetIndirectKeyId(keyId);
-
-                OT_UNUSED_VARIABLE(error);
             }
 
             ExitNow();
@@ -294,7 +296,6 @@ void DataPollHandler::HandleSentFrame(const Mac::TxFrame &aFrame, Error aError, 
 
     default:
         OT_ASSERT(false);
-        OT_UNREACHABLE_CODE(break);
     }
 
     mCallbacks.HandleSentFrameToChild(aFrame, mFrameContext, aError, aChild);
@@ -325,6 +326,15 @@ void DataPollHandler::ProcessPendingPolls(void)
         mIndirectTxChild->SetDataPollPending(false);
         Get<Mac::Mac>().RequestIndirectFrameTransmission();
     }
+}
+
+void DataPollHandler::ResetTxAttempts(Child &aChild)
+{
+    aChild.ResetIndirectTxAttempts();
+
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+    aChild.ResetCslTxAttempts();
+#endif
 }
 
 } // namespace ot

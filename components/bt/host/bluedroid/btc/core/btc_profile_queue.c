@@ -1,16 +1,8 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include "common/bt_target.h"
 #include <string.h>
@@ -109,7 +101,7 @@ bt_status_t btc_queue_connect(uint16_t uuid, const bt_bdaddr_t *bda, btc_connect
     arg.connect_node.uuid = uuid;
     arg.connect_node.connect_cb = connect_cb;
 
-    return btc_transfer_context(&msg, &arg, sizeof(btc_prf_que_args_t), NULL);
+    return btc_transfer_context(&msg, &arg, sizeof(btc_prf_que_args_t), NULL, NULL);
 }
 /*******************************************************************************
 **
@@ -129,7 +121,7 @@ void btc_queue_advance(void)
     msg.pid = BTC_PID_PRF_QUE;
     msg.act = BTC_PRF_QUE_ADVANCE;
 
-    btc_transfer_context(&msg, NULL, 0, NULL);
+    btc_transfer_context(&msg, NULL, 0, NULL, NULL);
 }
 
 // This function dispatches the next pending connect request. It is called from

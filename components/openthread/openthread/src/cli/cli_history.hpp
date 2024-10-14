@@ -39,9 +39,7 @@
 #include <openthread/history_tracker.h>
 
 #include "cli/cli_config.h"
-#include "cli/cli_output.hpp"
-#include "utils/lookup_table.hpp"
-#include "utils/parse_cmdline.hpp"
+#include "cli/cli_utils.hpp"
 
 #if OPENTHREAD_CONFIG_HISTORY_TRACKER_ENABLE
 
@@ -49,29 +47,34 @@ namespace ot {
 namespace Cli {
 
 /**
- * This class implements the History Tracker CLI interpreter.
+ * Implements the History Tracker CLI interpreter.
  *
  */
-class History : private OutputWrapper
+class History : private Utils
 {
 public:
-    typedef Utils::CmdLineParser::Arg Arg;
-
     /**
      * Constructor
      *
-     * @param[in]  aOutput The CLI console output context
+     * @param[in]  aInstance            The OpenThread Instance.
+     * @param[in]  aOutputImplementer   An `OutputImplementer`.
      *
      */
-    explicit History(Output &aOutput)
-        : OutputWrapper(aOutput)
+    History(otInstance *aInstance, OutputImplementer &aOutputImplementer)
+        : Utils(aInstance, aOutputImplementer)
     {
     }
 
     /**
-     * This method interprets a list of CLI arguments.
+     * Processes a CLI sub-command.
      *
-     * @param[in]  aArgs        A pointer an array of command line arguments.
+     * @param[in]  aArgs     An array of command line arguments.
+     *
+     * @retval OT_ERROR_NONE              Successfully executed the CLI command.
+     * @retval OT_ERROR_PENDING           The CLI command was successfully started but final result is pending.
+     * @retval OT_ERROR_INVALID_COMMAND   Invalid or unknown CLI command.
+     * @retval OT_ERROR_INVALID_ARGS      Invalid arguments.
+     * @retval ...                        Error during execution of the CLI command.
      *
      */
     otError Process(Arg aArgs[]);
@@ -81,11 +84,7 @@ private:
     static constexpr uint16_t kShortAddrBroadcast = 0xffff;
     static constexpr int8_t   kInvalidRss         = OT_RADIO_RSSI_INVALID;
 
-    struct Command
-    {
-        const char *mName;
-        otError (History::*mHandler)(Arg aArgs[]);
-    };
+    using Command = CommandEntry<History>;
 
     enum RxTx : uint8_t
     {
@@ -94,37 +93,16 @@ private:
         kRxTx,
     };
 
-    otError ProcessHelp(Arg aArgs[]);
-    otError ProcessIpAddr(Arg aArgs[]);
-    otError ProcessIpMulticastAddr(Arg aArgs[]);
-    otError ProcessNetInfo(Arg aArgs[]);
-    otError ProcessNeighbor(Arg aArgs[]);
-    otError ProcessRx(Arg aArgs[]);
-    otError ProcessRxTx(Arg aArgs[]);
-    otError ProcessTx(Arg aArgs[]);
+    template <CommandId kCommandId> otError Process(Arg aArgs[]);
 
     otError ParseArgs(Arg aArgs[], bool &aIsList, uint16_t &aNumEntries) const;
     otError ProcessRxTxHistory(RxTx aRxTx, Arg aArgs[]);
     void    OutputRxTxEntryListFormat(const otHistoryTrackerMessageInfo &aInfo, uint32_t aEntryAge, bool aIsRx);
     void    OutputRxTxEntryTableFormat(const otHistoryTrackerMessageInfo &aInfo, uint32_t aEntryAge, bool aIsRx);
 
-    static const char *AddressOriginToString(uint8_t aOrigin);
     static const char *MessagePriorityToString(uint8_t aPriority);
     static const char *RadioTypeToString(const otHistoryTrackerMessageInfo &aInfo);
     static const char *MessageTypeToString(const otHistoryTrackerMessageInfo &aInfo);
-
-    static constexpr Command sCommands[] = {
-        {"help", &History::ProcessHelp},
-        {"ipaddr", &History::ProcessIpAddr},
-        {"ipmaddr", &History::ProcessIpMulticastAddr},
-        {"neighbor", &History::ProcessNeighbor},
-        {"netinfo", &History::ProcessNetInfo},
-        {"rx", &History::ProcessRx},
-        {"rxtx", &History::ProcessRxTx},
-        {"tx", &History::ProcessTx},
-    };
-
-    static_assert(Utils::LookupTable::IsSorted(sCommands), "Command Table is not sorted");
 };
 
 } // namespace Cli

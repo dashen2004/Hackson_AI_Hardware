@@ -38,9 +38,7 @@
 
 #include <openthread/joiner.h>
 
-#include "cli/cli_output.hpp"
-#include "utils/lookup_table.hpp"
-#include "utils/parse_cmdline.hpp"
+#include "cli/cli_utils.hpp"
 
 #if OPENTHREAD_CONFIG_JOINER_ENABLE
 
@@ -48,55 +46,45 @@ namespace ot {
 namespace Cli {
 
 /**
- * This class implements the Joiner CLI interpreter.
+ * Implements the Joiner CLI interpreter.
  *
  */
-class Joiner : private OutputWrapper
+class Joiner : private Utils
 {
 public:
-    typedef Utils::CmdLineParser::Arg Arg;
-
     /**
      * Constructor
      *
-     * @param[in]  aOutput The CLI console output context
+     * @param[in]  aInstance            The OpenThread Instance.
+     * @param[in]  aOutputImplementer   An `OutputImplementer`.
      *
      */
-    explicit Joiner(Output &aOutput)
-        : OutputWrapper(aOutput)
+    Joiner(otInstance *aInstance, OutputImplementer &aOutputImplementer)
+        : Utils(aInstance, aOutputImplementer)
     {
     }
 
     /**
-     * This method interprets a list of CLI arguments.
+     * Processes a CLI sub-command.
      *
-     * @param[in]  aArgs        A pointer to an array of command line arguments.
+     * @param[in]  aArgs     An array of command line arguments.
+     *
+     * @retval OT_ERROR_NONE              Successfully executed the CLI command.
+     * @retval OT_ERROR_PENDING           The CLI command was successfully started but final result is pending.
+     * @retval OT_ERROR_INVALID_COMMAND   Invalid or unknown CLI command.
+     * @retval OT_ERROR_INVALID_ARGS      Invalid arguments.
+     * @retval ...                        Error during execution of the CLI command.
      *
      */
     otError Process(Arg aArgs[]);
 
 private:
-    struct Command
-    {
-        const char *mName;
-        otError (Joiner::*mHandler)(Arg aArgs[]);
-    };
+    using Command = CommandEntry<Joiner>;
 
-    otError ProcessDiscerner(Arg aArgs[]);
-    otError ProcessHelp(Arg aArgs[]);
-    otError ProcessId(Arg aArgs[]);
-    otError ProcessStart(Arg aArgs[]);
-    otError ProcessStop(Arg aArgs[]);
+    template <CommandId kCommandId> otError Process(Arg aArgs[]);
 
     static void HandleCallback(otError aError, void *aContext);
     void        HandleCallback(otError aError);
-
-    static constexpr Command sCommands[] = {
-        {"discerner", &Joiner::ProcessDiscerner}, {"help", &Joiner::ProcessHelp}, {"id", &Joiner::ProcessId},
-        {"start", &Joiner::ProcessStart},         {"stop", &Joiner::ProcessStop},
-    };
-
-    static_assert(Utils::LookupTable::IsSorted(sCommands), "Command Table is not sorted");
 };
 
 } // namespace Cli

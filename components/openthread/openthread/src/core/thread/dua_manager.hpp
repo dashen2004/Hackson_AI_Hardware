@@ -47,7 +47,6 @@
 #endif
 
 #include "backbone_router/bbr_leader.hpp"
-#include "coap/coap.hpp"
 #include "coap/coap_message.hpp"
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
@@ -57,8 +56,9 @@
 #include "common/time_ticker.hpp"
 #include "common/timer.hpp"
 #include "net/netif.hpp"
+#include "thread/child.hpp"
 #include "thread/thread_tlvs.hpp"
-#include "thread/topology.hpp"
+#include "thread/tmf.hpp"
 
 namespace ot {
 
@@ -77,17 +77,18 @@ namespace ot {
  */
 
 /**
- * This class implements managing DUA.
+ * Implements managing DUA.
  *
  */
 class DuaManager : public InstanceLocator, private NonCopyable
 {
     friend class ot::Notifier;
     friend class ot::TimeTicker;
+    friend class Tmf::Agent;
 
 public:
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      * @param[in]  aInstance     A reference to the OpenThread instance.
      *
@@ -95,27 +96,26 @@ public:
     explicit DuaManager(Instance &aInstance);
 
     /**
-     * This method notifies Domain Prefix status.
+     * Notifies Domain Prefix changes.
      *
-     * @param[in]  aState  The Domain Prefix state or state change.
+     * @param[in]  aEvent  The Domain Prefix event.
      *
      */
-    void HandleDomainPrefixUpdate(BackboneRouter::Leader::DomainPrefixState aState);
+    void HandleDomainPrefixUpdate(BackboneRouter::DomainPrefixEvent aEvent);
 
     /**
-     * This method notifies Primary Backbone Router status.
+     * Notifies Primary Backbone Router status.
      *
      * @param[in]  aState   The state or state change of Primary Backbone Router.
      * @param[in]  aConfig  The Primary Backbone Router service.
      *
      */
-    void HandleBackboneRouterPrimaryUpdate(BackboneRouter::Leader::State               aState,
-                                           const BackboneRouter::BackboneRouterConfig &aConfig);
+    void HandleBackboneRouterPrimaryUpdate(BackboneRouter::Leader::State aState, const BackboneRouter::Config &aConfig);
 
 #if OPENTHREAD_CONFIG_DUA_ENABLE
 
     /**
-     * This method returns a reference to the Domain Unicast Address.
+     * Returns a reference to the Domain Unicast Address.
      *
      * @returns A reference to the Domain Unicast Address.
      *
@@ -123,7 +123,7 @@ public:
     const Ip6::Address &GetDomainUnicastAddress(void) const { return mDomainUnicastAddress.GetAddress(); }
 
     /**
-     * This method sets the Interface Identifier manually specified for the Thread Domain Unicast Address.
+     * Sets the Interface Identifier manually specified for the Thread Domain Unicast Address.
      *
      * @param[in]  aIid        A reference to the Interface Identifier to set.
      *
@@ -134,13 +134,13 @@ public:
     Error SetFixedDuaInterfaceIdentifier(const Ip6::InterfaceIdentifier &aIid);
 
     /**
-     * This method clears the Interface Identifier manually specified for the Thread Domain Unicast Address.
+     * Clears the Interface Identifier manually specified for the Thread Domain Unicast Address.
      *
      */
     void ClearFixedDuaInterfaceIdentifier(void);
 
     /**
-     * This method indicates whether or not there is Interface Identifier manually specified for the Thread
+     * Indicates whether or not there is Interface Identifier manually specified for the Thread
      * Domain Unicast Address.
      *
      * @retval true  If there is Interface Identifier manually specified.
@@ -150,7 +150,7 @@ public:
     bool IsFixedDuaInterfaceIdentifierSet(void) { return !mFixedDuaInterfaceIdentifier.IsUnspecified(); }
 
     /**
-     * This method gets the Interface Identifier for the Thread Domain Unicast Address if manually specified.
+     * Gets the Interface Identifier for the Thread Domain Unicast Address if manually specified.
      *
      * @returns A reference to the Interface Identifier.
      *
@@ -158,25 +158,47 @@ public:
     const Ip6::InterfaceIdentifier &GetFixedDuaInterfaceIdentifier(void) const { return mFixedDuaInterfaceIdentifier; }
 
     /*
-     * This method restores duplicate address detection information from non-volatile memory.
+     * Restores duplicate address detection information from non-volatile memory.
      *
      */
     void Restore(void);
 
     /**
-     * This method notifies duplicated Domain Unicast Address.
+     * Notifies duplicated Domain Unicast Address.
      *
      */
     void NotifyDuplicateDomainUnicastAddress(void);
 #endif
 
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_TMF_PROXY_DUA_ENABLE
-    void UpdateChildDomainUnicastAddress(const Child &aChild, Mle::ChildDuaState aState);
+    /**
+     * Events related to a Child DUA address.
+     *
+     */
+    enum ChildDuaAddressEvent : uint8_t
+    {
+        kAddressAdded,     ///< A new DUA registered by the Child via Address Registration.
+        kAddressChanged,   ///< A different DUA registered by the Child via Address Registration.
+        kAddressRemoved,   ///< DUA registered by the Child is removed and not in Address Registration.
+        kAddressUnchanged, ///< The Child registers the same DUA again.
+    };
+
+    /**
+     * Handles Child DUA address event.
+     *
+     * @param[in] aChild   A child.
+     * @param[in] aEvent   The DUA address event for @p aChild.
+     *
+     */
+    void HandleChildDuaAddressEvent(const Child &aChild, ChildDuaAddressEvent aEvent);
 #endif
 
 private:
-    static constexpr uint8_t kNewRouterRegistrationDelay = 3; ///< Delay (in sec) to establish link for a new router.
-    static constexpr uint8_t kNewDuaRegistrationDelay    = 1; ///< Delay (in sec) for newly added DUA.
+    static constexpr uint32_t kDuaDadPeriod               = 100; // DAD wait time to become "Preferred" (in sec).
+    static constexpr uint8_t  kNoBufDelay                 = 5;   // In sec.
+    static constexpr uint8_t  KResponseTimeoutDelay       = 30;  // In sec.
+    static constexpr uint8_t  kNewRouterRegistrationDelay = 3;   // Delay (in sec) to establish link for a new router.
+    static constexpr uint8_t  kNewDuaRegistrationDelay    = 1;   // Delay (in sec) for newly added DUA.
 
 #if OPENTHREAD_CONFIG_DUA_ENABLE
     Error GenerateDomainUnicastAddressIid(void);
@@ -195,35 +217,27 @@ private:
 
     void HandleTimeTick(void);
 
-    static void HandleRegistrationTask(Tasklet &aTasklet);
-
     void UpdateTimeTickerRegistration(void);
 
-    static void HandleDuaResponse(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo, Error aResult)
-    {
-        static_cast<DuaManager *>(aContext)->HandleDuaResponse(
-            static_cast<Coap::Message *>(aMessage), static_cast<const Ip6::MessageInfo *>(aMessageInfo), aResult);
-    }
+    static void HandleDuaResponse(void                *aContext,
+                                  otMessage           *aMessage,
+                                  const otMessageInfo *aMessageInfo,
+                                  Error                aResult);
+    void        HandleDuaResponse(Coap::Message *aMessage, const Ip6::MessageInfo *aMessageInfo, Error aResult);
 
-    void HandleDuaResponse(Coap::Message *aMessage, const Ip6::MessageInfo *aMessageInfo, Error aResult);
+    template <Uri kUri> void HandleTmf(Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
 
-    static void HandleDuaNotification(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo)
-    {
-        static_cast<DuaManager *>(aContext)->HandleDuaNotification(
-            *static_cast<Coap::Message *>(aMessage), *static_cast<const Ip6::MessageInfo *>(aMessageInfo));
-    }
-
-    void  HandleDuaNotification(Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
     Error ProcessDuaResponse(Coap::Message &aMessage);
 
     void PerformNextRegistration(void);
     void UpdateReregistrationDelay(void);
     void UpdateCheckDelay(uint8_t aDelay);
 
-    Tasklet        mRegistrationTask;
-    Coap::Resource mDuaNotification;
-    Ip6::Address   mRegisteringDua;
-    bool           mIsDuaPending : 1;
+    using RegistrationTask = TaskletIn<DuaManager, &DuaManager::PerformNextRegistration>;
+
+    RegistrationTask mRegistrationTask;
+    Ip6::Address     mRegisteringDua;
+    bool             mIsDuaPending : 1;
 
 #if OPENTHREAD_CONFIG_DUA_ENABLE
     enum DuaState : uint8_t
@@ -263,6 +277,8 @@ private:
     uint16_t  mChildIndexDuaRegistering; // Child Index of the DUA being registered.
 #endif
 };
+
+DeclareTmfHandler(DuaManager, kUriDuaRegistrationNotify);
 
 } // namespace ot
 

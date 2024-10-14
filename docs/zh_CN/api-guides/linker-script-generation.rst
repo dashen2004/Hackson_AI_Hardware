@@ -1,5 +1,6 @@
 链接器脚本生成机制
 ======================
+
 :link_to_translation:`en:[English]`
 
 概述
@@ -7,13 +8,14 @@
 
 {IDF_TARGET_NAME} 中有多个用于存放代码和数据的 :ref:`内存区域<memory-layout>` 。代码和只读数据默认存放在 flash 中，可写数据存放在 RAM 中。不过有时，用户必须更改默认存放区域。
 
-.. only:: SOC_ULP_SUPPORTED
+例如：
 
-    例如为了提高性能，将关键代码存放到 RAM 中，或者将代码存放到 RTC 存储器中以便在 :doc:`唤醒桩 <deep-sleep-stub>` 和 ULP 协处理器中使用。
+.. list::
 
-.. only:: not SOC_ULP_SUPPORTED
-
-    例如为了提高性能，将关键代码存放到 RAM 中，或者将代码存放到 RTC 存储器中以便在 :doc:`唤醒桩 <deep-sleep-stub>` 中使用。
+    * 将关键代码存放到 RAM 中以提高性能；
+    * 将可执行代码存放到 IRAM 中，以便在缓存被禁用时运行这些代码；
+    :ESP_ROM_SUPPORT_DEEP_SLEEP_WAKEUP_STUB: * 将代码存放到 RTC 存储器中，以便在 wake stub 中使用；
+    :SOC_ULP_SUPPORTED: * 将代码存放到 RTC 内存中，以便 ULP 协处理器使用。
 
 链接器脚本生成机制可以让用户指定代码和数据在 ESP-IDF 组件中的存放区域。组件包含如何存放符号、目标或完整库的信息。在构建应用程序时，组件中的这些信息会被收集、解析并处理；生成的存放规则用于链接应用程序。
 
@@ -24,16 +26,15 @@
 
 假设用户有::
 
-    - components/
-                    - my_component/
-                                    - CMakeLists.txt
-                                    - component.mk
-                                    - Kconfig
-                                    - src/
-                                          - my_src1.c
-                                          - my_src2.c
-                                          - my_src3.c
-                                    - my_linker_fragment_file.lf
+    components
+    └── my_component
+        ├── CMakeLists.txt
+        ├── Kconfig
+        ├── src/
+        │   ├── my_src1.c
+        │   ├── my_src2.c
+        │   └── my_src3.c
+        └── my_linker_fragment_file.lf
 
 - 名为 ``my_component`` 的组件，在构建过程中存储为 ``libmy_component.a`` 库文件
 - 库文件包含的三个源文件：``my_src1.c``、``my_src2.c`` 和 ``my_src3.c``，编译后分别为 ``my_src1.o``、``my_src2.o`` 和 ``my_src3.o``
@@ -44,18 +45,6 @@
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 首先，用户需要创建链接器片段文件。链接器片段文件是一个扩展名为 ``.lf`` 的文本文件，想要存放的位置信息会写入该文件内。文件创建成功后，需要将其呈现在构建系统中。ESP-IDF 支持的构建系统指南如下：
-
-Make
-""""
-
-在组件目录的 ``component.mk`` 文件中设置 ``COMPONENT_ADD_LDFRAGMENTS`` 变量的值，使其指向已创建的链接器片段文件。路径可以为绝对路径，也可以为组件目录的相对路径。
-
-.. code-block:: make
-
-    COMPONENT_ADD_LDFRAGMENTS += my_linker_fragment_file.lf
-
-CMake
-"""""
 
 在组件目录的 ``CMakeLists.txt`` 文件中，指定 ``idf_component_register`` 调用引数 ``LDFRAGMENTS`` 的值。``LDFRAGMENTS`` 可以为绝对路径，也可为组件目录的相对路径，指向已创建的链接器片段文件。
 
@@ -83,6 +72,7 @@ CMake
 """"""""""""
 
 假设整个 ``my_src1.o`` 目标文件对性能至关重要，所以最好把该文件放在 RAM 中。另外，``my_src2.o`` 目标文件包含从深度睡眠唤醒所需的符号，因此需要将其存放到 RTC 存储器中。
+
 在链接器片段文件中可以写入以下内容：
 
 .. code-block:: none
@@ -137,6 +127,9 @@ CMake
     entries:
         * (rtc)
 
+
+.. _ldgen-conditional-placements :
+
 根据具体配置存放
 """"""""""""""""""""
 
@@ -152,7 +145,7 @@ CMake
         else:
             * (default)
 
-来看一种更复杂的情况。假设``CONFIG_PERFORMANCE_LEVEL == 1`` 时，只有 ``object1.o`` 存放到 RAM 中；``CONFIG_PERFORMANCE_LEVEL == 2`` 时，``object1.o`` 和 ``object2.o`` 会存放到 RAM 中；``CONFIG_PERFORMANCE_LEVEL == 3`` 时，库中的所有目标文件都会存放到 RAM 中。以上三个条件为假时，整个库会存放到 RTC 存储器中。虽然这种使用场景很罕见，不过，还是可以通过以下方式实现：
+来看一种更复杂的情况。假设 ``CONFIG_PERFORMANCE_LEVEL == 1`` 时，只有 ``object1.o`` 存放到 RAM 中； ``CONFIG_PERFORMANCE_LEVEL == 2`` 时，``object1.o`` 和 ``object2.o`` 会存放到 RAM 中； ``CONFIG_PERFORMANCE_LEVEL == 3`` 时，库中的所有目标文件都会存放到 RAM 中。以上三个条件为假时，整个库会存放到 RTC 存储器中。虽然这种使用场景很罕见，不过，还是可以通过以下方式实现：
 
 .. code-block:: none
 
@@ -198,6 +191,7 @@ CMake
 与 ``rtc`` 和 ``noflash`` 类似，还有一个 ``默认`` 协议，定义了默认存放规则。顾名思义，该协议规定了代码和数据通常存放的区域，即代码和恒量存放在 flash 中，变量存放在 RAM 中。更多关于默认协议的信息，请见 :ref:`这里<ldgen-default-scheme>`。
 
 .. note::
+
     使用链接器脚本生成机制的 IDF 组件示例，请参阅 :component_file:`freertos/CMakeLists.txt`。为了提高性能，``freertos`` 使用链接器脚本生成机制，将其目标文件存放到 RAM 中。
 
 快速入门指南到此结束，下文将详述这个机制的内核，有助于创建自定义存放区域或修改默认方式。
@@ -205,7 +199,7 @@ CMake
 链接器脚本生成机制内核
 ---------------------------
 
-链接是将 C/C++ 源文件转换成可执行文件的最后一步。链接由工具链的链接器完成，接受指定代码和数据存放区域等信息的链接脚本。链接器脚本生成机制的转换过程类似，区别在于传输给链接器的链接脚本根据(1) 收集的 :ref:`链接器片段文件<ldgen-linker-fragment-files>` 和 (2) :ref:`链接器脚本模板<ldgen-linker-script-template>` 动态生成。
+链接是将 C/C++ 源文件转换成可执行文件的最后一步。链接由工具链的链接器完成，接受指定代码和数据存放区域等信息的链接脚本。链接器脚本生成机制的转换过程类似，区别在于传输给链接器的链接脚本根据 (1) 收集的 :ref:`链接器片段文件<ldgen-linker-fragment-files>` 和 (2) :ref:`链接器脚本模板<ldgen-linker-script-template>` 动态生成。
 
 .. note::
 
@@ -236,6 +230,9 @@ CMake
 - 类型：片段类型，可以为 ``段``、``协议`` 或 ``映射``。
 - 名称：片段名称，指定片段类型的片段名称应唯一。
 - 键值：片段内容。每个片段类型可支持不同的键值和不同的键值语法。
+
+    - 在 :ref:`段 <ldgen-sections-fragment>` 和 :ref:`协议 <ldgen-scheme-fragment>` 中，仅支持 ``entries`` 键。
+    - 在 :ref:`映射 <ldgen-mapping-fragment>` 中，支持 ``archive`` 和 ``entries`` 键。
 
 .. note::
 
@@ -290,7 +287,7 @@ CMake
         key_1:
             value_1
         key_2:
-            value_b
+            value_a
     else:
         [type:name]
         key_1:
@@ -298,23 +295,9 @@ CMake
         key_2:
             value_b
 
-
 **注释**
 
 链接器片段文件中的注释以 ``#`` 开头。和在其他语言中一样，注释提供了有用的描述和资料，在处理过程中会被忽略。
-
-与 ESP-IDF v3.x 链接器脚本片段文件兼容
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-ESP-IDF v4.0 变更了链接器脚本片段文件使用的一些语法：
-
-- 必须缩进，缩进不当的文件会产生解析异常；旧版本不强制缩进，但之前的文档和示例均遵循了正确的缩进语法
-- 条件改用 ``if...elif...else`` 结构，可以嵌套检查，将完整片段置于条件内
-- 映射片段和其他片段类型一样，需有名称
-
-链接器脚本生成器可解析 ESP-IDF v3.x 版本中缩进正确的链接器片段文件（如 ESP-IDF v3.x 版本中的本文件所示），依然可以向后兼容此前的映射片段语法（可选名称和条件的旧语法），但是会有弃用警告。用户应换成本文档介绍的新语法，因为旧语法将在未来停用。
-
-请注意，ESP-IDF v3.x 不支持使用 ESP-IDF v4.0 新语法的链接器片段文件。
 
 类型
 """""""
@@ -466,7 +449,7 @@ ESP-IDF v4.0 变更了链接器脚本片段文件使用的一些语法：
 2. SORT([<sort_by_first>, <sort_by_second>])
 
     在输入段描述中输出 ``SORT_BY_NAME``, ``SORT_BY_ALIGNMENT``, ``SORT_BY_INIT_PRIORITY`` 或 ``SORT``。
-    
+
    ``sort_by_first`` 和 ``sort_by_second`` 的值可以是：``name``、``alignment``、``init_priority``。
 
     如果既没指定 ``sort_by_first`` 也没指定 ``sort_by_second``，则输入段会按照名称排序，如果两者都指定了，那么嵌套排序会遵循 https://sourceware.org/binutils/docs/ld/Input-Section-Wildcards.html 中的规则。
@@ -494,8 +477,8 @@ ESP-IDF v4.0 变更了链接器脚本片段文件使用的一些语法：
     # 注意
     # A. entity-scheme 后使用分号
     # B. section2 -> target2 前使用逗号
-    # C. 在 scheme1 条目中 定义 section1 -> target1 和 section2 -> target2 
-    entity1 (scheme1); 
+    # C. 在 scheme1 条目中定义 section1 -> target1 和 section2 -> target2
+    entity1 (scheme1);
         section1 -> target1 KEEP() ALIGN(4, pre, post),
         section2 -> target2 SURROUND(sym) ALIGN(4, post) SORT()
 
@@ -549,26 +532,53 @@ ESP-IDF v4.0 变更了链接器脚本片段文件使用的一些语法：
 
 如需引用一个 ``目标`` 标记下的所有存放规则，请使用以下语法：
 
-.. code-block:: none
+.. only:: SOC_MEM_NON_CONTIGUOUS_SRAM
 
-    mapping[target]
+    .. code-block:: none
+
+        arrays[target]      /* SURROUND 关键字下的对象 */
+        mapping[target]     /* 所有其他数据 */
+
+.. only:: not SOC_MEM_NON_CONTIGUOUS_SRAM
+
+    .. code-block:: none
+
+        mapping[target]
 
 示例：
 
 以下示例是某个链接器脚本模板的摘录，定义了输出段 ``.iram0.text``，该输出段包含一个引用目标 ``iram0_text`` 的标记。
 
-.. code-block:: none
+.. only:: SOC_MEM_NON_CONTIGUOUS_SRAM
 
-    .iram0.text :
-    {
-        /* 标记 IRAM 空间不足 */
-        _iram_text_start = ABSOLUTE(.);
+    .. code-block:: none
 
-        /* 引用 iram0_text */
-        mapping[iram0_text]
+        .iram0.text :
+        {
+            /* 标记 IRAM 空间不足 */
+            _iram_text_start = ABSOLUTE(.);
 
-        _iram_text_end = ABSOLUTE(.);
-    } > iram0_0_seg
+            /* 引用 iram0_text */
+            arrays[iram0_text]
+            mapping[iram0_text]
+
+            _iram_text_end = ABSOLUTE(.);
+        } > iram0_0_seg
+
+.. only:: not SOC_MEM_NON_CONTIGUOUS_SRAM
+
+    .. code-block:: none
+
+        .iram0.text :
+        {
+            /* 标记 IRAM 空间不足 */
+            _iram_text_start = ABSOLUTE(.);
+
+            /* 引用 iram0_text */
+            mapping[iram0_text]
+
+            _iram_text_end = ABSOLUTE(.);
+        } > iram0_0_seg
 
 假设链接器脚本生成器收集到了以下片段定义：
 

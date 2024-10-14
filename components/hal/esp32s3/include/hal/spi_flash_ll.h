@@ -1,16 +1,8 @@
-// Copyright 2015-2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /*******************************************************************************
  * NOTICE
@@ -29,14 +21,10 @@
 extern "C" {
 #endif
 
-// For esp32s2, spimem is equivalent to traditional spi peripherals found
-// in esp32. Let the spi flash clock reg definitions reflect this.
-#define SPI_FLASH_LL_CLKREG_VAL_5MHZ   {.spimem=SPIMEM_FLASH_LL_CLKREG_VAL_5MHZ}
-#define SPI_FLASH_LL_CLKREG_VAL_10MHZ  {.spimem=SPIMEM_FLASH_LL_CLKREG_VAL_10MHZ}
-#define SPI_FLASH_LL_CLKREG_VAL_20MHZ  {.spimem=SPIMEM_FLASH_LL_CLKREG_VAL_20MHZ}
-#define SPI_FLASH_LL_CLKREG_VAL_26MHZ  {.spimem=SPIMEM_FLASH_LL_CLKREG_VAL_26MHZ}
-#define SPI_FLASH_LL_CLKREG_VAL_40MHZ  {.spimem=SPIMEM_FLASH_LL_CLKREG_VAL_40MHZ}
-#define SPI_FLASH_LL_CLKREG_VAL_80MHZ  {.spimem=SPIMEM_FLASH_LL_CLKREG_VAL_80MHZ}
+#define spi_flash_ll_calculate_clock_reg(host_id, clock_div) (((host_id)<=SPI1_HOST) ? spimem_flash_ll_calculate_clock_reg(clock_div) \
+                                            : gpspi_flash_ll_calculate_clock_reg(clock_div))
+
+#define spi_flash_ll_get_source_clock_freq_mhz(host_id)  (((host_id)<=SPI1_HOST) ? spimem_flash_ll_get_source_freq_mhz() : GPSPI_FLASH_LL_PERIPHERAL_FREQUENCY_MHZ)
 
 #define spi_flash_ll_get_hw(host_id)  (((host_id)<=SPI1_HOST ? (spi_dev_t*) spimem_flash_ll_get_hw(host_id) \
                                       : gpspi_flash_ll_get_hw(host_id)))
@@ -53,12 +41,15 @@ typedef union  {
     spimem_flash_ll_clock_reg_t spimem;
 } spi_flash_ll_clock_reg_t;
 
+#define SPIMEM_LL_APB SPIMEM1
+#define SPIMEM_LL_CACHE SPIMEM0
+
 #ifdef GPSPI_BUILD
 #define spi_flash_ll_reset(dev)                              gpspi_flash_ll_reset((spi_dev_t*)dev)
 #define spi_flash_ll_cmd_is_done(dev)                        gpspi_flash_ll_cmd_is_done((spi_dev_t*)dev)
 #define spi_flash_ll_get_buffer_data(dev, buffer, read_len)  gpspi_flash_ll_get_buffer_data((spi_dev_t*)dev, buffer, read_len)
 #define spi_flash_ll_set_buffer_data(dev, buffer, len)       gpspi_flash_ll_set_buffer_data((spi_dev_t*)dev, buffer, len)
-#define spi_flash_ll_user_start(dev)                         gpspi_flash_ll_user_start((spi_dev_t*)dev)
+#define spi_flash_ll_user_start(dev, pe_ops)                 gpspi_flash_ll_user_start((spi_dev_t*)dev, pe_ops)
 #define spi_flash_ll_host_idle(dev)                          gpspi_flash_ll_host_idle((spi_dev_t*)dev)
 #define spi_flash_ll_read_phase(dev)                         gpspi_flash_ll_read_phase((spi_dev_t*)dev)
 #define spi_flash_ll_set_cs_pin(dev, pin)                    gpspi_flash_ll_set_cs_pin((spi_dev_t*)dev, pin)
@@ -86,7 +77,7 @@ typedef union  {
 #define spi_flash_ll_get_buffer_data(dev, buffer, read_len)  spimem_flash_ll_get_buffer_data((spi_mem_dev_t*)dev, buffer, read_len)
 #define spi_flash_ll_set_buffer_data(dev, buffer, len)       spimem_flash_ll_set_buffer_data((spi_mem_dev_t*)dev, buffer, len)
 #define spi_flash_ll_program_page(dev, buffer, len)          spimem_flash_ll_program_page((spi_mem_dev_t*)dev, buffer, len)
-#define spi_flash_ll_user_start(dev)                         spimem_flash_ll_user_start((spi_mem_dev_t*)dev)
+#define spi_flash_ll_user_start(dev, pe_ops)                 spimem_flash_ll_user_start((spi_mem_dev_t*)dev, pe_ops)
 #define spi_flash_ll_host_idle(dev)                          spimem_flash_ll_host_idle((spi_mem_dev_t*)dev)
 #define spi_flash_ll_read_phase(dev)                         spimem_flash_ll_read_phase((spi_mem_dev_t*)dev)
 #define spi_flash_ll_set_cs_pin(dev, pin)                    spimem_flash_ll_set_cs_pin((spi_mem_dev_t*)dev, pin)
@@ -103,6 +94,12 @@ typedef union  {
 #define spi_flash_ll_set_dummy_out(dev, en, lev)             spimem_flash_ll_set_dummy_out((spi_mem_dev_t*)dev, en, lev)
 #define spi_flash_ll_set_hold(dev, hold_n)                   spimem_flash_ll_set_hold((spi_mem_dev_t*)dev, hold_n)
 #define spi_flash_ll_set_cs_setup(dev, cs_setup_time)        spimem_flash_ll_set_cs_setup((spi_mem_dev_t*)dev, cs_setup_time)
+#define spi_flash_ll_get_ctrl_val(dev)                       spimem_flash_ll_get_ctrl_val((spi_mem_dev_t*)dev)
+#define spi_flash_ll_sync_reset()                            spimem_flash_ll_sync_reset()
+#define spi_flash_ll_set_common_command_register_info(dev, ctrl_reg, user_reg, user1_reg, user2_reg)        spimem_flash_ll_set_common_command_register_info((spi_mem_dev_t*)dev, ctrl_reg, user_reg, user1_reg, user2_reg)
+#define spi_flash_ll_get_common_command_register_info(dev, ctrl_reg, user_reg, user1_reg, user2_reg)        spimem_flash_ll_get_common_command_register_info((spi_mem_dev_t*)dev, ctrl_reg, user_reg, user1_reg, user2_reg)
+
+
 #endif
 
 #ifdef __cplusplus

@@ -1,6 +1,3 @@
-| Supported Targets | ESP32 |
-| ----------------- | ----- |
-
 ### SDIO Example
 
 ## Introduction
@@ -25,49 +22,74 @@ is required if 4-bit mode is used. DAT3 is required in 4-bit mode (connected
 to host), or required by the slave as mode detect in 1-bit mode (pull up). It
 is okay in 1-bit mode to leave DAT3 of host disconnected.
 
-Please run wires between the slave and master to make the example function
-(pins are the same for the host and the slave):
+Please run wires between the slave and master to make the example function, and don't forget the grounding wires.
 
-| Signal | GPIO NUM |
-|--------|----------|
-| CLK    | GPIO-14  |
-| CMD    | GPIO-15  |
-| DAT0   | GPIO-2   |
-| DAT1   | GPIO-4   |
-| DAT2   | GPIO-12  |
-| DAT3   | GPIO-13  |
-| Ground | GND      |
+### Slave
 
-CMD and DAT0-3 lines require to be pulled up by 50KOhm resistors even in
-1-bit mode. See *Board Compability* below for details. In 1-bit mode, the
-host can make use of DAT2 and DAT3, however the slave should leave them alone
-but pulled up.
+On ESP32 / ESP32C6, the pins of SDIO Slave are fixed:
 
-Be aware that the example uses lines normally reserved for JTAG. If you're
-using a board with JTAG functions, please remember to remove jumpers
-connecting to the JTAG adapter. The SD peripheral works at a high frequency
+|        |  ESP32   |  ESP32C6 |
+|--------|----------|----------|
+| Signal | GPIO NUM | GPIO NUM |
+|--------|----------|----------|
+| CLK    | GPIO-14  | GPIO-19  |
+| CMD    | GPIO-15  | GPIO-18  |
+| DAT0   | GPIO-2   | GPIO-20  |
+| DAT1   | GPIO-4   | GPIO-21  |
+| DAT2   | GPIO-12  | GPIO-22  |
+| DAT3   | GPIO-13  | GPIO-23  |
+
+#### Note
+
+The SD peripheral works at a high frequency
 and uses native pins, there's no way to configure it to other pins through
 the GPIO matrix.
 
-Please make sure CMD and DATA lines are pulled up by 50KOhm resistors even in
-1-bit mode or SPI mode, which is required by the SD specification.
+Be aware that these pins are normally reserved for JTAG on ESP32. If you're
+using a board with JTAG functions, please remember to remove jumpers
+connecting to the JTAG adapter. (ESP32 Only).
+
+### Host
+
+On ESP32, the pins of the SDMMC Host are fixed (same as the SDIO slave, see above).
+
+When using SPI Master as the host, or using SDMMC Host on ESP32-S3, the pins are flexible. There are Kconfig options to
+select all 6 pins to communicate with the slave. Even if the pins are not used (for example D2 in SPI mode) or
+disconnected, the config options are still valid, and the host example will still initialize all the pins to help the
+slave meet the "all pins should be pulled up" requirement.
+
+For the SDIO Slave, CMD and DAT0-3 lines require to be pulled up (suggested resistor value: 10 KOhm) even in 1-bit mode
+or SPI mode, which is required by the SD specification. See *Board Compability* below for details.
+
+In 1-bit mode, the host can make use of DAT2 and DAT3, however the slave should
+leave them alone but pulled up.
 
 The 4-bit mode can be configured in the menuconfig. If the 4-bit mode is not
 used, the host will not control the DAT3 line, the slave hardware is
 responsible to pull-up the line (or the slave may run into the SPI mode and
 cause a crash).
 
-The host uses HS mode by default. If the example does not work properly,
-please try connecting two boards by short wires, grounding between two boards
-better or disabling the HS mode in menuconfig.
+The host uses HS mode by default. If the example does not work properly (especially when you see CRC error or timeout),
+please try:
+
+1. Connecting two boards by short wires
+2. Grounding between two boards better (**Reliable grounding is very important for the example to work properly!**)
+3. Disabling the HS mode in menuconfig
 
 ## Board compatibility
 
-1. If you're using a board (e.g. WroverKit v2 and before, PICO, DevKitC)
+Pull-up resistors is needed. As the SD specification and the eMMC datasheet clarify,
+minimum 10k pull-up resistors are required for the bus IOs to protect the IOs against bus floating issue.
+Note these pull-up resistors are needed, even if the pin is not used (For example,
+you use 1-line-mode, the pull-up resistor is still required for the D1 pin).
+
+Some other notes:
+
+1. (ESP32 Only) If you're using a board (e.g. WroverKit v2 and before, PICO, DevKitC)
     which is not able to drive GPIO2 low on downloading, please remember to
     disconnect GPIO2 between two boards when downloading the application.
 
-2. It is suggested to use the official Wrover Kit as the slave. This is
+2. (ESP32 Only) It is suggested to use the official Wrover Kit as the slave. This is
     because Wrover Kits have pullups on CMD, DAT0 and DAT1. Otherwise you'll have
     to connect the pullups manually (or use the Wrover Kit as the host). However,
     due to a PCB issue, Wrover Kits v3 and earlier have pullup v.s. pulldown
@@ -83,7 +105,7 @@ better or disabling the HS mode in menuconfig.
     DAT0 and DAT1 and DAT3 lines. However please don't rely on internal weak
     pullups in your own design.
 
-3. Moreover, if your slave devkit is using code flash of 3.3V, it is required
+3. (ESP32 Only) Moreover, if your slave devkit is using code flash of 3.3V, it is required
     to pull down DAT2 line to set proper flash voltage. This conflicts with SDIO
     pullup requirements. Currently devkits using PICO-D4 and Wroom-32 series
     modules have this problem. You can either:
@@ -104,8 +126,14 @@ and ``api_reference/peripherals/sd_pullup_requirements`` to see more
 descriptions about pullups and MTDI requirements and solutions of official
 modules and devkits.
 
-## About `esp_serial_slave_link` component used in this example
+## About `esp_serial_slave_link` component used in the host example
 
-`esp_serial_slave_link` component in the IDF is used to communicate to a ESP slave device.
-When the `esp_serial_slave_link` device is initialized with an `essl_sdio_config_t` structure,
-the `esp_serial_slave_link` can be used to communicate with an ESP32 SDIO slave.
+The host example is based on [esp_serial_slave_link component](https://components.espressif.com/components/espressif/esp_serial_slave_link), which is used to communicate to a ESP slave device.
+
+The component can be installed by esp component manager. Since this example already installed it, no need to re-installed it again, but if you want to install this component in your own project, you can input the following command:
+
+```
+idf.py add-dependency espressif/esp_serial_slave_link
+```
+
+If the dependency is added, you can check `idf_component.yml` for more detail. When building this example or other projects with managed components, the component manager will search for the required components online and download them into the `managed_componets` folder.

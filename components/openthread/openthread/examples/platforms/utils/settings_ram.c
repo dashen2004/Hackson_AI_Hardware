@@ -57,17 +57,16 @@ struct settingsBlock
 } OT_TOOL_PACKED_END;
 
 // settings API
-void otPlatSettingsInit(otInstance *aInstance)
+void otPlatSettingsInit(otInstance *aInstance, const uint16_t *aSensitiveKeys, uint16_t aSensitiveKeysLength)
 {
     OT_UNUSED_VARIABLE(aInstance);
+    OT_UNUSED_VARIABLE(aSensitiveKeys);
+    OT_UNUSED_VARIABLE(aSensitiveKeysLength);
 
     sSettingsBufLength = 0;
 }
 
-void otPlatSettingsDeinit(otInstance *aInstance)
-{
-    OT_UNUSED_VARIABLE(aInstance);
-}
+void otPlatSettingsDeinit(otInstance *aInstance) { OT_UNUSED_VARIABLE(aInstance); }
 
 otError otPlatSettingsGet(otInstance *aInstance, uint16_t aKey, int aIndex, uint8_t *aValue, uint16_t *aValueLength)
 {
@@ -227,9 +226,6 @@ otError otPlatSettingsDelete(otInstance *aInstance, uint16_t aKey, int aIndex)
     return error;
 }
 
-void otPlatSettingsWipe(otInstance *aInstance)
-{
-    otPlatSettingsInit(aInstance);
-}
+void otPlatSettingsWipe(otInstance *aInstance) { otPlatSettingsInit(aInstance, NULL, 0); }
 
 #endif // OPENTHREAD_SETTINGS_RAM

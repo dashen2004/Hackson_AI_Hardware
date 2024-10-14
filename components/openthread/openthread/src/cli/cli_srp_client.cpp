@@ -42,8 +42,6 @@
 namespace ot {
 namespace Cli {
 
-constexpr SrpClient::Command SrpClient::sCommands[];
-
 static otError CopyString(char *aDest, uint16_t aDestSize, const char *aSource)
 {
     // Copies a string from `aSource` to `aDestination` (char array),
@@ -59,52 +57,84 @@ exit:
     return error;
 }
 
-SrpClient::SrpClient(Output &aOutput)
-    : OutputWrapper(aOutput)
+SrpClient::SrpClient(otInstance *aInstance, OutputImplementer &aOutputImplementer)
+    : Utils(aInstance, aOutputImplementer)
     , mCallbackEnabled(false)
 {
     otSrpClientSetCallback(GetInstancePtr(), SrpClient::HandleCallback, this);
 }
 
-otError SrpClient::Process(Arg aArgs[])
-{
-    otError        error = OT_ERROR_INVALID_COMMAND;
-    const Command *command;
-
-    if (aArgs[0].IsEmpty())
-    {
-        IgnoreError(ProcessHelp(aArgs));
-        ExitNow();
-    }
-
-    command = Utils::LookupTable::Find(aArgs[0].GetCString(), sCommands);
-    VerifyOrExit(command != nullptr);
-
-    error = (this->*command->mHandler)(aArgs + 1);
-
-exit:
-    return error;
-}
-
 #if OPENTHREAD_CONFIG_SRP_CLIENT_AUTO_START_API_ENABLE
 
-otError SrpClient::ProcessAutoStart(Arg aArgs[])
+template <> otError SrpClient::Process<Cmd("autostart")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
     bool    enable;
 
+    /**
+     * @cli srp client autostart (get)
+     * @code
+     * srp client autostart
+     * Disabled
+     * Done
+     * @endcode
+     * @par
+     * Indicates the current state of auto-start mode (enabled or disabled).
+     * @moreinfo{@srp}.
+     * @sa otSrpClientIsAutoStartModeEnabled
+     */
     if (aArgs[0].IsEmpty())
     {
         OutputEnabledDisabledStatus(otSrpClientIsAutoStartModeEnabled(GetInstancePtr()));
         ExitNow();
     }
 
-    SuccessOrExit(error = Interpreter::ParseEnableOrDisable(aArgs[0], enable));
+    SuccessOrExit(error = ParseEnableOrDisable(aArgs[0], enable));
 
+    /**
+     * @cli srp client autostart enable
+     * @code
+     * srp client autostart enable
+     * Done
+     * @endcode
+     * @par
+     * Enables auto-start mode.
+     * @par
+     * When auto-start is enabled, the SRP client monitors Thread
+     * network data to discover SRP servers, to select the preferred
+     * server, and to automatically start and stop the client when
+     * an SRP server is detected.
+     * @par
+     * Three categories of network data entries indicate the presence of an SRP sever,
+     * and are preferred in the following order:
+     *  -# Unicast entries in which the server address is included in the service
+     *  data. If there are multiple options, the option with the lowest numerical
+     *  IPv6 address is preferred.
+     *  -# Anycast entries that each have a sequence number. The largest sequence
+     *  number as specified by Serial Number Arithmetic Logic
+     *  in RFC-1982 is preferred.
+     *  -# Unicast entries in which the server address information is included
+     *  with the server data. If there are multiple options, the option with the
+     *  lowest numerical IPv6 address is preferred.
+     * @sa otSrpClientEnableAutoStartMode
+     */
     if (enable)
     {
         otSrpClientEnableAutoStartMode(GetInstancePtr(), /* aCallback */ nullptr, /* aContext */ nullptr);
     }
+    /**
+     * @cli srp client autostart disable
+     * @code
+     * srp client autostart disable
+     * Done
+     * @endcode
+     * @par
+     * Disables the auto-start mode.
+     * @par
+     * Disabling auto-start mode does not stop a running client.
+     * However, the SRP client stops monitoring Thread network data.
+     * @sa otSrpClientDisableAutoStartMode
+     */
     else
     {
         otSrpClientDisableAutoStartMode(GetInstancePtr());
@@ -116,7 +146,24 @@ exit:
 
 #endif // OPENTHREAD_CONFIG_SRP_CLIENT_AUTO_START_API_ENABLE
 
-otError SrpClient::ProcessCallback(Arg aArgs[])
+/**
+ * @cli srp client callback (get,enable,disable)
+ * @code
+ * srp client callback enable
+ * Done
+ * @endcode
+ * @code
+ * srp client callback
+ * Enabled
+ * Done
+ * @endcode
+ * @cparam srp client callback [@ca{enable}|@ca{disable}]
+ * @par
+ * Gets or enables/disables printing callback events from the SRP client.
+ * @moreinfo{@srp}.
+ * @sa otSrpClientSetCallback
+ */
+template <> otError SrpClient::Process<Cmd("callback")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
 
@@ -126,35 +173,49 @@ otError SrpClient::ProcessCallback(Arg aArgs[])
         ExitNow();
     }
 
-    error = Interpreter::ParseEnableOrDisable(aArgs[0], mCallbackEnabled);
+    error = ParseEnableOrDisable(aArgs[0], mCallbackEnabled);
 
 exit:
     return error;
 }
 
-otError SrpClient::ProcessHelp(Arg aArgs[])
-{
-    OT_UNUSED_VARIABLE(aArgs);
-
-    for (const Command &command : sCommands)
-    {
-        OutputLine(command.mName);
-    }
-
-    return OT_ERROR_NONE;
-}
-
-otError SrpClient::ProcessHost(Arg aArgs[])
+template <> otError SrpClient::Process<Cmd("host")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
 
+    /**
+     * @cli srp client host
+     * @code
+     * srp client host
+     * name:"dev4312", state:Registered, addrs:[fd00:0:0:0:0:0:0:1234, fd00:0:0:0:0:0:0:beef]
+     * Done
+     * @endcode
+     * @par api_copy
+     * #otSrpClientGetHostInfo
+     */
     if (aArgs[0].IsEmpty())
     {
         OutputHostInfo(0, *otSrpClientGetHostInfo(GetInstancePtr()));
-        ExitNow();
     }
-
-    if (aArgs[0] == "name")
+    /**
+     * @cli srp client host name (get,set)
+     * @code
+     * srp client host name dev4312
+     * Done
+     * @endcode
+     * @code
+     * srp client host name
+     * dev4312
+     * Done
+     * @endcode
+     * @cparam srp client host name [@ca{name}]
+     * To set the client host name when the host has either been removed or not yet
+     * registered with the server, use the `name` parameter.
+     * @par
+     * Gets or sets the host name of the SRP client. @moreinfo{@srp}.
+     * @sa otSrpClientSetHostName
+     */
+    else if (aArgs[0] == "name")
     {
         if (aArgs[1].IsEmpty())
         {
@@ -165,7 +226,7 @@ otError SrpClient::ProcessHost(Arg aArgs[])
         {
             uint16_t len;
             uint16_t size;
-            char *   hostName;
+            char    *hostName;
 
             VerifyOrExit(aArgs[2].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
             hostName = otSrpClientBuffersGetHostNameString(GetInstancePtr(), &size);
@@ -185,6 +246,24 @@ otError SrpClient::ProcessHost(Arg aArgs[])
             IgnoreError(otSrpClientSetHostName(GetInstancePtr(), hostName));
         }
     }
+    /**
+     * @cli srp client host state
+     * @code
+     * srp client host state
+     * Registered
+     * Done
+     * @endcode
+     * @par
+     * Returns the state of the SRP client host. Possible states:
+     *   * `ToAdd`: Item to be added/registered.
+     *	 * `Adding`: Item is being added/registered.
+     *   * `ToRefresh`: Item to be refreshed for lease renewal.
+     *   * `Refreshing`: Item is beig refreshed.
+     *   * `ToRemove`: Item to be removed.
+     *   * `Removing`: Item is being removed.
+     *   * `Registered`: Item is registered with server.
+     *   * `Removed`: Item has been removed.
+     */
     else if (aArgs[0] == "state")
     {
         VerifyOrExit(aArgs[1].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
@@ -192,14 +271,71 @@ otError SrpClient::ProcessHost(Arg aArgs[])
     }
     else if (aArgs[0] == "address")
     {
+        /**
+         * @cli srp client host address (get)
+         * @code
+         * srp client host address
+         * auto
+         * Done
+         * @endcode
+         * @code
+         * srp client host address
+         * fd00:0:0:0:0:0:0:1234
+         * fd00:0:0:0:0:0:0:beef
+         * Done
+         * @endcode
+         * @par
+         * Indicates whether auto address mode is enabled. If auto address mode is not
+         * enabled, then the list of SRP client host addresses is returned.
+         * @moreinfo{@srp}.
+         * @sa otSrpClientGetHostInfo
+         */
         if (aArgs[1].IsEmpty())
         {
             const otSrpClientHostInfo *hostInfo = otSrpClientGetHostInfo(GetInstancePtr());
 
-            for (uint8_t index = 0; index < hostInfo->mNumAddresses; index++)
+            if (hostInfo->mAutoAddress)
             {
-                OutputIp6AddressLine(hostInfo->mAddresses[index]);
+                OutputLine("auto");
             }
+            else
+            {
+                for (uint8_t index = 0; index < hostInfo->mNumAddresses; index++)
+                {
+                    OutputIp6AddressLine(hostInfo->mAddresses[index]);
+                }
+            }
+        }
+        /**
+         * @cli srp client host address (set)
+         * @code
+         * srp client host address auto
+         * Done
+         * @endcode
+         * @code
+         * srp client host address fd00::cafe
+         * Done
+         * @endcode
+         * @cparam srp client host address [auto|@ca{address...}]
+         *   * Use the `auto` parameter to enable auto host address mode.
+         *     When enabled, the client automatically uses all preferred Thread
+         *     `netif` unicast addresses except for link-local and mesh-local
+         *     addresses. If there is no valid address, the mesh local
+         *     EID address gets added. The SRP client automatically
+         *     re-registers if addresses on the Thread `netif` are
+         *     added or removed or marked as non-preferred.
+         *   * Explicitly specify the list of host addresses, separating
+         *     each address by a space. You can set this list while the client is
+         *     running. This will also disable auto host address mode.
+         * @par
+         * Enable auto host address mode or explicitly set the list of host
+         * addresses. @moreinfo{@srp}.
+         * @sa otSrpClientEnableAutoHostAddress
+         * @sa otSrpClientSetHostAddresses
+         */
+        else if (aArgs[1] == "auto")
+        {
+            error = otSrpClientEnableAutoHostAddress(GetInstancePtr());
         }
         else
         {
@@ -234,6 +370,26 @@ otError SrpClient::ProcessHost(Arg aArgs[])
             IgnoreError(otSrpClientSetHostAddresses(GetInstancePtr(), hostAddressArray, numAddresses));
         }
     }
+    /**
+     * @cli srp client host remove
+     * @code
+     * srp client host remove 1
+     * Done
+     * @endcode
+     * @cparam srp client host remove [@ca{removekeylease}] [@ca{sendunregtoserver}]
+     *   * The parameter `removekeylease` is an optional boolean value that indicates
+     *     whether the host key lease should also be removed (default is `false`).
+     *   * The parameter `sendunregtoserver` is an optional boolean value that indicates
+     *     whether the client host should send an "update" message to the server
+     *     even when the client host information has not yet been registered with the
+     *     server (default is `false`). This parameter can be specified only if the
+     *     `removekeylease` parameter is specified first in the command.
+     * @par
+     * Removes SRP client host information and all services from the SRP server.
+     * @moreinfo{@srp}.
+     * @sa otSrpClientRemoveHostAndServices
+     * @sa otSrpClientSetHostName
+     */
     else if (aArgs[0] == "remove")
     {
         bool removeKeyLease    = false;
@@ -252,6 +408,17 @@ otError SrpClient::ProcessHost(Arg aArgs[])
 
         error = otSrpClientRemoveHostAndServices(GetInstancePtr(), removeKeyLease, sendUnregToServer);
     }
+    /**
+     * @cli srp client host clear
+     * @code
+     * srp client host clear
+     * Done
+     * @endcode
+     * @par
+     * Clears all host information and all services.
+     * @sa otSrpClientBuffersFreeAllServices
+     * @sa otSrpClientClearHostAndServices
+     */
     else if (aArgs[0] == "clear")
     {
         VerifyOrExit(aArgs[1].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
@@ -267,37 +434,100 @@ exit:
     return error;
 }
 
-otError SrpClient::ProcessLeaseInterval(Arg aArgs[])
+/**
+ * @cli srp client leaseinterval (get,set)
+ * @code
+ * srp client leaseinterval 3600
+ * Done
+ * @endcode
+ * @code
+ * srp client leaseinterval
+ * 3600
+ * Done
+ * @endcode
+ * @cparam srp client leaseinterval [@ca{interval}]
+ * @par
+ * Gets or sets the lease interval in seconds.
+ * @sa otSrpClientGetLeaseInterval
+ * @sa otSrpClientSetLeaseInterval
+ */
+template <> otError SrpClient::Process<Cmd("leaseinterval")>(Arg aArgs[])
 {
-    return Interpreter::GetInterpreter().ProcessGetSet(aArgs, otSrpClientGetLeaseInterval, otSrpClientSetLeaseInterval);
+    return ProcessGetSet(aArgs, otSrpClientGetLeaseInterval, otSrpClientSetLeaseInterval);
 }
 
-otError SrpClient::ProcessKeyLeaseInterval(Arg aArgs[])
+/**
+ * @cli srp client keyleaseinterval (get,set)
+ * @code
+ * srp client keyleaseinterval 864000
+ * Done
+ * @endcode
+ * @code
+ * srp client keyleaseinterval
+ * 864000
+ * Done
+ * @endcode
+ * @cparam srp client keyleaseinterval [@ca{interval}]
+ * @par
+ * Gets or sets the key lease interval in seconds.
+ * @sa otSrpClientGetKeyLeaseInterval
+ * @sa otSrpClientSetKeyLeaseInterval
+ */
+template <> otError SrpClient::Process<Cmd("keyleaseinterval")>(Arg aArgs[])
 {
-    return Interpreter::GetInterpreter().ProcessGetSet(aArgs, otSrpClientGetKeyLeaseInterval,
-                                                       otSrpClientSetKeyLeaseInterval);
+    return ProcessGetSet(aArgs, otSrpClientGetKeyLeaseInterval, otSrpClientSetKeyLeaseInterval);
 }
 
-otError SrpClient::ProcessServer(Arg aArgs[])
+template <> otError SrpClient::Process<Cmd("server")>(Arg aArgs[])
 {
     otError           error          = OT_ERROR_NONE;
     const otSockAddr *serverSockAddr = otSrpClientGetServerAddress(GetInstancePtr());
 
+    /**
+     * @cli srp client server
+     * @code
+     * srp client server
+     * &lsqb;fd00:0:0:0:d88a:618b:384d:e760&rsqb;:4724
+     * Done
+     * @endcode
+     * @par
+     * Gets the socket address (IPv6 address and port number) of the SRP server
+     * that is being used by the SRP client. If the client is not running, the address
+     * is unspecified (all zeros) with a port number of 0. @moreinfo{@srp}.
+     * @sa otSrpClientGetServerAddress
+     */
     if (aArgs[0].IsEmpty())
     {
-        char string[OT_IP6_SOCK_ADDR_STRING_SIZE];
-
-        otIp6SockAddrToString(serverSockAddr, string, sizeof(string));
-        OutputLine(string);
+        OutputSockAddrLine(*serverSockAddr);
         ExitNow();
     }
 
     VerifyOrExit(aArgs[1].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
 
+    /**
+     * @cli srp client server address
+     * @code
+     * srp client server address
+     * fd00:0:0:0:d88a:618b:384d:e760
+     * Done
+     * @endcode
+     * @par
+     * Returns the server's IPv6 address.
+     */
     if (aArgs[0] == "address")
     {
         OutputIp6AddressLine(serverSockAddr->mAddress);
     }
+    /**
+     * @cli srp client server port
+     * @code
+     * srp client server port
+     * 4724
+     * Done
+     * @endcode
+     * @par
+     * Returns the server's port number.
+     */
     else if (aArgs[0] == "port")
     {
         OutputLine("%u", serverSockAddr->mPort);
@@ -311,21 +541,76 @@ exit:
     return error;
 }
 
-otError SrpClient::ProcessService(Arg aArgs[])
+template <> otError SrpClient::Process<Cmd("service")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
     bool    isRemove;
 
+    /**
+     * @cli srp client service
+     * @code
+     * srp client service
+     * instance:"ins2", name:"_test2._udp,_sub1,_sub2", state:Registered, port:111, priority:1, weight:1
+     * instance:"ins1", name:"_test1._udp", state:Registered, port:777, priority:0, weight:0
+     * Done
+     * @endcode
+     * @par api_copy
+     * #otSrpClientGetServices
+     */
     if (aArgs[0].IsEmpty())
     {
         OutputServiceList(0, otSrpClientGetServices(GetInstancePtr()));
-        ExitNow();
     }
-
-    if (aArgs[0] == "add")
+    /**
+     * @cli srp client service add
+     * @code
+     * srp client service add ins1 _test1._udp 777
+     * Done
+     * @endcode
+     * @code
+     * srp client service add ins2 _test2._udp,_sub1,_sub2 111 1 1
+     * Done
+     * @endcode
+     * @cparam srp client service add @ca{instancename} @ca{servicename} <!--
+     * * -->                          @ca{port} [@ca{priority}] <!--
+     * * -->                          [@ca{weight}] [@ca{txt}]
+     * The `servicename` parameter can optionally include a list of service subtype labels that are
+     * separated by commas. The examples here use generic naming. The `priority` and `weight` (both are `uint16_t`
+     * values) parameters are optional, and if not provided zero is used. The optional `txt` parameter sets the TXT
+     * data associated with the service. The `txt` value must be in hex-string format and is treated as an already
+     * encoded TXT data byte sequence.
+     * @par
+     * Adds a service with a given instance name, service name, and port number.
+     * @moreinfo{@srp}.
+     * @sa otSrpClientAddService
+     */
+    else if (aArgs[0] == "add")
     {
         error = ProcessServiceAdd(aArgs);
     }
+    /**
+     * @cli srp client service remove
+     * @code
+     * srp client service remove ins2 _test2._udp
+     * Done
+     * @endcode
+     * @cparam srp client service remove @ca{instancename} @ca{servicename}
+     * @par
+     * Requests a service to be unregistered with the SRP server.
+     * @sa otSrpClientRemoveService
+     */
+    /**
+     * @cli srp client service name clear
+     * @code
+     * srp client service clear ins2 _test2._udp
+     * Done
+     * @endcode
+     * @cparam srp client service clear @ca{instancename} @ca{servicename}
+     * @par
+     * Clears a service, immediately removing it from the client service list,
+     * with no interaction with the SRP server.
+     * @sa otSrpClientClearService
+     */
     else if ((isRemove = (aArgs[0] == "remove")) || (aArgs[0] == "clear"))
     {
         // `remove`|`clear` <instance-name> <service-name>
@@ -357,21 +642,29 @@ otError SrpClient::ProcessService(Arg aArgs[])
         }
     }
 #if OPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE
+    /**
+     * @cli srp client service key (get,set)
+     * @code
+     * srp client service key enable
+     * Done
+     * @endcode
+     * @code
+     * srp client service key
+     * Enabled
+     * Done
+     * @endcode
+     * @par
+     * Gets or sets the service key record inclusion mode in the SRP client.
+     * This command is intended for testing only, and requires that
+     * `OPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE` be enabled. @moreinfo{@srp}.
+     * @sa otSrpClientIsServiceKeyRecordEnabled
+     */
     else if (aArgs[0] == "key")
     {
         // `key [enable/disable]`
 
-        bool enable;
-
-        if (aArgs[1].IsEmpty())
-        {
-            OutputEnabledDisabledStatus(otSrpClientIsServiceKeyRecordEnabled(GetInstancePtr()));
-            ExitNow();
-        }
-
-        SuccessOrExit(error = Interpreter::ParseEnableOrDisable(aArgs[1], enable));
-        VerifyOrExit(aArgs[2].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
-        otSrpClientSetServiceKeyRecordEnabled(GetInstancePtr(), enable);
+        error = ProcessEnableDisable(aArgs + 1, otSrpClientIsServiceKeyRecordEnabled,
+                                     otSrpClientSetServiceKeyRecordEnabled);
     }
 #endif // OPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE
     else
@@ -385,13 +678,13 @@ exit:
 
 otError SrpClient::ProcessServiceAdd(Arg aArgs[])
 {
-    // `add` <instance-name> <service-name> <port> [priority] [weight] [txt]
+    // `add` <instance-name> <service-name> <port> [priority] [weight] [txt] [lease] [key-lease]
 
     otSrpClientBuffersServiceEntry *entry = nullptr;
     uint16_t                        size;
-    char *                          string;
+    char                           *string;
     otError                         error;
-    char *                          label;
+    char                           *label;
 
     entry = otSrpClientBuffersAllocateService(GetInstancePtr());
 
@@ -447,7 +740,7 @@ otError SrpClient::ProcessServiceAdd(Arg aArgs[])
         SuccessOrExit(error = aArgs[5].ParseAsUint16(entry->mService.mWeight));
     }
 
-    if (!aArgs[6].IsEmpty())
+    if (!aArgs[6].IsEmpty() && (aArgs[6] != "-"))
     {
         uint8_t *txtBuffer;
 
@@ -455,11 +748,21 @@ otError SrpClient::ProcessServiceAdd(Arg aArgs[])
         entry->mTxtEntry.mValueLength = size;
 
         SuccessOrExit(error = aArgs[6].ParseAsHexString(entry->mTxtEntry.mValueLength, txtBuffer));
-        VerifyOrExit(aArgs[7].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
     }
     else
     {
         entry->mService.mNumTxtEntries = 0;
+    }
+
+    if (!aArgs[7].IsEmpty())
+    {
+        SuccessOrExit(error = aArgs[7].ParseAsUint32(entry->mService.mLease));
+    }
+
+    if (!aArgs[8].IsEmpty())
+    {
+        SuccessOrExit(error = aArgs[8].ParseAsUint32(entry->mService.mKeyLease));
+        VerifyOrExit(aArgs[9].IsEmpty(), error = OT_ERROR_INVALID_ARGS);
     }
 
     SuccessOrExit(error = otSrpClientAddService(GetInstancePtr(), &entry->mService));
@@ -488,19 +791,28 @@ void SrpClient::OutputHostInfo(uint8_t aIndentSize, const otSrpClientHostInfo &a
         OutputFormat("(null)");
     }
 
-    OutputFormat(", state:%s, addrs:[", otSrpClientItemStateToString(aHostInfo.mState));
+    OutputFormat(", state:%s, addrs:", otSrpClientItemStateToString(aHostInfo.mState));
 
-    for (uint8_t index = 0; index < aHostInfo.mNumAddresses; index++)
+    if (aHostInfo.mAutoAddress)
     {
-        if (index > 0)
+        OutputLine("auto");
+    }
+    else
+    {
+        OutputFormat("[");
+
+        for (uint8_t index = 0; index < aHostInfo.mNumAddresses; index++)
         {
-            OutputFormat(", ");
+            if (index > 0)
+            {
+                OutputFormat(", ");
+            }
+
+            OutputIp6Address(aHostInfo.mAddresses[index]);
         }
 
-        OutputIp6Address(aHostInfo.mAddresses[index]);
+        OutputLine("]");
     }
-
-    OutputLine("]");
 }
 
 void SrpClient::OutputServiceList(uint8_t aIndentSize, const otSrpClientService *aServices)
@@ -528,7 +840,18 @@ void SrpClient::OutputService(uint8_t aIndentSize, const otSrpClientService &aSe
                aService.mPort, aService.mPriority, aService.mWeight);
 }
 
-otError SrpClient::ProcessStart(Arg aArgs[])
+/**
+ * @cli srp client start
+ * @code
+ * srp client start fd00::d88a:618b:384d:e760 4724
+ * Done
+ * @endcode
+ * @cparam srp client start @ca{serveraddr} @ca{serverport}
+ * @par
+ * Starts the SRP client operation. @moreinfo{@srp}.
+ * @sa otSrpClientStart
+ */
+template <> otError SrpClient::Process<Cmd("start")>(Arg aArgs[])
 {
     otError    error = OT_ERROR_NONE;
     otSockAddr serverSockAddr;
@@ -543,7 +866,18 @@ exit:
     return error;
 }
 
-otError SrpClient::ProcessState(Arg aArgs[])
+/**
+ * @cli srp client state
+ * @code
+ * srp client state
+ * Enabled
+ * Done
+ * @endcode
+ * @par api_copy
+ * #otSrpClientIsRunning
+ * @moreinfo{@srp}.
+ */
+template <> otError SrpClient::Process<Cmd("state")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
 
@@ -555,7 +889,16 @@ exit:
     return error;
 }
 
-otError SrpClient::ProcessStop(Arg aArgs[])
+/**
+ * @cli srp client stop
+ * @code
+ * srp client stop
+ * Done
+ * @endcode
+ * @par api_copy
+ * #otSrpClientStop
+ */
+template <> otError SrpClient::Process<Cmd("stop")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
 
@@ -566,19 +909,41 @@ exit:
     return error;
 }
 
+/**
+ * @cli srp client ttl (get,set)
+ * @code
+ * srp client ttl 3600
+ * Done
+ * @endcode
+ * @code
+ * srp client ttl
+ * 3600
+ * Done
+ * @endcode
+ * @cparam srp client ttl [@ca{value}]
+ * @par
+ * Gets or sets the `ttl`(time to live) value in seconds.
+ * @sa otSrpClientGetTtl
+ * @sa otSrpClientSetTtl
+ */
+template <> otError SrpClient::Process<Cmd("ttl")>(Arg aArgs[])
+{
+    return ProcessGetSet(aArgs, otSrpClientGetTtl, otSrpClientSetTtl);
+}
+
 void SrpClient::HandleCallback(otError                    aError,
                                const otSrpClientHostInfo *aHostInfo,
-                               const otSrpClientService * aServices,
-                               const otSrpClientService * aRemovedServices,
-                               void *                     aContext)
+                               const otSrpClientService  *aServices,
+                               const otSrpClientService  *aRemovedServices,
+                               void                      *aContext)
 {
     static_cast<SrpClient *>(aContext)->HandleCallback(aError, aHostInfo, aServices, aRemovedServices);
 }
 
 void SrpClient::HandleCallback(otError                    aError,
                                const otSrpClientHostInfo *aHostInfo,
-                               const otSrpClientService * aServices,
-                               const otSrpClientService * aRemovedServices)
+                               const otSrpClientService  *aServices,
+                               const otSrpClientService  *aRemovedServices)
 {
     otSrpClientService *next;
 
@@ -607,6 +972,39 @@ void SrpClient::HandleCallback(otError                    aError,
         otSrpClientBuffersFreeService(GetInstancePtr(), reinterpret_cast<otSrpClientBuffersServiceEntry *>(
                                                             const_cast<otSrpClientService *>(service)));
     }
+}
+
+otError SrpClient::Process(Arg aArgs[])
+{
+#define CmdEntry(aCommandString)                                 \
+    {                                                            \
+        aCommandString, &SrpClient::Process<Cmd(aCommandString)> \
+    }
+
+    static constexpr Command kCommands[] = {
+        CmdEntry("autostart"),     CmdEntry("callback"), CmdEntry("host"),    CmdEntry("keyleaseinterval"),
+        CmdEntry("leaseinterval"), CmdEntry("server"),   CmdEntry("service"), CmdEntry("start"),
+        CmdEntry("state"),         CmdEntry("stop"),     CmdEntry("ttl"),
+    };
+
+    static_assert(BinarySearch::IsSorted(kCommands), "kCommands is not sorted");
+
+    otError        error = OT_ERROR_INVALID_COMMAND;
+    const Command *command;
+
+    if (aArgs[0].IsEmpty() || (aArgs[0] == "help"))
+    {
+        OutputCommandTable(kCommands);
+        ExitNow(error = aArgs[0].IsEmpty() ? error : OT_ERROR_NONE);
+    }
+
+    command = BinarySearch::Find(aArgs[0].GetCString(), kCommands);
+    VerifyOrExit(command != nullptr);
+
+    error = (this->*command->mHandler)(aArgs + 1);
+
+exit:
+    return error;
 }
 
 } // namespace Cli

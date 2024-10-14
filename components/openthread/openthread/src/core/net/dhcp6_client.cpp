@@ -35,11 +35,12 @@
 
 #if OPENTHREAD_CONFIG_DHCP6_CLIENT_ENABLE
 
+#include "common/as_core_type.hpp"
 #include "common/code_utils.hpp"
 #include "common/encoding.hpp"
-#include "common/instance.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
+#include "instance/instance.hpp"
 #include "mac/mac.hpp"
 #include "net/dhcp6.hpp"
 #include "thread/thread_netif.hpp"
@@ -47,14 +48,16 @@
 namespace ot {
 namespace Dhcp6 {
 
+RegisterLogModule("Dhcp6Client");
+
 Client::Client(Instance &aInstance)
     : InstanceLocator(aInstance)
-    , mSocket(aInstance)
+    , mSocket(aInstance, *this)
     , mTrickleTimer(aInstance, Client::HandleTrickleTimer)
     , mStartTime(0)
     , mIdentityAssociationCurrent(nullptr)
 {
-    memset(mIdentityAssociations, 0, sizeof(mIdentityAssociations));
+    ClearAllBytes(mIdentityAssociations);
 }
 
 bool Client::MatchNetifAddressWithPrefix(const Ip6::Netif::UnicastAddress &aNetifAddress, const Ip6::Prefix &aIp6Prefix)
@@ -145,7 +148,7 @@ void Client::UpdateAddresses(void)
             }
             else
             {
-                otLogWarnIp6("Insufficient memory for new DHCP prefix");
+                LogWarn("Insufficient memory for new DHCP prefix");
                 continue;
             }
         }
@@ -167,7 +170,7 @@ void Client::Start(void)
 {
     VerifyOrExit(!mSocket.IsBound());
 
-    IgnoreError(mSocket.Open(&Client::HandleUdpReceive, this));
+    IgnoreError(mSocket.Open());
     IgnoreError(mSocket.Bind(kDhcpClientPort));
 
     ProcessNextIdentityAssociation();
@@ -215,10 +218,7 @@ exit:
     return rval;
 }
 
-void Client::HandleTrickleTimer(TrickleTimer &aTrickleTimer)
-{
-    aTrickleTimer.Get<Client>().HandleTrickleTimer();
-}
+void Client::HandleTrickleTimer(TrickleTimer &aTrickleTimer) { aTrickleTimer.Get<Client>().HandleTrickleTimer(); }
 
 void Client::HandleTrickleTimer(void)
 {
@@ -260,10 +260,10 @@ exit:
 void Client::Solicit(uint16_t aRloc16)
 {
     Error            error = kErrorNone;
-    Message *        message;
+    Message         *message;
     Ip6::MessageInfo messageInfo;
 
-    VerifyOrExit((message = mSocket.NewMessage(0)) != nullptr, error = kErrorNoBufs);
+    VerifyOrExit((message = mSocket.NewMessage()) != nullptr, error = kErrorNoBufs);
 
     SuccessOrExit(error = AppendHeader(*message));
     SuccessOrExit(error = AppendElapsedTime(*message));
@@ -278,17 +278,17 @@ void Client::Solicit(uint16_t aRloc16)
 #else
     messageInfo.GetPeerAddr().SetToRoutingLocator(Get<Mle::MleRouter>().GetMeshLocalPrefix(), aRloc16);
 #endif
-    messageInfo.SetSockAddr(Get<Mle::MleRouter>().GetMeshLocal16());
+    messageInfo.SetSockAddr(Get<Mle::MleRouter>().GetMeshLocalRloc());
     messageInfo.mPeerPort = kDhcpServerPort;
 
     SuccessOrExit(error = mSocket.SendTo(*message, messageInfo));
-    otLogInfoIp6("solicit");
+    LogInfo("solicit");
 
 exit:
     if (error != kErrorNone)
     {
         FreeMessage(message);
-        otLogWarnIp6("Failed to send DHCPv6 Solicit: %s", ErrorToString(error));
+        LogWarnOnError(error, "send DHCPv6 Solicit");
     }
 }
 
@@ -393,12 +393,6 @@ Error Client::AppendRapidCommit(Message &aMessage)
 
     option.Init();
     return aMessage.Append(option);
-}
-
-void Client::HandleUdpReceive(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo)
-{
-    static_cast<Client *>(aContext)->HandleUdpReceive(*static_cast<Message *>(aMessage),
-                                                      *static_cast<const Ip6::MessageInfo *>(aMessageInfo));
 }
 
 void Client::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageInfo)

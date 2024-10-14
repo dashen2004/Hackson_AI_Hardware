@@ -39,16 +39,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "common/logging.hpp"
+#include <openthread/logging.h>
+
 #include "utils/code_utils.h"
 
 #if RADIO_CONFIG_SRC_MATCH_SHORT_ENTRY_NUM || RADIO_CONFIG_SRC_MATCH_EXT_ENTRY_NUM
 static uint16_t sPanId = 0;
 
-void utilsSoftSrcMatchSetPanId(uint16_t aPanId)
-{
-    sPanId = aPanId;
-}
+void utilsSoftSrcMatchSetPanId(uint16_t aPanId) { sPanId = aPanId; }
 #endif // RADIO_CONFIG_SRC_MATCH_SHORT_ENTRY_NUM || RADIO_CONFIG_SRC_MATCH_EXT_ENTRY_NUM
 
 #if RADIO_CONFIG_SRC_MATCH_SHORT_ENTRY_NUM
@@ -147,7 +145,7 @@ void otPlatRadioClearSrcMatchShortEntries(otInstance *aInstance)
 {
     OT_UNUSED_VARIABLE(aInstance);
 
-    otLogDebgPlat("Clear ShortAddr entries", NULL);
+    otLogDebgPlat("Clear ShortAddr entries");
 
     memset(srcMatchShortEntry, 0, sizeof(srcMatchShortEntry));
 }
@@ -259,7 +257,7 @@ void otPlatRadioClearSrcMatchExtEntries(otInstance *aInstance)
 {
     OT_UNUSED_VARIABLE(aInstance);
 
-    otLogDebgPlat("Clear ExtAddr entries", NULL);
+    otLogDebgPlat("Clear ExtAddr entries");
 
     memset(srcMatchExtEntry, 0, sizeof(srcMatchExtEntry));
 }

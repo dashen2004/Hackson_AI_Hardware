@@ -38,6 +38,7 @@
 
 #include <openthread/platform/crypto.h>
 
+#include "common/as_core_type.hpp"
 #include "common/clearable.hpp"
 #include "common/code_utils.hpp"
 #include "common/error.hpp"
@@ -51,18 +52,19 @@ namespace Crypto {
 namespace Storage {
 
 /**
- * This enumeration defines the key types.
+ * Defines the key types.
  *
  */
 enum KeyType : uint8_t
 {
-    kKeyTypeRaw  = OT_CRYPTO_KEY_TYPE_RAW,  ///< Key Type: Raw Data.
-    kKeyTypeAes  = OT_CRYPTO_KEY_TYPE_AES,  ///< Key Type: AES.
-    kKeyTypeHmac = OT_CRYPTO_KEY_TYPE_HMAC, ///< Key Type: HMAC.
+    kKeyTypeRaw   = OT_CRYPTO_KEY_TYPE_RAW,   ///< Key Type: Raw Data.
+    kKeyTypeAes   = OT_CRYPTO_KEY_TYPE_AES,   ///< Key Type: AES.
+    kKeyTypeHmac  = OT_CRYPTO_KEY_TYPE_HMAC,  ///< Key Type: HMAC.
+    kKeyTypeEcdsa = OT_CRYPTO_KEY_TYPE_ECDSA, ///< Key Type: ECDSA.
 };
 
 /**
- * This enumeration defines the key algorithms.
+ * Defines the key algorithms.
  *
  */
 enum KeyAlgorithm : uint8_t
@@ -70,16 +72,18 @@ enum KeyAlgorithm : uint8_t
     kKeyAlgorithmVendor     = OT_CRYPTO_KEY_ALG_VENDOR,       ///< Key Algorithm: Vendor Defined.
     kKeyAlgorithmAesEcb     = OT_CRYPTO_KEY_ALG_AES_ECB,      ///< Key Algorithm: AES ECB.
     kKeyAlgorithmHmacSha256 = OT_CRYPTO_KEY_ALG_HMAC_SHA_256, ///< Key Algorithm: HMAC SHA-256.
+    kKeyAlgorithmEcdsa      = OT_CRYPTO_KEY_ALG_ECDSA,        ///< Key Algorithm: ECDSA.
 };
 
-constexpr uint8_t kUsageNone     = OT_CRYPTO_KEY_USAGE_NONE;      ///< Key Usage: Key Usage is empty.
-constexpr uint8_t kUsageExport   = OT_CRYPTO_KEY_USAGE_EXPORT;    ///< Key Usage: Key can be exported.
-constexpr uint8_t kUsageEncrypt  = OT_CRYPTO_KEY_USAGE_ENCRYPT;   ///< Key Usage: Encrypt (vendor defined).
-constexpr uint8_t kUsageDecrypt  = OT_CRYPTO_KEY_USAGE_DECRYPT;   ///< Key Usage: AES ECB.
-constexpr uint8_t kUsageSignHash = OT_CRYPTO_KEY_USAGE_SIGN_HASH; ///< Key Usage: HMAC SHA-256.
+constexpr uint8_t kUsageNone       = OT_CRYPTO_KEY_USAGE_NONE;        ///< Key Usage: Key Usage is empty.
+constexpr uint8_t kUsageExport     = OT_CRYPTO_KEY_USAGE_EXPORT;      ///< Key Usage: Key can be exported.
+constexpr uint8_t kUsageEncrypt    = OT_CRYPTO_KEY_USAGE_ENCRYPT;     ///< Key Usage: Encrypt (vendor defined).
+constexpr uint8_t kUsageDecrypt    = OT_CRYPTO_KEY_USAGE_DECRYPT;     ///< Key Usage: AES ECB.
+constexpr uint8_t kUsageSignHash   = OT_CRYPTO_KEY_USAGE_SIGN_HASH;   ///< Key Usage: Sign Hash.
+constexpr uint8_t kUsageVerifyHash = OT_CRYPTO_KEY_USAGE_VERIFY_HASH; ///< Key Usage: Verify Hash.
 
 /**
- * This enumeration defines the key storage types.
+ * Defines the key storage types.
  *
  */
 enum StorageType : uint8_t
@@ -94,7 +98,14 @@ enum StorageType : uint8_t
  */
 typedef otCryptoKeyRef KeyRef;
 
-constexpr KeyRef kInvalidKeyRef = 0x80000000; ///< Invalid `KeyRef` value (PSA_KEY_ID_VENDOR_MAX + 1).
+constexpr KeyRef kInvalidKeyRef               = 0x80000000; ///< Invalid `KeyRef` value (PSA_KEY_ID_VENDOR_MAX + 1).
+constexpr KeyRef kNetworkKeyRef               = OPENTHREAD_CONFIG_PSA_ITS_NVM_OFFSET + 1;
+constexpr KeyRef kPskcRef                     = OPENTHREAD_CONFIG_PSA_ITS_NVM_OFFSET + 2;
+constexpr KeyRef kActiveDatasetNetworkKeyRef  = OPENTHREAD_CONFIG_PSA_ITS_NVM_OFFSET + 3;
+constexpr KeyRef kActiveDatasetPskcRef        = OPENTHREAD_CONFIG_PSA_ITS_NVM_OFFSET + 4;
+constexpr KeyRef kPendingDatasetNetworkKeyRef = OPENTHREAD_CONFIG_PSA_ITS_NVM_OFFSET + 5;
+constexpr KeyRef kPendingDatasetPskcRef       = OPENTHREAD_CONFIG_PSA_ITS_NVM_OFFSET + 6;
+constexpr KeyRef kEcdsaRef                    = OPENTHREAD_CONFIG_PSA_ITS_NVM_OFFSET + 7;
 
 /**
  * Determine if a given `KeyRef` is valid or not.
@@ -105,28 +116,25 @@ constexpr KeyRef kInvalidKeyRef = 0x80000000; ///< Invalid `KeyRef` value (PSA_K
  * @retval FALSE  If @p aKeyRef is not valid.
  *
  */
-inline bool IsKeyRefValid(KeyRef aKeyRef)
-{
-    return (aKeyRef < kInvalidKeyRef);
-}
+inline bool IsKeyRefValid(KeyRef aKeyRef) { return (aKeyRef < kInvalidKeyRef); }
 
 /**
  * Import a key into PSA ITS.
  *
- * @param[inout] aKeyRef           Reference to the key ref to be used for crypto operations.
- * @param[in]    aKeyType          Key Type encoding for the key.
- * @param[in]    aKeyAlgorithm     Key algorithm encoding for the key.
- * @param[in]    aKeyUsage         Key Usage encoding for the key.
- * @param[in]    aStorageType      Key storage type.
- * @param[in]    aKey              Actual key to be imported.
- * @param[in]    aKeyLen           Length of the key to be imported.
+ * @param[in,out] aKeyRef          Reference to the key ref to be used for crypto operations.
+ * @param[in]     aKeyType         Key Type encoding for the key.
+ * @param[in]     aKeyAlgorithm    Key algorithm encoding for the key.
+ * @param[in]     aKeyUsage        Key Usage encoding for the key.
+ * @param[in]     aStorageType     Key storage type.
+ * @param[in]     aKey             Actual key to be imported.
+ * @param[in]     aKeyLen          Length of the key to be imported.
  *
  * @retval kErrorNone          Successfully imported the key.
  * @retval kErrorFailed        Failed to import the key.
- * @retval kErrorInvalidArgs   @p aKey was set to nullptr.
+ * @retval kErrorInvalidArgs   @p aKey was set to `nullptr`.
  *
  */
-inline Error ImportKey(KeyRef &       aKeyRef,
+inline Error ImportKey(KeyRef        &aKeyRef,
                        KeyType        aKeyType,
                        KeyAlgorithm   aKeyAlgorithm,
                        int            aKeyUsage,
@@ -149,7 +157,7 @@ inline Error ImportKey(KeyRef &       aKeyRef,
  *
  * @retval kErrorNone          Successfully exported  @p aKeyRef.
  * @retval kErrorFailed        Failed to export @p aKeyRef.
- * @retval kErrorInvalidArgs   @p aBuffer was nullptr.
+ * @retval kErrorInvalidArgs   @p aBuffer was `nullptr`.
  *
  */
 inline Error ExportKey(KeyRef aKeyRef, uint8_t *aBuffer, size_t aBufferLen, size_t &aKeyLen)
@@ -180,17 +188,20 @@ inline void DestroyKey(KeyRef aKeyRef)
  * @retval false                Key Ref passed is invalid and has no key associated in PSA.
  *
  */
-inline bool HasKey(KeyRef aKeyRef)
-{
-    return otPlatCryptoHasKey(aKeyRef);
-}
+inline bool HasKey(KeyRef aKeyRef) { return otPlatCryptoHasKey(aKeyRef); }
+
+/**
+ * Delete all the persistent keys stored in PSA ITS.
+ *
+ */
+void DestroyPersistentKeys(void);
 
 } // namespace Storage
 
 #endif // OPENTHREAD_CONFIG_PLATFORM_KEY_REFERENCES_ENABLE
 
 /**
- * This class represents a crypto key.
+ * Represents a crypto key.
  *
  * The `Key` can represent a literal key (i.e., a pointer to a byte array containing the key along with a key length)
  * or a `KeyRef` (if `OPENTHREAD_CONFIG_PLATFORM_KEY_REFERENCES_ENABLE` is enabled).
@@ -200,10 +211,10 @@ class Key : public otCryptoKey, public Clearable<Key>
 {
 public:
     /**
-     * This method sets the `Key` as a literal key from a given byte array and length.
+     * Sets the `Key` as a literal key from a given byte array and length.
      *
      * @param[in] aKeyBytes   A pointer to buffer containing the key.
-     * @param[in] aKeyLength  The key length (number of bytes in @p akeyBytes).
+     * @param[in] aKeyLength  The key length (number of bytes in @p aKeyBytes).
      *
      */
     void Set(const uint8_t *aKeyBytes, uint16_t aKeyLength)
@@ -213,7 +224,7 @@ public:
     }
 
     /**
-     * This method gets the pointer to the bye array containing the key.
+     * Gets the pointer to the bye array containing the key.
      *
      * If `OPENTHREAD_CONFIG_PLATFORM_KEY_REFERENCES_ENABLE` is enabled and `IsKeyRef()` returns `true`, then this
      * method returns `nullptr`.
@@ -224,7 +235,7 @@ public:
     const uint8_t *GetBytes(void) const { return mKey; }
 
     /**
-     * This method gets the key length (number of bytes).
+     * Gets the key length (number of bytes).
      *
      * If `OPENTHREAD_CONFIG_PLATFORM_KEY_REFERENCES_ENABLE` is enabled and `IsKeyRef()` returns `true`, then this
      * method returns zero.
@@ -237,7 +248,7 @@ public:
 
 #if OPENTHREAD_CONFIG_PLATFORM_KEY_REFERENCES_ENABLE
     /**
-     * This method indicates whether or not the key is represented as a `KeyRef`.
+     * Indicates whether or not the key is represented as a `KeyRef`.
      *
      * @retval TRUE  The `Key` represents a `KeyRef`
      * @retval FALSE The `Key` represents a literal key.
@@ -246,9 +257,9 @@ public:
     bool IsKeyRef(void) const { return (mKey == nullptr); }
 
     /**
-     * This method gets the `KeyRef`.
+     * Gets the `KeyRef`.
      *
-     * This method MUST be used when `IsKeyRef()` returns `true`, otherwise its behavior is undefined.
+     * MUST be used when `IsKeyRef()` returns `true`, otherwise its behavior is undefined.
      *
      * @returns The `KeyRef` associated with `Key`.
      *
@@ -256,7 +267,7 @@ public:
     Storage::KeyRef GetKeyRef(void) const { return mKeyRef; }
 
     /**
-     * This method sets the `Key` as a `KeyRef`.
+     * Sets the `Key` as a `KeyRef`.
      *
      * @param[in] aKeyRef   The `KeyRef` to set from.
      *
@@ -269,13 +280,13 @@ public:
     }
 
     /**
-     * This method extracts and return the literal key when the key is represented as a `KeyRef`
+     * Extracts and return the literal key when the key is represented as a `KeyRef`
      *
-     * This method MUST be used when `IsKeyRef()` returns `true`.
+     * MUST be used when `IsKeyRef()` returns `true`.
      *
-     * @param[out]    aKeyBuffer  Pointer to a byte array buffer to place the extracted key.
-     * @param[inout]  aKeyLength  On input, the size of @p aKeyBuffer.
-     *                            On exit, returns the key length (number of bytes written in @p aKeyBuffer).
+     * @param[out]     aKeyBuffer  Pointer to a byte array buffer to place the extracted key.
+     * @param[in,out]  aKeyLength  On input, the size of @p aKeyBuffer.
+     *                             On exit, returns the key length (number of bytes written in @p aKeyBuffer).
      *
      * @retval kErrorNone    Successfully extracted the key, @p aKeyBuffer and @p aKeyLength are updated.
      * @retval kErrorNoBufs  Key does not fit in @p aKeyBuffer (extracted key length is larger than @p aKeyLength).
@@ -286,7 +297,7 @@ public:
 };
 
 /**
- * This class represents a literal key derived from a `Key`.
+ * Represents a literal key derived from a `Key`.
  *
  */
 class LiteralKey : public Clearable<LiteralKey>, private NonCopyable
@@ -295,7 +306,7 @@ public:
     static constexpr uint16_t kMaxSize = 32; ///< Maximum size of the key.
 
     /**
-     * This constructor initializes the `LiteralKey` from a given `Key`.
+     * Initializes the `LiteralKey` from a given `Key`.
      *
      * If the @p aKey is itself represents a literal key the same key buffer pointers are used. If the @p aKey is
      * a `KeyRef` then the literal key is extracted. In this case, the extracted key MUST be smaller than `kMaxSize`.
@@ -306,7 +317,7 @@ public:
     explicit LiteralKey(const Key &aKey);
 
     /*
-     * This method gets the pointer to the byte array containing the literal key.
+     * Gets the pointer to the byte array containing the literal key.
      *
      * @returns The pointer to the byte array containing the literal key.
      *
@@ -314,7 +325,7 @@ public:
     const uint8_t *GetBytes(void) const { return mKey; }
 
     /**
-     * This method gets the key length.
+     * Gets the key length.
      *
      * @returns The key length (number of bytes in the byte array from `GetBytes()`).
      *
@@ -330,6 +341,9 @@ private:
 };
 
 } // namespace Crypto
+
+DefineCoreType(otCryptoKey, Crypto::Key);
+
 } // namespace ot
 
 #endif // STORAGE_HPP_

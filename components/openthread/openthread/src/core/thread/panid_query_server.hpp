@@ -36,25 +36,27 @@
 
 #include "openthread-core-config.h"
 
-#include "coap/coap.hpp"
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
 #include "common/timer.hpp"
 #include "mac/mac.hpp"
 #include "net/ip6_address.hpp"
 #include "net/udp6.hpp"
+#include "thread/tmf.hpp"
 
 namespace ot {
 
 /**
- * This class implements handling PANID Query Requests.
+ * Implements handling PANID Query Requests.
  *
  */
 class PanIdQueryServer : public InstanceLocator, private NonCopyable
 {
+    friend class Tmf::Agent;
+
 public:
     /**
-     * This constructor initializes the object.
+     * Initializes the object.
      *
      */
     explicit PanIdQueryServer(Instance &aInstance);
@@ -62,27 +64,27 @@ public:
 private:
     static constexpr uint32_t kScanDelay = 1000; ///< SCAN_DELAY (in msec)
 
-    static void HandleQuery(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo);
-    void        HandleQuery(Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
+    template <Uri kUri> void HandleTmf(Coap::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
 
     static void HandleScanResult(Mac::ActiveScanResult *aScanResult, void *aContext);
     void        HandleScanResult(Mac::ActiveScanResult *aScanResult);
 
-    static void HandleTimer(Timer &aTimer);
-    void        HandleTimer(void);
+    void HandleTimer(void);
 
     static void HandleUdpReceive(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo);
 
     void SendConflict(void);
 
+    using DelayTimer = TimerMilliIn<PanIdQueryServer, &PanIdQueryServer::HandleTimer>;
+
     Ip6::Address mCommissioner;
     uint32_t     mChannelMask;
     uint16_t     mPanId;
 
-    TimerMilli mTimer;
-
-    Coap::Resource mPanIdQuery;
+    DelayTimer mTimer;
 };
+
+DeclareTmfHandler(PanIdQueryServer, kUriPanIdQuery);
 
 /**
  * @}

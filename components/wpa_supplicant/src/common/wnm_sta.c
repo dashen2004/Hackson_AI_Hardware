@@ -308,11 +308,14 @@ bool wpa_scan_res_match(struct wpa_supplicant *wpa_s,
 		return false;
 	}
 
-	/* TODO security Match */
+	/* Just check for Open/secure mode */
+	if ((current_bss->caps & WLAN_CAPABILITY_PRIVACY) != (target_bss->caps & WLAN_CAPABILITY_PRIVACY)) {
+		wpa_printf(MSG_DEBUG, "WNM: Security didn't match");
+		return false;
+	}
 
 	return true;
 }
-
 
 static struct wpa_bss *
 compare_scan_neighbor_results(struct wpa_supplicant *wpa_s, os_time_t age_secs,
@@ -351,11 +354,11 @@ compare_scan_neighbor_results(struct wpa_supplicant *wpa_s, os_time_t age_secs,
 			struct os_reltime now;
 
 			if (os_get_reltime(&now) == 0 &&
-			    os_time_expired(&now, &target->last_update,
+			    os_reltime_expired(&now, &target->last_update,
 					       age_secs)) {
 				wpa_printf(MSG_DEBUG,
-					   "Candidate BSS is more than %ld seconds old",
-					   age_secs);
+					   "Candidate BSS is more than %jd seconds old",
+					   (intmax_t)age_secs);
 				continue;
 			}
 		}
@@ -543,7 +546,7 @@ static void wnm_add_cand_list(struct wpa_supplicant *wpa_s, struct wpabuf **buf)
 	 * list.
 	 */
 	os_get_reltime(&now);
-	if (os_time_expired(&now, &wpa_s->last_scan, 10))
+	if (os_reltime_expired(&now, &wpa_s->last_scan, 10))
 		return;
 
 	wpa_printf(MSG_DEBUG,
@@ -688,8 +691,10 @@ int wnm_scan_process(struct wpa_supplicant *wpa_s, int reply_on_fail)
 	enum mbo_transition_reject_reason reason =
 		MBO_TRANSITION_REJECT_REASON_UNSPECIFIED;
 
-	if (!wpa_s->wnm_neighbor_report_elements)
+	if (!wpa_s->wnm_neighbor_report_elements) {
+		wpa_printf(MSG_INFO, "WNM: Neighbor report not available");
 		return 0;
+        }
 
 	wpa_dbg(wpa_s, MSG_DEBUG,
 		"WNM: Process scan results for BSS Transition Management");
@@ -703,7 +708,7 @@ int wnm_scan_process(struct wpa_supplicant *wpa_s, int reply_on_fail)
 	/* Compare the Neighbor Report and scan results */
 	bss = compare_scan_neighbor_results(wpa_s, 0, &reason);
 	if (!bss) {
-		wpa_printf(MSG_DEBUG, "WNM: No BSS transition candidate match found");
+		wpa_printf(MSG_INFO, "WNM: No BSS transition candidate match found");
 		status = WNM_BSS_TM_REJECT_NO_SUITABLE_CANDIDATES;
 		goto send_bss_resp_fail;
 	}
@@ -801,6 +806,9 @@ static void wnm_set_scan_freqs(struct wpa_supplicant *wpa_s)
 				   MACSTR " - scan all channels",
 				   MAC2STR(nei->bssid));
 			return;
+		}
+		if (wpa_s->current_bss && (os_memcmp(nei->bssid, wpa_s->current_bss->bssid, ETH_ALEN) == 0)) {
+		    continue;
 		}
 		if (nei->channel_number != chan) {
 			chan = nei->channel_number;
@@ -1007,7 +1015,7 @@ static void ieee802_11_rx_bss_trans_mgmt_req(struct wpa_supplicant *wpa_s,
 			struct os_reltime now;
 
 			os_get_reltime(&now);
-			if (!os_time_expired(&now, &wpa_s->last_scan, 10)) {
+			if (!os_reltime_expired(&now, &wpa_s->last_scan, 10)) {
 				wpa_printf(MSG_DEBUG,
 					   "WNM: Try to use recent scan results");
 				if (wnm_scan_process(wpa_s, 0) > 0)

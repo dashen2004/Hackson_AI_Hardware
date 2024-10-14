@@ -42,55 +42,81 @@ using namespace ot;
 
 otError otNetDataGet(otInstance *aInstance, bool aStable, uint8_t *aData, uint8_t *aDataLength)
 {
-    return AsCoreType(aInstance).Get<NetworkData::Leader>().CopyNetworkData(aStable, aData, *aDataLength);
+    AssertPointerIsNotNull(aData);
+    AssertPointerIsNotNull(aDataLength);
+
+    return AsCoreType(aInstance).Get<NetworkData::Leader>().CopyNetworkData(
+        aStable ? NetworkData::kStableSubset : NetworkData::kFullSet, aData, *aDataLength);
 }
 
-otError otNetDataGetNextOnMeshPrefix(otInstance *           aInstance,
-                                     otNetworkDataIterator *aIterator,
-                                     otBorderRouterConfig * aConfig)
+uint8_t otNetDataGetLength(otInstance *aInstance)
 {
-    Error error = kErrorNone;
-
-    VerifyOrExit(aIterator && aConfig, error = kErrorInvalidArgs);
-
-    error = AsCoreType(aInstance).Get<NetworkData::Leader>().GetNextOnMeshPrefix(*aIterator, AsCoreType(aConfig));
-
-exit:
-    return error;
+    return AsCoreType(aInstance).Get<NetworkData::Leader>().GetLength();
 }
+
+uint8_t otNetDataGetMaxLength(otInstance *aInstance)
+{
+    return AsCoreType(aInstance).Get<NetworkData::Leader>().GetMaxLength();
+}
+
+void otNetDataResetMaxLength(otInstance *aInstance)
+{
+    AsCoreType(aInstance).Get<NetworkData::Leader>().ResetMaxLength();
+}
+
+otError otNetDataGetNextOnMeshPrefix(otInstance            *aInstance,
+                                     otNetworkDataIterator *aIterator,
+                                     otBorderRouterConfig  *aConfig)
+{
+    AssertPointerIsNotNull(aIterator);
+
+    return AsCoreType(aInstance).Get<NetworkData::Leader>().GetNextOnMeshPrefix(*aIterator, AsCoreType(aConfig));
+}
+
+#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
+bool otNetDataContainsOmrPrefix(otInstance *aInstance, const otIp6Prefix *aPrefix)
+{
+    return AsCoreType(aInstance).Get<NetworkData::Leader>().ContainsOmrPrefix(AsCoreType(aPrefix));
+}
+#endif
 
 otError otNetDataGetNextRoute(otInstance *aInstance, otNetworkDataIterator *aIterator, otExternalRouteConfig *aConfig)
 {
-    Error error = kErrorNone;
+    AssertPointerIsNotNull(aIterator);
 
-    VerifyOrExit(aIterator && aConfig, error = kErrorInvalidArgs);
-
-    error = AsCoreType(aInstance).Get<NetworkData::Leader>().GetNextExternalRoute(*aIterator, AsCoreType(aConfig));
-
-exit:
-    return error;
+    return AsCoreType(aInstance).Get<NetworkData::Leader>().GetNextExternalRoute(*aIterator, AsCoreType(aConfig));
 }
 
 otError otNetDataGetNextService(otInstance *aInstance, otNetworkDataIterator *aIterator, otServiceConfig *aConfig)
 {
-    Error error = kErrorNone;
+    AssertPointerIsNotNull(aIterator);
 
-    VerifyOrExit(aIterator && aConfig, error = kErrorInvalidArgs);
+    return AsCoreType(aInstance).Get<NetworkData::Leader>().GetNextService(*aIterator, AsCoreType(aConfig));
+}
 
-    error = AsCoreType(aInstance).Get<NetworkData::Leader>().GetNextService(*aIterator, AsCoreType(aConfig));
+otError otNetDataGetNextLowpanContextInfo(otInstance            *aInstance,
+                                          otNetworkDataIterator *aIterator,
+                                          otLowpanContextInfo   *aContextInfo)
+{
+    AssertPointerIsNotNull(aIterator);
 
-exit:
-    return error;
+    return AsCoreType(aInstance).Get<NetworkData::Leader>().GetNextLowpanContextInfo(*aIterator,
+                                                                                     AsCoreType(aContextInfo));
+}
+
+void otNetDataGetCommissioningDataset(otInstance *aInstance, otCommissioningDataset *aDataset)
+{
+    return AsCoreType(aInstance).Get<NetworkData::Leader>().GetCommissioningDataset(AsCoreType(aDataset));
 }
 
 uint8_t otNetDataGetVersion(otInstance *aInstance)
 {
-    return AsCoreType(aInstance).Get<Mle::MleRouter>().GetLeaderData().GetDataVersion();
+    return AsCoreType(aInstance).Get<Mle::MleRouter>().GetLeaderData().GetDataVersion(NetworkData::kFullSet);
 }
 
 uint8_t otNetDataGetStableVersion(otInstance *aInstance)
 {
-    return AsCoreType(aInstance).Get<Mle::MleRouter>().GetLeaderData().GetStableDataVersion();
+    return AsCoreType(aInstance).Get<Mle::MleRouter>().GetLeaderData().GetDataVersion(NetworkData::kStableSubset);
 }
 
 otError otNetDataSteeringDataCheckJoiner(otInstance *aInstance, const otExtAddress *aEui64)

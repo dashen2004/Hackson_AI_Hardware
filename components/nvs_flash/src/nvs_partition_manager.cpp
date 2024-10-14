@@ -1,23 +1,16 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "esp_partition.h"
 #include "nvs_partition_manager.hpp"
 #include "nvs_partition_lookup.hpp"
+#include "nvs_internal.h"
 
-#ifdef CONFIG_NVS_ENCRYPTION
+#ifndef LINUX_TARGET
 #include "nvs_encrypted_partition.hpp"
-#endif // CONFIG_NVS_ENCRYPTION
+#endif // ! LINUX_TARGET
 
 namespace nvs {
 
@@ -40,6 +33,7 @@ esp_err_t NVSPartitionManager::init_partition(const char *partition_label)
     }
 
     uint32_t size;
+    const uint32_t sec_size = esp_partition_get_main_flash_sector_size();
     Storage* mStorage;
 
     mStorage = lookup_storage_from_name(partition_label);
@@ -47,7 +41,7 @@ esp_err_t NVSPartitionManager::init_partition(const char *partition_label)
         return ESP_OK;
     }
 
-    assert(SPI_FLASH_SEC_SIZE != 0);
+    NVS_ASSERT_OR_RETURN(sec_size != 0, ESP_FAIL);
 
     NVSPartition *p = nullptr;
     esp_err_t result = partition_lookup::lookup_nvs_partition(partition_label, &p);
@@ -58,7 +52,7 @@ esp_err_t NVSPartitionManager::init_partition(const char *partition_label)
 
     size = p->get_size();
 
-    result = init_custom(p, 0, size / SPI_FLASH_SEC_SIZE);
+    result = init_custom(p, 0, size / sec_size);
     if (result != ESP_OK) {
         goto error;
     }
@@ -107,7 +101,6 @@ esp_err_t NVSPartitionManager::init_custom(Partition *partition, uint32_t baseSe
     return err;
 }
 
-#ifdef CONFIG_NVS_ENCRYPTION
 #ifdef ESP_PLATFORM
 esp_err_t NVSPartitionManager::secure_init_partition(const char *part_name, nvs_sec_cfg_t* cfg)
 {
@@ -135,8 +128,9 @@ esp_err_t NVSPartitionManager::secure_init_partition(const char *part_name, nvs_
     }
 
     uint32_t size = p->get_size();
+    const uint32_t sec_size = esp_partition_get_main_flash_sector_size();
 
-    result = init_custom(p, 0, size / SPI_FLASH_SEC_SIZE);
+    result = init_custom(p, 0, size / sec_size);
     if (result != ESP_OK) {
         delete p;
         return result;
@@ -147,7 +141,6 @@ esp_err_t NVSPartitionManager::secure_init_partition(const char *part_name, nvs_
     return ESP_OK;
 }
 #endif // ESP_PLATFORM
-#endif // CONFIG_NVS_ENCRYPTION
 
 esp_err_t NVSPartitionManager::deinit_partition(const char *partition_label)
 {
@@ -188,6 +181,10 @@ esp_err_t NVSPartitionManager::open_handle(const char *part_name,
     uint8_t nsIndex;
     Storage* sHandle;
 
+    if (handle == nullptr) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     if (nvs_storage_list.empty()) {
         return ESP_ERR_NVS_NOT_INITIALIZED;
     }
@@ -197,19 +194,24 @@ esp_err_t NVSPartitionManager::open_handle(const char *part_name,
         return ESP_ERR_NVS_PART_NOT_FOUND;
     }
 
+    if (open_mode == NVS_READWRITE && const_cast<Partition*>(sHandle->getPart())->get_readonly()) {
+        return ESP_ERR_NOT_ALLOWED;
+    }
+
+
     esp_err_t err = sHandle->createOrOpenNamespace(ns_name, open_mode == NVS_READWRITE, nsIndex);
     if (err != ESP_OK) {
         return err;
     }
 
-    *handle = new (std::nothrow) NVSHandleSimple(open_mode==NVS_READONLY, nsIndex, sHandle);
-
-    if (handle == nullptr) {
+    NVSHandleSimple* new_handle = new (std::nothrow) NVSHandleSimple(open_mode==NVS_READONLY, nsIndex, sHandle);
+    if (new_handle == nullptr) {
         return ESP_ERR_NO_MEM;
     }
 
-    nvs_handles.push_back(*handle);
+    nvs_handles.push_back(new_handle);
 
+    *handle = new_handle;
     return ESP_OK;
 }
 

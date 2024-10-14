@@ -36,6 +36,19 @@
 #define CONFIG_IP6_H_
 
 /**
+ * @addtogroup config-ip6
+ *
+ * @brief
+ *   This module includes configuration variables for the IP6 service.
+ *
+ * @{
+ *
+ */
+
+#include "config/border_routing.h"
+#include "config/misc.h"
+
+/**
  * @def OPENTHREAD_CONFIG_IP6_MAX_EXT_UCAST_ADDRS
  *
  * The maximum number of supported IPv6 addresses allows to be externally added.
@@ -128,13 +141,27 @@
 #endif
 
 /**
+ * @def OPENTHREAD_CONFIG_IP6_SLAAC_DEPRECATION_INTERVAL
+ *
+ * Specifies the deprecating time of SLAAC addresses in seconds.
+ *
+ * Applicable only if OPENTHREAD_CONFIG_IP6_SLAAC_ENABLE is enabled.
+ *
+ * Deprecating interval is used once an on-mesh prefix is removed from Network Data before removing the SLAAC address.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_IP6_SLAAC_DEPRECATION_INTERVAL
+#define OPENTHREAD_CONFIG_IP6_SLAAC_DEPRECATION_INTERVAL 300
+#endif
+
+/**
  * @def OPENTHREAD_CONFIG_MPL_SEED_SET_ENTRIES
  *
  * The number of MPL Seed Set entries for duplicate detection.
  *
  */
 #ifndef OPENTHREAD_CONFIG_MPL_SEED_SET_ENTRIES
-#define OPENTHREAD_CONFIG_MPL_SEED_SET_ENTRIES 32
+#define OPENTHREAD_CONFIG_MPL_SEED_SET_ENTRIES 35
 #endif
 
 /**
@@ -161,23 +188,6 @@
 #endif
 
 /**
- * @def OPENTHREAD_CONFIG_UNSECURE_TRAFFIC_MANAGED_BY_STACK_ENABLE
- *
- * Define as 1 to enable dynamic unsecure port management
- *
- * If this feature is enabled, OpenThread will automaitically disable link-level
- * security for packets sent with unsecure source ports. Once we receive a secure
- * packet sent to the unsecure port, this port will be removed from the unsecure
- * port list.
- *
- * Enable only if you know well about its behavior.
- *
- */
-#ifndef OPENTHREAD_CONFIG_UNSECURE_TRAFFIC_MANAGED_BY_STACK_ENABLE
-#define OPENTHREAD_CONFIG_UNSECURE_TRAFFIC_MANAGED_BY_STACK_ENABLE 0
-#endif
-
-/**
  * @def OPENTHREAD_CONFIG_TCP_ENABLE
  *
  * Define as 1 to enable TCP.
@@ -186,5 +196,50 @@
 #ifndef OPENTHREAD_CONFIG_TCP_ENABLE
 #define OPENTHREAD_CONFIG_TCP_ENABLE 1
 #endif
+
+/**
+ * @def OPENTHREAD_CONFIG_TLS_ENABLE
+ *
+ * Define as 1 to enable support for TLS over TCP.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_TLS_ENABLE
+#define OPENTHREAD_CONFIG_TLS_ENABLE (OPENTHREAD_CONFIG_TCP_ENABLE || OPENTHREAD_CONFIG_BLE_TCAT_ENABLE)
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_IP6_ALLOW_LOOP_BACK_HOST_DATAGRAMS
+ *
+ * Define as 1 to allow IPv6 datagrams from Host to be looped back to Host.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_IP6_ALLOW_LOOP_BACK_HOST_DATAGRAMS
+#define OPENTHREAD_CONFIG_IP6_ALLOW_LOOP_BACK_HOST_DATAGRAMS 1
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_IP6_BR_COUNTERS_ENABLE
+ *
+ * Define as 1 to enable IPv6 Border Routing counters.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_IP6_BR_COUNTERS_ENABLE
+#define OPENTHREAD_CONFIG_IP6_BR_COUNTERS_ENABLE OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_IP6_RESTRICT_FORWARDING_LARGER_SCOPE_MCAST_WITH_LOCAL_SRC
+ *
+ * Define as 1 to restrict multicast forwarding to larger scope from local sources.
+ *
+ */
+#ifndef OPENTHREAD_CONFIG_IP6_RESTRICT_FORWARDING_LARGER_SCOPE_MCAST_WITH_LOCAL_SRC
+#define OPENTHREAD_CONFIG_IP6_RESTRICT_FORWARDING_LARGER_SCOPE_MCAST_WITH_LOCAL_SRC 0
+#endif
+
+/**
+ * @}
+ *
+ */
 
 #endif // CONFIG_IP6_H_

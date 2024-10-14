@@ -30,740 +30,236 @@ set(COMMON_INCLUDES
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/src/core
-    ${PROJECT_SOURCE_DIR}/examples/platforms/simulation
+)
+
+set(COMMON_INCLUDES_RCP
+    ${COMMON_INCLUDES}
+    ${PROJECT_SOURCE_DIR}/src/core/radio
 )
 
 set(COMMON_COMPILE_OPTIONS
     -DOPENTHREAD_FTD=1
+    -DOPENTHREAD_MTD=0
+    -DOPENTHREAD_RADIO=0
     -DOPENTHREAD_SPINEL_CONFIG_OPENTHREAD_MESSAGE_ENABLE=1
 )
 
-add_library(ot-test-platform
+set(COMMON_COMPILE_OPTIONS_RCP
+    -DOPENTHREAD_FTD=0
+    -DOPENTHREAD_MTD=0
+    -DOPENTHREAD_RADIO=1
+    -DOPENTHREAD_SPINEL_CONFIG_OPENTHREAD_MESSAGE_ENABLE=1
+    -DOPENTHREAD_CONFIG_PLATFORM_UDP_ENABLE=0
+)
+
+set(MULTIPAN_RCP_COMPILE_OPTIONS
+    -DOPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE=1
+    -DOPENTHREAD_CONFIG_MULTIPLE_STATIC_INSTANCE_ENABLE=1
+    -DOPENTHREAD_CONFIG_LOG_PREPEND_UPTIME=0
+    -DOPENTHREAD_CONFIG_MAC_SOFTWARE_CSMA_BACKOFF_ENABLE=0 # used to skip backoff and request tx from platform directly.
+    -DOPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE=1
+)
+
+add_library(ot-test-platform-ftd
+    test_platform.cpp
+    test_util.cpp
+)
+add_library(ot-test-platform-rcp
     test_platform.cpp
     test_util.cpp
 )
 
-target_include_directories(ot-test-platform
+target_include_directories(ot-test-platform-ftd
     PRIVATE
         ${COMMON_INCLUDES}
 )
 
-target_compile_options(ot-test-platform
+target_include_directories(ot-test-platform-rcp
+    PRIVATE
+	${COMMON_INCLUDES}
+)
+
+target_compile_options(ot-test-platform-ftd
     PRIVATE
         ${COMMON_COMPILE_OPTIONS}
 )
 
-target_link_libraries(ot-test-platform
+target_compile_options(ot-test-platform-rcp
+    PRIVATE
+        ${COMMON_COMPILE_OPTIONS_RCP}
+)
+
+if(OT_MULTIPAN_RCP)
+    target_compile_options(ot-test-platform-rcp
+        PRIVATE
+            "-DOPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE=1"
+            "-DOPENTHREAD_CONFIG_MULTIPLE_STATIC_INSTANCE_ENABLE=1"
+            "-DOPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE=1"
+    )
+endif()
+
+target_link_libraries(ot-test-platform-ftd
+    PRIVATE
+        ot-config
+        ${OT_MBEDTLS}
+)
+
+target_link_libraries(ot-test-platform-rcp
     PRIVATE
         ot-config
         ${OT_MBEDTLS}
 )
 
 set(COMMON_LIBS
-    ot-test-platform
+    openthread-spinel-ncp
+    openthread-hdlc
+    ot-test-platform-ftd
     openthread-ftd
-    ot-test-platform
+    ot-test-platform-ftd
+    ${OT_MBEDTLS}
+    ot-config
+    openthread-ftd
+    openthread-url
+)
+
+set(COMMON_LIBS_RCP
+    ot-test-platform-rcp
+    openthread-rcp
     ${OT_MBEDTLS}
     ot-config
 )
 
-add_executable(ot-test-aes
-    test_aes.cpp
-)
+#----------------------------------------------------------------------------------------------------------------------
 
-target_include_directories(ot-test-aes
+macro(ot_unit_test name)
+
+    # Macro to add an OpenThread unit test.
+    #
+    #   Unit test name will be `ot-test-{name}`. Test source file of
+    #   `test_{name}.cpp` is used. Optional extra arguments can be
+    #   passed to provide additional source files.
+
+    add_executable(ot-test-${name}
+        test_${name}.cpp ${ARGN}
+    )
+
+    target_include_directories(ot-test-${name}
     PRIVATE
         ${COMMON_INCLUDES}
-)
+    )
 
-target_compile_options(ot-test-aes
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-aes
+    target_link_libraries(ot-test-${name}
     PRIVATE
         ${COMMON_LIBS}
-)
+    )
 
-add_test(NAME ot-test-aes COMMAND ot-test-aes)
-
-add_executable(ot-test-array
-    test_array.cpp
-)
-
-target_include_directories(ot-test-array
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-array
+    target_compile_options(ot-test-${name}
     PRIVATE
         ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-array
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_executable(ot-test-child
-    test_child.cpp
-)
-
-add_executable(ot-test-checksum
-    test_checksum.cpp
-)
-
-target_include_directories(ot-test-checksum
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-checksum
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-checksum
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-checksum COMMAND ot-test-checksum)
-
-
-target_include_directories(ot-test-child
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-child
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-child
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-child COMMAND ot-test-child)
-
-add_executable(ot-test-child-table
-    test_child_table.cpp
-)
-
-target_include_directories(ot-test-child-table
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-child-table
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-child-table
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-child-table COMMAND ot-test-child-table)
-
-add_executable(ot-test-cmd-line-parser
-    test_cmd_line_parser.cpp
-)
-
-target_include_directories(ot-test-cmd-line-parser
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-cmd-line-parser
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-cmd-line-parser
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-cmd-line-parser COMMAND ot-test-cmd-line-parser)
-
-add_executable(ot-test-data
-    test_data.cpp
-)
-
-target_include_directories(ot-test-data
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-data
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-data
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-data COMMAND ot-test-data)
-
-add_executable(ot-test-dns
-    test_dns.cpp
-)
-
-target_include_directories(ot-test-dns
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-dns
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-dns
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-dns COMMAND ot-test-dns)
-
-add_executable(ot-test-ecdsa
-    test_ecdsa.cpp
-)
-
-target_include_directories(ot-test-ecdsa
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-ecdsa
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-ecdsa
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-ecdsa COMMAND ot-test-ecdsa)
-
-
-add_executable(ot-test-flash
-    test_flash.cpp
-)
-
-target_include_directories(ot-test-flash
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-flash
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-flash
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-flash COMMAND ot-test-flash)
-
-add_executable(ot-test-heap
-    test_heap.cpp
-)
-
-target_include_directories(ot-test-heap
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-heap
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-heap
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-heap COMMAND ot-test-heap)
-
-add_executable(ot-test-heap-string
-    test_heap_string.cpp
-)
-
-target_include_directories(ot-test-heap-string
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-heap-string
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-heap-string
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-heap-string COMMAND ot-test-heap-string)
-
-add_executable(ot-test-hkdf-sha256
-    ${COMMON_SOURCES}
-    test_hkdf_sha256.cpp
-)
-
-target_include_directories(ot-test-hkdf-sha256
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_definitions(ot-test-hkdf-sha256
-    PRIVATE
-        ${OT_PRIVATE_DEFINES}
-)
-
-target_compile_options(ot-test-hkdf-sha256
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-hkdf-sha256
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-hkdf-sha256 COMMAND ot-test-hkdf-sha256)
-
-add_executable(ot-test-hmac-sha256
-    test_hmac_sha256.cpp
-)
-
-target_include_directories(ot-test-hmac-sha256
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-hmac-sha256
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-hmac-sha256
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-hmac-sha256 COMMAND ot-test-hmac-sha256)
-
-add_executable(ot-test-ip-address
-    test_ip_address.cpp
-)
-
-target_include_directories(ot-test-ip-address
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-ip-address
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-ip-address
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-ip-address COMMAND ot-test-ip-address)
-
-add_executable(ot-test-link-quality
-    test_link_quality.cpp
-)
-
-target_include_directories(ot-test-link-quality
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-link-quality
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-link-quality
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-link-quality COMMAND ot-test-link-quality)
-
-add_executable(ot-test-linked-list
-    test_linked_list.cpp
-)
-
-target_include_directories(ot-test-linked-list
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-linked-list
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-linked-list
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-linked-list COMMAND ot-test-linked-list)
-
-add_executable(ot-test-lookup-table
-    test_lookup_table.cpp
-)
-
-target_include_directories(ot-test-lookup-table
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-lookup-table
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-lookup-table
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-lookup-table COMMAND ot-test-lookup-table)
-
-add_executable(ot-test-lowpan
-    test_lowpan.cpp
-)
-
-target_include_directories(ot-test-lowpan
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-lowpan
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-lowpan
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-lowpan COMMAND ot-test-lowpan)
-
-add_executable(ot-test-mac-frame
-    test_mac_frame.cpp
-)
-
-target_include_directories(ot-test-mac-frame
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-mac-frame
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-mac-frame
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-mac-frame COMMAND ot-test-mac-frame)
-
-add_executable(ot-test-macros
-    test_macros.cpp
-)
-
-target_include_directories(ot-test-macros
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-macros
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-macros
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-macros COMMAND ot-test-macros)
-
-add_executable(ot-test-message
-    test_message.cpp
-)
-
-target_include_directories(ot-test-message
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-message
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-message
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-message COMMAND ot-test-message)
-
-add_executable(ot-test-message-queue
-    test_message_queue.cpp
-)
-
-target_include_directories(ot-test-message-queue
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-message-queue
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-message-queue
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-message-queue COMMAND ot-test-message-queue)
-
-add_executable(ot-test-multicast-listeners-table
-    test_multicast_listeners_table.cpp
-)
-
-target_include_directories(ot-test-multicast-listeners-table
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-multicast-listeners-table
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-multicast-listeners-table
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-multicast-listeners-table COMMAND ot-test-multicast-listeners-table)
-
-add_executable(ot-test-ndproxy-table
-    test_ndproxy_table.cpp
-)
-
-target_include_directories(ot-test-ndproxy-table
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-ndproxy-table
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-
-target_link_libraries(ot-test-ndproxy-table
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-ndproxy-table COMMAND ot-test-ndproxy-table)
-
-
-add_executable(ot-test-netif
-    test_netif.cpp
-)
-
-target_include_directories(ot-test-netif
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-netif
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-netif
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-netif COMMAND ot-test-netif)
-
-add_executable(ot-test-network-data
-    test_network_data.cpp
-)
-
-target_include_directories(ot-test-network-data
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-network-data
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-network-data
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-network-data COMMAND ot-test-network-data)
-
-add_executable(ot-test-pool
-    test_pool.cpp
-)
-
-target_include_directories(ot-test-pool
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-pool
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-pool
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-pool COMMAND ot-test-pool)
-
-add_executable(ot-test-priority-queue
-    test_priority_queue.cpp
-)
-
-target_include_directories(ot-test-priority-queue
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-priority-queue
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-priority-queue
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-priority-queue COMMAND ot-test-priority-queue)
-
-add_executable(ot-test-pskc
-    test_pskc.cpp
-)
-
-target_include_directories(ot-test-pskc
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-pskc
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-pskc
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-pskc COMMAND ot-test-pskc)
-
-add_executable(ot-test-steering-data
-    test_steering_data.cpp
-)
-
-target_include_directories(ot-test-steering-data
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-steering-data
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-steering-data
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-steering-data COMMAND ot-test-steering-data)
-
-add_executable(ot-test-string
-    test_string.cpp
-)
-
-target_include_directories(ot-test-string
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-string
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-string
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-string COMMAND ot-test-string)
-
-add_executable(ot-test-timer
-    test_timer.cpp
-)
-
-target_include_directories(ot-test-timer
-    PRIVATE
-        ${COMMON_INCLUDES}
-)
-
-target_compile_options(ot-test-timer
-    PRIVATE
-        ${COMMON_COMPILE_OPTIONS}
-)
-
-target_link_libraries(ot-test-timer
-    PRIVATE
-        ${COMMON_LIBS}
-)
-
-add_test(NAME ot-test-timer COMMAND ot-test-timer)
+    )
+
+    add_test(NAME ot-test-${name} COMMAND ot-test-${name})
+endmacro()
+
+#----------------------------------------------------------------------------------------------------------------------
+# Unit tests
+
+ot_unit_test(address_sanitizer)
+ot_unit_test(aes)
+ot_unit_test(array)
+ot_unit_test(binary_search)
+ot_unit_test(checksum)
+ot_unit_test(child)
+ot_unit_test(child_table)
+ot_unit_test(cmd_line_parser)
+ot_unit_test(data)
+ot_unit_test(dataset)
+ot_unit_test(dns)
+ot_unit_test(dns_client)
+ot_unit_test(dnssd_discovery_proxy)
+ot_unit_test(dso)
+ot_unit_test(ecdsa)
+ot_unit_test(flash)
+ot_unit_test(frame_builder)
+ot_unit_test(hdlc)
+ot_unit_test(heap)
+ot_unit_test(heap_array)
+ot_unit_test(heap_string)
+ot_unit_test(hkdf_sha256)
+ot_unit_test(hmac_sha256)
+ot_unit_test(ip4_header)
+ot_unit_test(ip6_header)
+ot_unit_test(ip_address)
+ot_unit_test(link_metrics_manager)
+ot_unit_test(link_quality)
+ot_unit_test(linked_list)
+ot_unit_test(lowpan)
+ot_unit_test(mac_frame)
+ot_unit_test(macros)
+ot_unit_test(mdns)
+ot_unit_test(meshcop)
+ot_unit_test(message)
+ot_unit_test(message_queue)
+ot_unit_test(mle)
+ot_unit_test(multicast_listeners_table)
+ot_unit_test(nat64)
+ot_unit_test(ndproxy_table)
+ot_unit_test(netif)
+ot_unit_test(network_data)
+ot_unit_test(network_name)
+ot_unit_test(offset_range)
+ot_unit_test(pool)
+ot_unit_test(power_calibration)
+ot_unit_test(priority_queue)
+ot_unit_test(pskc)
+ot_unit_test(routing_manager)
+ot_unit_test(serial_number)
+ot_unit_test(smart_ptrs)
+ot_unit_test(spinel_buffer)
+ot_unit_test(spinel_decoder)
+ot_unit_test(spinel_encoder)
+ot_unit_test(srp_adv_proxy)
+ot_unit_test(srp_server)
+ot_unit_test(string)
+ot_unit_test(tcat)
+ot_unit_test(timer)
+ot_unit_test(tlv)
+ot_unit_test(toolchain test_toolchain_c.c)
+ot_unit_test(trickle_timer)
+ot_unit_test(url)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+if(OT_MULTIPAN_RCP)
+    add_executable(ot-test-multipan-rcp-instances
+        test_multipan_rcp_instances.cpp
+    )
+
+    target_include_directories(ot-test-multipan-rcp-instances
+        PRIVATE
+            ${COMMON_INCLUDES_RCP}
+    )
+
+    target_compile_options(ot-test-multipan-rcp-instances
+        PRIVATE
+            ${COMMON_COMPILE_OPTIONS_RCP}
+            ${MULTIPAN_RCP_COMPILE_OPTIONS}
+    )
+
+    target_compile_definitions(ot-test-multipan-rcp-instances
+        PRIVATE
+            "OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE=1"
+    )
+
+    target_compile_options(ot-config-radio
+        INTERFACE
+            "-DOPENTHREAD_CONFIG_MAC_SOFTWARE_CSMA_BACKOFF_ENABLE=0" # used to skip backoff and request tx from platform directly.
+    )
+
+    target_link_libraries(ot-test-multipan-rcp-instances
+        PRIVATE
+            ${COMMON_LIBS_RCP}
+    )
+
+    add_test(NAME ot-test-multipan-rcp-instances COMMAND ot-test-multipan-rcp-instances)
+ endif()

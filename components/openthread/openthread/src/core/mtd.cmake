@@ -29,7 +29,9 @@
 add_library(openthread-mtd)
 
 target_compile_definitions(openthread-mtd PRIVATE
+    OPENTHREAD_FTD=0
     OPENTHREAD_MTD=1
+    OPENTHREAD_RADIO=0
 )
 
 target_compile_options(openthread-mtd PRIVATE
@@ -43,6 +45,8 @@ target_sources(openthread-mtd PRIVATE ${COMMON_SOURCES})
 target_link_libraries(openthread-mtd
     PRIVATE
         ${OT_MBEDTLS}
-        tcplp
+        ot-config-mtd
         ot-config
 )
+
+target_link_libraries(openthread-mtd PRIVATE tcplp-mtd)

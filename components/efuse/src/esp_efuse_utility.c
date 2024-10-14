@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2017-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -23,23 +23,12 @@ static volatile unsigned s_burn_counter = 0;
 // Array for emulate efuse registers.
 #ifdef CONFIG_EFUSE_VIRTUAL
 uint32_t virt_blocks[EFUSE_BLK_MAX][COUNT_EFUSE_REG_PER_BLOCK];
-
-#ifndef BOOTLOADER_BUILD
-#ifndef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
-/* Call the update function to seed virtual efuses during initialization */
-__attribute__((constructor)) void esp_efuse_utility_update_virt_blocks(void);
-#endif // CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
-#endif // NOT BOOTLOADER_BUILD
-
 #endif // CONFIG_EFUSE_VIRTUAL
 
 extern const esp_efuse_range_addr_t range_read_addr_blocks[];
 extern const esp_efuse_range_addr_t range_write_addr_blocks[];
 
-static int get_reg_num(int bit_start, int bit_count, int i_reg);
-static int get_starting_bit_num_in_reg(int bit_start, int i_reg);
 static uint32_t get_mask(unsigned int bit_count, unsigned int shift);
-static int get_count_bits_in_reg(int bit_start, int bit_count, int i_reg);
 static void write_reg(esp_efuse_block_t blk, unsigned int num_reg, uint32_t value);
 static uint32_t fill_reg(int bit_start_in_reg, int bit_count_in_reg, uint8_t* blob, int* filled_bits_blob);
 static uint32_t set_cnt_in_reg(int bit_start_in_reg, int bit_count_used_in_reg, uint32_t reg_masked, size_t* cnt);
@@ -55,29 +44,36 @@ esp_err_t esp_efuse_utility_process(const esp_efuse_desc_t* field[], void* ptr, 
     int field_len = esp_efuse_get_field_size(field);
     int req_size = (ptr_size_bits == 0) ? field_len : MIN(ptr_size_bits, field_len);
 
-    int i = 0;
     unsigned count_before = s_burn_counter;
-    while (err == ESP_OK && req_size > bits_counter && field[i] != NULL) {
-        if (check_range_of_bits(field[i]->efuse_block, field[i]->bit_start, field[i]->bit_count) == false) {
+    for (const esp_efuse_desc_t* f = field[0]; (err == ESP_OK && req_size > bits_counter && f != NULL); ++f) {
+        if (check_range_of_bits(f->efuse_block, f->bit_start, f->bit_count) == false) {
             ESP_EARLY_LOGE(TAG, "Range of data does not match the coding scheme");
             err = ESP_ERR_CODING;
+            break;
         }
-        int i_reg = 0;
-        int num_reg;
-        while (err == ESP_OK && req_size > bits_counter &&
-                (num_reg = get_reg_num(field[i]->bit_start, field[i]->bit_count, i_reg)) != -1) {
 
-            int start_bit = get_starting_bit_num_in_reg(field[i]->bit_start, i_reg);
-            int num_bits = get_count_bits_in_reg(field[i]->bit_start, field[i]->bit_count, i_reg);
-            if ((bits_counter + num_bits) > req_size) { // Limits the length of the field.
-                num_bits = req_size - bits_counter;
+        int end_bit_in_block = (f->bit_start + f->bit_count - 1);
+        int first_reg = f->bit_start / 32;
+        int last_reg = end_bit_in_block / 32;
+        int start_bit_in_reg = f->bit_start % 32;
+
+        for (int num_reg = first_reg; num_reg <= last_reg; ++num_reg) {
+            int first_bit_in_reg = (num_reg == first_reg) ? start_bit_in_reg % 32 : 0;
+            int last_bit_in_reg = (num_reg == last_reg) ? end_bit_in_block % 32 : 31;
+            int use_bit_in_reg = (last_bit_in_reg - first_bit_in_reg) + 1;
+            if ((bits_counter + use_bit_in_reg) > req_size) { // Limits the length of the field.
+                use_bit_in_reg = req_size - bits_counter;
             }
-            ESP_EARLY_LOGD(TAG, "In EFUSE_BLK%d__DATA%d_REG is used %d bits starting with %d bit",
-                    (int)field[i]->efuse_block, num_reg, num_bits, start_bit);
-            err = func_proc(num_reg, field[i]->efuse_block, start_bit, num_bits, ptr, &bits_counter);
-            ++i_reg;
+            int end_bit_in_reg = start_bit_in_reg + use_bit_in_reg - 1;
+            ESP_EARLY_LOGD(TAG, "BLK%d REG%d [%d-%d], len=%d bits", (int)f->efuse_block, num_reg, start_bit_in_reg, end_bit_in_reg, use_bit_in_reg);
+
+            err = func_proc(num_reg, f->efuse_block, start_bit_in_reg, use_bit_in_reg, ptr, &bits_counter);
+            start_bit_in_reg = 0;
+
+            if (err != ESP_OK || req_size <= bits_counter) {
+                break;
+            }
         }
-        i++;
     }
     unsigned count_after = s_burn_counter;
     if (err == ESP_OK &&
@@ -158,18 +154,34 @@ void esp_efuse_utility_reset(void)
     esp_efuse_utility_clear_program_registers();
     ++s_burn_counter;
     for (int num_block = EFUSE_BLK0; num_block < EFUSE_BLK_MAX; num_block++) {
-        for (uint32_t addr_wr_block = range_write_addr_blocks[num_block].start; addr_wr_block <= range_write_addr_blocks[num_block].end; addr_wr_block += 4) {
+        for (uintptr_t addr_wr_block = range_write_addr_blocks[num_block].start; addr_wr_block <= range_write_addr_blocks[num_block].end; addr_wr_block += 4) {
             REG_WRITE(addr_wr_block, 0);
         }
     }
 }
 
-// Burn values written to the efuse write registers
-void esp_efuse_utility_burn_efuses(void)
+void esp_efuse_utility_debug_dump_pending(void)
+{
+    for (int num_block = 0; num_block < EFUSE_BLK_MAX; num_block++) {
+        for (uintptr_t addr_wr_block = range_write_addr_blocks[num_block].start; addr_wr_block <= range_write_addr_blocks[num_block].end; addr_wr_block += 4) {
+            if (REG_READ(addr_wr_block) != 0) {
+                esp_efuse_utility_debug_dump_single_block(num_block, false);
+                break;
+            }
+        }
+    }
+}
+
+esp_err_t esp_efuse_utility_burn_efuses(void)
 {
     ++s_burn_counter;
-    esp_efuse_utility_burn_chip();
+#ifdef CONFIG_EFUSE_VIRTUAL_LOG_ALL_WRITES
+    ESP_EARLY_LOGW(TAG, "Burn:");
+    esp_efuse_utility_debug_dump_pending();
+#endif
+    esp_err_t err = esp_efuse_utility_burn_chip();
     ++s_burn_counter;
+    return err;
 }
 
 // Erase the virt_blocks array.
@@ -192,13 +204,13 @@ void esp_efuse_utility_update_virt_blocks(void)
 #else
     if (1) {
 #endif
-        ESP_EARLY_LOGW(TAG, "Loading virtual efuse blocks from real efuses");
+        ESP_EARLY_LOGW(TAG, "[Virtual] Loading virtual efuse blocks from real efuses");
         for (int num_block = EFUSE_BLK0; num_block < EFUSE_BLK_MAX; num_block++) {
             int subblock = 0;
-            for (uint32_t addr_rd_block = range_read_addr_blocks[num_block].start; addr_rd_block <= range_read_addr_blocks[num_block].end; addr_rd_block += 4) {
+            for (uintptr_t addr_rd_block = range_read_addr_blocks[num_block].start; addr_rd_block <= range_read_addr_blocks[num_block].end; addr_rd_block += 4) {
                 virt_blocks[num_block][subblock++] = REG_READ(addr_rd_block);
             }
-            ESP_EARLY_LOGD(TAG, "virt_blocks[%d] is filled by EFUSE_BLOCK%d", num_block, num_block);
+            ESP_EARLY_LOGD(TAG, "[Virtual] virt_blocks[%d] is filled by EFUSE_BLOCK%d", num_block, num_block);
         }
 #ifdef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
         esp_efuse_utility_write_efuses_to_flash();
@@ -209,28 +221,35 @@ void esp_efuse_utility_update_virt_blocks(void)
 #endif
 }
 
+// Prints efuse values for a single block
+void esp_efuse_utility_debug_dump_single_block(int num_block, bool from_read)
+{
+    esp_rom_printf("%d) ", num_block);
+    int num_reg = 0;
+    if (from_read) {
+        for (uintptr_t addr_rd_block = range_read_addr_blocks[num_block].start; addr_rd_block <= range_read_addr_blocks[num_block].end; addr_rd_block += 4, num_reg++) {
+#ifdef CONFIG_EFUSE_VIRTUAL
+            esp_rom_printf("%08" PRIx32 " ", virt_blocks[num_block][num_reg]);
+#else
+            esp_rom_printf("%08" PRIx32 " ", REG_READ(addr_rd_block));
+            (void) num_reg;
+#endif
+        }
+    } else {
+        for (uintptr_t addr_wr_block = range_write_addr_blocks[num_block].start; addr_wr_block <= range_write_addr_blocks[num_block].end; addr_wr_block += 4, num_reg++) {
+            esp_rom_printf("%08" PRIx32 " ", REG_READ(addr_wr_block));
+        }
+    }
+    esp_rom_printf("\n");
+}
+
 // Prints efuse values for all registers.
 void esp_efuse_utility_debug_dump_blocks(void)
 {
     esp_rom_printf("EFUSE_BLKx:\n");
-#ifdef CONFIG_EFUSE_VIRTUAL
     for (int num_block = EFUSE_BLK0; num_block < EFUSE_BLK_MAX; num_block++) {
-        int num_reg = 0;
-        esp_rom_printf("%d) ", num_block);
-        for (uint32_t addr_rd_block = range_read_addr_blocks[num_block].start; addr_rd_block <= range_read_addr_blocks[num_block].end; addr_rd_block += 4, num_reg++) {
-            esp_rom_printf("0x%08x ", virt_blocks[num_block][num_reg]);
-        }
-        esp_rom_printf("\n");
+        esp_efuse_utility_debug_dump_single_block(num_block, true);
     }
-#else
-    for (int num_block = EFUSE_BLK0; num_block < EFUSE_BLK_MAX; num_block++) {
-        esp_rom_printf("%d) ", num_block);
-        for (uint32_t addr_rd_block = range_read_addr_blocks[num_block].start; addr_rd_block <= range_read_addr_blocks[num_block].end; addr_rd_block += 4) {
-            esp_rom_printf("0x%08x ", REG_READ(addr_rd_block));
-        }
-        esp_rom_printf("\n");
-    }
-#endif
     esp_rom_printf("\n");
 }
 
@@ -246,7 +265,7 @@ esp_err_t esp_efuse_utility_write_reg(esp_efuse_block_t efuse_block, unsigned in
     esp_err_t err = ESP_OK;
     uint32_t reg = esp_efuse_utility_read_reg(efuse_block, num_reg);
     if (reg & reg_to_write) {
-        ESP_EARLY_LOGE(TAG, "Repeated programming of programmed bits is strictly forbidden 0x%08x", reg & reg_to_write);
+        ESP_EARLY_LOGE(TAG, "Repeated programming of programmed bits is strictly forbidden 0x%08" PRIx32, reg & reg_to_write);
         err = ESP_ERR_EFUSE_REPEATED_PROG;
     } else {
         write_reg(efuse_block, num_reg, reg_to_write);
@@ -276,7 +295,7 @@ static void write_reg(esp_efuse_block_t blk, unsigned int num_reg, uint32_t valu
     assert(blk >= 0 && blk < EFUSE_BLK_MAX);
     assert(num_reg <= (range_read_addr_blocks[blk].end - range_read_addr_blocks[blk].start) / sizeof(uint32_t));
 
-    uint32_t addr_wr_reg = range_write_addr_blocks[blk].start + num_reg * 4;
+    uintptr_t addr_wr_reg = range_write_addr_blocks[blk].start + num_reg * 4;
     uint32_t reg_to_write = REG_READ(addr_wr_reg) | value;
     // The register can be written in parts so we combine the new value with the one already available.
     REG_WRITE(addr_wr_reg, reg_to_write);
@@ -294,41 +313,6 @@ static uint32_t get_mask(unsigned int bit_count, unsigned int shift)
     return mask << shift;
 }
 
-// return the register number in the array. return -1 if all registers for field was selected.
-static int get_reg_num(int bit_start, int bit_count, int i_reg)
-{
-    int num_reg = i_reg + bit_start / 32;
-
-    if (num_reg > (bit_start + bit_count - 1) / 32) {
-        return -1;
-    }
-
-    return num_reg;
-}
-
-// returns the starting bit number in the register.
-static int get_starting_bit_num_in_reg(int bit_start, int i_reg)
-{
-    return (i_reg == 0) ? bit_start % 32 : 0;
-}
-
-// Returns the number of bits in the register.
-static int get_count_bits_in_reg(int bit_start, int bit_count, int i_reg)
-{
-    int ret_count = 0;
-    int num_reg = 0;
-    int last_used_bit = (bit_start + bit_count - 1);
-    for (int num_bit = bit_start; num_bit <= last_used_bit; ++num_bit) {
-        ++ret_count;
-        if ((((num_bit + 1) % 32) == 0) || (num_bit == last_used_bit)) {
-            if (i_reg == num_reg++) {
-                return ret_count;
-            }
-            ret_count = 0;
-        }
-    }
-    return 0;
-}
 
 // fill efuse register from array.
 static uint32_t fill_reg(int bit_start_in_reg, int bit_count_in_reg, uint8_t* blob, int* filled_bits_blob)
@@ -384,11 +368,11 @@ static bool check_range_of_bits(esp_efuse_block_t blk, int offset_in_bits, int s
     return true;
 }
 
-uint32_t esp_efuse_utility_get_read_register_address(esp_efuse_block_t block)
+uintptr_t esp_efuse_utility_get_read_register_address(esp_efuse_block_t block)
 {
     assert(block < EFUSE_BLK_MAX);
 #ifdef CONFIG_EFUSE_VIRTUAL
-    return (uint32_t)&virt_blocks[block][0];
+    return (uintptr_t)&virt_blocks[block][0];
 #else
     return range_read_addr_blocks[block].start;
 #endif
@@ -404,7 +388,7 @@ void esp_efuse_init_virtual_mode_in_ram(void)
 
 #ifdef CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
 
-#include "../include_bootloader/bootloader_flash_priv.h"
+#include "../bootloader_flash/include/bootloader_flash_priv.h"
 
 static uint32_t esp_efuse_flash_offset = 0;
 static uint32_t esp_efuse_flash_size = 0;
@@ -419,58 +403,93 @@ void esp_efuse_init_virtual_mode_in_flash(uint32_t offset, uint32_t size)
 
 void esp_efuse_utility_erase_efuses_in_flash(void)
 {
+    ESP_EARLY_LOGW(TAG, "[Virtual] Erasing eFuses in flash");
+
     if (esp_efuse_flash_offset == 0) {
-        ESP_EARLY_LOGE(TAG, "no efuse partition in partition_table? (Flash is not updated)");
+        ESP_EARLY_LOGE(TAG, "[Virtual] no efuse partition in partition_table? (Flash is not updated)");
         abort();
     }
     esp_err_t err = bootloader_flash_erase_range(esp_efuse_flash_offset, esp_efuse_flash_size);
     if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Failed to erase flash. err = 0x%x", err);
+        ESP_EARLY_LOGE(TAG, "[Virtual] Failed to erase flash. err = 0x%x", err);
         abort();
     }
+
+    ESP_EARLY_LOGW(TAG, "[Virtual] Erase complete");
 }
 
 bool esp_efuse_utility_load_efuses_from_flash(void)
 {
+    ESP_EARLY_LOGW(TAG, "[Virtual] try loading efuses from flash: 0x%" PRIx32 " (offset)", esp_efuse_flash_offset);
+
     if (esp_efuse_flash_offset == 0) {
-        ESP_EARLY_LOGE(TAG, "no efuse partition in partition_table? (Flash is not updated)");
+        ESP_EARLY_LOGE(TAG, "[Virtual] no efuse partition in partition_table? (Flash is not updated)");
         abort();
     }
     uint32_t efuses_in_flash[sizeof(virt_blocks)];
 
-    esp_err_t err = bootloader_flash_read(esp_efuse_flash_offset, &efuses_in_flash, sizeof(efuses_in_flash), true);
+    esp_err_t err = bootloader_flash_read(esp_efuse_flash_offset, &efuses_in_flash, sizeof(efuses_in_flash), false);
     if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Can not read eFuse partition from flash (err=0x%x)", err);
+        ESP_EARLY_LOGE(TAG, "[Virtual] Can not read eFuse partition from flash (err=0x%x)", err);
         abort();
     }
 
     for (unsigned i = 0; i < sizeof(virt_blocks); ++i) {
         if (efuses_in_flash[i] != 0xFFFFFFFF) {
-            ESP_EARLY_LOGW(TAG, "Loading virtual efuse blocks from flash");
+            ESP_EARLY_LOGW(TAG, "[Virtual] Loading virtual efuse blocks from flash");
             memcpy(virt_blocks, efuses_in_flash, sizeof(virt_blocks));
             return true;
         }
     }
+
+    ESP_EARLY_LOGW(TAG, "[Virtual] no efuses found in flash");
+
     return false;
 }
 
 void esp_efuse_utility_write_efuses_to_flash(void)
 {
     if (esp_efuse_flash_offset == 0) {
-        ESP_EARLY_LOGE(TAG, "no efuse partition in partition_table? (Flash is not updated)");
+        ESP_EARLY_LOGE(TAG, "[Virtual] no efuse partition in partition_table? (Flash is not updated)");
         abort();
     }
 
     esp_err_t err = bootloader_flash_erase_range(esp_efuse_flash_offset, esp_efuse_flash_size);
     if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "Failed to erase flash. err = 0x%x", err);
+        ESP_EARLY_LOGE(TAG, "[Virtual] Failed to erase flash. err = 0x%x", err);
         abort();
     }
 
     err = bootloader_flash_write(esp_efuse_flash_offset, &virt_blocks, sizeof(virt_blocks), false);
     if (err != ESP_OK) {
-        ESP_EARLY_LOGE(TAG, "secure_version can not be written to flash. err = 0x%x", err);
+        ESP_EARLY_LOGE(TAG, "[Virtual] Failed to write eFuses to flash. err = 0x%x", err);
         abort();
     }
 }
 #endif // CONFIG_EFUSE_VIRTUAL_KEEP_IN_FLASH
+
+bool esp_efuse_utility_is_correct_written_data(esp_efuse_block_t block, unsigned r_data_len)
+{
+    uintptr_t* w_data = (uintptr_t*)range_write_addr_blocks[block].start;
+    uintptr_t* r_data = (uintptr_t*)range_read_addr_blocks[block].start;
+
+    bool correct_written_data = memcmp(w_data, r_data, r_data_len) == 0;
+    if (correct_written_data) {
+        ESP_LOGI(TAG, "BURN BLOCK%d - OK (write block == read block)", block);
+        return true;
+    }
+
+    correct_written_data = true;
+    for (unsigned i = 0; i < r_data_len / 4; i++) {
+        if ((*(r_data + i) & *(w_data + i)) != *(w_data + i)) {
+            correct_written_data = false;
+            break;
+        }
+    }
+    if (correct_written_data) {
+        ESP_LOGI(TAG, "BURN BLOCK%d - OK (all write block bits are set)", block);
+    } else {
+        ESP_LOGE(TAG, "BURN BLOCK%d - ERROR (written bits != read bits)", block);
+    }
+    return correct_written_data;
+}

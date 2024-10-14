@@ -30,6 +30,7 @@ import ipaddress
 import typing
 import unittest
 
+import config
 import thread_cert
 
 # Test description:
@@ -83,14 +84,14 @@ class TestDnssd(thread_cert.TestCase):
         # Start the server & client devices.
 
         server.start()
-        self.simulator.go(5)
+        self.simulator.go(config.LEADER_STARTUP_DELAY)
         self.assertEqual(server.get_state(), 'leader')
         server.srp_server_set_enabled(True)
 
         client1.start()
         client2.start()
         client3.start()
-        self.simulator.go(5)
+        self.simulator.go(config.ROUTER_STARTUP_DELAY)
         self.assertEqual(client1.get_state(), 'router')
         self.assertEqual(client2.get_state(), 'router')
         self.assertEqual(client3.get_state(), 'router')
@@ -103,13 +104,13 @@ class TestDnssd(thread_cert.TestCase):
         client3_addrs = [client3.get_mleid(), client2.get_rloc()]
 
         self._config_srp_client_services(client1, server, 'ins1', 'host1', 11111, 1, 1, client1_addrs, ",_s1,_s2")
-        self._config_srp_client_services(client2, server, 'ins2', 'host2', 22222, 2, 2, client2_addrs)
-        self._config_srp_client_services(client3, server, 'ins3', 'host3', 33333, 3, 3, client3_addrs, ",_s1")
+        self._config_srp_client_services(client2, server, 'ins2', 'HOST2', 22222, 2, 2, client2_addrs)
+        self._config_srp_client_services(client3, server, 'ins3', 'host3', 33333, 3, 3, client3_addrs, ",_S1")
 
         #---------------------------------------------------------------
         # Resolve address (AAAA records)
 
-        answers = client1.dns_resolve(f"host1.{DOMAIN}", server.get_mleid(), 53)
+        answers = client1.dns_resolve(f"host1.{DOMAIN}".upper(), server.get_mleid(), 53)
         self.assertEqual(set(ipaddress.IPv6Address(ip) for ip, _ in answers),
                          set(map(ipaddress.IPv6Address, client1_addrs)))
 
@@ -169,47 +170,48 @@ class TestDnssd(thread_cert.TestCase):
         }
 
         # Browse for main service
-        service_instances = client1.dns_browse(f'{SERVICE}.{DOMAIN}', server.get_mleid(), 53)
+        service_instances = client1.dns_browse(f'{SERVICE}.{DOMAIN}'.upper(), server.get_mleid(), 53)
         self.assertEqual({'ins1', 'ins2', 'ins3'}, set(service_instances.keys()))
-        self._assert_service_instance_equal(service_instances['ins1'], instance1_verify_info)
-        self._assert_service_instance_equal(service_instances['ins2'], instance2_verify_info)
-        self._assert_service_instance_equal(service_instances['ins3'], instance3_verify_info)
 
         # Browse for service sub-type _s1.
-        service_instances = client1.dns_browse(f'_s1._sub.{SERVICE}.{DOMAIN}', server.get_mleid(), 53)
+        service_instances = client1.dns_browse(f'_s1._sub.{SERVICE}.{DOMAIN}'.upper(), server.get_mleid(), 53)
         self.assertEqual({'ins1', 'ins3'}, set(service_instances.keys()))
-        self._assert_service_instance_equal(service_instances['ins1'], instance1_verify_info)
 
         # Browse for service sub-type _s2.
-        service_instances = client1.dns_browse(f'_s2._sub.{SERVICE}.{DOMAIN}', server.get_mleid(), 53)
+        # Since there is only one matching instance, validate that
+        # server included the service info in additional section.
+        service_instances = client1.dns_browse(f'_s2._sub.{SERVICE}.{DOMAIN}'.upper(), server.get_mleid(), 53)
         self.assertEqual({'ins1'}, set(service_instances.keys()))
         self._assert_service_instance_equal(service_instances['ins1'], instance1_verify_info)
 
         #---------------------------------------------------------------
         # Resolve service
 
-        service_instance = client1.dns_resolve_service('ins1', f'{SERVICE}.{DOMAIN}', server.get_mleid(), 53)
+        service_instance = client1.dns_resolve_service('ins1', f'{SERVICE}.{DOMAIN}'.upper(), server.get_mleid(), 53)
         self._assert_service_instance_equal(service_instance, instance1_verify_info)
 
-        service_instance = client1.dns_resolve_service('ins2', f'{SERVICE}.{DOMAIN}', server.get_mleid(), 53)
+        service_instance = client1.dns_resolve_service('ins2', f'{SERVICE}.{DOMAIN}'.upper(), server.get_mleid(), 53)
         self._assert_service_instance_equal(service_instance, instance2_verify_info)
+
+        service_instance = client1.dns_resolve_service('ins3', f'{SERVICE}.{DOMAIN}'.upper(), server.get_mleid(), 53)
+        self._assert_service_instance_equal(service_instance, instance3_verify_info)
 
         #---------------------------------------------------------------
         # Add another service with TXT entries to the existing host and
         # verify that it is properly merged.
 
-        client3.srp_client_add_service('ins4', SERVICE + ",_s1", 44444, 4, 4, txt_entries=['KEY=ABC'])
+        client3.srp_client_add_service('ins4', (SERVICE + ",_s1").upper(), 44444, 4, 4, txt_entries=['KEY=ABC'])
         self.simulator.go(5)
 
         service_instances = client1.dns_browse(f'{SERVICE}.{DOMAIN}', server.get_mleid(), 53)
         self.assertEqual({'ins1', 'ins2', 'ins3', 'ins4'}, set(service_instances.keys()))
-        self._assert_service_instance_equal(service_instances['ins1'], instance1_verify_info)
-        self._assert_service_instance_equal(service_instances['ins2'], instance2_verify_info)
-        self._assert_service_instance_equal(service_instances['ins3'], instance3_verify_info)
-        self._assert_service_instance_equal(service_instances['ins4'], instance4_verify_info)
+
+        service_instance = client1.dns_resolve_service('ins4', f'{SERVICE}.{DOMAIN}'.upper(), server.get_mleid(), 53)
+        self._assert_service_instance_equal(service_instance, instance4_verify_info)
 
     def _assert_service_instance_equal(self, instance, info):
-        for f in ('port', 'priority', 'weight', 'host', 'txt_data'):
+        self.assertEqual(instance['host'].lower(), info['host'].lower(), instance)
+        for f in ('port', 'priority', 'weight', 'txt_data'):
             self.assertEqual(instance[f], info[f], instance)
 
         verify_addresses = info['address']
@@ -235,10 +237,6 @@ class TestDnssd(thread_cert.TestCase):
                                     weight,
                                     addrs,
                                     subtypes=''):
-        client.netdata_show()
-        srp_server_port = client.get_srp_server_port()
-
-        client.srp_client_start(server.get_mleid(), srp_server_port)
         client.srp_client_set_host_name(hostname)
         client.srp_client_set_host_address(*addrs)
         client.srp_client_add_service(instancename, SERVICE + subtypes, port, priority, weight)

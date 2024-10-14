@@ -12,7 +12,7 @@
 #include "common/defs.h"
 #include "common/wpa_common.h"
 
-#define MAX_STA_COUNT 4
+#define MAX_STA_COUNT 10
 #define MAX_VLAN_ID 4094
 
 typedef u8 macaddr[ETH_ALEN];
@@ -53,6 +53,7 @@ struct hostapd_ssid {
 
 	struct hostapd_wpa_psk *wpa_psk;
 	char *wpa_passphrase;
+	struct sae_pt *pt;
 
 	struct hostapd_wep_keys wep;
 
@@ -105,7 +106,6 @@ struct hostapd_wpa_psk {
 	u8 addr[ETH_ALEN];
 };
 
-#if 0
 struct hostapd_eap_user {
 	struct hostapd_eap_user *next;
 	u8 *identity;
@@ -124,6 +124,7 @@ struct hostapd_eap_user {
 	int ttls_auth; /* EAP_TTLS_AUTH_* bitfield */
 };
 
+#if 0
 struct hostapd_radius_attr {
 	u8 type;
 	struct wpabuf *val;
@@ -219,7 +220,6 @@ struct hostapd_bss_config {
 	int rsn_pairwise;
 	int rsn_preauth;
 	char *rsn_preauth_interfaces;
-	int peerkey;
 
 #ifdef CONFIG_IEEE80211R
 	/* IEEE 802.11r - Fast BSS Transition */
@@ -248,7 +248,11 @@ struct hostapd_bss_config {
 	 */
 	u16 max_listen_interval;
 
+	int wps_state;
 #ifdef CONFIG_WPS
+#define WPS_DEV_TYPE_LEN 8
+/* maximum number of advertised WPS vendor extension attributes */
+#define MAX_WPS_VENDOR_EXTENSIONS 10
 	int ap_setup_locked;
 	u8 uuid[16];
 	char *wps_pin_requests;
@@ -296,6 +300,12 @@ struct hostapd_bss_config {
 	char *dump_msk_file;
 #endif /* CONFIG_RADIUS_TEST */
 
+	unsigned int sae_anti_clogging_threshold;
+	enum sae_pwe sae_pwe;
+	unsigned int sae_sync;
+	int *sae_groups;
+#define SAE_ANTI_CLOGGING_THRESHOLD 2 /* max number of commit msg allowed to queue without anti-clogging token request */
+
 };
 
 
@@ -328,7 +338,7 @@ struct hostapd_config {
 	char country[3]; /* first two octets: country code as described in
 			  * ISO/IEC 3166-1. Third octet:
 			  * ' ' (ascii 32): all environments
-			  * 'O': Outdoor environemnt only
+			  * 'O': Outdoor environment only
 			  * 'I': Indoor environment only
 			  */
 
@@ -364,12 +374,17 @@ void hostapd_config_free(struct hostapd_config *conf);
 int hostapd_maclist_found(struct mac_acl_entry *list, int num_entries,
 			  const u8 *addr, int *vlan_id);
 int hostapd_rate_found(int *list, int rate);
+void hostapd_config_clear_wpa_psk(struct hostapd_wpa_psk **p);
+void hostapd_config_free_bss(struct hostapd_bss_config *conf);
 int hostapd_wep_key_cmp(struct hostapd_wep_keys *a,
 			struct hostapd_wep_keys *b);
 const u8 * hostapd_get_psk(const struct hostapd_bss_config *conf,
 			   const u8 *addr, const u8 *prev_psk);
 int hostapd_setup_wpa_psk(struct hostapd_bss_config *conf);
-bool wpa_ap_join(void** sm, uint8_t *bssid, uint8_t *wpa_ie, uint8_t wpa_ie_len);
-bool wpa_ap_remove(void* sm);
+struct sta_info;
+bool wpa_ap_join(struct sta_info *sta, uint8_t *bssid, uint8_t *wpa_ie,
+		 uint8_t wpa_ie_len,uint8_t *rsnxe, uint8_t rsnxe_len,
+		 bool *pmf_enable, int subtype, uint8_t *pairwise_cipher);
+bool wpa_ap_remove(u8* bssid);
 
 #endif /* HOSTAPD_CONFIG_H */

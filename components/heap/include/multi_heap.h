@@ -1,16 +1,8 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #pragma once
 #include <stdint.h>
 #include <stdlib.h>
@@ -55,7 +47,7 @@ void *multi_heap_malloc(multi_heap_handle_t heap, size_t size);
  *
  * @param heap Handle to a registered heap.
  * @param p NULL, or a pointer previously returned from multi_heap_aligned_alloc() for the same heap.
- * @note This function is deprecated, consider using  multi_heap_free() instead
+ * @note This function is deprecated, consider using multi_heap_free() instead
  */
 void __attribute__((deprecated)) multi_heap_aligned_free(multi_heap_handle_t heap, void *p);
 
@@ -130,8 +122,10 @@ void multi_heap_dump(multi_heap_handle_t heap);
 /** @brief Check heap integrity
  *
  * Walks the heap and checks all heap data structures are valid. If any errors are detected, an error-specific message
- * can be optionally printed to stderr. Print behaviour can be overriden at compile time by defining
+ * can be optionally printed to stderr. Print behaviour can be overridden at compile time by defining
  * MULTI_CHECK_FAIL_PRINTF in multi_heap_platform.h.
+ *
+ * @note This function is not thread-safe as it sets a global variable with the value of print_errors.
  *
  * @param heap Handle to a registered heap.
  * @param print_errors If true, errors will be printed to stderr.
@@ -157,7 +151,7 @@ size_t multi_heap_free_size(multi_heap_handle_t heap);
  *
  * Equivalent to the minimum_free_bytes member returned by multi_heap_get_info().
  *
- * Returns the lifetime "low water mark" of possible values returned from multi_free_heap_size(), for the specified
+ * Returns the lifetime "low watermark" of possible values returned from multi_free_heap_size(), for the specified
  * heap.
  *
  * @param heap Handle to a registered heap.
@@ -169,7 +163,7 @@ size_t multi_heap_minimum_free_size(multi_heap_handle_t heap);
 typedef struct {
     size_t total_free_bytes;      ///<  Total free bytes in the heap. Equivalent to multi_free_heap_size().
     size_t total_allocated_bytes; ///<  Total bytes allocated to data in the heap.
-    size_t largest_free_block;    ///<  Size of largest free block in the heap. This is the largest malloc-able size.
+    size_t largest_free_block;    ///<  Size of the largest free block in the heap. This is the largest malloc-able size.
     size_t minimum_free_bytes;    ///<  Lifetime minimum free heap size. Equivalent to multi_minimum_free_heap_size().
     size_t allocated_blocks;      ///<  Number of (variable size) blocks allocated in the heap.
     size_t free_blocks;           ///<  Number of (variable size) free blocks in the heap.
@@ -184,6 +178,57 @@ typedef struct {
  * @param info Pointer to a structure to fill with heap metadata.
  */
 void multi_heap_get_info(multi_heap_handle_t heap, multi_heap_info_t *info);
+
+/**
+ * @brief Perform an aligned allocation from the provided offset
+ *
+ * @param heap The heap in which to perform the allocation
+ * @param size The size of the allocation
+ * @param alignment How the memory must be aligned
+ * @param offset The offset at which the alignment should start
+ * @return void* The ptr to the allocated memory
+ */
+void *multi_heap_aligned_alloc_offs(multi_heap_handle_t heap, size_t size, size_t alignment, size_t offset);
+
+/**
+ * @brief Reset the minimum_free_bytes value (setting it to free_bytes) and return the former value
+ *
+ * @param heap The heap in which the reset is taking place
+ * @return size_t the value of minimum_free_bytes before it is reset
+ */
+size_t multi_heap_reset_minimum_free_bytes(multi_heap_handle_t heap);
+
+/**
+ * @brief Set the value of minimum_free_bytes to new_minimum_free_bytes_value or keep
+ * the current value of minimum_free_bytes if it is smaller than new_minimum_free_bytes_value
+ *
+ * @param heap The heap in which the restore is taking place
+ * @param new_minimum_free_bytes_value The value to restore the minimum_free_bytes to
+ */
+void multi_heap_restore_minimum_free_bytes(multi_heap_handle_t heap, const size_t new_minimum_free_bytes_value);
+
+/**
+ * @brief Callback called when walking the given heap blocks of memory
+ *
+ * @param block_ptr Pointer to the block data
+ * @param block_size The size of the block
+ * @param block_used Block status. 0: free, 1: allocated
+ * @param user_data Opaque pointer to user defined data
+ *
+ * @return True if the walker is expected to continue the heap traversal
+ *         False if the walker is expected to stop the traversal of the heap
+ */
+typedef bool (*multi_heap_walker_cb_t)(void *block_ptr, size_t block_size, int block_used, void *user_data);
+
+/**
+ * @brief Call the tlsf_walk_pool function of the heap given as parameter with
+ * the walker function passed as parameter
+ *
+ * @param heap The heap to traverse
+ * @param walker_func The walker to trigger on each block of the heap
+ * @param user_data Opaque pointer to user defined data
+ */
+void multi_heap_walk(multi_heap_handle_t heap, multi_heap_walker_cb_t walker_func, void *user_data);
 
 #ifdef __cplusplus
 }

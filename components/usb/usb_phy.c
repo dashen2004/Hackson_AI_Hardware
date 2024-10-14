@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,15 +9,22 @@
 #include "freertos/FreeRTOS.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "driver/periph_ctrl.h"
+#include "esp_private/periph_ctrl.h"
 #include "esp_private/usb_phy.h"
-#include "soc/usb_phy_periph.h"
-#include "hal/usb_phy_hal.h"
-#include "hal/usb_phy_ll.h"
+#include "soc/usb_dwc_periph.h"
+#include "hal/usb_wrap_hal.h"
+#include "hal/usb_serial_jtag_hal.h"
 #include "esp_rom_gpio.h"
 #include "driver/gpio.h"
 #include "hal/gpio_ll.h"
+#include "soc/soc_caps.h"
 #include "soc/usb_pins.h"
+
+#if !SOC_RCC_IS_INDEPENDENT
+#define USB_WRAP_RCC_ATOMIC() PERIPH_RCC_ATOMIC()
+#else
+#define USB_WRAP_RCC_ATOMIC()
+#endif
 
 static const char *USBPHY_TAG = "usb_phy";
 
@@ -31,8 +38,11 @@ struct phy_context_t {
     usb_phy_status_t status;                      /**< PHY status */
     usb_otg_mode_t otg_mode;                      /**< USB OTG mode */
     usb_phy_speed_t otg_speed;                    /**< USB speed */
-    usb_phy_gpio_conf_t *iopins;                  /**< external PHY I/O pins */
-    usb_phy_hal_context_t hal_context;            /**< USB_PHY hal context */
+    usb_phy_ext_io_conf_t *iopins;                /**< external PHY I/O pins */
+    usb_wrap_hal_context_t wrap_hal;              /**< USB WRAP HAL context */
+#if SOC_USB_SERIAL_JTAG_SUPPORTED
+    usb_serial_jtag_hal_context_t usj_hal;        /**< USJ HAL context */
+#endif
 };
 
 typedef struct {
@@ -53,20 +63,11 @@ typedef struct {
 static phy_ctrl_obj_t *p_phy_ctrl_obj = NULL;
 static portMUX_TYPE phy_spinlock = portMUX_INITIALIZER_UNLOCKED;
 
-static esp_err_t phy_external_iopins_configure(usb_phy_gpio_conf_t *gpio_conf)
+static esp_err_t phy_iopins_configure(const usb_iopin_dsc_t *usb_periph_iopins, int iopins_num)
 {
-    const usb_iopin_dsc_t usb_periph_iopins[] = {
-        {gpio_conf->vp_io_num, usb_phy_periph_signal.extphy_vp_in, 0},
-        {gpio_conf->vm_io_num, usb_phy_periph_signal.extphy_vm_in, 0},
-        {gpio_conf->rcv_io_num, usb_phy_periph_signal.extphy_rcv_in, 0},
-        {gpio_conf->oen_io_num, usb_phy_periph_signal.extphy_oen_out, 1},
-        {gpio_conf->vpo_io_num, usb_phy_periph_signal.extphy_vpo_out, 1},
-        {gpio_conf->vmo_io_num, usb_phy_periph_signal.extphy_vmo_out, 1},
-    };
-
-    for (int i = 0; i < sizeof(usb_periph_iopins)/sizeof(usb_iopin_dsc_t); i++) {
+    for (int i = 0; i < iopins_num; i++) {
         const usb_iopin_dsc_t iopin = usb_periph_iopins[i];
-        if (iopin.pin != -1) {
+        if (iopin.pin != GPIO_NUM_NC) {
             ESP_RETURN_ON_FALSE((iopin.is_output && GPIO_IS_VALID_OUTPUT_GPIO(iopin.pin)) ||
                                 (!iopin.is_output && GPIO_IS_VALID_GPIO(iopin.pin)),
                                 ESP_ERR_INVALID_ARG, USBPHY_TAG, "io_num argument is invalid");
@@ -83,6 +84,38 @@ static esp_err_t phy_external_iopins_configure(usb_phy_gpio_conf_t *gpio_conf)
     return ESP_OK;
 }
 
+static esp_err_t phy_external_iopins_configure(const usb_phy_ext_io_conf_t *ext_io_conf)
+{
+    const usb_iopin_dsc_t usb_periph_iopins[] = {
+        {ext_io_conf->vp_io_num, usb_otg_periph_signal.extphy_vp_in, false},
+        {ext_io_conf->vm_io_num, usb_otg_periph_signal.extphy_vm_in, false},
+        {ext_io_conf->rcv_io_num, usb_otg_periph_signal.extphy_rcv_in, false},
+        {ext_io_conf->oen_io_num, usb_otg_periph_signal.extphy_oen_out, true},
+        {ext_io_conf->vpo_io_num, usb_otg_periph_signal.extphy_vpo_out, true},
+        {ext_io_conf->vmo_io_num, usb_otg_periph_signal.extphy_vmo_out, true},
+    };
+
+    return phy_iopins_configure(usb_periph_iopins, sizeof(usb_periph_iopins) / sizeof(usb_iopin_dsc_t));
+}
+
+static esp_err_t phy_otg_iopins_configure(const usb_phy_otg_io_conf_t *otg_io_conf)
+{
+    const usb_iopin_dsc_t usb_periph_iopins[] = {
+        {otg_io_conf->iddig_io_num, usb_otg_periph_signal.otg_iddig_in, false},
+        {otg_io_conf->avalid_io_num, usb_otg_periph_signal.otg_avalid_in, false},
+        {otg_io_conf->vbusvalid_io_num, usb_otg_periph_signal.otg_vbusvalid_in, false},
+        {otg_io_conf->idpullup_io_num, usb_otg_periph_signal.otg_idpullup_out, true},
+        {otg_io_conf->dppulldown_io_num, usb_otg_periph_signal.otg_dppulldown_out, true},
+        {otg_io_conf->dmpulldown_io_num, usb_otg_periph_signal.otg_dmpulldown_out, true},
+        {otg_io_conf->drvvbus_io_num, usb_otg_periph_signal.otg_drvvbus_out, true},
+        {otg_io_conf->bvalid_io_num, usb_otg_periph_signal.srp_bvalid_in, false},
+        {otg_io_conf->sessend_io_num, usb_otg_periph_signal.srp_sessend_in, false},
+        {otg_io_conf->chrgvbus_io_num, usb_otg_periph_signal.srp_chrgvbus_out, true},
+        {otg_io_conf->dischrgvbus_io_num, usb_otg_periph_signal.srp_dischrgvbus_out, true},
+    };
+    return phy_iopins_configure(usb_periph_iopins, sizeof(usb_periph_iopins) / sizeof(usb_iopin_dsc_t));
+}
+
 esp_err_t usb_phy_otg_set_mode(usb_phy_handle_t handle, usb_otg_mode_t mode)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, USBPHY_TAG, "handle argument is invalid");
@@ -91,17 +124,24 @@ esp_err_t usb_phy_otg_set_mode(usb_phy_handle_t handle, usb_otg_mode_t mode)
 
     handle->otg_mode = mode;
     if (mode == USB_OTG_MODE_HOST) {
-        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT, USB_OTG_IDDIG_IN_IDX, false);     //connected connector is A side
+        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT, USB_OTG_IDDIG_IN_IDX, false);     // connected connector is A side
         esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT, USB_SRP_BVALID_IN_IDX, false);
-        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_OTG_VBUSVALID_IN_IDX, false);  //receiving a valid Vbus from host
-        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_OTG_AVALID_IN_IDX, false);     //HIGH to force USB host mode
+        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_OTG_VBUSVALID_IN_IDX, false);  // receiving a valid Vbus from host
+        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_OTG_AVALID_IN_IDX, false);     // HIGH to force USB host mode
         if (handle->target == USB_PHY_TARGET_INT) {
-            usb_phy_hal_int_load_conf_host(&(handle->hal_context));
+            // Configure pull resistors for host
+            usb_wrap_pull_override_vals_t vals = {
+                .dp_pu = false,
+                .dm_pu = false,
+                .dp_pd = true,
+                .dm_pd = true,
+            };
+            usb_wrap_hal_phy_enable_pull_override(&handle->wrap_hal, &vals);
         }
     } else if (mode == USB_OTG_MODE_DEVICE) {
-        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_OTG_IDDIG_IN_IDX, false);      //connected connector is mini-B side
-        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_SRP_BVALID_IN_IDX, false);     //HIGH to force USB device mode
-        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_OTG_VBUSVALID_IN_IDX, false);  //receiving a valid Vbus from device
+        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_OTG_IDDIG_IN_IDX, false);      // connected connector is mini-B side
+        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_SRP_BVALID_IN_IDX, false);     // HIGH to force USB device mode
+        esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ONE_INPUT, USB_OTG_VBUSVALID_IN_IDX, false);  // receiving a valid Vbus from device
         esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT, USB_OTG_AVALID_IN_IDX, false);
     }
 
@@ -117,13 +157,19 @@ esp_err_t usb_phy_otg_dev_set_speed(usb_phy_handle_t handle, usb_phy_speed_t spe
                         USBPHY_TAG, "set speed not supported");
 
     handle->otg_speed = speed;
-    usb_priv_speed_t hal_speed = 0;
+    // Configure pull resistors for device
+    usb_wrap_pull_override_vals_t vals = {
+        .dp_pd = false,
+        .dm_pd = false,
+    };
     if (speed == USB_PHY_SPEED_LOW) {
-        hal_speed = USB_PRIV_SPEED_LOW;
-    } else if (speed == USB_PHY_SPEED_FULL) {
-        hal_speed = USB_PRIV_SPEED_FULL;
+        vals.dp_pu = false;
+        vals.dm_pu = true;
+    } else {
+        vals.dp_pu = true;
+        vals.dm_pu = false;
     }
-    usb_phy_hal_int_load_conf_dev(&(handle->hal_context), hal_speed);
+    usb_wrap_hal_phy_enable_pull_override(&handle->wrap_hal, &vals);
     return ESP_OK;
 }
 
@@ -137,37 +183,51 @@ esp_err_t usb_phy_action(usb_phy_handle_t handle, usb_phy_action_t action)
 
     esp_err_t ret = ESP_OK;
     switch (action) {
-        case USB_PHY_ACTION_HOST_ALLOW_CONN:
-            if (handle->target == USB_PHY_TARGET_INT) {
-                usb_phy_hal_int_mimick_disconn(&(handle->hal_context), false);
-            } else {
-                if (!handle->iopins) {
-                    ret = ESP_FAIL;
-                    ESP_LOGE(USBPHY_TAG, "no I/O pins provided for connection");
-                    break;
-                }
-                /*
-                Allow for connections on the external PHY by connecting the VP and VM signals to the external PHY.
-                */
-                esp_rom_gpio_connect_in_signal(handle->iopins->vp_io_num, USB_EXTPHY_VP_IDX, false);
-                esp_rom_gpio_connect_in_signal(handle->iopins->vm_io_num, USB_EXTPHY_VM_IDX, false);
+    case USB_PHY_ACTION_HOST_ALLOW_CONN:
+        if (handle->target == USB_PHY_TARGET_INT) {
+            usb_wrap_hal_phy_enable_test_mode(&handle->wrap_hal, false);
+        } else {
+            if (!handle->iopins) {
+                ret = ESP_FAIL;
+                ESP_LOGE(USBPHY_TAG, "no I/O pins provided for connection");
+                break;
             }
-            break;
+            /*
+            Allow for connections on the external PHY by connecting the VP and VM signals to the external PHY.
+            */
+            esp_rom_gpio_connect_in_signal(handle->iopins->vp_io_num, USB_EXTPHY_VP_IDX, false);
+            esp_rom_gpio_connect_in_signal(handle->iopins->vm_io_num, USB_EXTPHY_VM_IDX, false);
+        }
+        break;
 
-        case USB_PHY_ACTION_HOST_FORCE_DISCONN:
-            if (handle->target == USB_PHY_TARGET_INT) {
-                usb_phy_hal_int_mimick_disconn(&(handle->hal_context), true);
-            } else {
-                /*
-                Disable connections on the external PHY by connecting the VP and VM signals to the constant LOW signal.
-                */
-                esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT, USB_EXTPHY_VP_IDX, false);
-                esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT, USB_EXTPHY_VM_IDX, false);
-            }
-            break;
+    case USB_PHY_ACTION_HOST_FORCE_DISCONN:
+        if (handle->target == USB_PHY_TARGET_INT) {
+            /*
+            We mimic a disconnect by enabling the internal PHY's test mode,
+            then forcing the output_enable to HIGH. This will cause the received
+            VP and VM to be zero, thus mimicking a disconnection.
+            */
+            const usb_wrap_test_mode_vals_t vals = {
+                .tx_enable_n = true,
+                .tx_dp = false,
+                .tx_dm = false,
+                .rx_dp = false,
+                .rx_dm = false,
+                .rx_rcv = false,
+            };
+            usb_wrap_hal_phy_test_mode_set_signals(&handle->wrap_hal, &vals);
+            usb_wrap_hal_phy_enable_test_mode(&handle->wrap_hal, true);
+        } else {
+            /*
+            Disable connections on the external PHY by connecting the VP and VM signals to the constant LOW signal.
+            */
+            esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT, USB_EXTPHY_VP_IDX, false);
+            esp_rom_gpio_connect_in_signal(GPIO_MATRIX_CONST_ZERO_INPUT, USB_EXTPHY_VM_IDX, false);
+        }
+        break;
 
-        default:
-            break;
+    default:
+        break;
     }
 
     return ret;
@@ -196,9 +256,12 @@ static esp_err_t usb_phy_install(void)
         portEXIT_CRITICAL(&phy_spinlock);
         goto cleanup;
     }
+    // Enable USB peripheral and reset the register
     portEXIT_CRITICAL(&phy_spinlock);
-    periph_module_enable(usb_phy_periph_signal.module);
-    periph_module_reset(usb_phy_periph_signal.module);
+    USB_WRAP_RCC_ATOMIC() {
+        usb_wrap_ll_enable_bus_clock(true);
+        usb_wrap_ll_reset_register();
+    }
     return ESP_OK;
 
 cleanup:
@@ -236,13 +299,18 @@ esp_err_t usb_new_phy(const usb_phy_config_t *config, usb_phy_handle_t *handle_r
     phy_context->controller = config->controller;
     phy_context->status = USB_PHY_STATUS_IN_USE;
 
-    usb_phy_hal_init(&(phy_context->hal_context));
+    usb_wrap_hal_init(&phy_context->wrap_hal);
+#if SOC_USB_SERIAL_JTAG_SUPPORTED
+    usb_serial_jtag_hal_init(&phy_context->usj_hal);
+#endif
     if (config->controller == USB_PHY_CTRL_OTG) {
-        usb_phy_hal_otg_conf(&(phy_context->hal_context), config->target == USB_PHY_TARGET_EXT);
+#if USB_WRAP_LL_EXT_PHY_SUPPORTED
+        usb_wrap_hal_phy_set_external(&phy_context->wrap_hal, (config->target == USB_PHY_TARGET_EXT));
+#endif
     }
 #if SOC_USB_SERIAL_JTAG_SUPPORTED
     else if (config->controller == USB_PHY_CTRL_SERIAL_JTAG) {
-        usb_phy_hal_jtag_conf(&(phy_context->hal_context), config->target == USB_PHY_TARGET_EXT);
+        usb_serial_jtag_hal_phy_set_external(&phy_context->usj_hal, (config->target == USB_PHY_TARGET_EXT));
         phy_context->otg_mode = USB_OTG_MODE_DEVICE;
         phy_context->otg_speed = USB_PHY_SPEED_FULL;
     }
@@ -254,10 +322,10 @@ esp_err_t usb_new_phy(const usb_phy_config_t *config, usb_phy_handle_t *handle_r
     }
 
     *handle_ret = (usb_phy_handle_t) phy_context;
-    if (config->gpio_conf && config->target == USB_PHY_TARGET_EXT) {
-        phy_context->iopins = (usb_phy_gpio_conf_t *) calloc(1, sizeof(usb_phy_gpio_conf_t));
+    if (config->ext_io_conf && config->target == USB_PHY_TARGET_EXT) {
+        phy_context->iopins = (usb_phy_ext_io_conf_t *) calloc(1, sizeof(usb_phy_ext_io_conf_t));
         ESP_GOTO_ON_FALSE(phy_context->iopins, ESP_ERR_NO_MEM, cleanup, USBPHY_TAG, "no mem for storing I/O pins");
-        memcpy(phy_context->iopins, config->gpio_conf, sizeof(usb_phy_gpio_conf_t));
+        memcpy(phy_context->iopins, config->ext_io_conf, sizeof(usb_phy_ext_io_conf_t));
         ESP_ERROR_CHECK(phy_external_iopins_configure(phy_context->iopins));
     }
     if (config->otg_mode != USB_PHY_MODE_DEFAULT) {
@@ -266,11 +334,16 @@ esp_err_t usb_new_phy(const usb_phy_config_t *config, usb_phy_handle_t *handle_r
     if (config->otg_speed != USB_PHY_SPEED_UNDEFINED) {
         ESP_ERROR_CHECK(usb_phy_otg_dev_set_speed(*handle_ret, config->otg_speed));
     }
+    if (config->otg_io_conf && (phy_context->controller == USB_PHY_CTRL_OTG)) {
+        ESP_ERROR_CHECK(phy_otg_iopins_configure(config->otg_io_conf));
+    }
     return ESP_OK;
 
 cleanup:
-    free(phy_context->iopins);
-    free(phy_context);
+    if (phy_context) {
+        free(phy_context->iopins);
+        free(phy_context);
+    }
     if (p_phy_ctrl_obj->ref_count == 0) {
         free(p_phy_ctrl_obj);
         p_phy_ctrl_obj = NULL;
@@ -285,8 +358,10 @@ static void phy_uninstall(void)
     if (p_phy_ctrl_obj->ref_count == 0) {
         p_phy_ctrl_obj_free = p_phy_ctrl_obj;
         p_phy_ctrl_obj = NULL;
-        // Disable USB peripheral
-        periph_module_disable(usb_phy_periph_signal.module);
+        USB_WRAP_RCC_ATOMIC() {
+            // Disable USB peripheral without reset the module
+            usb_wrap_ll_enable_bus_clock(false);
+        }
     }
     portEXIT_CRITICAL(&phy_spinlock);
     free(p_phy_ctrl_obj_free);
@@ -301,8 +376,8 @@ esp_err_t usb_del_phy(usb_phy_handle_t handle)
     if (handle->target == USB_PHY_TARGET_EXT) {
         p_phy_ctrl_obj->external_phy = NULL;
     } else {
-        // Clear pullup and pulldown loads on D+ / D-
-        usb_phy_ll_int_load_conf(handle->hal_context.wrap_dev, false, false, false, false);
+        // Clear pullup and pulldown loads on D+ / D-, and disable the pads
+        usb_wrap_hal_phy_disable_pull_override(&handle->wrap_hal);
         p_phy_ctrl_obj->internal_phy = NULL;
     }
     portEXIT_CRITICAL(&phy_spinlock);

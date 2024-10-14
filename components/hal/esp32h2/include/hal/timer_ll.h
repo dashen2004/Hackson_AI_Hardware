@@ -1,431 +1,380 @@
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-// The LL layer for Timer Group register operations.
-// Note that most of the register operations in this layer are non-atomic operations.
+// Attention: Timer Group has 3 independent functions: General Purpose Timer, Watchdog Timer and Clock calibration.
+//            This Low Level driver only serve the General Purpose Timer function.
 
 #pragma once
+
+#include <stdbool.h>
+#include "hal/assert.h"
+#include "hal/misc.h"
+#include "hal/timer_types.h"
+#include "soc/timer_group_struct.h"
+#include "soc/pcr_struct.h"
+#include "soc/soc_etm_source.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <stdlib.h>
-#include "hal/misc.h"
-#include "soc/timer_periph.h"
-#include "soc/timer_group_struct.h"
-#include "hal/timer_types.h"
-#include "hal/assert.h"
+// Get timer group register base address with giving group number
+#define TIMER_LL_GET_HW(group_id) ((group_id == 0) ? (&TIMERG0) : (&TIMERG1))
+#define TIMER_LL_EVENT_ALARM(timer_id) (1 << (timer_id))
 
-_Static_assert(TIMER_INTR_T0 == TIMG_T0_INT_CLR, "Add mapping to LL interrupt handling, since it's no longer naturally compatible with the timer_intr_t");
-_Static_assert(TIMER_INTR_WDT == TIMG_WDT_INT_CLR, "Add mapping to LL interrupt handling, since it's no longer naturally compatible with the timer_intr_t");
+#define TIMER_LL_ETM_TASK_TABLE(group, timer, task)                                        \
+    (uint32_t [2][1][GPTIMER_ETM_TASK_MAX]){{{                                             \
+                            [GPTIMER_ETM_TASK_START_COUNT] = TIMER0_TASK_CNT_START_TIMER0, \
+                            [GPTIMER_ETM_TASK_STOP_COUNT] = TIMER0_TASK_CNT_STOP_TIMER0,   \
+                            [GPTIMER_ETM_TASK_EN_ALARM] = TIMER0_TASK_ALARM_START_TIMER0,  \
+                            [GPTIMER_ETM_TASK_RELOAD] = TIMER0_TASK_CNT_RELOAD_TIMER0,     \
+                            [GPTIMER_ETM_TASK_CAPTURE] = TIMER0_TASK_CNT_CAP_TIMER0,       \
+                        }},                                                                \
+                        {{                                                                 \
+                            [GPTIMER_ETM_TASK_START_COUNT] = TIMER1_TASK_CNT_START_TIMER0, \
+                            [GPTIMER_ETM_TASK_STOP_COUNT] = TIMER1_TASK_CNT_STOP_TIMER0,   \
+                            [GPTIMER_ETM_TASK_EN_ALARM] = TIMER1_TASK_ALARM_START_TIMER0,  \
+                            [GPTIMER_ETM_TASK_RELOAD] = TIMER1_TASK_CNT_RELOAD_TIMER0,     \
+                            [GPTIMER_ETM_TASK_CAPTURE] = TIMER1_TASK_CNT_CAP_TIMER0,       \
+                        }},                                                                \
+    }[group][timer][task]
 
-typedef struct {
-    timg_dev_t *dev;
-    timer_idx_t idx;
-} timer_ll_context_t;
-
-// Get timer group instance with giving group number
-#define TIMER_LL_GET_HW(num) ((num == 0) ? (&TIMERG0) : (&TIMERG1))
+#define TIMER_LL_ETM_EVENT_TABLE(group, timer, event)                                      \
+    (uint32_t [2][1][GPTIMER_ETM_EVENT_MAX]){{{                                            \
+                            [GPTIMER_ETM_EVENT_ALARM_MATCH] = TIMER0_EVT_CNT_CMP_TIMER0,   \
+                        }},                                                                \
+                        {{                                                                 \
+                            [GPTIMER_ETM_EVENT_ALARM_MATCH] = TIMER1_EVT_CNT_CMP_TIMER0,   \
+                        }},                                                                \
+    }[group][timer][event]
 
 /**
- * @brief Set timer clock prescale value
+ * @brief Enable the bus clock for timer group module
  *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param divider Prescale value
- *
- * @return None
+ * @param group_id Group ID
+ * @param enable true to enable, false to disable
  */
-static inline void timer_ll_set_divider(timg_dev_t *hw, timer_idx_t timer_num, uint32_t divider)
+static inline void _timer_ll_enable_bus_clock(int group_id, bool enable)
+{
+    if (group_id == 0) {
+        PCR.timergroup0_conf.tg0_clk_en = enable;
+    } else {
+        PCR.timergroup1_conf.tg1_clk_en = enable;
+    }
+}
+
+/// use a macro to wrap the function, force the caller to use it in a critical section
+/// the critical section needs to declare the __DECLARE_RCC_RC_ATOMIC_ENV variable in advance
+#define timer_ll_enable_bus_clock(...) (void)__DECLARE_RCC_RC_ATOMIC_ENV; _timer_ll_enable_bus_clock(__VA_ARGS__)
+
+/**
+ * @brief Reset the timer group module
+ *
+ * @note  After reset the register, the "flash boot protection" will be enabled again.
+ *        FLash boot protection is not used anymore after system boot up.
+ *        This function will disable it by default in order to prevent the system from being reset unexpectedly.
+ *
+ * @param group_id Group ID
+ */
+static inline void _timer_ll_reset_register(int group_id)
+{
+    if (group_id == 0) {
+        PCR.timergroup0_conf.tg0_rst_en = 1;
+        PCR.timergroup0_conf.tg0_rst_en = 0;
+        TIMERG0.wdtconfig0.wdt_flashboot_mod_en = 0;
+    } else {
+        PCR.timergroup1_conf.tg1_rst_en = 1;
+        PCR.timergroup1_conf.tg1_rst_en = 0;
+        TIMERG1.wdtconfig0.wdt_flashboot_mod_en = 0;
+    }
+}
+
+/// use a macro to wrap the function, force the caller to use it in a critical section
+/// the critical section needs to declare the __DECLARE_RCC_RC_ATOMIC_ENV variable in advance
+#define timer_ll_reset_register(...) (void)__DECLARE_RCC_RC_ATOMIC_ENV; _timer_ll_reset_register(__VA_ARGS__)
+
+/**
+ * @brief Set clock source for timer
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ * @param clk_src Clock source
+ */
+static inline void timer_ll_set_clock_source(timg_dev_t *hw, uint32_t timer_num, gptimer_clock_source_t clk_src)
+{
+    (void)timer_num; // only one timer in each group
+    uint8_t clk_id = 0;
+    switch (clk_src) {
+    case GPTIMER_CLK_SRC_XTAL:
+        clk_id = 0;
+        break;
+    case GPTIMER_CLK_SRC_RC_FAST:
+        clk_id = 1;
+        break;
+    case GPTIMER_CLK_SRC_PLL_F48M:
+        clk_id = 2;
+        break;
+    default:
+        HAL_ASSERT(false);
+        break;
+    }
+    if (hw == &TIMERG0) {
+        PCR.timergroup0_timer_clk_conf.tg0_timer_clk_sel = clk_id;
+    } else {
+        PCR.timergroup1_timer_clk_conf.tg1_timer_clk_sel = clk_id;
+    }
+}
+
+/**
+ * @brief Enable Timer Group (GPTimer) module clock
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer index in the group
+ * @param en true to enable, false to disable
+ */
+static inline void timer_ll_enable_clock(timg_dev_t *hw, uint32_t timer_num, bool en)
+{
+    (void)timer_num; // only one timer in each group
+    if (hw == &TIMERG0) {
+        PCR.timergroup0_timer_clk_conf.tg0_timer_clk_en = en;
+    } else {
+        PCR.timergroup1_timer_clk_conf.tg1_timer_clk_en = en;
+    }
+}
+
+/**
+ * @brief Enable alarm event
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ * @param en True: enable alarm
+ *           False: disable alarm
+ */
+__attribute__((always_inline))
+static inline void timer_ll_enable_alarm(timg_dev_t *hw, uint32_t timer_num, bool en)
+{
+    hw->hw_timer[timer_num].config.tx_alarm_en = en;
+}
+
+/**
+ * @brief Set clock prescale for timer
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ * @param divider Prescale value (0 and 1 are not valid)
+ */
+static inline void timer_ll_set_clock_prescale(timg_dev_t *hw, uint32_t timer_num, uint32_t divider)
 {
     HAL_ASSERT(divider >= 2 && divider <= 65536);
     if (divider >= 65536) {
         divider = 0;
     }
-    int timer_en = hw->hw_timer[timer_num].config.tx_en;
-    hw->hw_timer[timer_num].config.tx_en = 0;
-    hw->hw_timer[timer_num].config.tx_divcnt_rst = 1;
     HAL_FORCE_MODIFY_U32_REG_FIELD(hw->hw_timer[timer_num].config, tx_divider, divider);
-    hw->hw_timer[timer_num].config.tx_en = timer_en;
+    hw->hw_timer[timer_num].config.tx_divcnt_rst = 1;
 }
 
 /**
- * @brief Get timer clock prescale value
+ * @brief Enable auto-reload mode
  *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param divider Pointer to accept the prescale value
- *
- * @return None
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ * @param en True: enable auto reload mode
+ *           False: disable auto reload mode
  */
-static inline void timer_ll_get_divider(timg_dev_t *hw, timer_idx_t timer_num, uint32_t *divider)
+__attribute__((always_inline))
+static inline void timer_ll_enable_auto_reload(timg_dev_t *hw, uint32_t timer_num, bool en)
 {
-    uint32_t d = HAL_FORCE_READ_U32_REG_FIELD(hw->hw_timer[timer_num].config, tx_divider);
-    if (d == 0) {
-        d = 65536;
-    } else if (d == 1) {
-        d = 2;
+    hw->hw_timer[timer_num].config.tx_autoreload = en;
+}
+
+/**
+ * @brief Set count direction
+ *
+ * @param hw Timer peripheral register base address
+ * @param timer_num Timer number in the group
+ * @param direction Count direction
+ */
+static inline void timer_ll_set_count_direction(timg_dev_t *hw, uint32_t timer_num, gptimer_count_direction_t direction)
+{
+    hw->hw_timer[timer_num].config.tx_increase = (direction == GPTIMER_COUNT_UP);
+}
+
+/**
+ * @brief Enable timer, start counting
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ * @param en True: enable the counter
+ *           False: disable the counter
+ */
+__attribute__((always_inline))
+static inline void timer_ll_enable_counter(timg_dev_t *hw, uint32_t timer_num, bool en)
+{
+    hw->hw_timer[timer_num].config.tx_en = en;
+}
+
+/**
+ * @brief Trigger software capture event
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ */
+__attribute__((always_inline))
+static inline void timer_ll_trigger_soft_capture(timg_dev_t *hw, uint32_t timer_num)
+{
+    hw->hw_timer[timer_num].update.tx_update = 1;
+    // Timer register is in a different clock domain from Timer hardware logic
+    // We need to wait for the update to take effect before fetching the count value
+    while (hw->hw_timer[timer_num].update.tx_update) {
     }
-    *divider = d;
 }
 
 /**
- * @brief Load counter value into time-base counter
+ * @brief Get counter value
  *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param load_val Counter value
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
  *
- * @return None
+ * @return counter value
  */
-static inline void timer_ll_set_counter_value(timg_dev_t *hw, timer_idx_t timer_num, uint64_t load_val)
+__attribute__((always_inline))
+static inline uint64_t timer_ll_get_counter_value(timg_dev_t *hw, uint32_t timer_num)
 {
-    hw->hw_timer[timer_num].loadhi.tx_load_hi = (uint32_t) (load_val >> 32);
-    hw->hw_timer[timer_num].loadlo.tx_load_lo = (uint32_t) load_val;
+    return ((uint64_t)hw->hw_timer[timer_num].hi.tx_hi << 32) | (hw->hw_timer[timer_num].lo.tx_lo);
+}
+
+/**
+ * @brief Set alarm value
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ * @param alarm_value When counter reaches alarm value, alarm event will be triggered
+ */
+__attribute__((always_inline))
+static inline void timer_ll_set_alarm_value(timg_dev_t *hw, uint32_t timer_num, uint64_t alarm_value)
+{
+    hw->hw_timer[timer_num].alarmhi.tx_alarm_hi = (uint32_t)(alarm_value >> 32);
+    hw->hw_timer[timer_num].alarmlo.tx_alarm_lo = (uint32_t)alarm_value;
+}
+
+/**
+ * @brief Set reload value
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ * @param reload_val Reload counter value
+ */
+__attribute__((always_inline))
+static inline void timer_ll_set_reload_value(timg_dev_t *hw, uint32_t timer_num, uint64_t reload_val)
+{
+    hw->hw_timer[timer_num].loadhi.tx_load_hi = (uint32_t)(reload_val >> 32);
+    hw->hw_timer[timer_num].loadlo.tx_load_lo = (uint32_t)reload_val;
+}
+
+/**
+ * @brief Get reload value
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ * @return reload count value
+ */
+__attribute__((always_inline))
+static inline uint64_t timer_ll_get_reload_value(timg_dev_t *hw, uint32_t timer_num)
+{
+    return ((uint64_t)hw->hw_timer[timer_num].loadhi.tx_load_hi << 32) | (hw->hw_timer[timer_num].loadlo.tx_load_lo);
+}
+
+/**
+ * @brief Trigger software reload, value set by `timer_ll_set_reload_value()` will be reflected into counter immediately
+ *
+ * @param hw Timer Group register base address
+ * @param timer_num Timer number in the group
+ */
+__attribute__((always_inline))
+static inline void timer_ll_trigger_soft_reload(timg_dev_t *hw, uint32_t timer_num)
+{
     hw->hw_timer[timer_num].load.tx_load = 1;
 }
 
 /**
- * @brief Get counter value from time-base counter
+ * @brief Enable ETM module
  *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param timer_val Pointer to accept the counter value
- *
- * @return None
+ * @param hw Timer Group register base address
+ * @param en True: enable ETM module, False: disable ETM module
  */
-FORCE_INLINE_ATTR void timer_ll_get_counter_value(timg_dev_t *hw, timer_idx_t timer_num, uint64_t *timer_val)
+static inline void timer_ll_enable_etm(timg_dev_t *hw, bool en)
 {
-    hw->hw_timer[timer_num].update.tx_update = 1;
-    while (hw->hw_timer[timer_num].update.tx_update) {}
-    *timer_val = ((uint64_t) hw->hw_timer[timer_num].hi.tx_hi << 32) | (hw->hw_timer[timer_num].lo.tx_lo);
+    hw->regclk.etm_en = en;
 }
 
 /**
- * @brief Set counter mode, include increment mode and decrement mode.
+ * @brief Enable timer interrupt by mask
  *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param increase_en True to increment mode, fasle to decrement mode
- *
- * @return None
+ * @param hw Timer Group register base address
+ * @param mask Mask of interrupt events
+ * @param en True: enable interrupt
+ *           False: disable interrupt
  */
-static inline void timer_ll_set_counter_increase(timg_dev_t *hw, timer_idx_t timer_num, bool increase_en)
+__attribute__((always_inline))
+static inline void timer_ll_enable_intr(timg_dev_t *hw, uint32_t mask, bool en)
 {
-    hw->hw_timer[timer_num].config.tx_increase = increase_en;
+    if (en) {
+        hw->int_ena_timers.val |= mask;
+    } else {
+        hw->int_ena_timers.val &= ~mask;
+    }
 }
 
 /**
- * @brief Get counter mode, include increment mode and decrement mode.
+ * @brief Get interrupt status
  *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
+ * @param hw Timer Group register base address
  *
- * @return
- *     - true Increment mode
- *     - false Decrement mode
+ * @return Interrupt status
  */
-static inline bool timer_ll_get_counter_increase(timg_dev_t *hw, timer_idx_t timer_num)
+__attribute__((always_inline))
+static inline uint32_t timer_ll_get_intr_status(timg_dev_t *hw)
 {
-    return hw->hw_timer[timer_num].config.tx_increase;
+    return hw->int_st_timers.val & 0x01;
 }
 
 /**
- * @brief Set counter status, enable or disable counter.
+ * @brief Clear interrupt status by mask
  *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param counter_en True to enable counter, false to disable counter
- *
- * @return None
+ * @param hw Timer Group register base address
+ * @param mask Interrupt events mask
  */
-FORCE_INLINE_ATTR void timer_ll_set_counter_enable(timg_dev_t *hw, timer_idx_t timer_num, bool counter_en)
+__attribute__((always_inline))
+static inline void timer_ll_clear_intr_status(timg_dev_t *hw, uint32_t mask)
 {
-    hw->hw_timer[timer_num].config.tx_en = counter_en;
+    hw->int_clr_timers.val = mask;
 }
 
 /**
- * @brief Get counter status.
+ * @brief Enable the register clock forever
  *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- *
- * @return
- *     - true Enable counter
- *     - false Disable conuter
+ * @param hw Timer Group register base address
+ * @param en True: Enable the register clock forever
+ *           False: Register clock is enabled only when register operation happens
  */
-static inline bool timer_ll_get_counter_enable(timg_dev_t *hw, timer_idx_t timer_num)
+static inline void timer_ll_enable_register_clock_always_on(timg_dev_t *hw, bool en)
 {
-    return hw->hw_timer[timer_num].config.tx_en;
+    hw->regclk.clk_en = en;
 }
 
 /**
- * @brief Set auto reload mode.
+ * @brief Get interrupt status register address
  *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param auto_reload_en True to enable auto reload mode, flase to disable auto reload mode
+ * @param hw Timer Group register base address
  *
- * @return None
+ * @return Interrupt status register address
  */
-static inline void timer_ll_set_auto_reload(timg_dev_t *hw, timer_idx_t timer_num, bool auto_reload_en)
+static inline volatile void *timer_ll_get_intr_status_reg(timg_dev_t *hw)
 {
-    hw->hw_timer[timer_num].config.tx_autoreload = auto_reload_en;
-}
-
-/**
- * @brief Get auto reload mode.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- *
- * @return
- *     - true Enable auto reload mode
- *     - false Disable auto reload mode
- */
-FORCE_INLINE_ATTR bool timer_ll_get_auto_reload(timg_dev_t *hw, timer_idx_t timer_num)
-{
-    return hw->hw_timer[timer_num].config.tx_autoreload;
-}
-
-/**
- * @brief Set the counter value to trigger the alarm.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param alarm_value Counter value to trigger the alarm
- *
- * @return None
- */
-FORCE_INLINE_ATTR void timer_ll_set_alarm_value(timg_dev_t *hw, timer_idx_t timer_num, uint64_t alarm_value)
-{
-    hw->hw_timer[timer_num].alarmhi.tx_alarm_hi = (uint32_t) (alarm_value >> 32);
-    hw->hw_timer[timer_num].alarmlo.tx_alarm_lo = (uint32_t) alarm_value;
-}
-
-/**
- * @brief Get the counter value to trigger the alarm.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param alarm_value Pointer to accept the counter value to trigger the alarm
- *
- * @return None
- */
-static inline void timer_ll_get_alarm_value(timg_dev_t *hw, timer_idx_t timer_num, uint64_t *alarm_value)
-{
-    *alarm_value = ((uint64_t) hw->hw_timer[timer_num].alarmhi.tx_alarm_hi << 32) | (hw->hw_timer[timer_num].alarmlo.tx_alarm_lo);
-}
-
-/**
- * @brief Set the alarm status, enable or disable the alarm.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param alarm_en True to enable alarm, false to disable alarm
- *
- * @return None
- */
-FORCE_INLINE_ATTR void timer_ll_set_alarm_enable(timg_dev_t *hw, timer_idx_t timer_num, bool alarm_en)
-{
-    hw->hw_timer[timer_num].config.tx_alarm_en = alarm_en;
-}
-
-/**
- * @brief Get the alarm status.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- *
- * @return
- *     - true Enable alarm
- *     - false Disable alarm
- */
-static inline bool timer_ll_get_alarm_enable(timg_dev_t *hw, timer_idx_t timer_num)
-{
-    return hw->hw_timer[timer_num].config.tx_alarm_en;
-}
-
-/**
- * @brief Enable timer interrupt.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- *
- * @return None
- */
-FORCE_INLINE_ATTR void timer_ll_intr_enable(timg_dev_t *hw, timer_idx_t timer_num)
-{
-    hw->int_ena_timers.val |= BIT(timer_num);
-}
-
-/**
- * @brief Disable timer interrupt.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- *
- * @return None
- */
-FORCE_INLINE_ATTR void timer_ll_intr_disable(timg_dev_t *hw, timer_idx_t timer_num)
-{
-    hw->int_ena_timers.val &= (~BIT(timer_num));
-}
-
-/**
- * @brief Disable timer interrupt.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- *
- * @return None
- */
-FORCE_INLINE_ATTR void timer_ll_clear_intr_status(timg_dev_t *hw, timer_idx_t timer_num)
-{
-    hw->int_clr_timers.val |= BIT(timer_num);
-}
-
-/**
- * @brief Get interrupt status.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param intr_status Interrupt status
- *
- * @return None
- */
-FORCE_INLINE_ATTR void timer_ll_get_intr_status(timg_dev_t *hw, uint32_t *intr_status)
-{
-    *intr_status = hw->int_st_timers.val & 0x01;
-}
-
-/**
- * @brief Get interrupt raw status.
- *
- * @param group_num Timer group number, 0 for TIMERG0 or 1 for TIMERG1
- * @param intr_raw_status Interrupt raw status
- *
- * @return None
- */
-FORCE_INLINE_ATTR void timer_ll_get_intr_raw_status(timer_group_t group_num, uint32_t *intr_raw_status)
-{
-    timg_dev_t *hw = TIMER_LL_GET_HW(group_num);
-    *intr_raw_status = hw->int_raw_timers.val & 0x01;
-}
-
-/**
- * @brief Set the level interrupt status, enable or disable the level interrupt.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param level_int_en True to enable level interrupt, false to disable level interrupt
- *
- * @return None
- */
-static inline void timer_ll_set_level_int_enable(timg_dev_t *hw, timer_idx_t timer_num, bool level_int_en)
-{
-    // Only "level" interrupts are supported on this target
-}
-
-/**
- * @brief Get the level interrupt status.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- *
- * @return
- *     - true Enable level interrupt
- *     - false Disable level interrupt
- */
-static inline bool timer_ll_get_level_int_enable(timg_dev_t *hw, timer_idx_t timer_num)
-{
-    // Only "level" interrupts are supported on this target
-    return true;
-}
-
-/**
- * @brief Set the edge interrupt status, enable or disable the edge interrupt.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- * @param edge_int_en True to enable edge interrupt, false to disable edge interrupt
- *
- * @return None
- */
-static inline void timer_ll_set_edge_int_enable(timg_dev_t *hw, timer_idx_t timer_num, bool edge_int_en)
-{
-    // edge interrupt is not supported on H2
-}
-
-/**
- * @brief Get the edge interrupt status.
- *
- * @param hw Beginning address of the peripheral registers.
- * @param timer_num The timer number
- *
- * @return
- *     - true Enable edge interrupt
- *     - false Disable edge interrupt
- */
-static inline bool timer_ll_get_edge_int_enable(timg_dev_t *hw, timer_idx_t timer_num)
-{
-    // edge interrupt is not supported on H2
-    return false;
-}
-
-/**
- * @brief Get interrupt status register address.
- *
- * @param hw Beginning address of the peripheral registers.
- *
- * @return uint32_t Interrupt status register address
- */
-static inline uint32_t timer_ll_get_intr_status_reg(timg_dev_t *hw)
-{
-    return (uint32_t) & (hw->int_st_timers.val);
-}
-
-static inline uint32_t timer_ll_get_intr_mask_bit(timg_dev_t *hw, timer_idx_t timer_num)
-{
-    return (1U << timer_num);
-}
-
-/**
- * @brief Set clock source.
- *
- * @param hal Context of the HAL layer
- * @param use_xtal_en True to use XTAL clock, flase to use APB clock
- *
- * @return None
- */
-static inline void timer_ll_set_use_xtal(timg_dev_t *hw, timer_idx_t timer_num, bool use_xtal_en)
-{
-    hw->hw_timer[timer_num].config.tx_use_xtal = use_xtal_en;
-}
-
-/**
- * @brief Get clock source.
- *
- * @param hal Context of the HAL layer
- *
- * @return
- *     - true Use XTAL clock
- *     - false Use APB clock
- */
-static inline bool timer_ll_get_use_xtal(timg_dev_t *hw, timer_idx_t timer_num)
-{
-    return hw->hw_timer[timer_num].config.tx_use_xtal;
+    return &hw->int_st_timers;
 }
 
 #ifdef __cplusplus

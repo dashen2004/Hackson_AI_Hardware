@@ -37,11 +37,13 @@
 
 #include "common/code_utils.hpp"
 #include "common/locator_getters.hpp"
-#include "common/logging.hpp"
+#include "common/log.hpp"
 #include "common/random.hpp"
 
 namespace ot {
 namespace Utils {
+
+RegisterLogModule("ChannelMonitor");
 
 const uint32_t ChannelMonitor::mScanChannelMasks[kNumChannelMasks] = {
 #if OPENTHREAD_CONFIG_RADIO_915MHZ_OQPSK_SUPPORT
@@ -62,9 +64,9 @@ ChannelMonitor::ChannelMonitor(Instance &aInstance)
     : InstanceLocator(aInstance)
     , mChannelMaskIndex(0)
     , mSampleCount(0)
-    , mTimer(aInstance, ChannelMonitor::HandleTimer)
+    , mTimer(aInstance)
 {
-    memset(mChannelOccupancy, 0, sizeof(mChannelOccupancy));
+    ClearAllBytes(mChannelOccupancy);
 }
 
 Error ChannelMonitor::Start(void)
@@ -74,7 +76,7 @@ Error ChannelMonitor::Start(void)
     VerifyOrExit(!IsRunning(), error = kErrorAlready);
     Clear();
     mTimer.Start(kTimerInterval);
-    otLogDebgUtil("ChannelMonitor: Starting");
+    LogDebg("Starting");
 
 exit:
     return error;
@@ -86,7 +88,7 @@ Error ChannelMonitor::Stop(void)
 
     VerifyOrExit(IsRunning(), error = kErrorAlready);
     mTimer.Stop();
-    otLogDebgUtil("ChannelMonitor: Stopping");
+    LogDebg("Stopping");
 
 exit:
     return error;
@@ -96,9 +98,9 @@ void ChannelMonitor::Clear(void)
 {
     mChannelMaskIndex = 0;
     mSampleCount      = 0;
-    memset(mChannelOccupancy, 0, sizeof(mChannelOccupancy));
+    ClearAllBytes(mChannelOccupancy);
 
-    otLogDebgUtil("ChannelMonitor: Clearing data");
+    LogDebg("Clearing data");
 }
 
 uint16_t ChannelMonitor::GetChannelOccupancy(uint8_t aChannel) const
@@ -110,11 +112,6 @@ uint16_t ChannelMonitor::GetChannelOccupancy(uint8_t aChannel) const
 
 exit:
     return occupancy;
-}
-
-void ChannelMonitor::HandleTimer(Timer &aTimer)
-{
-    aTimer.Get<ChannelMonitor>().HandleTimer();
 }
 
 void ChannelMonitor::HandleTimer(void)
@@ -154,9 +151,9 @@ void ChannelMonitor::HandleEnergyScanResult(Mac::EnergyScanResult *aResult)
 
         OT_ASSERT(channelIndex < kNumChannels);
 
-        otLogDebgUtil("ChannelMonitor: channel: %d, rssi:%d", aResult->mChannel, aResult->mMaxRssi);
+        LogDebg("channel: %d, rssi:%d", aResult->mChannel, aResult->mMaxRssi);
 
-        if (aResult->mMaxRssi != OT_RADIO_RSSI_INVALID)
+        if (aResult->mMaxRssi != Radio::kInvalidRssi)
         {
             newValue = (aResult->mMaxRssi >= kRssiThreshold) ? kMaxOccupancy : 0;
         }
@@ -189,7 +186,7 @@ void ChannelMonitor::HandleEnergyScanResult(Mac::EnergyScanResult *aResult)
 
 void ChannelMonitor::LogResults(void)
 {
-#if (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_UTIL == 1)
+#if OT_SHOULD_LOG_AT(OT_LOG_LEVEL_INFO)
     const size_t        kStringSize = 128;
     String<kStringSize> logString;
 
@@ -198,7 +195,7 @@ void ChannelMonitor::LogResults(void)
         logString.Append("%02x ", channel >> 8);
     }
 
-    otLogInfoUtil("ChannelMonitor: %u [%s]", mSampleCount, logString.AsCString());
+    LogInfo("%lu [%s]", ToUlong(mSampleCount), logString.AsCString());
 #endif
 }
 

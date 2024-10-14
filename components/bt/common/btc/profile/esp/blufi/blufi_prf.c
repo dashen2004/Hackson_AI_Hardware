@@ -1,16 +1,8 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <stdint.h>
 
@@ -98,7 +90,7 @@ void btc_blufi_report_error(esp_blufi_error_state_t state)
     msg.act = ESP_BLUFI_EVENT_REPORT_ERROR;
     esp_blufi_cb_param_t param;
     param.report_error.state = state;
-    btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL);
+    btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
 }
 
 void btc_blufi_recv_handler(uint8_t *data, int len)
@@ -144,6 +136,16 @@ void btc_blufi_recv_handler(uint8_t *data, int len)
 
     if (BLUFI_FC_IS_FRAG(hdr->fc)) {
         if (blufi_env.offset == 0) {
+            /*
+            blufi_env.aggr_buf should be NULL if blufi_env.offset is 0.
+            It is possible that the process of sending fragment packet
+            has not been completed
+            */
+            if (blufi_env.aggr_buf) {
+                BTC_TRACE_ERROR("%s msg error, blufi_env.aggr_buf is not freed\n", __func__);
+                btc_blufi_report_error(ESP_BLUFI_MSG_STATE_ERROR);
+                return;
+            }
             blufi_env.total_len = hdr->data[0] | (((uint16_t) hdr->data[1]) << 8);
             blufi_env.aggr_buf = osi_malloc(blufi_env.total_len);
             if (blufi_env.aggr_buf == NULL) {
@@ -163,6 +165,18 @@ void btc_blufi_recv_handler(uint8_t *data, int len)
 
     } else {
         if (blufi_env.offset > 0) {   /* if previous pkt is frag */
+            /* blufi_env.aggr_buf should not be NULL */
+            if (blufi_env.aggr_buf == NULL) {
+                BTC_TRACE_ERROR("%s buffer is NULL\n", __func__);
+                btc_blufi_report_error(ESP_BLUFI_DH_MALLOC_ERROR);
+                return;
+            }
+            /* payload length should be equal to total_len */
+            if ((blufi_env.offset + hdr->data_len) != blufi_env.total_len) {
+                BTC_TRACE_ERROR("%s payload is longer than packet length, len %d \n", __func__, blufi_env.total_len);
+                btc_blufi_report_error(ESP_BLUFI_DATA_FORMAT_ERROR);
+                return;
+            }
             memcpy(blufi_env.aggr_buf + blufi_env.offset, hdr->data, hdr->data_len);
 
             btc_blufi_protocol_handler(hdr->type, blufi_env.aggr_buf, blufi_env.total_len);
@@ -267,6 +281,7 @@ static void btc_blufi_wifi_conn_report(uint8_t opmode, uint8_t sta_conn_state, u
     data_len = info_len + 3;
     p = data = osi_malloc(data_len);
     if (data == NULL) {
+        BTC_TRACE_ERROR("%s no mem\n", __func__);
         return;
     }
 
@@ -321,6 +336,21 @@ static void btc_blufi_wifi_conn_report(uint8_t opmode, uint8_t sta_conn_state, u
             *p++ = 1;
             *p++ = info->softap_channel;
         }
+        if (info->sta_max_conn_retry_set) {
+            *p++ = BLUFI_TYPE_DATA_SUBTYPE_STA_MAX_CONN_RETRY;
+            *p++ = 1;
+            *p++ = info->sta_max_conn_retry;
+        }
+        if (info->sta_conn_end_reason_set) {
+            *p++ = BLUFI_TYPE_DATA_SUBTYPE_STA_CONN_END_REASON;
+            *p++ = 1;
+            *p++ = info->sta_conn_end_reason;
+        }
+        if (info->sta_conn_rssi_set) {
+            *p++ = BLUFI_TYPE_DATA_SUBTYPE_STA_CONN_RSSI;
+            *p++ = 1;
+            *p++ = info->sta_conn_rssi;
+        }
     }
     if (p - data > data_len) {
         BTC_TRACE_ERROR("%s len error %d %d\n", __func__, (int)(p - data), data_len);
@@ -337,7 +367,7 @@ void btc_blufi_send_wifi_list(uint16_t apCount, esp_blufi_ap_record_t *list)
     int data_len;
     uint8_t *p;
     // malloc size: (len + RSSI + ssid buffer) * apCount;
-    uint malloc_size = (1 + 1 + sizeof(list->ssid)) * apCount;
+    uint32_t malloc_size = (1 + 1 + sizeof(list->ssid)) * apCount;
     p = data = osi_malloc(malloc_size);
     if (data == NULL) {
         BTC_TRACE_ERROR("malloc error\n");
@@ -346,7 +376,7 @@ void btc_blufi_send_wifi_list(uint16_t apCount, esp_blufi_ap_record_t *list)
     type = BLUFI_BUILD_TYPE(BLUFI_TYPE_DATA, BLUFI_TYPE_DATA_SUBTYPE_WIFI_LIST);
     for (int i = 0; i < apCount; ++i)
     {
-        uint len = strlen((const char *)list[i].ssid);
+        uint32_t len = strlen((const char *)list[i].ssid);
         data_len = (p - data);
         //current_len + ssid + rssi + total_len_value
         if((data_len + len + 1 + 1) >  malloc_size) {
@@ -384,6 +414,7 @@ static void btc_blufi_send_error_info(uint8_t state)
     data_len = 1;
     p = data = osi_malloc(data_len);
     if (data == NULL) {
+        BTC_TRACE_ERROR("%s no mem\n", __func__);
         return;
     }
 
@@ -659,6 +690,7 @@ void btc_blufi_call_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
 
         dst->wifi_conn_report.extra_info = osi_calloc(sizeof(esp_blufi_extra_info_t));
         if (dst->wifi_conn_report.extra_info == NULL) {
+            BTC_TRACE_ERROR("%s no mem line %d\n", __func__, __LINE__);
             return;
         }
 
@@ -673,6 +705,9 @@ void btc_blufi_call_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
                 memcpy(dst->wifi_conn_report.extra_info->sta_ssid, src_info->sta_ssid, src_info->sta_ssid_len);
                 dst->wifi_conn_report.extra_info->sta_ssid_len = src_info->sta_ssid_len;
                 dst->wifi_conn_report.extra_info_len += (dst->wifi_conn_report.extra_info->sta_ssid_len + 2);
+            } else {
+                BTC_TRACE_ERROR("%s no mem line %d\n", __func__, __LINE__);
+                return;
             }
         }
         if (src_info->sta_passwd) {
@@ -681,6 +716,9 @@ void btc_blufi_call_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
                 memcpy(dst->wifi_conn_report.extra_info->sta_passwd, src_info->sta_passwd, src_info->sta_passwd_len);
                 dst->wifi_conn_report.extra_info->sta_passwd_len = src_info->sta_passwd_len;
                 dst->wifi_conn_report.extra_info_len += (dst->wifi_conn_report.extra_info->sta_passwd_len + 2);
+            } else {
+                 BTC_TRACE_ERROR("%s no mem line %d\n", __func__, __LINE__);
+                 return;
             }
         }
         if (src_info->softap_ssid) {
@@ -689,6 +727,9 @@ void btc_blufi_call_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
                 memcpy(dst->wifi_conn_report.extra_info->softap_ssid, src_info->softap_ssid, src_info->softap_ssid_len);
                 dst->wifi_conn_report.extra_info->softap_ssid_len = src_info->softap_ssid_len;
                 dst->wifi_conn_report.extra_info_len += (dst->wifi_conn_report.extra_info->softap_ssid_len + 2);
+            } else {
+                 BTC_TRACE_ERROR("%s no mem line %d\n", __func__, __LINE__);
+                 return;
             }
         }
         if (src_info->softap_passwd) {
@@ -697,6 +738,9 @@ void btc_blufi_call_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
                 memcpy(dst->wifi_conn_report.extra_info->softap_passwd, src_info->softap_passwd, src_info->softap_passwd_len);
                 dst->wifi_conn_report.extra_info->softap_passwd_len = src_info->softap_passwd_len;
                 dst->wifi_conn_report.extra_info_len += (dst->wifi_conn_report.extra_info->softap_passwd_len + 2);
+            } else {
+                 BTC_TRACE_ERROR("%s no mem line %d\n", __func__, __LINE__);
+                 return;
             }
         }
         if (src_info->softap_authmode_set) {
@@ -714,6 +758,21 @@ void btc_blufi_call_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
             dst->wifi_conn_report.extra_info->softap_channel = src_info->softap_channel;
             dst->wifi_conn_report.extra_info_len += (1 + 2);
         }
+        if (src_info->sta_max_conn_retry_set) {
+            dst->wifi_conn_report.extra_info->sta_max_conn_retry_set = src_info->sta_max_conn_retry_set;
+            dst->wifi_conn_report.extra_info->sta_max_conn_retry = src_info->sta_max_conn_retry;
+            dst->wifi_conn_report.extra_info_len += (1 + 2);
+        }
+        if (src_info->sta_conn_end_reason_set) {
+            dst->wifi_conn_report.extra_info->sta_conn_end_reason_set = src_info->sta_conn_end_reason_set;
+            dst->wifi_conn_report.extra_info->sta_conn_end_reason = src_info->sta_conn_end_reason;
+            dst->wifi_conn_report.extra_info_len += (1 + 2);
+        }
+        if (src_info->sta_conn_rssi_set) {
+            dst->wifi_conn_report.extra_info->sta_conn_rssi_set = src_info->sta_conn_rssi_set;
+            dst->wifi_conn_report.extra_info->sta_conn_rssi = src_info->sta_conn_rssi;
+            dst->wifi_conn_report.extra_info_len += (1 + 2);
+        }
         break;
     }
     case BTC_BLUFI_ACT_SEND_WIFI_LIST:{
@@ -724,6 +783,7 @@ void btc_blufi_call_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
         }
         dst->wifi_list.list = (esp_blufi_ap_record_t *)osi_malloc(sizeof(esp_blufi_ap_record_t) * src->wifi_list.apCount);
         if (dst->wifi_list.list == NULL) {
+            BTC_TRACE_ERROR("%s no mem line %d\n", __func__, __LINE__);
             break;
         }
         memcpy(dst->wifi_list.list, list, sizeof(esp_blufi_ap_record_t) * src->wifi_list.apCount);

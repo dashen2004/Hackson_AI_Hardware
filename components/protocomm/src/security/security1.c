@@ -1,22 +1,29 @@
-// Copyright 2018 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2018-2022 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <esp_err.h>
 #include <esp_log.h>
+#include <inttypes.h>
+
+/* TODO: Currently MBEDTLS_ECDH_LEGACY_CONTEXT is enabled by default
+ * when MBEDTLS_ECP_RESTARTABLE is enabled.
+ * This is a temporary workaround to allow that.
+ *
+ * The legacy option is soon going to be removed in future mbedtls
+ * versions and this workaround will be removed once the appropriate
+ * solution is available.
+ */
+#ifdef CONFIG_MBEDTLS_ECDH_LEGACY_CONTEXT
+#define ACCESS_ECDH(S, var) S->MBEDTLS_PRIVATE(var)
+#else
+#define ACCESS_ECDH(S, var) S->MBEDTLS_PRIVATE(ctx).MBEDTLS_PRIVATE(mbed_ecdh).MBEDTLS_PRIVATE(var)
+#endif
 
 #include <mbedtls/aes.h>
 #include <mbedtls/sha256.h>
@@ -24,7 +31,7 @@
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/ecdh.h>
 #include <mbedtls/error.h>
-#include <mbedtls/ssl_internal.h>
+#include <mbedtls/constant_time.h>
 
 #include <protocomm_security.h>
 #include <protocomm_security1.h>
@@ -34,6 +41,13 @@
 #include "constants.pb-c.h"
 
 static const char* TAG = "security1";
+
+/*NOTE: As both the security schemes share the events,
+ * we need to define the event base only once.
+ */
+#ifndef CONFIG_ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_2
+ESP_EVENT_DEFINE_BASE(PROTOCOMM_SECURITY_SESSION_EVENT);
+#endif
 
 #define PUBLIC_KEY_LEN  32
 #define SZ_RANDOM       16
@@ -116,10 +130,13 @@ static esp_err_t handle_session_command1(session_t *cur_session,
     hexdump("Dec Client verifier", check_buf, sizeof(check_buf));
 
     /* constant time memcmp */
-    if (mbedtls_ssl_safer_memcmp(check_buf, cur_session->device_pubkey,
+    if (mbedtls_ct_memcmp(check_buf, cur_session->device_pubkey,
                                  sizeof(cur_session->device_pubkey)) != 0) {
         ESP_LOGE(TAG, "Key mismatch. Close connection");
         mbedtls_aes_free(&cur_session->ctx_aes);
+        if (esp_event_post(PROTOCOMM_SECURITY_SESSION_EVENT, PROTOCOMM_SECURITY_SESSION_CREDENTIALS_MISMATCH, NULL, 0, portMAX_DELAY) != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to post credential mismatch event");
+        }
         return ESP_FAIL;
     }
 
@@ -171,6 +188,10 @@ static esp_err_t handle_session_command1(session_t *cur_session,
     resp->sec1 = out;
 
     cur_session->state = SESSION_STATE_DONE;
+    if (esp_event_post(PROTOCOMM_SECURITY_SESSION_EVENT, PROTOCOMM_SECURITY_SESSION_SETUP_OK, NULL, 0, portMAX_DELAY) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to post secure session setup success event");
+    }
+
     ESP_LOGD(TAG, "Secure session established successfully");
     return ESP_OK;
 }
@@ -180,7 +201,7 @@ static esp_err_t sec1_new_session(protocomm_security_handle_t handle, uint32_t s
 static esp_err_t handle_session_command0(session_t *cur_session,
                                          uint32_t session_id,
                                          SessionData *req, SessionData *resp,
-                                         const protocomm_security_pop_t *pop)
+                                         const protocomm_security1_params_t *pop)
 {
     ESP_LOGD(TAG, "Request to handle setup0_command");
     Sec1Payload *in = (Sec1Payload *) req->sec1;
@@ -195,6 +216,9 @@ static esp_err_t handle_session_command0(session_t *cur_session,
 
     if (in->sc0->client_pubkey.len != PUBLIC_KEY_LEN) {
         ESP_LOGE(TAG, "Invalid public key length");
+        if (esp_event_post(PROTOCOMM_SECURITY_SESSION_EVENT, PROTOCOMM_SECURITY_SESSION_INVALID_SECURITY_PARAMS, NULL, 0, portMAX_DELAY) != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to post secure session invalid security params event");
+        }
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -210,6 +234,7 @@ static esp_err_t handle_session_command0(session_t *cur_session,
     }
 
     mbedtls_ecdh_init(ctx_server);
+    mbedtls_ecdh_setup(ctx_server, MBEDTLS_ECP_DP_CURVE25519);
     mbedtls_ctr_drbg_init(ctr_drbg);
     mbedtls_entropy_init(entropy);
 
@@ -221,14 +246,14 @@ static esp_err_t handle_session_command0(session_t *cur_session,
         goto exit_cmd0;
     }
 
-    mbed_err = mbedtls_ecp_group_load(&ctx_server->grp, MBEDTLS_ECP_DP_CURVE25519);
+    mbed_err = mbedtls_ecp_group_load(ACCESS_ECDH(&ctx_server, grp), MBEDTLS_ECP_DP_CURVE25519);
     if (mbed_err != 0) {
         ESP_LOGE(TAG, "Failed at mbedtls_ecp_group_load with error code : -0x%x", -mbed_err);
         ret = ESP_FAIL;
         goto exit_cmd0;
     }
 
-    mbed_err = mbedtls_ecdh_gen_public(&ctx_server->grp, &ctx_server->d, &ctx_server->Q,
+    mbed_err = mbedtls_ecdh_gen_public(ACCESS_ECDH(&ctx_server, grp), ACCESS_ECDH(&ctx_server, d), ACCESS_ECDH(&ctx_server, Q),
                                        mbedtls_ctr_drbg_random, ctr_drbg);
     if (mbed_err != 0) {
         ESP_LOGE(TAG, "Failed at mbedtls_ecdh_gen_public with error code : -0x%x", -mbed_err);
@@ -236,7 +261,7 @@ static esp_err_t handle_session_command0(session_t *cur_session,
         goto exit_cmd0;
     }
 
-    mbed_err = mbedtls_mpi_write_binary(&ctx_server->Q.X,
+    mbed_err = mbedtls_mpi_write_binary(ACCESS_ECDH(&ctx_server, Q).MBEDTLS_PRIVATE(X),
                                         cur_session->device_pubkey,
                                         PUBLIC_KEY_LEN);
     if (mbed_err != 0) {
@@ -253,7 +278,7 @@ static esp_err_t handle_session_command0(session_t *cur_session,
     hexdump("Device pubkey", dev_pubkey, PUBLIC_KEY_LEN);
     hexdump("Client pubkey", cli_pubkey, PUBLIC_KEY_LEN);
 
-    mbed_err = mbedtls_mpi_lset(&ctx_server->Qp.Z, 1);
+    mbed_err = mbedtls_mpi_lset(ACCESS_ECDH(&ctx_server, Qp).MBEDTLS_PRIVATE(Z), 1);
     if (mbed_err != 0) {
         ESP_LOGE(TAG, "Failed at mbedtls_mpi_lset with error code : -0x%x", -mbed_err);
         ret = ESP_FAIL;
@@ -261,7 +286,7 @@ static esp_err_t handle_session_command0(session_t *cur_session,
     }
 
     flip_endian(cur_session->client_pubkey, PUBLIC_KEY_LEN);
-    mbed_err = mbedtls_mpi_read_binary(&ctx_server->Qp.X, cli_pubkey, PUBLIC_KEY_LEN);
+    mbed_err = mbedtls_mpi_read_binary(ACCESS_ECDH(&ctx_server, Qp).MBEDTLS_PRIVATE(X), cli_pubkey, PUBLIC_KEY_LEN);
     flip_endian(cur_session->client_pubkey, PUBLIC_KEY_LEN);
     if (mbed_err != 0) {
         ESP_LOGE(TAG, "Failed at mbedtls_mpi_read_binary with error code : -0x%x", -mbed_err);
@@ -269,15 +294,15 @@ static esp_err_t handle_session_command0(session_t *cur_session,
         goto exit_cmd0;
     }
 
-    mbed_err = mbedtls_ecdh_compute_shared(&ctx_server->grp, &ctx_server->z, &ctx_server->Qp,
-                                           &ctx_server->d, mbedtls_ctr_drbg_random, ctr_drbg);
+    mbed_err = mbedtls_ecdh_compute_shared(ACCESS_ECDH(&ctx_server, grp), ACCESS_ECDH(&ctx_server, z), ACCESS_ECDH(&ctx_server, Qp),
+                                           ACCESS_ECDH(&ctx_server, d), mbedtls_ctr_drbg_random, ctr_drbg);
     if (mbed_err != 0) {
         ESP_LOGE(TAG, "Failed at mbedtls_ecdh_compute_shared with error code : -0x%x", -mbed_err);
         ret = ESP_FAIL;
         goto exit_cmd0;
     }
 
-    mbed_err = mbedtls_mpi_write_binary(&ctx_server->z, cur_session->sym_key, PUBLIC_KEY_LEN);
+    mbed_err = mbedtls_mpi_write_binary(ACCESS_ECDH(&ctx_server, z), cur_session->sym_key, PUBLIC_KEY_LEN);
     if (mbed_err != 0) {
         ESP_LOGE(TAG, "Failed at mbedtls_mpi_write_binary with error code : -0x%x", -mbed_err);
         ret = ESP_FAIL;
@@ -289,7 +314,7 @@ static esp_err_t handle_session_command0(session_t *cur_session,
         ESP_LOGD(TAG, "Adding proof of possession");
         uint8_t sha_out[PUBLIC_KEY_LEN];
 
-        mbed_err = mbedtls_sha256_ret((const unsigned char *) pop->data, pop->len, sha_out, 0);
+        mbed_err = mbedtls_sha256((const unsigned char *) pop->data, pop->len, sha_out, 0);
         if (mbed_err != 0) {
             ESP_LOGE(TAG, "Failed at mbedtls_sha256_ret with error code : -0x%x", -mbed_err);
             ret = ESP_FAIL;
@@ -361,7 +386,7 @@ exit_cmd0:
 static esp_err_t sec1_session_setup(session_t *cur_session,
                                     uint32_t session_id,
                                     SessionData *req, SessionData *resp,
-                                    const protocomm_security_pop_t *pop)
+                                    const protocomm_security1_params_t *pop)
 {
     Sec1Payload *in = (Sec1Payload *) req->sec1;
     esp_err_t ret;
@@ -452,7 +477,7 @@ static esp_err_t sec1_new_session(protocomm_security_handle_t handle, uint32_t s
 
     if (cur_session->id != -1) {
         /* Only one session is allowed at a time */
-        ESP_LOGE(TAG, "Closing old session with id %u", cur_session->id);
+        ESP_LOGE(TAG, "Closing old session with id %" PRIu32, cur_session->id);
         sec1_close_session(cur_session, session_id);
     }
 
@@ -488,19 +513,15 @@ static esp_err_t sec1_cleanup(protocomm_security_handle_t handle)
 static esp_err_t sec1_decrypt(protocomm_security_handle_t handle,
                               uint32_t session_id,
                               const uint8_t *inbuf, ssize_t inlen,
-                              uint8_t *outbuf, ssize_t *outlen)
+                              uint8_t **outbuf, ssize_t *outlen)
 {
     session_t *cur_session = (session_t *) handle;
     if (!cur_session) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (*outlen < inlen) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
     if (!cur_session || cur_session->id != session_id) {
-        ESP_LOGE(TAG, "Session with ID %d not found", session_id);
+        ESP_LOGE(TAG, "Session with ID %" PRId32 "not found", session_id);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -510,8 +531,14 @@ static esp_err_t sec1_decrypt(protocomm_security_handle_t handle,
     }
 
     *outlen = inlen;
+    *outbuf = (uint8_t *) malloc(*outlen);
+    if (!*outbuf) {
+        ESP_LOGE(TAG, "Failed to allocate encrypt/decrypt buf len %d", *outlen);
+        return ESP_ERR_NO_MEM;
+    }
+
     int ret = mbedtls_aes_crypt_ctr(&cur_session->ctx_aes, inlen, &cur_session->nc_off,
-                                    cur_session->rand, cur_session->stb, inbuf, outbuf);
+                                    cur_session->rand, cur_session->stb, inbuf, *outbuf);
     if (ret != 0) {
         ESP_LOGE(TAG, "Failed at mbedtls_aes_crypt_ctr with error code : %d", ret);
         return ESP_FAIL;
@@ -520,7 +547,7 @@ static esp_err_t sec1_decrypt(protocomm_security_handle_t handle,
 }
 
 static esp_err_t sec1_req_handler(protocomm_security_handle_t handle,
-                                  const protocomm_security_pop_t *pop,
+                                  const void *sec_params,
                                   uint32_t session_id,
                                   const uint8_t *inbuf, ssize_t inlen,
                                   uint8_t **outbuf, ssize_t *outlen,
@@ -533,7 +560,7 @@ static esp_err_t sec1_req_handler(protocomm_security_handle_t handle,
     }
 
     if (session_id != cur_session->id) {
-        ESP_LOGE(TAG, "Invalid session ID : %d (expected %d)", session_id, cur_session->id);
+        ESP_LOGE(TAG, "Invalid session ID:%" PRId32 "(expected %" PRId32 ")", session_id, cur_session->id);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -553,7 +580,7 @@ static esp_err_t sec1_req_handler(protocomm_security_handle_t handle,
     }
 
     session_data__init(&resp);
-    ret = sec1_session_setup(cur_session, session_id, req, &resp, pop);
+    ret = sec1_session_setup(cur_session, session_id, req, &resp, (protocomm_security1_params_t *) sec_params);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Session setup error %d", ret);
         session_data__free_unpacked(req, NULL);

@@ -16,7 +16,7 @@
 135        xTaskGetTickCount
 57        xTaskGetTickCountFromISR
 136        uxTaskGetNumberOfTasks
-137        pcTaskGetTaskName                   xTaskToQuery=%t
+137        pcTaskGetName                       xTaskToQuery=%t
 138        uxTaskGetStackHighWaterMark         xTask=%t
 139        vTaskSetApplicationTaskTag          xTask=%t pxHookFunction=%u
 140        xTaskGetApplicationTaskTag          xTask=%t
@@ -52,7 +52,7 @@
 162        xTimerGetTimerDaemonTaskHandle
 163        xTimerPendFunctionCallFromISR       xFunctionToPend=%u pvParameter1=%u ulParameter2=%u pxHigherPriorityTaskWoken=%u
 164        xTimerPendFunctionCall              xFunctionToPend=%u pvParameter1=%u ulParameter2=%u xTicksToWait=%u
-165        pcTimerGetTimerName                 xTimer=%u
+165        pcTimerGetName                      xTimer=%u
 166        xTimerCreateTimerTask
 167        xTimerGenericCommand                xTimer=%u xCommandID=%u xOptionalValue=%u pxHigherPriorityTaskWoken=%u xTicksToWait=%u
 53        xQueueGenericSend                   xQueue=%I pvItemToQueue=%p xTicksToWait=%u xCopyPosition=%u
@@ -102,6 +102,13 @@
 60       xEventGroupGetBitsFromISR           xEventGroup=%u
 199       vEventGroupDelete                   xEventGroup=%u
 200       uxEventGroupGetNumber               xEventGroup=%u
+201       xStreamBufferCreate                 xIsMessageBuffer=%u pxStreamBuffer=%p
+202       vStreamBufferDelete                 xStreamBuffer=%p
+203       xStreamBufferReset                  xStreamBuffer=%p
+204       xStreamBufferSend                   xStreamBuffer=%p xBytesSent=%u
+205       xStreamBufferSendFromISR            xStreamBuffer=%p xBytesSent=%u
+206       xStreamBufferReceive                xStreamBuffer=%p xReceivedLength=%u
+207       xStreamBufferReceiveFromISR         xStreamBuffer=%p xReceivedLength=%u
 
 512       esp_sysview_heap_trace_alloc        addr=%p size=%u callers=%x
 513       esp_sysview_heap_trace_free        addr=%p callers=%x

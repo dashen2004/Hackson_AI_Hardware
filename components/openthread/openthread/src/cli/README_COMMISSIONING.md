@@ -1,10 +1,14 @@
 # OpenThread CLI - Commissioning
 
+## Overview
+
+Commissioning is the process of adding a new Thread device, called the Joiner, to a Thread network. This process is done under guidance of a [Commissioner](README_COMMISSIONER.md).
+
 ## Quick Start
 
 ### Form Network
 
-Form a network with the device that has Commissioner support.
+Form a network with the Thread device that has Commissioner support.
 
 1. Generate and view new network configuration.
 
@@ -21,7 +25,7 @@ Form a network with the device that has Commissioner support.
    Network Name: OpenThread-8f28
    PAN ID: 0x8f28
    PSKc: c23a76e98f1a6483639b1ac1271e2e27
-   Security Policy: 0, onrcb
+   Security Policy: 0, onrc
    Done
    ```
 
@@ -107,7 +111,7 @@ Form a network with the device that has Commissioner support.
    Network Name: OpenThread-8f28
    PAN ID: 0x8f28
    PSKc: c23a76e98f1a6483639b1ac1271e2e27
-   Security Policy: 0, onrcb
+   Security Policy: 0, onrc
    Done
    ```
 

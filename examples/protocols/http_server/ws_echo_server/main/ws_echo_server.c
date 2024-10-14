@@ -13,7 +13,6 @@
 #include <esp_system.h>
 #include <nvs_flash.h>
 #include <sys/param.h>
-#include "nvs_flash.h"
 #include "esp_netif.h"
 #include "esp_eth.h"
 #include "protocol_examples_common.h"
@@ -56,9 +55,16 @@ static void ws_async_send(void *arg)
 static esp_err_t trigger_async_send(httpd_handle_t handle, httpd_req_t *req)
 {
     struct async_resp_arg *resp_arg = malloc(sizeof(struct async_resp_arg));
+    if (resp_arg == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
     resp_arg->hd = req->handle;
     resp_arg->fd = httpd_req_to_sockfd(req);
-    return httpd_queue_work(handle, ws_async_send, resp_arg);
+    esp_err_t ret = httpd_queue_work(handle, ws_async_send, resp_arg);
+    if (ret != ESP_OK) {
+        free(resp_arg);
+    }
+    return ret;
 }
 
 /*
@@ -141,10 +147,10 @@ static httpd_handle_t start_webserver(void)
     return NULL;
 }
 
-static void stop_webserver(httpd_handle_t server)
+static esp_err_t stop_webserver(httpd_handle_t server)
 {
     // Stop the httpd server
-    httpd_stop(server);
+    return httpd_stop(server);
 }
 
 static void disconnect_handler(void* arg, esp_event_base_t event_base,
@@ -153,8 +159,11 @@ static void disconnect_handler(void* arg, esp_event_base_t event_base,
     httpd_handle_t* server = (httpd_handle_t*) arg;
     if (*server) {
         ESP_LOGI(TAG, "Stopping webserver");
-        stop_webserver(*server);
-        *server = NULL;
+        if (stop_webserver(*server) == ESP_OK) {
+            *server = NULL;
+        } else {
+            ESP_LOGE(TAG, "Failed to stop http server");
+        }
     }
 }
 

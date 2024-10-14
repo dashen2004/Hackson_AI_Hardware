@@ -19,9 +19,6 @@
    suitetest- custom prefix for when we want to use custom suite setup/teardown
 */
 
-/* Support for Meta Test Rig */
-#define TEST_CASE(a)
-
 /* Include Passthroughs for Linking Tests */
 void putcharSpy(int c) { (void)putchar(c);}
 void flushSpy(void) {}
@@ -108,10 +105,12 @@ void custtest_ThisTestPassesWhenCustomTeardownRan(void)
     TEST_ASSERT_EQUAL_MESSAGE(2, CounterTeardown, "Custom Teardown Wasn't Run");
 }
 
+#ifndef UNITY_EXCLUDE_TESTING_NEW_COMMENTS
 //void test_NewStyleCommentsShouldBeIgnored(void)
 //{
 //    TEST_ASSERT_FAIL("New Style Comments Should Be Ignored");
 //}
+#endif
 
 void test_NotBeConfusedByLongComplicatedStrings(void)
 {
@@ -120,10 +119,13 @@ void test_NotBeConfusedByLongComplicatedStrings(void)
     TEST_ASSERT_EQUAL_STRING_MESSAGE(crazyString, crazyString, "These Strings Are The Same");
 }
 
+/* The next test should still appear even though we have this confusing nested comment thing going on http://looks_like_comments.com */
 void test_NotDisappearJustBecauseTheTestBeforeAndAfterHaveCrazyStrings(void)
 {
     TEST_ASSERT_TRUE_MESSAGE(1, "1 Should be True");
+    /* still should not break anything */
 }
+/* nor should this */
 
 void test_StillNotBeConfusedByLongComplicatedStrings(void)
 {
@@ -162,6 +164,17 @@ void paratest_ShouldHandleParameterizedTestsThatFail(int Num)
     TEST_ASSERT_EQUAL_MESSAGE(3, Num, "This call should fail");
 }
 
+int isArgumentOne(int i)
+{
+    return i == 1;
+}
+
+TEST_CASE(isArgumentOne)
+void paratest_WorksWithFunctionPointers(int function(int))
+{
+    TEST_ASSERT_TRUE_MESSAGE(function(1), "Function should return True");
+}
+
 #ifdef USE_CEXCEPTION
 void extest_ShouldHandleCExceptionInTest(void)
 {
@@ -182,5 +195,3 @@ void suitetest_ThisTestPassesWhenCustomSuiteSetupAndTeardownRan(void)
 {
     TEST_ASSERT_EQUAL_MESSAGE(1, CounterSuiteSetup, "Suite Setup Should Have Run");
 }
-
-

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,15 +9,19 @@
 #include "soc/soc.h"
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
-#include "soc/efuse_periph.h"
 #include "soc/gpio_reg.h"
 #include "soc/spi_mem_reg.h"
 #include "soc/extmem_reg.h"
 #include "soc/system_reg.h"
+#include "hal/efuse_hal.h"
+#include "hal/efuse_ll.h"
 #include "regi2c_ctrl.h"
-#include "soc_log.h"
-#include "esp_efuse.h"
-#include "esp_efuse_table.h"
+#include "soc/regi2c_dig_reg.h"
+#include "soc/regi2c_lp_bias.h"
+#include "esp_hw_log.h"
+#ifndef BOOTLOADER_BUILD
+#include "esp_private/sar_periph_ctrl.h"
+#endif
 
 static const char *TAG = "rtc_init";
 
@@ -27,6 +31,17 @@ static void set_rtc_dig_dbias(void);
 
 void rtc_init(rtc_config_t cfg)
 {
+    /**
+     * When run rtc_init, it maybe deep sleep reset. Since we power down modem in deep sleep, after wakeup
+     * from deep sleep, these fields are changed and not reset. We will access two BB regs(BBPD_CTRL and
+     * NRXPD_CTRL) in rtc_sleep_pu. If PD modem and no iso, CPU will stuck when access these two BB regs
+     * and finally triggle RTC WDT. So need to clear modem Force PD.
+     *
+     * No worry about the power consumption, Because modem Force PD will be set at the end of this function.
+     */
+    CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_PWC_REG, RTC_CNTL_WIFI_FORCE_PD);
+    CLEAR_PERI_REG_MASK(RTC_CNTL_DIG_ISO_REG, RTC_CNTL_WIFI_FORCE_ISO);
+
     REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_XPD_DIG_REG, 0);
     REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_XPD_RTC_REG, 0);
 
@@ -49,12 +64,7 @@ void rtc_init(rtc_config_t cfg)
     REG_SET_FIELD(RTC_CNTL_TIMER6_REG, RTC_CNTL_DG_PERI_WAIT_TIMER, rtc_init_cfg.dg_peri_wait_cycles);
 
     if (cfg.cali_ocode) {
-        uint32_t rtc_calib_version = 0;
-        esp_err_t err = esp_efuse_read_field_blob(ESP_EFUSE_BLOCK2_VERSION, &rtc_calib_version, 3);
-        if (err != ESP_OK) {
-            rtc_calib_version = 0;
-            SOC_LOGW(TAG, "efuse read fail, set default rtc_calib_version: %d\n", rtc_calib_version);
-        }
+        uint32_t rtc_calib_version = efuse_ll_get_blk_version_major(); // IDF-5366
         if (rtc_calib_version == 1) {
             set_ocode_by_efuse(rtc_calib_version);
         } else {
@@ -152,54 +162,19 @@ void rtc_init(rtc_config_t cfg)
 
     REG_WRITE(RTC_CNTL_INT_ENA_REG, 0);
     REG_WRITE(RTC_CNTL_INT_CLR_REG, UINT32_MAX);
+    REGI2C_WRITE_MASK(I2C_ULP, I2C_ULP_IR_FORCE_XPD_CK, 1);
+
+#ifndef BOOTLOADER_BUILD
+    //initialise SAR related peripheral register settings
+    sar_periph_ctrl_init();
+#endif
 }
 
-rtc_vddsdio_config_t rtc_vddsdio_get_config(void)
-{
-    rtc_vddsdio_config_t result;
-    uint32_t sdio_conf_reg = REG_READ(RTC_CNTL_SDIO_CONF_REG);
-    result.drefh = (sdio_conf_reg & RTC_CNTL_DREFH_SDIO_M) >> RTC_CNTL_DREFH_SDIO_S;
-    result.drefm = (sdio_conf_reg & RTC_CNTL_DREFM_SDIO_M) >> RTC_CNTL_DREFM_SDIO_S;
-    result.drefl = (sdio_conf_reg & RTC_CNTL_DREFL_SDIO_M) >> RTC_CNTL_DREFL_SDIO_S;
-    if (sdio_conf_reg & RTC_CNTL_SDIO_FORCE) {
-        // Get configuration from RTC
-        result.force = 1;
-        result.enable = (sdio_conf_reg & RTC_CNTL_XPD_SDIO_REG_M) >> RTC_CNTL_XPD_SDIO_REG_S;
-        result.tieh = (sdio_conf_reg & RTC_CNTL_SDIO_TIEH_M) >> RTC_CNTL_SDIO_TIEH_S;
-        return result;
-    } else {
-        result.force = 0;
-    }
-
-    // Otherwise, VDD_SDIO is controlled by bootstrapping pin
-    uint32_t strap_reg = REG_READ(GPIO_STRAP_REG);
-    result.force = 0;
-    result.tieh = (strap_reg & BIT(5)) ? RTC_VDDSDIO_TIEH_1_8V : RTC_VDDSDIO_TIEH_3_3V;
-    result.enable = 1;
-    return result;
-}
-
-void rtc_vddsdio_set_config(rtc_vddsdio_config_t config)
-{
-    uint32_t val = 0;
-    val |= (config.force << RTC_CNTL_SDIO_FORCE_S);
-    val |= (config.enable << RTC_CNTL_XPD_SDIO_REG_S);
-    val |= (config.drefh << RTC_CNTL_DREFH_SDIO_S);
-    val |= (config.drefm << RTC_CNTL_DREFM_SDIO_S);
-    val |= (config.drefl << RTC_CNTL_DREFL_SDIO_S);
-    val |= (config.tieh << RTC_CNTL_SDIO_TIEH_S);
-    val |= RTC_CNTL_SDIO_PD_EN;
-    REG_WRITE(RTC_CNTL_SDIO_CONF_REG, val);
-}
 
 static void set_ocode_by_efuse(int calib_version)
 {
     assert(calib_version == 1);
-    // use efuse ocode.
-    uint32_t ocode;
-    esp_err_t err = esp_efuse_read_field_blob(ESP_EFUSE_OCODE, &ocode, 8);
-    assert(err == ESP_OK);
-    (void) err;
+    uint32_t ocode = efuse_ll_get_ocode();
     REGI2C_WRITE_MASK(I2C_ULP, I2C_ULP_EXT_CODE, ocode);
     REGI2C_WRITE_MASK(I2C_ULP, I2C_ULP_IR_FORCE_CODE, 1);
 }
@@ -215,13 +190,11 @@ static void calibrate_ocode(void)
     4. wait o-code calibration done flag(odone_flag & bg_odone_flag) or timeout;
     5. set cpu to old-config.
     */
-    rtc_slow_freq_t slow_clk_freq = rtc_clk_slow_freq_get();
-    rtc_slow_freq_t rtc_slow_freq_x32k = RTC_SLOW_FREQ_32K_XTAL;
-    rtc_slow_freq_t rtc_slow_freq_8MD256 = RTC_SLOW_FREQ_8MD256;
+    soc_rtc_slow_clk_src_t slow_clk_src = rtc_clk_slow_src_get();
     rtc_cal_sel_t cal_clk = RTC_CAL_RTC_MUX;
-    if (slow_clk_freq == (rtc_slow_freq_x32k)) {
+    if (slow_clk_src == SOC_RTC_SLOW_CLK_SRC_XTAL32K) {
         cal_clk = RTC_CAL_32K_XTAL;
-    } else if (slow_clk_freq == rtc_slow_freq_8MD256) {
+    } else if (slow_clk_src == SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256) {
         cal_clk  = RTC_CAL_8MD256;
     }
 
@@ -248,7 +221,7 @@ static void calibrate_ocode(void)
             break;
         }
         if (cycle1 >= timeout_cycle) {
-            SOC_LOGW(TAG, "o_code calibration fail\n");
+            ESP_HW_LOGW(TAG, "o_code calibration fail\n");
             break;
         }
     }
@@ -258,32 +231,17 @@ static void calibrate_ocode(void)
 static uint32_t get_dig_dbias_by_efuse(uint8_t chip_version)
 {
     assert(chip_version >= 3);
-    uint32_t dig_dbias = 28;
-    esp_err_t err = esp_efuse_read_field_blob(ESP_EFUSE_DIG_DBIAS_HVT, &dig_dbias, 5);
-    if (err != ESP_OK) {
-        dig_dbias = 28;
-        SOC_LOGW(TAG, "efuse read fail, set default dig_dbias value: %d\n", dig_dbias);
-    }
-    return dig_dbias;
+    return efuse_ll_get_dig_dbias_hvt();
 }
 
 uint32_t get_rtc_dbias_by_efuse(uint8_t chip_version, uint32_t dig_dbias)
 {
     assert(chip_version >= 3);
     uint32_t rtc_dbias = 0;
-    signed int k_rtc_ldo = 0, k_dig_ldo = 0, v_rtc_bias20 = 0, v_dig_bias20 = 0;
-    esp_err_t err0 = esp_efuse_read_field_blob(ESP_EFUSE_K_RTC_LDO, &k_rtc_ldo, 7);
-    esp_err_t err1 = esp_efuse_read_field_blob(ESP_EFUSE_K_DIG_LDO, &k_dig_ldo, 7);
-    esp_err_t err2 = esp_efuse_read_field_blob(ESP_EFUSE_V_RTC_DBIAS20, &v_rtc_bias20, 8);
-    esp_err_t err3 = esp_efuse_read_field_blob(ESP_EFUSE_V_DIG_DBIAS20, &v_dig_bias20, 8);
-    if ((err0 != ESP_OK) | (err1 != ESP_OK) | (err2 != ESP_OK) | (err3 != ESP_OK)) {
-        k_rtc_ldo = 0;
-        k_dig_ldo = 0;
-        v_rtc_bias20 = 0;
-        v_dig_bias20 = 0;
-        SOC_LOGW(TAG, "efuse read fail, k_rtc_ldo: %d, k_dig_ldo: %d, v_rtc_bias20: %d,  v_dig_bias20: %d\n", k_rtc_ldo, k_dig_ldo, v_rtc_bias20, v_dig_bias20);
-    }
-
+    signed int k_rtc_ldo = efuse_ll_get_k_rtc_ldo();
+    signed int k_dig_ldo = efuse_ll_get_k_dig_ldo();
+    signed int v_rtc_bias20 = efuse_ll_get_v_rtc_dbias20();
+    signed int v_dig_bias20 = efuse_ll_get_v_dig_dbias20();
     k_rtc_ldo =  ((k_rtc_ldo & BIT(6)) != 0)? -(k_rtc_ldo & 0x3f): k_rtc_ldo;
     k_dig_ldo =  ((k_dig_ldo & BIT(6)) != 0)? -(k_dig_ldo & 0x3f): (uint8_t)k_dig_ldo;
     v_rtc_bias20 =  ((v_rtc_bias20 & BIT(7)) != 0)? -(v_rtc_bias20 & 0x7f): (uint8_t)v_rtc_bias20;
@@ -306,7 +264,7 @@ uint32_t get_rtc_dbias_by_efuse(uint8_t chip_version, uint32_t dig_dbias)
 static void set_rtc_dig_dbias()
 {
     /*
-    1. a reasonable dig_dbias which by scaning pvt to make 160 CPU run successful stored in efuse;
+    1. a reasonable dig_dbias which by scanning pvt to make 160 CPU run successful stored in efuse;
     2. also we store some value in efuse, include:
         k_rtc_ldo (slope of rtc voltage & rtc_dbias);
         k_dig_ldo (slope of digital voltage & digital_dbias);
@@ -315,23 +273,23 @@ static void set_rtc_dig_dbias()
     3. a reasonable rtc_dbias can be calculated by a certion formula.
     */
     uint32_t rtc_dbias = 28, dig_dbias = 28;
-    uint8_t chip_version = esp_efuse_get_chip_ver();
+    unsigned chip_version = efuse_hal_chip_revision();
     if (chip_version >= 3) {
         dig_dbias = get_dig_dbias_by_efuse(chip_version);
         if (dig_dbias != 0) {
-            if (dig_dbias + 4 > 28) {
-                dig_dbias = 28;
+            if (dig_dbias + 4 > 31) {
+                dig_dbias = 31;
             } else {
                 dig_dbias += 4;
             }
             rtc_dbias = get_rtc_dbias_by_efuse(chip_version, dig_dbias); // already burn dig_dbias in efuse
         } else {
             dig_dbias = 28;
-            SOC_LOGD(TAG, "not burn core voltage in efuse or burn wrong voltage value in chip version: 0%d\n", chip_version);
+            ESP_HW_LOGD(TAG, "not burn core voltage in efuse or burn wrong voltage value in chip version: 0%d\n", chip_version);
         }
     }
     else {
-        SOC_LOGD(TAG, "chip_version is less than 3, not burn core voltage in efuse\n");
+        ESP_HW_LOGD(TAG, "chip_version is less than 3, not burn core voltage in efuse\n");
     }
     REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_EXT_RTC_DREG, rtc_dbias);
     REGI2C_WRITE_MASK(I2C_DIG_REG, I2C_DIG_REG_EXT_DIG_DREG, dig_dbias);

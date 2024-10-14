@@ -29,42 +29,80 @@
 project("TCPlp" C)
 
 set(src_tcplp
+    bsdtcp/cc/cc_newreno.c
+    bsdtcp/tcp_fastopen.c
+    bsdtcp/tcp_input.c
+    bsdtcp/tcp_output.c
+    bsdtcp/tcp_reass.c
+    bsdtcp/tcp_sack.c
+    bsdtcp/tcp_subr.c
+    bsdtcp/tcp_timer.c
+    bsdtcp/tcp_timewait.c
+    bsdtcp/tcp_usrreq.c
     lib/bitmap.c
     lib/cbuf.c
     lib/lbuf.c
 )
 
-set(tcplp_static_target "tcplp")
 
-add_library(${tcplp_static_target} STATIC ${src_tcplp})
-set_target_properties(${tcplp_static_target} PROPERTIES OUTPUT_NAME tcplp)
-target_include_directories(${tcplp_static_target}
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/bsdtcp
-        ${CMAKE_CURRENT_SOURCE_DIR}/lib
-    PRIVATE
-        ${OT_PUBLIC_INCLUDES}
-)
+string(REPLACE "-Wsign-compare" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
-target_link_libraries(${tcplp_static_target}
-    PRIVATE
-        ot-config
-)
+string(REPLACE "-Wconversion" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
-# TCPlp calls functions that are defined by the core OpenThread (like
-# "otMessageWrite()"), so we need to add the core library (FTD or MTD, as
-# appropriate) as a link dependency.
+string(REPLACE "-Wunused-parameter" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
 if(OT_FTD)
-    target_link_libraries(${tcplp_static_target}
+    add_library(tcplp-ftd STATIC ${src_tcplp})
+    target_compile_options(tcplp-ftd
+        PRIVATE
+            "-Wno-sign-compare"
+            "-Wno-unused-parameter"
+    )
+    set_target_properties(tcplp-ftd PROPERTIES OUTPUT_NAME tcplp-ftd)
+    target_include_directories(tcplp-ftd
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/bsdtcp
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib
+        PRIVATE
+            ${OT_PUBLIC_INCLUDES}
+    )
+
+    target_link_libraries(tcplp-ftd
+        PRIVATE
+            ot-config
+    )
+
+    target_link_libraries(tcplp-ftd
         PRIVATE
             openthread-ftd
     )
+
 endif()
 
 if(OT_MTD)
-    target_link_libraries(${tcplp_static_target}
+    add_library(tcplp-mtd STATIC ${src_tcplp})
+    target_compile_options(tcplp-mtd
+        PRIVATE
+            "-Wno-sign-compare"
+            "-Wno-unused-parameter"
+    )
+    set_target_properties(tcplp-mtd PROPERTIES OUTPUT_NAME tcplp-mtd)
+    target_include_directories(tcplp-mtd
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/bsdtcp
+            ${CMAKE_CURRENT_SOURCE_DIR}/lib
+        PRIVATE
+            ${OT_PUBLIC_INCLUDES}
+    )
+
+    target_link_libraries(tcplp-mtd
+        PRIVATE
+            ot-config
+    )
+
+    target_link_libraries(tcplp-mtd
         PRIVATE
             openthread-mtd
     )
+
 endif()

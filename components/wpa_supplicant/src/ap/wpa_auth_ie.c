@@ -14,6 +14,7 @@
 #include "ap/wpa_auth_i.h"
 #include "common/wpa_common.h"
 #include "utils/wpa_debug.h"
+#include "ap/pmksa_cache_auth.h"
 
 #ifdef CONFIG_RSN_TESTING
 int rsn_testing = 0;
@@ -160,7 +161,7 @@ int wpa_write_rsn_ie(struct wpa_auth_config *conf, u8 *buf, size_t len,
 		pos += RSN_SELECTOR_LEN;
 		num_suites++;
 	}
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	if (conf->wpa_key_mgmt & WPA_KEY_MGMT_FT_IEEE8021X) {
 		RSN_SELECTOR_PUT(pos, RSN_AUTH_KEY_MGMT_FT_802_1X);
 		pos += RSN_SELECTOR_LEN;
@@ -171,7 +172,7 @@ int wpa_write_rsn_ie(struct wpa_auth_config *conf, u8 *buf, size_t len,
 		pos += RSN_SELECTOR_LEN;
 		num_suites++;
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 #ifdef CONFIG_IEEE80211W
 	if (conf->wpa_key_mgmt & WPA_KEY_MGMT_IEEE8021X_SHA256) {
 		RSN_SELECTOR_PUT(pos, RSN_AUTH_KEY_MGMT_802_1X_SHA256);
@@ -216,8 +217,6 @@ int wpa_write_rsn_ie(struct wpa_auth_config *conf, u8 *buf, size_t len,
 	capab = 0;
 	if (conf->rsn_preauth)
 		capab |= WPA_CAPABILITY_PREAUTH;
-	if (conf->peerkey)
-		capab |= WPA_CAPABILITY_PEERKEY_ENABLED;
 	if (conf->wmm_enabled) {
 		/* 4 PTKSA replay counters when using WMM */
 		capab |= (RSN_NUM_REPLAY_COUNTERS_16 << 2);
@@ -300,6 +299,33 @@ int wpa_write_rsn_ie(struct wpa_auth_config *conf, u8 *buf, size_t len,
 }
 
 
+int wpa_write_rsnxe(struct wpa_auth_config *conf, u8 *buf, size_t len)
+{
+	u8 *pos = buf;
+	u16 capab = 0;
+	size_t flen;
+
+	if (wpa_key_mgmt_sae(conf->wpa_key_mgmt) &&
+	    (conf->sae_pwe == SAE_PWE_HASH_TO_ELEMENT ||
+	     conf->sae_pwe == SAE_PWE_BOTH)) {
+		capab |= BIT(WLAN_RSNX_CAPAB_SAE_H2E);
+	}
+
+	flen = 1;
+	if (!capab)
+		return 0; /* no supported extended RSN capabilities */
+	if (len < 2 + flen)
+		return -1;
+	capab |= flen - 1; /* bit 0-3 = Field length (n - 1) */
+
+	*pos++ = WLAN_EID_RSNX;
+	*pos++ = flen;
+	*pos++ = capab & 0x00ff;
+
+	return pos - buf;
+}
+
+
 int wpa_auth_gen_wpa_ie(struct wpa_authenticator *wpa_auth)
 {
 	u8 *pos, buf[128];
@@ -313,8 +339,13 @@ int wpa_auth_gen_wpa_ie(struct wpa_authenticator *wpa_auth)
 		if (res < 0)
 			return res;
 		pos += res;
+		res = wpa_write_rsnxe(&wpa_auth->conf, pos,
+					buf + sizeof(buf) - pos);
+		if (res < 0)
+			return res;
+		pos += res;
 	}
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	if (wpa_key_mgmt_ft(wpa_auth->conf.wpa_key_mgmt)) {
 		res = wpa_write_mdie(&wpa_auth->conf, pos,
 				     buf + sizeof(buf) - pos);
@@ -322,7 +353,7 @@ int wpa_auth_gen_wpa_ie(struct wpa_authenticator *wpa_auth)
 			return res;
 		pos += res;
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 	if (wpa_auth->conf.wpa & WPA_PROTO_WPA) {
 		res = wpa_write_wpa_ie(&wpa_auth->conf,
 				       pos, buf + sizeof(buf) - pos);
@@ -357,14 +388,18 @@ u8 * wpa_add_kde(u8 *pos, u32 kde, const u8 *data, size_t data_len,
 	return pos;
 }
 
-int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
+enum wpa_validate_result
+wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 			struct wpa_state_machine *sm,
-			const u8 *wpa_ie, size_t wpa_ie_len/*,
+			const u8 *wpa_ie, size_t wpa_ie_len,
+			const u8 *rsnxe, size_t rsnxe_len/*,
 			const u8 *mdie, size_t mdie_len*/)
 {
-	struct wpa_ie_data data;
+	struct wpa_ie_data data = {0};
 	int ciphers, key_mgmt, res, version;
 	u32 selector;
+	size_t i;
+	const u8 *pmkid = NULL;
 
 	if (wpa_auth == NULL || sm == NULL)
 		return WPA_NOT_ENABLED;
@@ -392,12 +427,12 @@ int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 		selector = RSN_AUTH_KEY_MGMT_UNSPEC_802_1X;
 		if (0) {
 		}
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 		else if (data.key_mgmt & WPA_KEY_MGMT_FT_IEEE8021X)
 			selector = RSN_AUTH_KEY_MGMT_FT_802_1X;
 		else if (data.key_mgmt & WPA_KEY_MGMT_FT_PSK)
 			selector = RSN_AUTH_KEY_MGMT_FT_PSK;
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 #ifdef CONFIG_IEEE80211W
 		else if (data.key_mgmt & WPA_KEY_MGMT_IEEE8021X_SHA256)
 			selector = RSN_AUTH_KEY_MGMT_802_1X_SHA256;
@@ -467,12 +502,12 @@ int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 	}
 	if (0) {
 	}
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	else if (key_mgmt & WPA_KEY_MGMT_FT_IEEE8021X)
 		sm->wpa_key_mgmt = WPA_KEY_MGMT_FT_IEEE8021X;
 	else if (key_mgmt & WPA_KEY_MGMT_FT_PSK)
 		sm->wpa_key_mgmt = WPA_KEY_MGMT_FT_PSK;
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 #ifdef CONFIG_IEEE80211W
 	else if (key_mgmt & WPA_KEY_MGMT_IEEE8021X_SHA256)
 		sm->wpa_key_mgmt = WPA_KEY_MGMT_IEEE8021X_SHA256;
@@ -542,7 +577,7 @@ int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 		sm->mgmt_frame_prot = 1;
 #endif /* CONFIG_IEEE80211W */
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	if (wpa_key_mgmt_ft(sm->wpa_key_mgmt)) {
 		if (mdie == NULL || mdie_len < MOBILITY_DOMAIN_ID_LEN + 1) {
 			wpa_printf( MSG_DEBUG, "RSN: Trying to use FT, but "
@@ -556,7 +591,7 @@ int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 			return WPA_INVALID_MDIE;
 		}
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 	if (ciphers & WPA_CIPHER_CCMP)
 		sm->pairwise = WPA_CIPHER_CCMP;
@@ -571,6 +606,29 @@ int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 	else
 		sm->wpa = WPA_VERSION_WPA;
 
+	sm->pmksa = NULL;
+	for (i = 0; i < data.num_pmkid; i++) {
+		wpa_hexdump(MSG_DEBUG, "RSN IE: STA PMKID",
+			&data.pmkid[i * PMKID_LEN], PMKID_LEN);
+		sm->pmksa = pmksa_cache_auth_get(wpa_auth->pmksa, sm->addr,
+				&data.pmkid[i * PMKID_LEN]);
+		if (sm->pmksa) {
+			pmkid = sm->pmksa->pmkid;
+			break;
+		}
+	}
+	if (sm->pmksa && pmkid) {
+		wpa_printf(MSG_DEBUG, "PMKID found from PMKSA cache");
+		os_memcpy(wpa_auth->dot11RSNAPMKIDUsed, pmkid, PMKID_LEN);
+	}
+
+#ifdef CONFIG_SAE
+	if (sm->wpa_key_mgmt == WPA_KEY_MGMT_SAE && data.num_pmkid &&
+		!sm->pmksa) {
+		wpa_printf(MSG_DEBUG, "No PMKSA cache entry found for SAE");
+		return WPA_INVALID_PMKID;
+	}
+#endif /* CONFIG_SAE */
 	if (sm->wpa_ie == NULL || sm->wpa_ie_len < wpa_ie_len) {
 		os_free(sm->wpa_ie);
 		sm->wpa_ie = os_malloc(wpa_ie_len);
@@ -579,6 +637,20 @@ int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 	}
 	memcpy(sm->wpa_ie, wpa_ie, wpa_ie_len);
 	sm->wpa_ie_len = wpa_ie_len;
+	if (rsnxe && rsnxe_len) {
+		if (!sm->rsnxe || sm->rsnxe_len < rsnxe_len) {
+			os_free(sm->rsnxe);
+			sm->rsnxe = os_malloc(rsnxe_len);
+			if (!sm->rsnxe)
+				return WPA_ALLOC_FAIL;
+		}
+		os_memcpy(sm->rsnxe, rsnxe, rsnxe_len);
+		sm->rsnxe_len = rsnxe_len;
+	} else {
+		os_free(sm->rsnxe);
+		sm->rsnxe = NULL;
+		sm->rsnxe_len = 0;
+	}
 
 	return WPA_IE_OK;
 }
@@ -626,36 +698,6 @@ static int wpa_parse_generic(const u8 *pos, const u8 *end,
 		return 0;
 	}
 
-#ifdef CONFIG_PEERKEY
-	if (pos[1] > RSN_SELECTOR_LEN + 2 &&
-	    RSN_SELECTOR_GET(pos + 2) == RSN_KEY_DATA_SMK) {
-		ie->smk = pos + 2 + RSN_SELECTOR_LEN;
-		ie->smk_len = pos[1] - RSN_SELECTOR_LEN;
-		return 0;
-	}
-
-	if (pos[1] > RSN_SELECTOR_LEN + 2 &&
-	    RSN_SELECTOR_GET(pos + 2) == RSN_KEY_DATA_NONCE) {
-		ie->nonce = pos + 2 + RSN_SELECTOR_LEN;
-		ie->nonce_len = pos[1] - RSN_SELECTOR_LEN;
-		return 0;
-	}
-
-	if (pos[1] > RSN_SELECTOR_LEN + 2 &&
-	    RSN_SELECTOR_GET(pos + 2) == RSN_KEY_DATA_LIFETIME) {
-		ie->lifetime = pos + 2 + RSN_SELECTOR_LEN;
-		ie->lifetime_len = pos[1] - RSN_SELECTOR_LEN;
-		return 0;
-	}
-
-	if (pos[1] > RSN_SELECTOR_LEN + 2 &&
-	    RSN_SELECTOR_GET(pos + 2) == RSN_KEY_DATA_ERROR) {
-		ie->error = pos + 2 + RSN_SELECTOR_LEN;
-		ie->error_len = pos[1] - RSN_SELECTOR_LEN;
-		return 0;
-	}
-#endif /* CONFIG_PEERKEY */
-
 #ifdef CONFIG_IEEE80211W
 	if (pos[1] > RSN_SELECTOR_LEN + 2 &&
 	    RSN_SELECTOR_GET(pos + 2) == RSN_KEY_DATA_IGTK) {
@@ -700,14 +742,19 @@ int wpa_parse_kde_ies(const u8 *buf, size_t len, struct wpa_eapol_ie_parse *ie)
 		if (*pos == WLAN_EID_RSN) {
 			ie->rsn_ie = pos;
 			ie->rsn_ie_len = pos[1] + 2;
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 		} else if (*pos == WLAN_EID_MOBILITY_DOMAIN) {
 			ie->mdie = pos;
 			ie->mdie_len = pos[1] + 2;
 		} else if (*pos == WLAN_EID_FAST_BSS_TRANSITION) {
 			ie->ftie = pos;
 			ie->ftie_len = pos[1] + 2;
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
+		} else if (*pos == WLAN_EID_RSNX) {
+			ie->rsnxe = pos;
+			ie->rsnxe_len = pos[1] + 2;
+			wpa_hexdump(MSG_DEBUG, "WPA: RSNXE in EAPOL-Key",
+				    ie->rsnxe, ie->rsnxe_len);
 		} else if (*pos == WLAN_EID_VENDOR_SPECIFIC) {
 			ret = wpa_parse_generic(pos, end, ie);
 			if (ret < 0)

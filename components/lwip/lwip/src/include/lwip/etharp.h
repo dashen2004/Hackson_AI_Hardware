@@ -73,16 +73,6 @@ struct etharp_q_entry {
 };
 #endif /* ARP_QUEUEING */
 
-#if ESP_GRATUITOUS_ARP
-#ifdef CONFIG_GARP_TMR_INTERVAL
-#define GARP_TMR_INTERVAL (CONFIG_GARP_TMR_INTERVAL*1000UL)
-#else
-#define GARP_TMR_INTERVAL 60000 
-#endif
-
-void garp_tmr(void);
-#endif
-
 #define etharp_init() /* Compatibility define, no init needed. */
 void etharp_tmr(void);
 ssize_t etharp_find_addr(struct netif *netif, const ip4_addr_t *ipaddr,
@@ -97,6 +87,11 @@ err_t etharp_request(struct netif *netif, const ip4_addr_t *ipaddr);
  *  From RFC 3220 "IP Mobility Support for IPv4" section 4.6. */
 #define etharp_gratuitous(netif) etharp_request((netif), netif_ip4_addr(netif))
 void etharp_cleanup_netif(struct netif *netif);
+
+#if LWIP_ACD
+err_t etharp_acd_probe(struct netif *netif, const ip4_addr_t *ipaddr);
+err_t etharp_acd_announce(struct netif *netif, const ip4_addr_t *ipaddr);
+#endif /* LWIP_ACD */
 
 #if ETHARP_SUPPORT_STATIC_ENTRIES
 err_t etharp_add_static_entry(const ip4_addr_t *ipaddr, struct eth_addr *ethaddr);

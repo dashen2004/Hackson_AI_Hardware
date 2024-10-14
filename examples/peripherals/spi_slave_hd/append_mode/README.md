@@ -1,4 +1,4 @@
-# SPI Halfduplex Slave Append Mode Example
+# SPI Slave Halfduplex: Append Mode Example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
 
@@ -30,6 +30,17 @@ This example requires 2 targets. Here we use 2 ESP32S2 DevKits to act as the SPI
 | GND       | GND    | GND    |
 
 Feel free to modify the pin setting defined on the top of the ``app_main.c``.
+
+### Dependency
+
+The master example is based on [esp_serial_slave_link component](https://components.espressif.com/components/espressif/esp_serial_slave_link), which is used to communicate to a ESP slave device.
+
+The component can be installed by esp component manager. Since this example already installed it, no need to re-installed it again, but if you want to install this component in your own project, you can input the following command:
+```
+idf.py add-dependency espressif/esp_serial_slave_link
+```
+
+If the dependency is added, you can check `idf_component.yml` for more detail. When building this example or other projects with managed components, the component manager will search for the required components online and download them into the `managed_componets` folder.
 
 ### Configure the project
 

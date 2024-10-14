@@ -35,6 +35,18 @@
 #ifndef CONFIG_NETDATA_PUBLISHER_H_
 #define CONFIG_NETDATA_PUBLISHER_H_
 
+/**
+ * @addtogroup config-netdata-publisher
+ *
+ * @brief
+ *   This module includes configuration variables for Network Data Publisher.
+ *
+ * @{
+ *
+ */
+
+#include "config/border_router.h"
+#include "config/border_routing.h"
 #include "config/srp_server.h"
 
 /**
@@ -48,7 +60,8 @@
  *
  */
 #ifndef OPENTHREAD_CONFIG_NETDATA_PUBLISHER_ENABLE
-#define OPENTHREAD_CONFIG_NETDATA_PUBLISHER_ENABLE OPENTHREAD_CONFIG_SRP_SERVER_ENABLE
+#define OPENTHREAD_CONFIG_NETDATA_PUBLISHER_ENABLE \
+    (OPENTHREAD_CONFIG_SRP_SERVER_ENABLE || OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE)
 #endif
 
 /**
@@ -145,11 +158,17 @@
 /**
  * @def OPENTHREAD_CONFIG_NETDATA_PUBLISHER_MAX_PREFIX_ENTRIES
  *
- * Specifies maximum number of prefix (on-mesh prefix or external route) entries supported by Publisher.
+ * Specifies maximum number of prefix (on-mesh prefix or external route) entries reserved by Publisher for use by
+ * user (through OT public APIs).
  *
  */
 #ifndef OPENTHREAD_CONFIG_NETDATA_PUBLISHER_MAX_PREFIX_ENTRIES
 #define OPENTHREAD_CONFIG_NETDATA_PUBLISHER_MAX_PREFIX_ENTRIES 3
 #endif
+
+/**
+ * @}
+ *
+ */
 
 #endif // CONFIG_NETDATA_PUBLISHER_H_
