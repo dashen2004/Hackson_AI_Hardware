@@ -10,15 +10,6 @@ This page briefly lists all of the vulnerabilities that are discovered and fixed
 CVE-2024
 --------
 
-CVE-2024-30949
-~~~~~~~~~~~~~~
-
-RISC-V gettimeofday system call vulnerability in Newlib's
-
-* Impact: ESP-IDF does not use system call implementations from Newlib
-* Resolution: NA
-
-
 CVE-2024-28183
 ~~~~~~~~~~~~~~
 

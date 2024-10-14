@@ -30,8 +30,7 @@ if(CONFIG_SOC_USB_OTG_SUPPORTED)
 endif()
 
 if(CONFIG_USB_HOST_HUBS_SUPPORTED)
-    list(APPEND srcs "ext_hub.c"
-                     "ext_port.c")
+    list(APPEND srcs "ext_hub.c")
 endif()
 
 idf_component_register(SRCS ${srcs}

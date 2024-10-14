@@ -14,9 +14,7 @@ import re
 import os
 import textwrap
 import argparse
-
-import framework_scripts_path # pylint: disable=unused-import
-from mbedtls_framework import build_tree
+from mbedtls_dev import build_tree
 
 
 def remove_c_comments(string):
@@ -330,7 +328,7 @@ class NamedGroupDefinition:
             {translation_table}
                 }};
 
-                return "UNKNOWN";
+                return "UNKOWN";
             }}''')
         body = body.format(translation_table='\n'.join(translation_table))
         return body

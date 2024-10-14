@@ -27,7 +27,6 @@
 
 #include "mbedtls/bignum.h"
 #include "bignum_core.h"
-#include "bignum_internal.h"
 #include "bn_mul.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
@@ -1613,21 +1612,20 @@ int mbedtls_mpi_mod_int(mbedtls_mpi_uint *r, const mbedtls_mpi *A, mbedtls_mpi_s
     return 0;
 }
 
-/*
- * MbedTLS has added new software API mbedtls_mpi_exp_mod_optionally_safe().
- * This API handles RSA public operations in non-constant time manner (and hence efficient),
- * but for the hardware MPI case, we fallback to the `mbedtls_mpi_exp_mod()` implementation itself
- * and hence disabling it here.
- */
 #if !defined(MBEDTLS_MPI_EXP_MOD_ALT)
 
 /*
- * Warning! If the parameter E_public has MBEDTLS_MPI_IS_PUBLIC as its value,
- * this function is not constant time with respect to the exponent (parameter E).
+ * Sliding-window exponentiation: X = A^E mod N  (HAC 14.85)
  */
-static int mbedtls_mpi_exp_mod_optionally_safe(mbedtls_mpi *X, const mbedtls_mpi *A,
-                                               const mbedtls_mpi *E, int E_public,
-                                               const mbedtls_mpi *N, mbedtls_mpi *prec_RR)
+#if !defined(MBEDTLS_MPI_EXP_MOD_ALT_FALLBACK)
+int mbedtls_mpi_exp_mod(mbedtls_mpi *X, const mbedtls_mpi *A,
+                        const mbedtls_mpi *E, const mbedtls_mpi *N,
+                        mbedtls_mpi *prec_RR)
+#else
+int mbedtls_mpi_exp_mod_soft(mbedtls_mpi *X, const mbedtls_mpi *A,
+                        const mbedtls_mpi *E, const mbedtls_mpi *N,
+                        mbedtls_mpi *prec_RR)
+#endif
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
 
@@ -1710,11 +1708,7 @@ static int mbedtls_mpi_exp_mod_optionally_safe(mbedtls_mpi *X, const mbedtls_mpi
     {
         mbedtls_mpi_uint mm = mbedtls_mpi_core_montmul_init(N->p);
         mbedtls_mpi_core_to_mont_rep(X->p, X->p, N->p, N->n, mm, RR.p, T);
-        if (E_public == MBEDTLS_MPI_IS_PUBLIC) {
-            mbedtls_mpi_core_exp_mod_unsafe(X->p, X->p, N->p, N->n, E->p, E->n, RR.p, T);
-        } else {
-            mbedtls_mpi_core_exp_mod(X->p, X->p, N->p, N->n, E->p, E->n, RR.p, T);
-        }
+        mbedtls_mpi_core_exp_mod(X->p, X->p, N->p, N->n, E->p, E->n, RR.p, T);
         mbedtls_mpi_core_from_mont_rep(X->p, X->p, N->p, N->n, mm, T);
     }
 
@@ -1738,40 +1732,7 @@ cleanup:
 
     return ret;
 }
- 
-/*
-* Sliding-window exponentiation: X = A^E mod N  (HAC 14.85)
-*/
-#if !defined(MBEDTLS_MPI_EXP_MOD_ALT_FALLBACK)
-int mbedtls_mpi_exp_mod(mbedtls_mpi *X, const mbedtls_mpi *A,
-                        const mbedtls_mpi *E, const mbedtls_mpi *N,
-                        mbedtls_mpi *prec_RR)
-#else
-int mbedtls_mpi_exp_mod_soft(mbedtls_mpi *X, const mbedtls_mpi *A,
-                             const mbedtls_mpi *E, const mbedtls_mpi *N,
-                             mbedtls_mpi *prec_RR)
 #endif
-{
-    return mbedtls_mpi_exp_mod_optionally_safe(X, A, E, MBEDTLS_MPI_IS_SECRET, N, prec_RR);
-}
-#endif
-
-int mbedtls_mpi_exp_mod_unsafe(mbedtls_mpi *X, const mbedtls_mpi *A,
-                               const mbedtls_mpi *E, const mbedtls_mpi *N,
-                               mbedtls_mpi *prec_RR)
-{
-
-/*
- * If hardware is enabled, we use MPI crypto layer implementation,
- * else we use mbedtls implementation.
- */
-#if defined(MBEDTLS_MPI_EXP_MOD_ALT)
-    return mbedtls_mpi_exp_mod(X, A, E, N, prec_RR);
-#else
-    return mbedtls_mpi_exp_mod_optionally_safe(X, A, E, MBEDTLS_MPI_IS_PUBLIC, N, prec_RR);
-#endif
-}
- 
 
 /*
  * Greatest common divisor: G = gcd(A, B)  (HAC 14.54)
