@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # gitlab-ci script to push current tested revision (tag or branch) to github
 
@@ -11,3 +11,4 @@ else
     # for branches
     git push github "${CI_COMMIT_SHA}:refs/heads/${CI_COMMIT_REF_NAME}"
 fi
+

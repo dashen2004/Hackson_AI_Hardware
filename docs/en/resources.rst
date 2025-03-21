@@ -2,33 +2,24 @@
 Resources
 *********
 
-:link_to_translation:`zh_CN:[中文]`
+* Third party frameworks and libraries to develop audio applications with Espressif chips:
 
-.. toctree::
-    :caption: Third-Party Tools
-    :maxdepth: 2
+    * The `JOSH <http://www.joshvm.com>`__ operating system `supports the ESP32 <http://www.joshvm.com/quickstart/esp32>`__ and can be used in scenarios such as intelligent voice interaction, smart home appliances, and smart gateways.
 
-    third-party-tools/platformio
-    third-party-tools/clion
-    third-party-tools/visualgdb
+* Third party audio development modules and boards that work with ESP-ADF:
 
-For inquiries related to these third-party tools, we recommend seeking assistance from the respective tool's support channels or user communities.
+    * `ESP32-A1S Audio Module <https://docs.ai-thinker.com/en/esp32-a1s>`__ equipped CodeC audio decoding chip that supports music playback and recording, and 4MB PSRAM. The module application schematic is available in `datasheet <https://docs.ai-thinker.com/_media/esp32-a1s_v2.3_specification.pdf>`__.
 
-Useful Links
-############
+* The `esp32.com forum <https://esp32.com>`_ is a place to ask questions and find community resources. The forum has a section dedicated to `ESP-ADF <https://esp32.com/viewforum.php?f=20>`_.
 
-* The `esp32.com forum <https://esp32.com/>`_ is a place to ask questions and find community resources.
+* This `ESP Audio Development Framework <https://github.com/espressif/esp-adf>`_ inherits from `ESP IoT Development Framework <https://github.com/espressif/esp-idf>`_ and you can learn about it in `ESP-IDF Programming Guide <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/>`_. 
 
-* Check the `Issues <https://github.com/espressif/esp-idf/issues>`_  section on GitHub if you find a bug or have a feature request. Please check existing `Issues <https://github.com/espressif/esp-idf/issues>`_ before opening a new one.
+* Check the `Issues <https://github.com/espressif/esp-adf/issues>`_  section on GitHub if you find a bug or have a feature request. Please check existing `Issues <https://github.com/espressif/esp-adf/issues>`_ before opening a new one.
 
-* A comprehensive collection of `solutions <https://github.com/espressif/esp-iot-solution#solutions>`_, `practical applications <https://github.com/espressif/esp-iot-solution#esp32-iot-example-list>`_, `components and drivers <https://github.com/espressif/esp-iot-solution#components>`_ based on ESP-IDF is available in `ESP IoT Solution <https://github.com/espressif/esp-iot-solution>`_ repository. In most of cases descriptions are provided both in English and in 中文.
+* If you're interested in contributing to ESP Audio Development Framework, please check the `Contributions Guide <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/contribute/>`_.
 
-* To develop applications using Arduino platform, refer to `Arduino core for the ESP32, ESP32-S2 and ESP32-C3 <https://github.com/espressif/arduino-esp32#readme>`_.
+* Several `books <https://www.espressif.com/en/ecosystem/iot-college/books>`_ have been written about ESP32 and they are listed on `Espressif <https://www.espressif.com/en/ecosystem/iot-college/books>`__ web site.
 
-* Several `books <https://www.espressif.com/en/ecosystem/community-engagement/books>`_ have been written about ESP32 and they are listed on `Espressif <https://www.espressif.com/en/ecosystem/community-engagement/books>`__ web site.
+* For additional ESP32 product related information, please refer to `documentation <https://www.espressif.com/en/support/documents/technical-documents>`_ Section of Espressif site.
 
-* If you're interested in contributing to ESP-IDF, please check the :doc:`contribute/index`.
-
-* For additional {IDF_TARGET_NAME} product related information, please refer to `documentation <https://espressif.com/en/support/download/documents>`_ section of `Espressif <https://espressif.com/en/support/download/documents>`__ site.
-
-* `Download <https://readthedocs.com/projects/espressif-esp-idf/downloads/>`_ latest and previous versions of this documentation in PDF and HTML format.
+* To buy audio development boards, check list of distributors under `Get Samples <https://www.espressif.com/en/contact-us/get-sample>`__ on Espressif web site.

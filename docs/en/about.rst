@@ -1,58 +1,19 @@
-About
+﻿About
 =====
 
-:link_to_translation:`zh_CN:[中文]`
+This is documentation of `ESP-ADF <https://github.com/espressif/esp-adf>`_, the framework to develop audio applications for `ESP32 <https://espressif.com/en/products/hardware/esp32/overview>`_ chip by `Espressif <https://espressif.com>`_.
 
-.. only:: esp32
+The **ESP32** is 2.4 GHz Wi-Fi and Bluetooth combo, 32 bit dual core chip running up to 240 MHz, designed for mobile, wearable electronics, and Internet-of-Things (IoT) applications. It has several peripherals on board including I2S interfaces to easy integrate with dedicated audio chips. These hardware features together with the ESP-ADF software provide a powerful platform to implement audio applications including native wireless networking and powerful user interface.
 
-    This is documentation of `ESP-IDF <https://github.com/espressif/esp-idf>`_, the framework to develop applications for `{IDF_TARGET_NAME} <https://www.espressif.com/en/products/socs/esp32>`_ chip by `Espressif <https://espressif.com>`_.
+The **ESP-ADF** provides a range of API components including **Audio Streams**, **Codecs** and **Services** organized in **Audio Pipeline**, all integrated with audio hardware through **Media HAL** and with **Peripherals** onboard of **ESP32**.
 
-    The {IDF_TARGET_NAME} is 2.4 GHz Wi-Fi and Bluetooth combo, which integrates one or two Xtensa® 32-bit LX6 CPU, with up to 600 DMIPS processing power.
-
-
-.. only:: esp32s2
-
-    This is documentation of `ESP-IDF <https://github.com/espressif/esp-idf>`_, the framework to develop applications for {IDF_TARGET_NAME}.
-
-    The {IDF_TARGET_NAME} is a 2.4 GHz Wi-Fi SoC, which integrates a Xtensa® 32-bit LX7 CPU.
-
-
-.. only:: esp32s3
-
-    This is documentation of `ESP-IDF <https://github.com/espressif/esp-idf>`_, the framework to develop applications for {IDF_TARGET_NAME}.
-
-    The {IDF_TARGET_NAME} is a 2.4 GHz Wi-Fi Bluetooth Low Energy combo SoC, which integrates a Xtensa® 32-bit LX7 CPU.
-
-
-.. only:: esp32c3 or esp32c2
-
-    This is documentation of `ESP-IDF <https://github.com/espressif/esp-idf>`_, the framework to develop applications for {IDF_TARGET_NAME}.
-
-    The {IDF_TARGET_NAME} is a 2.4 GHz Wi-Fi Bluetooth Low Energy combo SoC, which integrates a 32-bit RISC-V RV32IMC single-core processor.
-
-.. only:: esp32c6
-
-    This is documentation of `ESP-IDF <https://github.com/espressif/esp-idf>`_, the framework to develop applications for {IDF_TARGET_NAME}.
-
-    The {IDF_TARGET_NAME} is a 2.4 GHz Wi-Fi, Bluetooth Low Energy, and 802.15.4 Thread/Zigbee combo SoC, which integrates a 32-bit RISC-V RV32IMAC single-core processor.
-
-.. only:: esp32h2
-
-    This is documentation of `ESP-IDF <https://github.com/espressif/esp-idf>`_, the framework to develop applications for {IDF_TARGET_NAME}.
-
-    The {IDF_TARGET_NAME} is a Bluetooth Low Energy and 802.15.4 Thread/Zigbee combo SoC, which integrates a 32-bit RISC-V RV32IMAC single-core processor.
-
-.. only:: esp32p4
-
-    This is documentation of `ESP-IDF <https://github.com/espressif/esp-idf>`_, the framework to develop applications for {IDF_TARGET_NAME}.
-
-    The {IDF_TARGET_NAME} is a high-performance MCU that supports large internal memory and has powerful image and voice processing capabilities. The MCU consists of a High Performance (HP) system and a Low Power (LP) system. The HP system contains a RISC-V dual-core CPU running up to 400 MHz and rich peripherals, while the LP system contains a low-power RISC-V single-core CPU running up to 40 MHz and various peripherals optimized for low-power applications.
-
-.. figure:: ../_static/about-doc.png
+.. figure:: ../_static/adf_block_diagram.png
     :align: center
-    :alt: Espressif IoT Integrated Development Framework
+    :alt: Espressif Audio Development Framework
     :figclass: align-center
 
-    Espressif IoT Integrated Development Framework
+    Espressif Audio Development Framework
 
-The ESP-IDF, Espressif IoT Development Framework, provides toolchain, API, components and workflows to develop applications for {IDF_TARGET_NAME} using Windows, Linux and macOS operating systems.
+The ESP-ADF also provides integration with **Baidu DauerOS** cloud services. A range of components is coming to provide integration with DeepBrain, Amazon, Google, Alibaba and Turing cloud services.
+
+The **ESP-ADF** builds on well established, FreeRTOS based, Espressif IOT Development Framework `ESP-IDF <https://github.com/espressif/esp-idf>`_. 

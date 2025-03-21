@@ -1,371 +1,33 @@
-# -*- coding: utf-8 -*-
-#
-# Common (non-language-specific) configuration for Sphinx
-#
-# This file is imported from a language-specific conf.py (ie en/conf.py or
-# zh_CN/conf.py)
-# type: ignore
-# pylint: disable=wildcard-import
-# pylint: disable=undefined-variable
-import os.path
 import re
-from pathlib import Path
-
+import sys, os
 from esp_docs.conf_docs import *  # noqa: F403,F401
+from local_util import run_cmd_get_output, copy_if_modified
 
-if os.environ.get('IDF_PATH') is None:
-    raise RuntimeError('IDF_PATH should be set, run export.sh before building docs')
+# If extensions (or modules to document with autodoc) are in another directory,
+# add these directories to sys.path here. If the directory is relative to the
+# documentation root, use os.path.abspath to make it absolute, like shown here.
+sys.path.insert(0, os.path.abspath('..'))
 
-BT_DOCS = ['api-reference/bluetooth/esp_bt_defs.rst',
-           'api-reference/bluetooth/esp_bt_device.rst',
-           'api-reference/bluetooth/esp_bt_main.rst',
-           'api-reference/bluetooth/bt_common.rst',
-           'api-reference/bluetooth/controller_vhci.rst',
-           'api-reference/bluetooth/index.rst']
+builddir = '_build'
+if 'BUILDDIR' in os.environ:
+    builddir = os.environ['BUILDDIR']
 
-BLE_DOCS = ['api-guides/ble/index.rst',
-            'api-guides/ble/overview.rst',
-            'api-guides/ble/ble-feature-support-status.rst',
-            'api-guides/ble/host-feature-support-status.rst',
-            'api-reference/bluetooth/bt_le.rst',
-            'api-guides/ble/get-started/ble-introduction.rst',
-            'api-guides/ble/get-started/ble-device-discovery.rst',
-            'api-guides/ble/get-started/ble-connection.rst',
-            'api-guides/ble/get-started/ble-data-exchange.rst',
-            'api-reference/bluetooth/esp_gap_ble.rst',
-            'api-reference/bluetooth/esp_gatt_defs.rst',
-            'api-reference/bluetooth/esp_gatts.rst',
-            'api-reference/bluetooth/esp_gattc.rst',
-            'api-reference/bluetooth/nimble/index.rst',
-            'migration-guides/release-5.x/5.0/bluetooth-low-energy.rst']
+# Generate 'kconfig.inc' file from components' Kconfig files
+kconfig_inc_path = '{}/inc/kconfig.inc'.format(builddir)
+os.system('python ../gen-kconfig-doc.py > ' + kconfig_inc_path + '.in')
+copy_if_modified(kconfig_inc_path + '.in', kconfig_inc_path)
 
-
-BLE_MESH_DOCS = ['api-guides/esp-ble-mesh/ble-mesh-index.rst',
-                 'api-guides/esp-ble-mesh/ble-mesh-feature-list.rst',
-                 'api-guides/esp-ble-mesh/ble-mesh-terminology.rst',
-                 'api-guides/esp-ble-mesh/ble-mesh-architecture.rst',
-                 'api-guides/esp-ble-mesh/ble-mesh-faq.rst',
-                 'api-reference/bluetooth/esp-ble-mesh.rst']
-
-CLASSIC_BT_DOCS = ['api-guides/classic-bt/index.rst',
-                   'api-guides/classic-bt/overview.rst',
-                   'api-reference/bluetooth/classic_bt.rst',
-                   'api-reference/bluetooth/esp_a2dp.rst',
-                   'api-reference/bluetooth/esp_avrc.rst',
-                   'api-reference/bluetooth/esp_hidd.rst',
-                   'api-reference/bluetooth/esp_hidh.rst',
-                   'api-reference/bluetooth/esp_l2cap_bt.rst',
-                   'api-reference/bluetooth/esp_sdp.rst',
-                   'api-reference/bluetooth/esp_hf_defs.rst',
-                   'api-reference/bluetooth/esp_hf_client.rst',
-                   'api-reference/bluetooth/esp_hf_ag.rst',
-                   'api-reference/bluetooth/esp_spp.rst',
-                   'api-reference/bluetooth/esp_gap_bt.rst',
-                   'migration-guides/release-5.x/5.0/bluetooth-classic.rst']
-
-BLUFI_DOCS = ['api-guides/ble/blufi.rst',
-              'api-reference/bluetooth/esp_blufi.rst']
-
-WIFI_DOCS = ['api-guides/low-power-mode/low-power-mode-wifi.rst',
-             'api-guides/wifi.rst',
-             'api-guides/wifi-security.rst',
-             'api-guides/wireshark-user-guide.rst',
-             'api-reference/network/esp_now.rst',
-             'api-reference/network/esp_smartconfig.rst',
-             'api-reference/network/esp_wifi.rst',
-             'api-reference/network/esp_dpp.rst',
-             'api-reference/provisioning/provisioning.rst',
-             'api-reference/provisioning/wifi_provisioning.rst',
-             'migration-guides/release-5.x/5.2/wifi.rst']
-
-IEEE802154_DOCS = ['migration-guides/release-5.x/5.1/ieee802154.rst',
-                   'migration-guides/release-5.x/5.2/ieee802154.rst']
-
-NAN_DOCS = ['api-reference/network/esp_nan.rst']
-
-WIFI_MESH_DOCS = ['api-guides/esp-wifi-mesh.rst',
-                  'api-reference/network/esp-wifi-mesh.rst']
-
-COEXISTENCE_DOCS = ['api-guides/coexist.rst']
-
-MM_SYNC_DOCS = ['api-reference/system/mm_sync.rst']
-
-CAMERA_DOCS = ['api-reference/peripherals/camera_driver.rst']
-
-CLK_TREE_DOCS = ['api-reference/peripherals/clk_tree.rst']
-
-UART_DOCS = ['api-reference/peripherals/uart.rst']
-
-SDMMC_DOCS = ['api-reference/peripherals/sdmmc_host.rst']
-
-SDIO_SLAVE_DOCS = ['api-reference/peripherals/sdio_slave.rst',
-                   'api-reference/protocols/esp_sdio_slave_protocol.rst']
-
-MCPWM_DOCS = ['api-reference/peripherals/mcpwm.rst']
-
-DEDIC_GPIO_DOCS = ['api-reference/peripherals/dedic_gpio.rst']
-
-PARLIO_DOCS = ['api-reference/peripherals/parlio.rst']
-
-PCNT_DOCS = ['api-reference/peripherals/pcnt.rst']
-
-RMT_DOCS = ['api-reference/peripherals/rmt.rst']
-
-DAC_DOCS = ['api-reference/peripherals/dac.rst']
-
-ETM_DOCS = ['api-reference/peripherals/etm.rst']
-
-LDO_DOCS = ['api-reference/peripherals/ldo_regulator.rst']
-
-TEMP_SENSOR_DOCS = ['api-reference/peripherals/temp_sensor.rst']
-
-SPIRAM_DOCS = ['api-guides/external-ram.rst']
-
-USB_DOCS = ['api-reference/peripherals/usb_device.rst',
-            'api-reference/peripherals/usb_host.rst',
-            'api-reference/peripherals/usb_host/usb_host_notes_arch.rst',
-            'api-reference/peripherals/usb_host/usb_host_notes_design.rst',
-            'api-reference/peripherals/usb_host/usb_host_notes_dwc_otg.rst',
-            'api-reference/peripherals/usb_host/usb_host_notes_index.rst',
-            'api-reference/peripherals/usb_host/usb_host_notes_usbh.rst',
-            'api-reference/peripherals/usb_host/usb_host_notes_enum.rst',
-            'api-reference/peripherals/usb_host/usb_host_notes_ext_hub.rst']
-
-I80_LCD_DOCS = ['api-reference/peripherals/lcd/i80_lcd.rst']
-RGB_LCD_DOCS = ['api-reference/peripherals/lcd/rgb_lcd.rst']
-DSI_LCD_DOCS = ['api-reference/peripherals/lcd/dsi_lcd.rst']
-
-# TODO: Merge this back with `USB_DOCS` IDF-9919 IDF-9920 IDF-9133
-USB_OTG_DFU_DOCS = ['api-guides/dfu.rst']
-
-USB_OTG_CONSOLE_DOCS = ['api-guides/usb-otg-console.rst']
-
-FTDI_JTAG_DOCS = ['api-guides/jtag-debugging/configure-ft2232h-jtag.rst']
-
-USB_SERIAL_JTAG_DOCS = ['api-guides/jtag-debugging/configure-builtin-jtag.rst',
-                        'api-guides/usb-serial-jtag-console.rst']
-
-ULP_FSM_DOCS = ['api-reference/system/ulp.rst',
-                'api-reference/system/ulp_macros.rst',
-                'api-reference/system/ulp_instruction_set.rst']
-
-RISCV_COPROC_DOCS = ['api-reference/system/ulp-risc-v.rst',]
-
-LP_CORE_DOCS = ['api-reference/system/ulp-lp-core.rst']
-
-XTENSA_DOCS = ['api-guides/hlinterrupts.rst',
-               'api-reference/system/perfmon.rst']
-
-RISCV_DOCS = []  # type: list[str]
-
-TWAI_DOCS = ['api-reference/peripherals/twai.rst']
-
-SDM_DOCS = ['api-reference/peripherals/sdm.rst']
-
-I2C_DOCS = ['api-reference/peripherals/i2c.rst',
-            'api-reference/peripherals/lcd/i2c_lcd.rst']
-
-SPI_DOCS = ['api-reference/peripherals/spi_master.rst',
-            'api-reference/peripherals/spi_slave.rst',
-            'api-reference/peripherals/sdspi_host.rst',
-            'api-reference/peripherals/sdspi_share.rst',
-            'api-reference/peripherals/lcd/spi_lcd.rst']
-
-I2S_DOCS = ['api-reference/peripherals/i2s.rst']
-
-ISP_DOCS = ['api-reference/peripherals/isp.rst']
-
-DSLP_STUB_DOCS = ['api-guides/deep-sleep-stub.rst']
-
-ADC_DOCS = ['api-reference/peripherals/adc_oneshot.rst',
-            'api-reference/peripherals/adc_calibration.rst']
-ADC_DMA_DOCS = ['api-reference/peripherals/adc_continuous.rst']
-
-ANA_CMPR_DOCS = ['api-reference/peripherals/ana_cmpr.rst']
-
-SPI_SLAVE_HD_DOCS = ['api-reference/peripherals/spi_slave_hd.rst']
-
-JPEG_DOCS = ['api-reference/peripherals/jpeg.rst']
-
-PPA_DOCS = ['api-reference/peripherals/ppa.rst']
-
-QEMU_DOCS = ['api-guides/tools/qemu.rst']
-
-ESP32_DOCS = ['api-reference/system/himem.rst',
-              'api-guides/romconsole.rst',
-              'api-reference/system/ipc.rst',
-              'security/secure-boot-v1.rst',
-              'api-reference/peripherals/dac.rst',
-              'api-reference/peripherals/sd_pullup_requirements.rst',
-              'api-reference/peripherals/touch_pad.rst',
-              'hw-reference/esp32/**',
-              'api-guides/RF_calibration.rst',
-              'api-guides/phy.rst'] + FTDI_JTAG_DOCS + QEMU_DOCS
-
-ESP32S2_DOCS = ['hw-reference/esp32s2/**',
-                'api-guides/usb-console.rst',
-                'api-reference/peripherals/ds.rst',
-                'api-reference/peripherals/temp_sensor.rst',
-                'api-reference/system/async_memcpy.rst',
-                'api-reference/peripherals/touch_pad.rst',
-                'api-reference/peripherals/touch_element.rst',
-                'api-guides/RF_calibration.rst',
-                'api-guides/phy.rst'] + FTDI_JTAG_DOCS + USB_OTG_DFU_DOCS + USB_OTG_CONSOLE_DOCS
-
-ESP32S3_DOCS = ['hw-reference/esp32s3/**',
-                'api-reference/system/ipc.rst',
-                'api-guides/flash_psram_config.rst',
-                'api-reference/peripherals/touch_pad.rst',
-                'api-reference/peripherals/sd_pullup_requirements.rst',
-                'api-guides/RF_calibration.rst',
-                'api-guides/phy.rst'] + USB_OTG_DFU_DOCS + USB_OTG_CONSOLE_DOCS
-
-# No JTAG docs for this one as it gets gated on SOC_USB_SERIAL_JTAG_SUPPORTED down below.
-ESP32C3_DOCS = ['hw-reference/esp32c3/**',
-                'api-guides/RF_calibration.rst',
-                'api-guides/phy.rst'] + QEMU_DOCS
-
-ESP32C2_DOCS = ['api-guides/RF_calibration.rst',
-                'api-guides/phy.rst']
-
-ESP32C5_DOCS = ['api-guides/phy.rst']
-
-ESP32C61_DOCS = ['api-guides/phy.rst']
-
-ESP32C6_DOCS = ['api-guides/RF_calibration.rst',
-                'api-reference/peripherals/sd_pullup_requirements.rst',
-                'api-guides/phy.rst']
-
-ESP32H2_DOCS = ['api-guides/RF_calibration.rst',
-                'api-guides/phy.rst']
-
-ESP32P4_DOCS = ['api-reference/system/ipc.rst',
-                'api-reference/peripherals/cap_touch_sens.rst',
-                'api-reference/peripherals/sd_pullup_requirements.rst']
-
-# format: {tag needed to include: documents to included}, tags are parsed from sdkconfig and peripheral_caps.h headers
-conditional_include_dict = {'SOC_BT_SUPPORTED':BT_DOCS,
-                            'SOC_BLE_SUPPORTED':BLE_DOCS,
-                            'SOC_BLE_MESH_SUPPORTED':BLE_MESH_DOCS,
-                            'SOC_BLUFI_SUPPORTED':BLUFI_DOCS,
-                            'SOC_WIFI_SUPPORTED':WIFI_DOCS,
-                            'SOC_BT_CLASSIC_SUPPORTED':CLASSIC_BT_DOCS,
-                            'SOC_IEEE802154_SUPPORTED':IEEE802154_DOCS,
-                            'SOC_SUPPORT_COEXISTENCE':COEXISTENCE_DOCS,
-                            'SOC_PSRAM_DMA_CAPABLE':MM_SYNC_DOCS,
-                            'SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE':MM_SYNC_DOCS,
-                            'SOC_CLK_TREE_SUPPORTED':CLK_TREE_DOCS,
-                            'SOC_UART_SUPPORTED':UART_DOCS,
-                            'SOC_SDMMC_HOST_SUPPORTED':SDMMC_DOCS,
-                            'SOC_SDIO_SLAVE_SUPPORTED':SDIO_SLAVE_DOCS,
-                            'SOC_MCPWM_SUPPORTED':MCPWM_DOCS,
-                            'SOC_USB_OTG_SUPPORTED':USB_DOCS,
-                            'SOC_USB_SERIAL_JTAG_SUPPORTED':USB_SERIAL_JTAG_DOCS,
-                            'SOC_DEDICATED_GPIO_SUPPORTED':DEDIC_GPIO_DOCS,
-                            'SOC_LCD_I80_SUPPORTED':I80_LCD_DOCS,
-                            'SOC_LCD_RGB_SUPPORTED':RGB_LCD_DOCS,
-                            'SOC_MIPI_DSI_SUPPORTED':DSI_LCD_DOCS,
-                            'SOC_SPIRAM_SUPPORTED':SPIRAM_DOCS,
-                            'SOC_PARLIO_SUPPORTED':PARLIO_DOCS,
-                            'SOC_PCNT_SUPPORTED':PCNT_DOCS,
-                            'SOC_RMT_SUPPORTED':RMT_DOCS,
-                            'SOC_DAC_SUPPORTED':DAC_DOCS,
-                            'SOC_ETM_SUPPORTED':ETM_DOCS,
-                            'SOC_ULP_FSM_SUPPORTED':ULP_FSM_DOCS,
-                            'SOC_RISCV_COPROC_SUPPORTED':RISCV_COPROC_DOCS,
-                            'SOC_LP_CORE_SUPPORTED':LP_CORE_DOCS,
-                            'SOC_DIG_SIGN_SUPPORTED':['api-reference/peripherals/ds.rst'],
-                            'SOC_ECDSA_SUPPORTED':['api-reference/peripherals/ecdsa.rst'],
-                            'SOC_HMAC_SUPPORTED':['api-reference/peripherals/hmac.rst'],
-                            'SOC_ASYNC_MEMCPY_SUPPORTED':['api-reference/system/async_memcpy.rst'],
-                            'CONFIG_IDF_TARGET_ARCH_XTENSA':XTENSA_DOCS,
-                            'CONFIG_IDF_TARGET_ARCH_RISCV':RISCV_DOCS,
-                            'SOC_TEMP_SENSOR_SUPPORTED':TEMP_SENSOR_DOCS,
-                            'SOC_TWAI_SUPPORTED':TWAI_DOCS,
-                            'SOC_I2C_SUPPORTED':I2C_DOCS,
-                            'SOC_GPSPI_SUPPORTED':SPI_DOCS,
-                            'SOC_I2S_SUPPORTED':I2S_DOCS,
-                            'SOC_ISP_SUPPORTED':ISP_DOCS,
-                            'ESP_ROM_SUPPORT_DEEP_SLEEP_WAKEUP_STUB': DSLP_STUB_DOCS,
-                            'SOC_ADC_SUPPORTED':ADC_DOCS,
-                            'SOC_ADC_DMA_SUPPORTED':ADC_DMA_DOCS,
-                            'SOC_ANA_CMPR_SUPPORTED': ANA_CMPR_DOCS,
-                            'SOC_SDM_SUPPORTED':SDM_DOCS,
-                            'SOC_WIFI_MESH_SUPPORT':WIFI_MESH_DOCS,
-                            'SOC_MIPI_CSI_SUPPORTED':CAMERA_DOCS,
-                            'SOC_SPI_SUPPORT_SLAVE_HD_VER2':SPI_SLAVE_HD_DOCS,
-                            'SOC_WIFI_NAN_SUPPORT':NAN_DOCS,
-                            'SOC_JPEG_CODEC_SUPPORTED':JPEG_DOCS,
-                            'SOC_PPA_SUPPORTED':PPA_DOCS,
-                            'SOC_GP_LDO_SUPPORTED':LDO_DOCS,
-                            'esp32':ESP32_DOCS,
-                            'esp32s2':ESP32S2_DOCS,
-                            'esp32s3':ESP32S3_DOCS,
-                            'esp32c2':ESP32C2_DOCS,
-                            'esp32c3':ESP32C3_DOCS,
-                            'esp32c5':ESP32C5_DOCS,
-                            'esp32c6':ESP32C6_DOCS,
-                            'esp32c61':ESP32C61_DOCS,
-                            'esp32h2':ESP32H2_DOCS,
-                            'esp32p4':ESP32P4_DOCS}
-
-extensions += ['sphinx_copybutton',
-               'sphinxcontrib.wavedrom',
-               # Note: order is important here, events must
-               # be registered by one extension before they can be
-               # connected to another extension
-               'esp_docs.idf_extensions.build_system',
-               'esp_docs.idf_extensions.esp_err_definitions',
-               'esp_docs.idf_extensions.gen_defines',
-               'esp_docs.idf_extensions.gen_version_specific_includes',
-               'esp_docs.idf_extensions.kconfig_reference',
-               'esp_docs.idf_extensions.gen_idf_tools_links',
-               'esp_docs.esp_extensions.run_doxygen',
-               'linuxdoc.rstFlatTable',  # https://return42.github.io/linuxdoc/linuxdoc-howto/table-markup.html#flat-table
-               ]
-
-# Use wavedrompy as backend, instead of wavedrom-cli
-render_using_wavedrompy = True
-
-smartquotes = False
-
-# link roles config
-github_repo = 'espressif/esp-idf'
-
-# context used by sphinx_idf_theme
-html_context['github_user'] = 'espressif'
-html_context['github_repo'] = 'esp-idf'
-
-
-# Extra options required by sphinx_idf_theme
-project_slug = 'esp-idf'
-versions_url = 'https://dl.espressif.com/dl/esp-idf/idf_versions.js'
-
-idf_targets = ['esp32', 'esp32s2', 'esp32s3', 'esp32c3', 'esp32c2', 'esp32c5', 'esp32c6', 'esp32p4']
 languages = ['en', 'zh_CN']
 
-google_analytics_id = os.environ.get('CI_GOOGLE_ANALYTICS_ID', None)
-
-project_homepage = 'https://github.com/espressif/esp-idf'
-
-linkcheck_anchors = False
-
-linkcheck_exclude_documents = ['index',  # several false positives due to the way we link to different sections
-                               'api-reference/protocols/esp_local_ctrl',  # Fails due to `https://<mdns-hostname>.local`
-                               'api-reference/provisioning/wifi_provisioning',  # Fails due to `https://<mdns-hostname>.local`
-                               ]
-
-
-linkcheck_ignore = ['https://webhome.phy.duke.edu/~rgb/General/dieharder.php',  # Certificate error
-                    'https://docs.espressif.com/projects/esptool/en/latest/esp32c2/espefuse/index.html',  # Not published
-                    'https://docs.espressif.com/projects/esptool/en/latest/esp32c2/espsecure/index.html#remote-signing-using-an-external-hs',  # Not published
-                    'https://docs.espressif.com/projects/esptool/en/latest/esp32c6/espefuse/index.html',  # Not published
-                    'https://docs.espressif.com/projects/esptool/en/latest/esp32c6/espsecure/index.html#remote-signing-using-an-external-hs',  # Not published
-                    'https://docs.espressif.com/projects/esptool/en/latest/esp32h2/espefuse/index.html',  # Not published
-                    'https://docs.espressif.com/projects/esptool/en/latest/esp32h2/espsecure/index.html#remote-signing-using-an-external-hs',  # Not published
-                    'https://www.cadence.com/content/dam/cadence-www/global/en_US/documents/tools/ip/tensilica-ip/isa-summary.pdf',  # Rejects user-agent
-                    ]
-
+# Add any Sphinx extension module names here, as strings. They can be
+# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
+# ones.
+extensions += ['link-roles',
+               'sphinx_copybutton',
+               'sphinxcontrib.wavedrom',
+               'esp_docs.esp_extensions.dummy_build_system',
+               'esp_docs.esp_extensions.run_doxygen',
+               ]
 
 # Custom added feature to allow redirecting old URLs
 with open('../page_redirects.txt') as f:
@@ -375,25 +37,247 @@ with open('../page_redirects.txt') as f:
             raise RuntimeError('Invalid line in page_redirects.txt: %s' % line)
 html_redirect_pages = [tuple(line.split(' ')) for line in lines]
 
+# Disable format_esp_target
+extensions.remove('esp_docs.esp_extensions.format_esp_target')
+
+# Use wavedrompy as backend, instead of wavedrom-cli
+render_using_wavedrompy = True
+
+# link roles config
+project_homepage = 'https://github.com/espressif/esp-adf'
+github_repo = 'espressif/esp-adf'
+
+# Context used by sphinx_idf_theme
+html_context['github_user'] = 'espressif'
+html_context['github_repo'] = 'esp-adf'
+
+# Extra options required by sphinx_idf_theme
+project_slug = 'esp-adf'
+
+# Final PDF filename will contains target and version
+pdf_file_prefix = u'esp-adf'
+
+
+linkcheck_exclude_documents = ['index',  # several false positives due to the way we link to different sections
+                               ]
+
+# http://stackoverflow.com/questions/12772927/specifying-an-online-image-in-sphinx-restructuredtext-format
+#
+suppress_warnings = ['image.nonlocal_uri']
+
+# -- General configuration ------------------------------------------------
+
+# If your documentation needs a minimal Sphinx version, state it here.
+#needs_sphinx = '1.0'
+
+
+# Add any paths that contain templates here, relative to this directory.
+templates_path = ['_templates']
+
+# The suffix of source filenames.
+source_suffix = ['.rst', '.md']
+
+# The encoding of source files.
+#source_encoding = 'utf-8-sig'
+
+# The master toctree document.
+master_doc = 'index'
+
+
+# There are two options for replacing |today|: either, you set today to some
+# non-false value, then it is used:
+#today = ''
+# Else, today_fmt is used as the format for a strftime call.
+#today_fmt = '%B %d, %Y'
+
+# List of patterns, relative to source directory, that match files and
+# directories to ignore when looking for source files.
+exclude_patterns = ['_build','README.md']
+
+# The reST default role (used for this markup: `text`) to use for all
+# documents.
+#default_role = None
+
+# If true, '()' will be appended to :func: etc. cross-reference text.
+#add_function_parentheses = True
+
+# If true, the current module name will be prepended to all description
+# unit titles (such as .. function::).
+#add_module_names = True
+
+# If true, sectionauthor and moduleauthor directives will be shown in the
+# output. They are ignored by default.
+#show_authors = False
+
+# The name of the Pygments (syntax highlighting) style to use.
+pygments_style = 'sphinx'
+
+# A list of ignored prefixes for module index sorting.
+#modindex_common_prefix = []
+
+# If true, keep warnings as "system message" paragraphs in the built documents.
+#keep_warnings = False
+
+
+# -- Options for HTML output ----------------------------------------------
+
+# The theme to use for HTML and HTML Help pages.  See the documentation for
+# a list of builtin themes.
+# html_theme = 'sphinx_rtd_theme'
+
+# Theme options are theme-specific and customize the look and feel of a theme
+# further.  For a list of options available for each theme, see the
+# documentation.
+#html_theme_options = {}
+
+# Add any paths that contain custom themes here, relative to this directory.
+#html_theme_path = []
+
+# The name for this set of Sphinx documents.  If None, it defaults to
+# "<project> v<release> documentation".
+#html_title = None
+
+# A shorter title for the navigation bar.  Default is the same as html_title.
+#html_short_title = None
+
+# The name of an image file (relative to this directory) to place at the top
+# of the sidebar.
+html_logo = "../_static/espressif-logo.svg"
+
+# The name of an image file (within the static path) to use as favicon of the
+# docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
+# pixels large.
+#html_favicon = None
+
+# Add any paths that contain custom static files (such as style sheets) here,
+# relative to this directory. They are copied after the builtin static files,
+# so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['../_static']
 
-idf_build_system = {'doxygen_component_info': True, 'component_info_ignore_file': Path(os.environ['IDF_PATH']) / 'docs' / 'component_info_ignore_file.txt'}
+# Add any extra paths that contain custom files (such as robots.txt or
+# .htaccess) here, relative to this directory. These files are copied
+# directly to the root of the documentation.
+#html_extra_path = []
+
+# If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
+# using the given strftime format.
+#html_last_updated_fmt = '%b %d, %Y'
+
+# If true, SmartyPants will be used to convert quotes and dashes to
+# typographically correct entities.
+#html_use_smartypants = True
+
+# Custom sidebar templates, maps document names to template names.
+#html_sidebars = {}
+
+# Additional templates that should be rendered to pages, maps page names to
+# template names.
+#html_additional_pages = {}
+
+# If false, no module index is generated.
+#html_domain_indices = True
+
+# If false, no index is generated.
+#html_use_index = True
+
+# If true, the index is split into individual pages for each letter.
+#html_split_index = False
+
+# If true, links to the reST sources are added to the pages.
+#html_show_sourcelink = True
+
+# If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
+#html_show_sphinx = True
+
+# If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
+#html_show_copyright = True
+
+# If true, an OpenSearch description file will be output, and all pages will
+# contain a <link> tag referring to it.  The value of this option must be the
+# base URL from which the finished HTML is served.
+#html_use_opensearch = ''
+
+# This is the file name suffix for HTML files (e.g. ".xhtml").
+#html_file_suffix = None
+
+# Output file base name for HTML help builder.
+htmlhelp_basename = 'ReadtheDocsTemplatedoc'
 
 
-# Callback function for user setup that needs be done after `config-init`-event
-# config.idf_target is not available at the initial config stage
-def conf_setup(app, config):
-    config.add_warnings_content = 'This document is not updated for {} yet, so some of the content may not be correct.'.format(config.idf_target.upper())
+# -- Options for LaTeX output ---------------------------------------------
 
-    add_warnings_file = '{}/../docs_not_updated/{}.txt'.format(app.confdir, config.idf_target)
-    try:
-        with open(add_warnings_file) as warning_file:
-            config.add_warnings_pages = warning_file.read().splitlines()
-    except FileNotFoundError:
-        # Not for all target
-        pass
+latex_elements = {
+# The paper size ('letterpaper' or 'a4paper').
+#'papersize': 'letterpaper',
 
-    config.html_baseurl = f'https://docs.espressif.com/projects/esp-idf/{config.language}/stable/{config.idf_target}'
+# The font size ('10pt', '11pt' or '12pt').
+#'pointsize': '10pt',
+
+# Additional stuff for the LaTeX preamble.
+#'preamble': '',
+}
+
+# Grouping the document tree into LaTeX files. List of tuples
+# (source start file, target name, title,
+#  author, documentclass [howto, manual, or own class]).
+latex_documents = [
+  ('index', 'ReadtheDocsTemplate.tex', u'Read the Docs Template Documentation',
+   u'Read the Docs', 'manual'),
+]
+
+# The name of an image file (relative to this directory) to place at the top of
+# the title page.
+#latex_logo = None
+
+# For "manual" documents, if this is true, then toplevel headings are parts,
+# not chapters.
+#latex_use_parts = False
+
+# If true, show page references after internal links.
+#latex_show_pagerefs = False
+
+# If true, show URL addresses after external links.
+#latex_show_urls = False
+
+# Documents to append as an appendix to all manuals.
+#latex_appendices = []
+
+# If false, no module index is generated.
+#latex_domain_indices = True
 
 
-user_setup_callback = conf_setup
+# -- Options for manual page output ---------------------------------------
+
+# One entry per manual page. List of tuples
+# (source start file, name, description, authors, manual section).
+man_pages = [
+    ('index', 'readthedocstemplate', u'Read the Docs Template Documentation',
+     [u'Read the Docs'], 1)
+]
+
+# If true, show URL addresses after external links.
+#man_show_urls = False
+
+
+# -- Options for Texinfo output -------------------------------------------
+
+# Grouping the document tree into Texinfo files. List of tuples
+# (source start file, target name, title, author,
+#  dir menu entry, description, category)
+texinfo_documents = [
+  ('index', 'ReadtheDocsTemplate', u'Read the Docs Template Documentation',
+   u'Read the Docs', 'ReadtheDocsTemplate', 'One line description of project.',
+   'Miscellaneous'),
+]
+
+# Documents to append as an appendix to all manuals.
+#texinfo_appendices = []
+
+# If false, no module index is generated.
+#texinfo_domain_indices = True
+
+# How to display URL addresses: 'footnote', 'no', or 'inline'.
+#texinfo_show_urls = 'footnote'
+
+# If true, do not generate a @detailmenu in the "Top" node's menu.
+#texinfo_no_detailmenu = False

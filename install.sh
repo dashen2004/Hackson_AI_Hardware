@@ -1,39 +1,17 @@
-#!/usr/bin/env bash
-
-set -e
-set -u
+#!/bin/bash
 
 basedir=$(dirname "$0")
-IDF_PATH=$(cd "${basedir}"; pwd -P)
-export IDF_PATH
+ADF_PATH=$(cd "${basedir}"; pwd)
+export ADF_PATH
 
-echo "Detecting the Python interpreter"
-. "${IDF_PATH}/tools/detect_python.sh"
+if [ -z "$IDF_PATH" ]; then
+    export IDF_PATH=$ADF_PATH/esp-idf
+fi
 
-echo "Checking Python compatibility"
-"${ESP_PYTHON}" "${IDF_PATH}/tools/python_version_checker.py"
+echo "ADF_PATH: $ADF_PATH"
+echo "IDF_PATH: $IDF_PATH"
 
-while getopts ":h" option; do
-    case $option in
-        h)
-            "${ESP_PYTHON}" "${IDF_PATH}/tools/install_util.py" print_help sh
-            exit;;
-        \?)
-            ;;
-    esac
-done
-
-TARGETS=$("${ESP_PYTHON}" "${IDF_PATH}/tools/install_util.py" extract targets "$@")
-
-echo "Installing ESP-IDF tools"
-"${ESP_PYTHON}" "${IDF_PATH}/tools/idf_tools.py" install --targets="${TARGETS}"
-
-FEATURES=$("${ESP_PYTHON}" "${IDF_PATH}/tools/install_util.py" extract features "$@")
-
-echo "Installing Python environment and packages"
-"${ESP_PYTHON}" "${IDF_PATH}/tools/idf_tools.py" install-python-env --features="${FEATURES}"
-
-echo "All done! You can now run:"
-echo ""
-echo "  . ${basedir}/export.sh"
-echo ""
+pushd $IDF_PATH > /dev/null
+git submodule update --init --recursive --depth 1
+./install.sh || return $?
+popd > /dev/null

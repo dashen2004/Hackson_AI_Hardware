@@ -1,56 +1,31 @@
-# This script should be sourced, not executed.
+#!/bin/bash
 
-# Emergency backup option to use previous export.sh (export_legacy.sh) if the new export approach fails.
-# To use it, set environmental variable like: export ESP_IDF_LEGACY_EXPORT=1
-if [ -n "${ESP_IDF_LEGACY_EXPORT-}" ]; then
-    . ./tools/legacy_exports/export_legacy.sh
-    return $?
+# if [ -z "$ADF_PATH" ]; then
+#     basedir=$(dirname "$0")
+#     export ADF_PATH=$(cd "${basedir}"; pwd)
+# fi
+
+export PATH=$(pwd):$PATH
+export ADF_PATH=$(pwd)
+
+if [ -z "$IDF_PATH" ]; then
+    export IDF_PATH=$ADF_PATH/esp-idf
 fi
 
-# shellcheck disable=SC2128,SC2169,SC2039,SC3054 # ignore array expansion warning
-if [ -n "${BASH_SOURCE-}" ] && [ "${BASH_SOURCE[0]}" = "${0}" ]
-then
-    echo "This script should be sourced, not executed:"
-    # shellcheck disable=SC2039,SC3054  # reachable only with bash
-    echo ". ${BASH_SOURCE[0]}"
-    exit 1
-fi
+echo "ADF_PATH: $ADF_PATH"
+echo "IDF_PATH: $IDF_PATH"
 
-# Attempt to identify the ESP-IDF directory
-idf_path="."
+source ${IDF_PATH}/export.sh || return $?
+source "${IDF_PATH}/tools/detect_python.sh"
+"${ESP_PYTHON}" "${ADF_PATH}/tools/adf_install_patches.py" apply-patch
 
-shell_type="detect"
-
-# shellcheck disable=SC2128,SC2169,SC2039,SC3054,SC3028 # ignore array expansion warning
-if test -n "${BASH_SOURCE-}"
-then
-    # shellcheck disable=SC3028,SC3054 # unreachable with 'dash'
-    idf_path=$(dirname "${BASH_SOURCE[0]}")
-    shell_type="bash"
-elif test -n "${ZSH_VERSION-}"
-then
-    # shellcheck disable=SC2296  # ignore parameter starts with '{' because it's zsh
-    idf_path=$(dirname "${(%):-%x}")
-    shell_type="zsh"
-elif test -n "${IDF_PATH-}"
-then
-    idf_path=$IDF_PATH
-fi
-
-if [ ! -f "${idf_path}/tools/idf.py" ] ||
-    [ ! -f "${idf_path}/tools/idf_tools.py" ] ||
-    [ ! -f "${idf_path}/tools/activate.py" ]
-then
-    echo "Could not detect IDF_PATH. Please set it before sourcing this script:"
-    echo "  export IDF_PATH=(add path here)"
-    unset idf_path
-    return 1
-fi
-
-. "${idf_path}/tools/detect_python.sh"
-
-# Evaluate the ESP-IDF environment set up by the activate.py script.
-idf_exports=$("$ESP_PYTHON" "${idf_path}/tools/activate.py" --export --shell $shell_type)
-eval "${idf_exports}"
-unset idf_path
-return 0
+echo -e "\nThe following command can be executed now to view detailed usage:"
+echo -e ""
+echo -e "  idf.py --help"
+echo -e "\nCompilation example (The commands highlighted in yellow below are optional: Configure the chip and project settings separately)"
+echo -e ""
+echo -e "  cd $ADF_PATH/examples/cli"
+echo -e "  \033[33midf.py set-target esp32\033[0m"
+echo -e "  \033[33midf.py menuconfig\033[0m"
+echo -e "  idf.py build"
+echo -e ""
