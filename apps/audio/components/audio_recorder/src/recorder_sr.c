@@ -638,7 +638,7 @@ recorder_sr_handle_t recorder_sr_create(recorder_sr_cfg_t *cfg, recorder_sr_ifac
     ESP_LOGW(TAG, "src_ch_num [%d]", recorder_sr->src_ch_num);
    
     recorder_sr->models = esp_srmodel_init(recorder_sr->partition_label);
-    afe_config_t *afe_config = afe_config_init(cfg->str_channel, recorder_sr->models, AFE_TYPE_SR, AFE_MODE_HIGH_PERF);
+    afe_config_t *afe_config = afe_config_init("MR", recorder_sr->models, AFE_TYPE_SR, AFE_MODE_HIGH_PERF);
 
     afe_config->aec_init = cfg->afe_cfg.aec_init;
     // afe_config->pcm_config.total_ch_num = recorder_sr->src_ch_num;

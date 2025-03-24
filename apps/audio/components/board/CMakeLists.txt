@@ -2,14 +2,14 @@ set(COMPONENT_REQUIRES )
 set(COMPONENT_PRIV_REQUIRES esp_peripherals audio_sal audio_hal esp_dispatcher display_service)
 
 list(APPEND COMPONENT_ADD_INCLUDEDIRS 
-    "./dual_mic_board")
-    # "./single_mic_board")
+    # "./dual_mic_board")
+    "./single_mic_board")
 
 set(COMPONENT_SRCS 
-    "./dual_mic_board/board.c"
-    "./dual_mic_board/board_pins_config.c")
-    # "./single_mic_board/board.c"
-    # "./single_mic_board/board_pins_config.c")
+    # "./dual_mic_board/board.c"
+    # "./dual_mic_board/board_pins_config.c")
+    "./single_mic_board/board.c"
+    "./single_mic_board/board_pins_config.c")
     
 register_component()
 

@@ -63,62 +63,61 @@ static const char* TAG = "volc_rtc";
 } while (0)
 
 struct volc_rtc_t {
+    volc_rtc_cfg_t cfg;
     byte_rtc_engine_t          engine;
 };
 
 static struct volc_rtc_t s_volc_rtc;
 
-#if 0
+
 // static void audio_pull_data_process(char *ptr, int len);
 
 // byte rtc lite callbacks
 static void byte_rtc_on_join_room_success(byte_rtc_engine_t engine, const char* channel, int elapsed_ms, bool ms)
 {
-    ESP_LOGI(TAG, "join channel success %s elapsed %d ms now %d ms\n", channel, elapsed_ms, elapsed_ms);
-    xEventGroupSetBits(s_volc_rtc.join_event, JOIN_EVENT_BIT);
+    s_volc_rtc.cfg.event_handler.on_join_room_success((volc_rtc_engine_t)engine, channel, elapsed_ms, ms);
 };
 
 static __attribute__((unused)) void byte_rtc_on_rejoin_room_success(byte_rtc_engine_t engine, const char* channel, int elapsed_ms)
 {
-    ESP_LOGI(TAG, "rejoin channel success %s\n", channel);
+
 };
 
 static void byte_rtc_on_user_joined(byte_rtc_engine_t engine, const char* channel, const char* user_name, int elapsed_ms)
 {
-    ESP_LOGI(TAG, "remote user joined  %s:%s", channel, user_name);
+    s_volc_rtc.cfg.event_handler.on_user_joined((volc_rtc_engine_t)engine, channel, user_name, elapsed_ms);
 };
 
 static void byte_rtc_on_user_offline(byte_rtc_engine_t engine, const char* channel, const char* user_name, int reason)
 {
-    ESP_LOGI(TAG, "remote user offline  %s:%s", channel, user_name);
+    s_volc_rtc.cfg.event_handler.on_user_offline((volc_rtc_engine_t)engine, channel, user_name, reason);
 };
 
 static void byte_rtc_on_user_mute_audio(byte_rtc_engine_t engine, const char* channel, const char* user_name, int muted)
 {
-    ESP_LOGI(TAG, "remote user mute audio  %s:%s %d", channel, user_name, muted);
+    s_volc_rtc.cfg.event_handler.on_user_mute_audio((volc_rtc_engine_t)engine, channel, user_name, muted);
 };
 
 static void byte_rtc_on_user_mute_video(byte_rtc_engine_t engine, const char* channel, const char* user_name, int muted)
 {
-    ESP_LOGI(TAG, "remote user mute video  %s:%s %d", channel, user_name, muted);
+    s_volc_rtc.cfg.event_handler.on_user_mute_video((volc_rtc_engine_t)engine, channel, user_name, muted);
 };
 
 static __attribute__((unused)) void byte_rtc_on_connection_lost(byte_rtc_engine_t engine, const char* channel)
 {
-    ESP_LOGI(TAG, "connection Lost  %s", channel);
+
 };
 
 static void byte_rtc_on_room_error(byte_rtc_engine_t engine, const char* channel, int code, const char* msg)
 {
-    ESP_LOGI(TAG, "error occur %s %d %s", channel, code, msg ? msg : "UnKown");
+    s_volc_rtc.cfg.event_handler.on_room_error((volc_rtc_engine_t)engine, channel, code, msg);
 };
 
 // remote audio
 static void byte_rtc_on_audio_data(byte_rtc_engine_t engine, const char* channel, const char*  uid , uint16_t sent_ts,
                                    audio_codec_type_e codec, const void* data_ptr, size_t data_len)
 {
-    ESP_LOGD(TAG, "remote audio data %s %s %d %d %p %zu", channel, uid, sent_ts, codec, data_ptr, data_len);
-
+    s_volc_rtc.cfg.event_handler.on_audio_data((volc_rtc_engine_t)engine, channel, uid, sent_ts, codec, data_ptr, data_len);
 }
 
 // remote video
@@ -127,15 +126,15 @@ static void byte_rtc_on_video_data(byte_rtc_engine_t engine, const char*  channe
                                     const void * data_ptr, size_t data_len){ }
 
 // remote message
-void on_message_received(byte_rtc_engine_t engine, const char*  room, const char* uid, const uint8_t* message, int size, bool binary)
+static void on_message_received(byte_rtc_engine_t engine, const char*  room, const char* uid, const uint8_t* message, int size, bool binary)
 {
-    ESP_LOGD(TAG, "on_message_received uid: %s, message: %s, message size: %d", uid, message, size);
+    s_volc_rtc.cfg.event_handler.on_message_received((volc_rtc_engine_t)engine, room, uid, message, size, binary);
 }
 
 static void on_key_frame_gen_req(byte_rtc_engine_t engine, const char*  channel, const char*  uid) {}
 // byte rtc lite callbacks end.
 
-
+#if 0
 static void byte_rtc_engine_destroy() 
 {
     if (s_volc_rtc.engine) {
@@ -277,7 +276,6 @@ qm_err_t volc_rtc_send_audio_data(volc_rtc_engine_t engine,const char * room,con
 
 qm_err_t volc_rtc_join_room(volc_rtc_engine_t engine,const char *room, const char * uid, const char * token)
 {
-    ESP_LOGI(TAG, "start join room\n");
     byte_rtc_room_options_t options = { 0 };
     options.auto_subscribe_audio = 1;
     options.auto_subscribe_video = 0;
@@ -290,11 +288,6 @@ qm_err_t volc_rtc_join_room(volc_rtc_engine_t engine,const char *room, const cha
     return ESP_OK;
 }
 
-// remote video
-static void byte_rtc_on_video_data(byte_rtc_engine_t engine, const char*  channel, const char* uid, uint16_t sent_ts,
-    video_data_type_e codec, int is_key_frame,
-    const void * data_ptr, size_t data_len){ }
-
 volc_rtc_engine_t volc_rtc_open(volc_rtc_cfg_t *cfg)
 {
 #if 0
@@ -304,25 +297,24 @@ volc_rtc_engine_t volc_rtc_open(volc_rtc_cfg_t *cfg)
     audio_thread_create(NULL, "audio_data_process_task", audio_data_process_task, (void *)NULL, 8 * 1024, 10, true, 1);
     s_volc_rtc.join_event = xEventGroupCreate();
     s_volc_rtc.wait_destory_event = xEventGroupCreate();
+    log_clear();
 #endif
 
-    log_clear();
 
     byte_rtc_event_handler_t handler = {
-        .on_join_room_success       =   cfg->event_handler.on_join_room_success,
-        .on_room_error              =   cfg->event_handler.on_room_error,
-        .on_user_joined             =   cfg->event_handler.on_user_joined,
-        .on_user_offline            =   cfg->event_handler.on_user_offline,
-        .on_user_mute_audio         =   cfg->event_handler.on_user_mute_audio,
-        .on_user_mute_video         =   cfg->event_handler.on_user_mute_video,
-        .on_audio_data              =   cfg->event_handler.on_audio_data,
-    #if 1
+        .on_join_room_success       =   byte_rtc_on_join_room_success,
+        .on_room_error              =   byte_rtc_on_room_error,
+        .on_user_joined             =   byte_rtc_on_user_joined,
+        .on_user_offline            =   byte_rtc_on_user_offline,
+        .on_user_mute_audio         =   byte_rtc_on_user_mute_audio,
+        .on_user_mute_video         =   byte_rtc_on_user_mute_video,
+        .on_audio_data              =   byte_rtc_on_audio_data,
         .on_video_data              =   byte_rtc_on_video_data,
-    #endif
-        .on_key_frame_gen_req       =   cfg->event_handler.on_key_frame_gen_req,
-        .on_message_received        =   cfg->event_handler.on_message_received,
+        .on_key_frame_gen_req       =   on_key_frame_gen_req,
+        .on_message_received        =   on_message_received,
     };
 
+    memcpy(&s_volc_rtc.cfg, cfg, sizeof(volc_rtc_cfg_t));
     s_volc_rtc.engine = byte_rtc_create(cfg->appid, &handler);
     
     byte_rtc_set_log_level(s_volc_rtc.engine, BYTE_RTC_LOG_LEVEL_ERROR);

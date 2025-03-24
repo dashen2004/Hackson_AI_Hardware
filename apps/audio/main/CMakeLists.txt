@@ -6,8 +6,8 @@ set(COMPONENT_SRCS
 
     # "volc_rtc.c" "byte_rtc_request.c"
     "../components/audio_processor/audio_processor.c"
-    # "../components/audio_processor/audio_stream_single_microphone.c"
-    "../components/audio_processor/audio_stream_dual_microphone.c"
+    "../components/audio_processor/audio_stream_single_microphone.c"
+    # "../components/audio_processor/audio_stream_dual_microphone.c"
 
     "../components/audio_recorder/src/audio_recorder.c"
     "../components/audio_recorder/src/recorder_encoder.c"

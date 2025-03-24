@@ -551,8 +551,8 @@ qm_err_t qm_audio_start(qm_audio_t handle)
         // audio_player_reply_type(audio_handle, audio_handle->role_id, QM_RECORD_TYPE_WELCOME);
     }
 
-    qm_task_new_to_core_with_ext(&audio_handle->read_task, "voice_read", voice_read_task, (void *)audio_handle, 4 * 1024, 5, true, 1);
-    qm_task_new_to_core_with_ext(&audio_handle->read_task, "audio_data_proc", audio_data_process_task, (void *)audio_handle, 4 * 1024, 10, true, 0);
+    qm_task_new_to_core(&audio_handle->read_task, "voice_read", voice_read_task, (void *)audio_handle, 4 * 1024, 5, 1);
+    qm_task_new_to_core(&audio_handle->read_task, "audio_data_proc", audio_data_process_task, (void *)audio_handle, 4 * 1024, 10, 0);
     return QM_EOK;
 }
 

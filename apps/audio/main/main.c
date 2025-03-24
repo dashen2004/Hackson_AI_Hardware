@@ -91,11 +91,11 @@ void app_main()
     audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_START);
 
 
-    // es8311_set_mic_gain(ES8311_MIC_GAIN_30DB);
-    audio_hal_set_volume(board_handle->adc_hal, 80);
+    es8311_set_mic_gain(ES8311_MIC_GAIN_30DB);
+    // audio_hal_set_volume(board_handle->adc_hal, 80);
     audio_hal_set_volume(board_handle->audio_hal, 80);
 
-    es7210_adc_set_gain(ES7210_INPUT_MIC3, GAIN_0DB);
+    // es7210_adc_set_gain(ES7210_INPUT_MIC3, GAIN_0DB);
 #if 0
     periph_wifi_cfg_t wifi_cfg = {
         .wifi_config.sta.ssid = CONFIG_WIFI_SSID,
