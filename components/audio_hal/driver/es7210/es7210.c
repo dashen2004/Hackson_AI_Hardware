@@ -39,7 +39,7 @@
 #define ES7210_MCLK_SOURCE    (FROM_CLOCK_DOUBLE_PIN)  /* In master mode. 0 : MCLK from pad; 1 : MCLK from clock doubler */
 
 #ifndef ES7210_MIC_SELECT
-#define ES7210_MIC_SELECT (ES7210_INPUT_MIC1 | ES7210_INPUT_MIC2)
+#define ES7210_MIC_SELECT (ES7210_INPUT_MIC1 | ES7210_INPUT_MIC2 | ES7210_INPUT_MIC3)
 #endif  /* ES7210_MIC_SELECT */
 
 static char *TAG = "ES7210";

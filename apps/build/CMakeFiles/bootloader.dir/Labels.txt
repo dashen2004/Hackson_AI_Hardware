@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/CMakeFiles/bootloader
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/CMakeFiles/bootloader.rule
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/CMakeFiles/bootloader-complete.rule
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+/home/huanglei/work/esp32/qm_audio/esp32_combo/apps/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule

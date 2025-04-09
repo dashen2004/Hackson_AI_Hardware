@@ -1,0 +1,1 @@
+/home/huanglei/work/esp32/qm_audio/esp32_combo/esp-idf/components/mbedtls/mbedtls/library/psa_crypto_driver_wrappers_no_static.c

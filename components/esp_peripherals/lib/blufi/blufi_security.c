@@ -24,7 +24,7 @@
 
 #include "sdkconfig.h"
 #include "audio_mem.h"
-#ifdef CONFIG_BLUEDROID_ENABLED
+#if 0
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

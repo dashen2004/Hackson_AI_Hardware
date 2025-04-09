@@ -59,7 +59,7 @@
 
 static const char *TAG = "RECORDER_SR";
 
-static const esp_afe_sr_iface_t *esp_afe = &ESP_AFE_SR_HANDLE;
+static const esp_afe_sr_iface_t *esp_afe = NULL;
 
 #ifdef CONFIG_USE_MULTINET
 static const esp_mn_iface_t *multinet = NULL;
@@ -114,9 +114,9 @@ static recorder_sr_result_t *recorder_sr_afe_result_convert(
             break;
         case WAKENET_NO_DETECT:
             if (recorder_sr->vad_enable) {
-                if (afe_result->vad_state == AFE_VAD_SILENCE) {
+                if (afe_result->vad_state == VAD_SILENCE) {
                     sr_result->type = SR_RESULT_NOISE;
-                } else if (afe_result->vad_state == AFE_VAD_SPEECH) {
+                } else if (afe_result->vad_state == VAD_SPEECH) {
                     sr_result->type = SR_RESULT_SPEECH;
                 } else {
                     ESP_LOGE(TAG, "vad state error");
