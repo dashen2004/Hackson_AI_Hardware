@@ -6,11 +6,18 @@
 #include <stdbool.h>
 #include "audio_pipeline.h"
 
+#include "qm_audio_sr.h"
 #include "qm_audio_recorder.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct {
+    rec_event_cb_t cb;
+    int command_num;
+    qm_audio_sr_cmd_table_t *command_str;
+} pipe_record_engine_params_t;
 
 typedef void (*tone_play_callback_t)(audio_element_status_t evt);
 
@@ -206,7 +213,7 @@ audio_element_handle_t player_pipeline_get_raw_write(player_pipeline_handle_t pl
  * @return A pointer to the initialized audio recording engine instance, or NULL if the initialization fails.
  *         The returned pointer must be managed appropriately, including cleanup when no longer needed.
  */
-void * audio_record_engine_init(recorder_pipeline_handle_t pipeline, rec_event_cb_t cb);
+void * audio_record_engine_init(recorder_pipeline_handle_t pipeline, pipe_record_engine_params_t *params);
 
 /**
  * @brief Initialize the audio tone.

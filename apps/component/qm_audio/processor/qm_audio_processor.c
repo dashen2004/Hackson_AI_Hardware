@@ -98,15 +98,15 @@
      mem_assert(pipeline->board_handle);
      audio_hal_ctrl_codec(pipeline->board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_START);
 
-     ESP_LOGI(TAG, "Create player audio stream");
+     ESP_LOGI(TAG, "Create record audio stream");
      pipeline->i2s_stream_reader = create_record_i2s_stream();
      pipeline->raw_reader = create_record_raw_stream();
  
-     ESP_LOGI(TAG, " Register all player elements to audio pipeline");
+     ESP_LOGI(TAG, " Register all record elements to audio pipeline");
      audio_pipeline_register(pipeline->audio_pipeline, pipeline->i2s_stream_reader, "record_i2s");
      audio_pipeline_register(pipeline->audio_pipeline, pipeline->raw_reader, "record_raw");
  
-     ESP_LOGI(TAG, " Link all player elements to audio pipeline");
+     ESP_LOGI(TAG, " Link all record elements to audio pipeline");
      const char *link_tag[2] = {"record_i2s", "record_raw"};
      audio_pipeline_link(pipeline->audio_pipeline, &link_tag[0], 2);
      return pipeline;
@@ -307,7 +307,7 @@
     return raw_stream_read(s_recorder_pipeline->raw_reader, (char *)buffer, buf_sz);
  }
  
- void * audio_record_engine_init(recorder_pipeline_handle_t pipeline, rec_event_cb_t cb, float mic_gain, float speak_gain)
+ void * audio_record_engine_init(recorder_pipeline_handle_t pipeline, pipe_record_engine_params_t *params)
  {
      qm_audio_encoder_cfg_t recorder_encoder_cfg = { 0 };
      qm_audio_sr_cfg_t *recorder_sr_cfg = get_default_audio_sr_config();
@@ -329,11 +329,14 @@
  
      audio_rec_cfg_t cfg = AUDIO_RECORDER_DEFAULT_CFG();
      cfg.read = (qm_audio_data_read_t)&input_cb_for_afe;
-     cfg.event_cb = cb;
+     cfg.event_cb = params->cb;
      cfg.wakeup_time = 120000;
      
      if(recorder_sr_cfg){
         cfg.sr_handle = qm_audio_sr_create(recorder_sr_cfg, &cfg.sr_iface);
+        if(params->command_str && params->command_num){
+            qm_audio_sr_add_speech_cmd(cfg.sr_handle, params->command_str, params->command_num);
+        }
      }
 
      if(recorder_vc_cfg){
@@ -342,8 +345,6 @@
      
      cfg.encoder_handle = qm_audio_encoder_create(&recorder_encoder_cfg, &cfg.encoder_iface);
 
-     pipeline->mic_gain = mic_gain;
-     pipeline->speak_gain = speak_gain;
      pipeline->recorder_engine = qm_audio_recorder_create(&cfg);
 #if 0
      audio_recorder_trigger_start(pipeline->recorder_engine);

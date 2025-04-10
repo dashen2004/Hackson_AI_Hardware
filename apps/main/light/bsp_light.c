@@ -525,7 +525,7 @@ qm_err_t bsp_light_bri_up_set(int bri)
 {
     bsp_light_store_t *store = bsp_light_store_get();
     
-    store->up_bri = bri;
+    store->up_bri = LIGHT_LIGHTNESS_UNIT(bri);
 
     if(store->up_bri && store->down_bri){
         store->sel = BSP_LIGHT_SEL_DUAL;
@@ -547,7 +547,7 @@ qm_err_t bsp_light_bri_down_set(int bri)
 {
     bsp_light_store_t *store = bsp_light_store_get();
     
-    store->down_bri = bri;
+    store->down_bri = LIGHT_LIGHTNESS_UNIT(bri);
 
     if(store->up_bri && store->down_bri){
         store->sel = BSP_LIGHT_SEL_DUAL;
