@@ -206,7 +206,7 @@ audio_element_handle_t player_pipeline_get_raw_write(player_pipeline_handle_t pl
  * @return A pointer to the initialized audio recording engine instance, or NULL if the initialization fails.
  *         The returned pointer must be managed appropriately, including cleanup when no longer needed.
  */
-void *audio_record_engine_init(recorder_pipeline_handle_t pipeline, rec_event_cb_t cb, float mic_gain, float speak_gain);
+void * audio_record_engine_init(recorder_pipeline_handle_t pipeline, rec_event_cb_t cb);
 
 /**
  * @brief Initialize the audio tone.

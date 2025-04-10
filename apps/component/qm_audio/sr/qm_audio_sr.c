@@ -379,8 +379,6 @@ static qm_err_t recorder_sr_mn_enable(void *handle, bool_t enable)
         multinet = esp_mn_handle_from_name(mn_name);
         recorder_sr->mn_handle = multinet->create(mn_name, 5760);
         AUDIO_NULL_CHECK(TAG, recorder_sr->mn_handle, return ESP_FAIL);
-        esp_mn_commands_update_from_sdkconfig((esp_mn_iface_t *)multinet, recorder_sr->mn_handle);
-        // multinet->print_active_speech_commands(recorder_sr->mn_handle);
     }
     return ESP_OK;
 #else
@@ -535,8 +533,6 @@ qm_audio_sr_handle_t qm_audio_sr_create(qm_audio_sr_cfg_t *cfg, qm_audio_sr_ifac
         recorder_sr->mn_handle = multinet->create(mn_name, 5760);
         AUDIO_NULL_CHECK(TAG, recorder_sr->mn_handle, goto _failed);
         recorder_sr->mn_enable = true;
-        esp_mn_commands_update_from_sdkconfig((esp_mn_iface_t *)multinet, recorder_sr->mn_handle);
-        multinet->print_active_speech_commands(recorder_sr->mn_handle);
     }
 #endif
     recorder_sr->events = xEventGroupCreate();
@@ -578,9 +574,10 @@ qm_err_t qm_audio_sr_add_speech_cmd(qm_audio_sr_handle_t handle, qm_audio_sr_cmd
     for (size_t i = 0; i < command_num; i++) {
         esp_mn_commands_add(command_str[i].id, (char *)command_str[i].str);
     }
-
     esp_mn_commands_print();
+
     esp_mn_error_t *mn_err = esp_mn_commands_update(multinet, recorder_sr->mn_handle);
+
     return mn_err == NULL ? ESP_OK : ESP_FAIL;
 #else
     ESP_LOGW(TAG, "Multinet is not enabled");

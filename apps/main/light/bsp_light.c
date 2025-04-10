@@ -521,6 +521,50 @@ qm_err_t bsp_light_warm_up(void)
     return QM_EOK;
 }
 
+qm_err_t bsp_light_bri_up_set(int bri)
+{
+    bsp_light_store_t *store = bsp_light_store_get();
+    
+    store->up_bri = bri;
+
+    if(store->up_bri && store->down_bri){
+        store->sel = BSP_LIGHT_SEL_DUAL;
+    }else{
+        store->sel = BSP_LIGHT_SEL_DOWN;
+    }
+
+    store->on_off = QM_TRUE;
+    store->mode = BSP_LIGHT_MODE_NONE;
+
+    light_total_lightness_update();
+    light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+    light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX], store->down_bri, CONFIG_BSP_LIGHT_FADE_TIME);  
+
+    return QM_EOK;
+}
+
+qm_err_t bsp_light_bri_down_set(int bri)
+{
+    bsp_light_store_t *store = bsp_light_store_get();
+    
+    store->down_bri = bri;
+
+    if(store->up_bri && store->down_bri){
+        store->sel = BSP_LIGHT_SEL_DUAL;
+    }else{
+        store->sel = BSP_LIGHT_SEL_DOWN;
+    }
+
+    store->on_off = QM_TRUE;
+    store->mode = BSP_LIGHT_MODE_NONE;
+
+    light_total_lightness_update();
+    light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+    light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX], store->down_bri, CONFIG_BSP_LIGHT_FADE_TIME);  
+
+    return QM_EOK;
+}
+
 //下发光变亮
 qm_err_t bsp_light_warm_down(void)
 {

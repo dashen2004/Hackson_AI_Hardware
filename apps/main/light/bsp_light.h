@@ -137,6 +137,12 @@ qm_err_t bsp_light_select(bsp_light_sel_t sel);
 //亮度  亮度范围值
 qm_err_t bsp_light_bri_set(int bri);
 
+//上光亮度  亮度范围值
+qm_err_t bsp_light_bri_up_set(int bri);
+
+//下光亮度  亮度范围值
+qm_err_t bsp_light_bri_down_set(int bri);
+
 //亮度+
 qm_err_t bsp_light_bri_up(void);
 
