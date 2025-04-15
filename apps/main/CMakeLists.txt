@@ -1,3 +1,4 @@
+
 set(COMPONENT_SRCS 
 
     "main.c" 
@@ -7,12 +8,29 @@ set(COMPONENT_SRCS
     "./light/audio_light.c"
     "./cloud/xjiang_cloud.c"
     "./beacon/audio_beacon.c"
+    "./audio/bsp_audio.c"
+    "./audio/audio_cloud.c"
+
+    "./player/qm_player_dev.c"
+    "./player/qm_player.c"
+
+    "../component/qm_audio/ws/qm_audio_ws.c"
+    "../component/qm_audio/encoder/qm_audio_encoder.c"
+    "../component/qm_audio/sr/qm_audio_sr.c"
+    "../component/qm_audio/vc/qm_audio_vc.c"
+    "../component/qm_audio/recorder/qm_audio_recorder.c"
+    "../component/qm_audio/processor/qm_audio_processor.c"
+
+    "../component/qm_audio/board/dual_mic/board_pins_config.c"
+    "../component/qm_audio/board/dual_mic/qm_audio_board.c"
+    "../component/qm_audio/board/dual_mic/qm_audio_stream.c"   
+
 
     "../component/qm_light/pwm_alg/qm_light_alg.c"
     "../component/qm_light/driver/qm_light_driver.c"
 
     "$ENV{ADF_PATH}/qumi/kernel/init/qm_init.c"
-    
+
     "$ENV{ADF_PATH}/qumi/components/ble_remoter/src/ble_remoter.c"
     "$ENV{ADF_PATH}/qumi/components/backoff/src/backoff_algorithm.c"
     "$ENV{ADF_PATH}/qumi/components/mqtt/iot_mqtt_client.c"
@@ -75,6 +93,8 @@ set(COMPONENT_SRCS
 	"$ENV{ADF_PATH}/qumi/components/wifi_manager/src/qm_wifi_dev.c"
 	"$ENV{ADF_PATH}/qumi/components/wifi_manager/src/qm_wifi_mgnt.c"
 
+
+    "$ENV{ADF_PATH}/qumi/utility/uuid/qm_utils_uuid.c"
     "$ENV{ADF_PATH}/qumi/utility/list/qm_utils_list.c"
     "$ENV{ADF_PATH}/qumi/utility/timer/qm_utils_timer.c"
     "$ENV{ADF_PATH}/qumi/utility/log/qm_log.c"
@@ -110,19 +130,24 @@ set(COMPONENT_SRCS
     )
 set(COMPONENT_ADD_INCLUDEDIRS 
     "."
+    "./audio"
     "./light"
     "./cloud"
     "./beacon"
     "./qm_config"
+
+    "./player"
 
     "../component/qm_light/driver"
     "../component/qm_light/config"
     "../component/qm_light/pwm_alg"
 
     "../component/qm_audio"
+    "../component/qm_audio/common"
+    "../component/qm_audio/ws"
     "../component/qm_audio/encoder"
     "../component/qm_audio/board"
-    "../component/qm_audio/board/single_mic"
+    "../component/qm_audio/board/dual_mic"
 
     "../component/qm_audio/sr"
     "../component/qm_audio/vc"
@@ -130,6 +155,11 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_audio/processor"
 
     "$ENV{ADF_PATH}/qumi/board/esp32x"
+
+    "$ENV{ADF_PATH}/qumi/components/bson"
+    "$ENV{ADF_PATH}/qumi/components/bson/common"
+    "$ENV{ADF_PATH}/qumi/components/bson/bson"
+    "$ENV{ADF_PATH}/qumi/components/bson/jsonsl"
 
     "$ENV{ADF_PATH}/qumi/components/ble_remoter/include"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/common"

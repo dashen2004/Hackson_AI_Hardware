@@ -14,7 +14,7 @@ extern "C" {
 #define AUDIO_REC_DEF_TASK_PRIO (10)       /*!< Priority of recoder task */
 #define AUDIO_REC_DEF_TASK_CORE (1)        /*!< Pinned to core */
 
-#define AUDIO_REC_FEED_TASK_SZ   (7 * 1024) /*!< Stack size of recorder task */
+#define AUDIO_REC_FEED_TASK_SZ   (8 * 1024) /*!< Stack size of recorder task */
 #define AUDIO_REC_FEED_TASK_PRIO (5)       /*!< Priority of recoder task */
 #define AUDIO_REC_FEED_TASK_CORE (0)        /*!< Pinned to core */
 
@@ -125,6 +125,16 @@ qm_err_t qm_audio_recorder_waketimer_reset(audio_rec_handle_t handle);
  */
 int qm_audio_recorder_data_read(audio_rec_handle_t handle, void *buffer, int length, TickType_t ticks);
 
+
+/**
+ * @brief 
+ *
+ * @param handle Audio recorder handle
+ *
+ * @return ESP_OK
+ *         ESP_FAIL
+ */
+qm_err_t qm_audio_recorder_data_reset(audio_rec_handle_t handle);
 
 /**
  * @brief Destroy audio recorder and recycle all resource

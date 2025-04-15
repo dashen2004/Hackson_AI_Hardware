@@ -63,7 +63,7 @@ typedef struct {
      *
      * @returns         Feed length
      */
-    int (*trans)(void *handle, int16_t *in_buf, int16_t *out_buf);
+    void (*reset)(void *handle);
 
     /**
      * @brief Function to feed data into recorder subprocess

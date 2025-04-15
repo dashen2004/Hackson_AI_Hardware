@@ -67,7 +67,10 @@ typedef struct __recorder_sr {
     char                  *mn_language;
 #endif /* !CONFIG_SR_MN_CN_NONE */
     char                  *wn_wakeword;
-    uint8_t               src_ch_num;
+
+    qm_audio_sr_cmd_table_t *cmd_table;
+    int                      cmd_num;
+
 } recorder_sr_t;
 
 static qm_err_t recorder_sr_output(recorder_sr_t *recorder_sr, void *buffer, int len);
@@ -124,29 +127,22 @@ static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_
 
     if (!recorder_sr->mn_enable) {
         if (detect_flag == 1) {
-#if CONFIG_IDF_TARGET_ESP32
-            recorder_sr_enable_wakenet_aec(recorder_sr);
-#endif
             detect_flag = 0;
         }
         return ESP_OK;
     }
+
     if (recorder_sr->wwe_enable) {
-#if CONFIG_IDF_TARGET_ESP32
-        if (afe_result->wakeup_state == WAKENET_DETECTED) {
-            detect_flag = 1;
-            recorder_sr_disable_wakenet_aec(recorder_sr);
-        }
-#else
-        if (afe_result->wakeup_state == WAKENET_CHANNEL_VERIFIED) {
+        if (afe_result->wakeup_state == WAKENET_DETECTED || 
+            afe_result->wakeup_state == WAKENET_CHANNEL_VERIFIED) {
             detect_flag = 1;
         }
-#endif
     } else {
         if (afe_result->vad_state == VAD_SPEECH) {
             detect_flag = 1;
         }
     }
+
     if (detect_flag == 1) {
         esp_mn_state_t mn_state = multinet->detect(recorder_sr->mn_handle, afe_result->data);
 
@@ -154,25 +150,26 @@ static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_
             return ESP_OK;
         }
         if (mn_state == ESP_MN_STATE_DETECTED) {
+            QM_LOGD("1", "ESP_MN_STATE_DETECTED");
             esp_mn_results_t *mn_result = multinet->get_results(recorder_sr->mn_handle);
             if (recorder_sr->mn_monitor) {
                 qm_audio_sr_result_t sr_result = { 0 };
+
                 sr_result.type = mn_result->command_id[0];
                 sr_result.info.mn_info.phrase_id = mn_result->phrase_id[0];
                 sr_result.info.mn_info.prob = mn_result->prob[0];
                 memcpy(sr_result.info.mn_info.str, mn_result->string, RECORDER_SR_MN_STRING_MAX_LEN);
+
+
+                QM_LOGD("1", "type:%d,phrase_id:%d,str:%s", 
+                    sr_result.type, sr_result.info.mn_info.phrase_id, sr_result.info.mn_info.str);
+
                 recorder_sr->mn_monitor(&sr_result, recorder_sr->mn_monitor_ctx);
             }
-#if CONFIG_IDF_TARGET_ESP32
-            recorder_sr_enable_wakenet_aec(recorder_sr);
-#endif
             detect_flag = 0;
         }
 
         if (mn_state == ESP_MN_STATE_TIMEOUT) {
-#if CONFIG_IDF_TARGET_ESP32
-            recorder_sr_enable_wakenet_aec(recorder_sr);
-#endif
             detect_flag = 0;
             ESP_LOGI(TAG, "MN dect quit");
         }
@@ -189,7 +186,7 @@ static void fetch_task(void *parameters)
     while (recorder_sr->fetch_running) {
         xEventGroupWaitBits(recorder_sr->events, FETCH_TASK_RUNNING, false, true, portMAX_DELAY);
 
-        afe_fetch_result_t *afe_result = recorder_sr->afe_handle->fetch(recorder_sr->afe_data);
+        afe_fetch_result_t *afe_result = recorder_sr->afe_handle->fetch_with_delay(recorder_sr->afe_data, QM_WAIT_FOREVER);
 #if !defined(CONFIG_SR_MN_CN_NONE) || !defined(CONFIG_SR_MN_EN_NONE)
         recorder_mn_detect(recorder_sr, afe_result);
 #endif
@@ -408,12 +405,25 @@ static int recorder_sr_get_feed_chunksize(void *handle)
     return recorder_sr->afe_handle->get_feed_chunksize(recorder_sr->afe_data);
 }
 
+static void recorder_sr_clear(void *handle)
+{
+    AUDIO_CHECK(TAG, handle, return, "Handle is NULL");
+    recorder_sr_t *recorder_sr = (recorder_sr_t *)handle;
+
+    recorder_sr->afe_handle->reset_buffer(recorder_sr->afe_data);
+    
+    if (recorder_sr->out_rb) {
+        rb_reset(recorder_sr->out_rb);
+    }
+}
+
 static qm_audio_sr_iface_t recorder_sr_iface = {
     .base.enable = recorder_sr_enable,
     .base.get_state = recorder_sr_get_state,
     .base.set_read_cb = recorder_sr_set_read_cb,
     .base.feed = recorder_sr_feed,
     .base.fetch = recorder_sr_fetch,
+    .base.reset = recorder_sr_clear,
     .afe_suspend = recorder_sr_suspend,
     .set_afe_monitor = recorder_sr_set_afe_monitor,
     .set_mn_monitor = recorder_sr_set_mn_monitor,
@@ -423,37 +433,6 @@ static qm_audio_sr_iface_t recorder_sr_iface = {
     .get_feed_chunksize = recorder_sr_get_feed_chunksize,
 };
 
-static void recorder_sr_clear(void *handle)
-{
-    AUDIO_CHECK(TAG, handle, return, "Handle is NULL");
-    recorder_sr_t *recorder_sr = (recorder_sr_t *)handle;
-
-    if (recorder_sr->afe_data) {
-        recorder_sr->afe_handle->destroy(recorder_sr->afe_data);
-        recorder_sr->afe_data = NULL;
-    }
-#if !defined(CONFIG_SR_MN_CN_NONE) || !defined(CONFIG_SR_MN_EN_NONE)
-    if (recorder_sr->mn_handle) {
-        multinet->destroy(recorder_sr->mn_handle);
-        esp_mn_commands_free();
-        recorder_sr->mn_handle = NULL;
-    }
-#endif
-    if (recorder_sr->models) {
-        esp_srmodel_deinit(recorder_sr->models);
-    }
-    if (recorder_sr->out_rb) {
-        rb_reset(recorder_sr->out_rb);
-        rb_destroy(recorder_sr->out_rb);
-    }
-    if (recorder_sr->events) {
-        vEventGroupDelete(recorder_sr->events);
-        recorder_sr->events = NULL;
-    }
-    if (recorder_sr) {
-        audio_free(recorder_sr);
-    }
-}
 
 qm_audio_sr_handle_t qm_audio_sr_create(qm_audio_sr_cfg_t *cfg, qm_audio_sr_iface_t **iface)
 {
@@ -471,13 +450,7 @@ qm_audio_sr_handle_t qm_audio_sr_create(qm_audio_sr_cfg_t *cfg, qm_audio_sr_ifac
 #if !defined(CONFIG_SR_MN_CN_NONE) || !defined(CONFIG_SR_MN_EN_NONE)
     recorder_sr->mn_language      = cfg->mn_language;
 #endif
-    if (((afe_config_t *)cfg->afe_cfg)->pcm_config.total_ch_num <= 2) {
-        recorder_sr->src_ch_num = ((afe_config_t *)cfg->afe_cfg)->pcm_config.total_ch_num;
-    } else if (((afe_config_t *)cfg->afe_cfg)->pcm_config.total_ch_num <= 4) {
-        recorder_sr->src_ch_num = 4;
-    } else {
-        ESP_LOGE(TAG, "Channel number [%d] is not supported by esp-sr. Please check your configuration.", ((afe_config_t *)cfg->afe_cfg)->pcm_config.total_ch_num);
-    }
+
     recorder_sr->models = esp_srmodel_init(recorder_sr->partition_label);
 
     char *wn_name = NULL;
@@ -530,7 +503,7 @@ qm_audio_sr_handle_t qm_audio_sr_create(qm_audio_sr_cfg_t *cfg, qm_audio_sr_ifac
         char *mn_name = esp_srmodel_filter(recorder_sr->models, ESP_MN_PREFIX, recorder_sr->mn_language);
         AUDIO_NULL_CHECK(TAG, mn_name, goto _failed);
         multinet = esp_mn_handle_from_name(mn_name);
-        recorder_sr->mn_handle = multinet->create(mn_name, 5760);
+        recorder_sr->mn_handle = multinet->create(mn_name, 10 * 1000);
         AUDIO_NULL_CHECK(TAG, recorder_sr->mn_handle, goto _failed);
         recorder_sr->mn_enable = true;
     }
@@ -559,6 +532,15 @@ qm_err_t qm_audio_sr_destroy(qm_audio_sr_handle_t handle)
     return ESP_OK;
 }
 
+qm_err_t qm_audio_sr_get_speech_cmd(qm_audio_sr_handle_t handle, qm_audio_sr_cmd_table_t **command_str, int *command_num)
+{
+    recorder_sr_t *recorder_sr = (recorder_sr_t *)handle;
+
+    *command_num = recorder_sr->cmd_num;
+    *command_str = recorder_sr->cmd_table;
+
+    return QM_EOK;
+}
 
 qm_err_t qm_audio_sr_add_speech_cmd(qm_audio_sr_handle_t handle, qm_audio_sr_cmd_table_t *command_str, int command_num)
 {
@@ -569,8 +551,15 @@ qm_err_t qm_audio_sr_add_speech_cmd(qm_audio_sr_handle_t handle, qm_audio_sr_cmd
     recorder_sr_t *recorder_sr = (recorder_sr_t *)handle;
     esp_err_t err = ESP_OK;
 
+    if(!recorder_sr->mn_enable){
+        return -QM_EINVAL;
+    }
+
     esp_mn_commands_clear();
     
+    recorder_sr->cmd_num = command_num;
+    recorder_sr->cmd_table = command_str;
+
     for (size_t i = 0; i < command_num; i++) {
         esp_mn_commands_add(command_str[i].id, (char *)command_str[i].str);
     }

@@ -146,7 +146,6 @@ esp_err_t audio_sys_get_real_time_stats(void)
             ESP_LOGI(TAG, "| %s | Created", end_array[i].pcTaskName);
         }
     }
-    printf("\n");
     ret = ESP_OK;
 
 exit:    // Common return path

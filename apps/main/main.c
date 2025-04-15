@@ -26,6 +26,9 @@
 
 #include "audio_mem.h"
 
+#include "esp_bt.h"
+#include "esp_bt_main.h"
+
 #define ENABLE_TASK_MONITOR
 
 static char *TAG = "main";
@@ -46,6 +49,17 @@ void app_main()
 {
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
+
+    esp_log_level_set("AUDIO_THREAD", ESP_LOG_ERROR);
+    esp_log_level_set("i2c_bus_v2", ESP_LOG_ERROR);
+    esp_log_level_set("AUDIO_HAL", ESP_LOG_ERROR);
+    esp_log_level_set("AUDIO_PIPELINE", ESP_LOG_ERROR);
+    esp_log_level_set("AUDIO_ELEMENT", ESP_LOG_ERROR);
+    // esp_log_level_set("I2S_STREAM_IDF5.x", ESP_LOG_ERROR);
+    esp_log_level_set("RSP_FILTER", ESP_LOG_ERROR);
+    esp_log_level_set("AUDIO_EVT", ESP_LOG_ERROR);
+    
+    esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
 
 #if defined(ENABLE_TASK_MONITOR)
     audio_thread_create(NULL, "monitor_task", monitor_task, NULL, 4 * 1024, 1, true, 1);

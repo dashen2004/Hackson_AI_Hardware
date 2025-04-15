@@ -9,6 +9,8 @@
 #include "audio_main.h"
 #include "audio_light.h"
 #include "qm_audio.h"
+#include "qm_work.h"
+#include "qm_event.h"
 
 
 #define LOG_TAG "APP"
@@ -30,6 +32,7 @@ static struct qm_cli_command resetinfo_key = {
     .help = "cloud reset",
     .function = handle_resetinfo
 };
+
 
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv)
 {
@@ -54,6 +57,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_CONN");
             connect = QM_TRUE;
             audio_light_snapshot_report();
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CEART_WS, NULL, 0);
         break;
 
         case QM_IOT_EVENT_CLOUD_DISCONN:

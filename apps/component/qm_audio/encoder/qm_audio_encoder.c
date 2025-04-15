@@ -91,28 +91,25 @@ static audio_element_err_t recorder_encoder_data_in(audio_element_handle_t self,
     }
 }
 
+static void recorder_encoder_clear(void *handle)
+{
+    AUDIO_CHECK(TAG, handle, return, "Handle is NULL");
+    recorder_encoder_t *recorder_encoder = (recorder_encoder_t *)handle;
+
+    if (recorder_encoder->out_rb) {
+        rb_reset(recorder_encoder->out_rb);
+    }
+
+}
+
 static qm_audio_encoder_iface_t recorder_encoder_iface = {
     .base.enable = recorder_encoder_enable,
     .base.get_state = recorder_encoder_get_state,
     .base.set_read_cb = recorder_encoder_set_read_cb,
     .base.feed = NULL,
     .base.fetch = recorder_encoder_fetch,
+    .base.reset = recorder_encoder_clear,
 };
-
-static void recorder_encoder_clear(void *handle)
-{
-    AUDIO_CHECK(TAG, handle, return, "Handle is NULL");
-    recorder_encoder_t *recorder_encoder = (recorder_encoder_t *)handle;
-    if (recorder_encoder->pipeline) {
-        audio_pipeline_deinit(recorder_encoder->pipeline);
-    }
-    if (recorder_encoder->out_rb) {
-        rb_destroy(recorder_encoder->out_rb);
-    }
-    if (recorder_encoder) {
-        audio_free(recorder_encoder);
-    }
-}
 
 qm_audio_encoder_handle_t qm_audio_encoder_create( qm_audio_encoder_cfg_t *cfg,  qm_audio_encoder_iface_t **iface)
 {

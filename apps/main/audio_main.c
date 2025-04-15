@@ -1,12 +1,12 @@
 
 #include "qm.h"
 
-#include "audio_light.h"
-#include "audio_beacon.h"
-
 #include "xjiang_cloud.h"
 
 #include "audio_main.h"
+#include "audio_cloud.h"
+#include "audio_light.h"
+#include "audio_beacon.h"
 
 void qm_application_start(void)
 {
@@ -16,5 +16,6 @@ void qm_application_start(void)
 
     xjiang_cloud_init();
 
-    QM_LOGD(LOG_TAG, "Version: %s!!!", CONFIG_AUDIO_LIGHT_HW_VERSION);
+    audio_cloud_init();
+
 }

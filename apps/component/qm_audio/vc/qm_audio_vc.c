@@ -48,6 +48,38 @@ typedef struct __recorder_vc {
     bool                  aec_enable;
 } recorder_vc_t;
 
+// #define DEBUG_FLAG 1
+
+#if DEBUG_FLAG
+
+#include "qm_utils_timer.h"
+#include "audio_player.h"
+
+typedef struct {
+    // The "RIFF" chunk descriptor
+    uint8_t ChunkID[4];// Indicates the file as "RIFF" file
+    int32_t ChunkSize;// The total size of the entire file, excluding the "RIFF" and the header itself, which is the file size minus 8 bytes.
+    uint8_t Format[4];// File format header indicating a "WAVE" file.
+    // The "fmt" sub-chunk
+    uint8_t Subchunk1ID[4];// Format identifier for the "fmt" sub-chunk.
+    int32_t Subchunk1Size;// The length of the fmt sub-chunk (subchunk1) excluding the Subchunk1 ID and Subchunk1 Size fields. It is typically 16, but a value greater than 16 indicates the presence of an extended area. Optional values for the length include 16, 18, 20, 40, etc.
+    int16_t AudioFormat;// Audio encoding format, which represents the compression format. A value of 0x01 indicates PCM format, which is uncompressed. Please refer to table 3 for more details.
+    int16_t NumChannels;// Number of audio channels
+    int32_t SampleRate;// Sample rate, for example, "44100" represents a sampling rate of 44100 Hz.
+    int32_t ByteRate;// Bit rate: Sample rate x bit depth x number of channels / 8. For example, the bit rate for a stereo (2 channels) audio with a sample rate of 44.1 kHz and 16-bit depth would be 176400 bits per second.
+    int16_t BlockAlign;// Memory size occupied by one sample: Bit depth x number of channels / 8.
+    int16_t BitsPerSample;//Sample depth, also known as bit depth.
+    // The "data" sub-chunk
+    uint8_t Subchunk2ID[4];// Total length of the audio data, which is the file size minus the length of the WAV file header.
+    int32_t Subchunk2Size;// Length of the data section, referring to the size of the audio data excluding the header.
+} qm_audio_wav_header_t;
+
+static int play_size = 0;
+static uint8_t *play_buff = NULL;
+static qm_utils_time_t debug_timer = {0};
+extern void qm_audio_ws_data_cb(void *data, int len, void *user_data);
+#endif
+
 static qm_err_t recorder_sr_output(recorder_vc_t *recorder_sr, void *buffer, int len);
 
 static qm_audio_vc_result_t *recorder_sr_afe_result_convert(
@@ -75,23 +107,32 @@ static qm_audio_vc_result_t *recorder_sr_afe_result_convert(
 static void fetch_task(void *parameters)
 {
     recorder_vc_t *recorder_sr = (recorder_vc_t *)parameters;
-    recorder_sr->fetch_running = true;
 
-    while (recorder_sr->fetch_running) {
-        xEventGroupWaitBits(recorder_sr->events, FETCH_TASK_RUNNING, false, true, portMAX_DELAY);
+    int fetch_size = recorder_sr->afe_handle->get_fetch_chunksize(recorder_sr->afe_data);
+    int feed_size = recorder_sr->afe_handle->get_feed_chunksize(recorder_sr->afe_data);
+    ESP_LOGI(TAG, "Audio communication task started, feed size: %d fetch size: %d",
+        feed_size, fetch_size);
 
-        afe_fetch_result_t *afe_result = recorder_sr->afe_handle->fetch(recorder_sr->afe_data);
-        if (recorder_sr->afe_monitor) {
-            qm_audio_vc_result_t sr_result = {0};
-            recorder_sr->afe_monitor(
-                    recorder_sr_afe_result_convert(recorder_sr, afe_result, &sr_result),
-                    recorder_sr->afe_monitor_ctx);
+    while (1) {
+        afe_fetch_result_t *afe_result = recorder_sr->afe_handle->fetch_with_delay(recorder_sr->afe_data, QM_WAIT_FOREVER);
+        if (afe_result && afe_result->ret_value != ESP_FAIL){
+            recorder_sr_output(recorder_sr, afe_result->data, afe_result->data_size);
         }
-        recorder_sr_output(recorder_sr, afe_result->data, afe_result->data_size);
+
+    #if DEBUG_FLAG        
+    
+    memcpy(play_buff + play_size, afe_result->data, afe_result->data_size);
+    play_size += afe_result->data_size;
+
+    if(!qm_utils_time_left(&debug_timer)){
+        ESP_LOGI(TAG, "Audio communication task fetch size: %d", play_size);
+        qm_audio_ws_data_cb(play_buff, play_size, NULL);
+        play_size = 0;
+        qm_utils_time_countdown_ms(&debug_timer, 5 * 1000);
     }
-    xEventGroupClearBits(recorder_sr->events, FETCH_TASK_RUNNING);
-    xEventGroupSetBits(recorder_sr->events, FETCH_TASK_DESTROY);
-    vTaskDelete(NULL);
+    #endif            
+    }
+
 }
 
 static qm_err_t recorder_sr_output(recorder_vc_t *recorder_sr, void *buffer, int len)
@@ -99,7 +140,9 @@ static qm_err_t recorder_sr_output(recorder_vc_t *recorder_sr, void *buffer, int
     if (rb_bytes_available(recorder_sr->out_rb) < len) {
         rb_read(recorder_sr->out_rb, NULL, len, 0);
     }
+    
     int ret = rb_write(recorder_sr->out_rb, buffer, len, 0);
+
     return ret == len ? ESP_OK : ESP_FAIL;
 }
 
@@ -229,6 +272,17 @@ static int recorder_sr_get_feed_chunksize(void *handle)
     return recorder_sr->afe_handle->get_feed_chunksize(recorder_sr->afe_data);
 }
 
+static void recorder_sr_clear(void *handle)
+{
+    AUDIO_CHECK(TAG, handle, return, "Handle is NULL");
+    recorder_vc_t *recorder_sr = (recorder_vc_t *)handle;
+
+    recorder_sr->afe_handle->reset_buffer(recorder_sr->afe_data);
+    
+    if (recorder_sr->out_rb) {
+        rb_reset(recorder_sr->out_rb);
+    }
+}
 
 static qm_audio_vc_iface_t recorder_sr_iface = {
     .base.enable = recorder_sr_enable,
@@ -236,38 +290,26 @@ static qm_audio_vc_iface_t recorder_sr_iface = {
     .base.set_read_cb = recorder_sr_set_read_cb,
     .base.feed = recorder_sr_feed,
     .base.fetch = recorder_sr_fetch,
+    .base.reset = recorder_sr_clear,
     .afe_suspend = recorder_sr_suspend,
     .set_afe_monitor = recorder_sr_set_afe_monitor,
     .get_feed_channel_num = recorder_sr_get_feed_channel_num,
     .get_feed_chunksize = recorder_sr_get_feed_chunksize,
 };
 
-static void recorder_sr_clear(void *handle)
-{
-    AUDIO_CHECK(TAG, handle, return, "Handle is NULL");
-    recorder_vc_t *recorder_sr = (recorder_vc_t *)handle;
-
-    if (recorder_sr->afe_data) {
-        recorder_sr->afe_handle->destroy(recorder_sr->afe_data);
-        recorder_sr->afe_data = NULL;
-    }
-
-    if (recorder_sr->out_rb) {
-        rb_reset(recorder_sr->out_rb);
-        rb_destroy(recorder_sr->out_rb);
-    }
-    if (recorder_sr->events) {
-        vEventGroupDelete(recorder_sr->events);
-        recorder_sr->events = NULL;
-    }
-    if (recorder_sr) {
-        audio_free(recorder_sr);
-    }
-}
-
 qm_audio_vc_handle_t qm_audio_vc_create(qm_audio_vc_cfg_t *cfg, qm_audio_vc_iface_t **iface)
 {
     AUDIO_NULL_CHECK(TAG, cfg, return NULL);
+
+#if DEBUG_FLAG
+    play_buff = (uint8_t *)qm_malloc(256 * 1024);
+    if(play_buff == NULL){
+        return NULL;
+    }
+    memset(play_buff, 0,  256 * 1024);
+    
+    qm_utils_time_countdown_ms(&debug_timer, 5 * 1000);
+#endif
 
     recorder_vc_t *recorder_sr = audio_calloc(1, sizeof(recorder_vc_t));
     AUDIO_NULL_CHECK(TAG, recorder_sr, return NULL);

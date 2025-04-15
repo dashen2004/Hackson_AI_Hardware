@@ -53,8 +53,6 @@
      audio_element_handle_t  raw_reader;
      audio_rec_handle_t      recorder_engine;
      pipe_player_state_e     record_state;
-     float mic_gain;
-     float speak_gain;
      qm_audio_board_handle_t board_handle;
  };
  
@@ -147,7 +145,7 @@
  int recorder_pipeline_get_default_read_size(recorder_pipeline_handle_t pipeline)
  {
      #if defined (CONFIG_AUDIO_SUPPORT_OPUS_DECODER)
-         return 80;
+         return 960;
      #elif defined (CONFIG_AUDIO_SUPPORT_AAC_DECODER)
          return 512;
      #elif defined (CONFIG_AUDIO_SUPPORT_G711A_DECODER)
@@ -180,6 +178,11 @@
  {
      return len;
  }
+
+ int player_pipeline_write(char *buffer, int buf_size)
+ {
+    return audio_element_output(s_player_pipeline->i2s_stream_writer, buffer, buf_size);
+ }
  
  player_pipeline_handle_t player_pipeline_open(void) 
  {
@@ -197,29 +200,21 @@
      ESP_LOGI(TAG, "Create playback audio stream");
      player_pipeline->raw_writer = create_player_raw_stream();
      AUDIO_MEM_CHECK(TAG, player_pipeline->raw_writer, goto _exit_open);
-     player_pipeline->audio_decoder = create_player_decoder_stream();
-     AUDIO_MEM_CHECK(TAG, player_pipeline->audio_decoder, goto _exit_open);
      player_pipeline->i2s_stream_writer = create_player_i2s_stream(false);
      AUDIO_MEM_CHECK(TAG, player_pipeline->i2s_stream_writer, goto _exit_open);
  
      ESP_LOGI(TAG, "Register all elements to playback pipeline");
      audio_pipeline_register(player_pipeline->audio_pipeline, player_pipeline->raw_writer, "player_raw");
-     audio_pipeline_register(player_pipeline->audio_pipeline, player_pipeline->audio_decoder, "player_dec");
  
- #if CONFIG_AUDIO_SUPPORT_G711A_DECODER
-     player_pipeline->player_rsp = create_8k_ch1_to_16k_ch2_rsp_stream();
- #else
      player_pipeline->player_rsp = create_ch1_to_ch2_rsp_stream();   
- #endif
-
      AUDIO_MEM_CHECK(TAG, player_pipeline->player_rsp, goto _exit_open);
  
      ESP_LOGI(TAG, "Link playback element together raw-->audio_decoder-->rsp-->i2s_stream-->[codec_chip]");
  
      audio_element_set_write_cb(player_pipeline->player_rsp, _player_write_nop_cb, NULL);
      audio_pipeline_register(player_pipeline->audio_pipeline, player_pipeline->player_rsp, "player_rsp");
-     const char *link_tag[3] = {"player_raw", "player_dec", "player_rsp"};
-     audio_pipeline_link(player_pipeline->audio_pipeline, &link_tag[0], 3);
+     const char *link_tag[3] = {"player_raw", "player_rsp"};
+     audio_pipeline_link(player_pipeline->audio_pipeline, &link_tag[0], 2);
  
      audio_pipeline_run(player_pipeline->audio_pipeline);
      return player_pipeline;
@@ -332,6 +327,10 @@
      cfg.event_cb = params->cb;
      cfg.wakeup_time = 120000;
      
+     if(recorder_vc_cfg){
+        cfg.vc_handle = qm_audio_vc_create(recorder_vc_cfg, &cfg.vc_iface);
+     }
+     
      if(recorder_sr_cfg){
         cfg.sr_handle = qm_audio_sr_create(recorder_sr_cfg, &cfg.sr_iface);
         if(params->command_str && params->command_num){
@@ -339,127 +338,14 @@
         }
      }
 
-     if(recorder_vc_cfg){
-        cfg.vc_handle = qm_audio_vc_create(recorder_vc_cfg, &cfg.vc_iface);
+     if(recorder_encoder_cfg.encoder){
+        cfg.encoder_handle = qm_audio_encoder_create(&recorder_encoder_cfg, &cfg.encoder_iface);
      }
-     
-     cfg.encoder_handle = qm_audio_encoder_create(&recorder_encoder_cfg, &cfg.encoder_iface);
 
      pipeline->recorder_engine = qm_audio_recorder_create(&cfg);
 #if 0
      audio_recorder_trigger_start(pipeline->recorder_engine);
  #endif // CONFIG_CONTINUOUS_CONVERSATION_MODE
      return pipeline->recorder_engine;
- }
- 
- static void audio_player_state_task(void *arg)
- {
-     audio_event_iface_handle_t evt = (audio_event_iface_handle_t) arg;
- 
-     s_audio_player->running = true;
-     while (s_audio_player->running) {
-         audio_event_iface_msg_t msg;
-         esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
-         if (ret != ESP_OK) {
-             ESP_LOGE(TAG, "[ * ] Event interface error : %d", ret);
-             continue;
-         }
-         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT
-             && msg.source == (void *) s_audio_player->audio_decoder
-             && msg.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
-             audio_element_info_t music_info = {0};
-             audio_element_getinfo(s_audio_player->audio_decoder, &music_info);
- 
-             ESP_LOGI(TAG, "[ * ] Receive music info from wav decoder, sample_rates=%d, bits=%d, ch=%d",
-                      music_info.sample_rates, music_info.bits, music_info.channels);
-             continue;
-         }
-         /* Stop when the last pipeline element (i2s_stream_writer in this case) receives stop event */
-         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *) s_audio_player->i2s_stream_writer
-             && msg.cmd == AEL_MSG_CMD_REPORT_STATUS
-             && (((int)msg.data == AEL_STATUS_STATE_STOPPED) || ((int)msg.data == AEL_STATUS_STATE_FINISHED))) {
-             ESP_LOGI(TAG, "[ * ] Stop event received");
-             audio_tone_stop();
-             s_audio_player->tone_cb(AEL_STATUS_STATE_FINISHED);
-             s_audio_player->player_state = PIPE_STATE_IDLE;
-         }
-     }
- }
- 
- esp_err_t audio_tone_init(tone_play_callback_t callback)
- {
-     s_audio_player = (audio_player_t *)audio_calloc(1, sizeof(audio_player_t));
-     AUDIO_MEM_CHECK(TAG, s_audio_player, goto _exit_open);
- 
-     ESP_LOGI(TAG, "Create audio pipeline for audio player");
-     audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
-     s_audio_player->pipeline = audio_pipeline_init(&pipeline_cfg);
-     AUDIO_MEM_CHECK(TAG, s_audio_player->pipeline, goto _exit_open);
- 
-     ESP_LOGI(TAG, "Create audio player audio stream");
-     s_audio_player->spiffs_stream = create_audio_player_spiffs_stream();
-     AUDIO_MEM_CHECK(TAG, s_audio_player->spiffs_stream, goto _exit_open);
-     s_audio_player->i2s_stream_writer = create_player_i2s_stream(true);
-     AUDIO_MEM_CHECK(TAG, s_audio_player->i2s_stream_writer, goto _exit_open);
-     s_audio_player->audio_decoder = create_player_wav_decoder_stream();
-     AUDIO_MEM_CHECK(TAG, s_audio_player->audio_decoder, goto _exit_open);
- 
-     ESP_LOGI(TAG, "Register all elements to playback pipeline");
-     audio_pipeline_register(s_audio_player->pipeline, s_audio_player->spiffs_stream, "audio_player_spiffs");
-     audio_pipeline_register(s_audio_player->pipeline, s_audio_player->audio_decoder, "audio_player_dec");
-     audio_pipeline_register(s_audio_player->pipeline, s_audio_player->i2s_stream_writer, "audio_player_i2s");
- 
-     ESP_LOGI(TAG, "Link playback element together raw-->audio_decoder-->i2s_stream-->[codec_chip]");
-     const char *link_tag[3] = {"audio_player_spiffs", "audio_player_dec", "audio_player_i2s"};
-     audio_pipeline_link(s_audio_player->pipeline, &link_tag[0], 3);
- 
-     esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
-     esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
-     audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
-     audio_event_iface_handle_t evt = audio_event_iface_init(&evt_cfg);
-     audio_pipeline_set_listener(s_audio_player->pipeline, evt);
-     audio_event_iface_set_listener(esp_periph_set_get_event_iface(set), evt);
- 
-     s_audio_player->tone_cb = callback;
-     audio_thread_create(NULL, "audio_player_state_task", audio_player_state_task, (void *)evt, 5 * 1024, 15, true, 1);
- 
-     return ESP_OK;
- 
- _exit_open:
-     audio_pipe_safe_free(s_audio_player->spiffs_stream, audio_element_deinit);
-     audio_pipe_safe_free(s_audio_player->i2s_stream_writer, audio_element_deinit);
-     audio_pipe_safe_free(s_audio_player->audio_decoder, audio_element_deinit);
-     audio_pipe_safe_free(s_audio_player->pipeline, audio_pipeline_deinit);
-     audio_pipe_safe_free(s_audio_player, audio_free);
-     return ESP_FAIL;
- }
- 
- esp_err_t audio_tone_play(const char *uri)
- {
-     ESP_RETURN_ON_FALSE(s_audio_player != NULL, ESP_FAIL, TAG, "audio tone not initialized");
-     if (s_audio_player->player_state == PIPE_STATE_RUNNING) {
-         return ESP_FAIL;
-     }
-     ESP_LOGI(TAG, "audio_tone_play: %s", uri);
-     
-     audio_element_set_uri(s_audio_player->spiffs_stream, uri);
-     audio_pipeline_run(s_audio_player->pipeline);
-     s_audio_player->player_state = PIPE_STATE_RUNNING;
-     return ESP_OK;
- }
- 
- esp_err_t audio_tone_stop(void)
- {
-     ESP_RETURN_ON_FALSE(s_audio_player != NULL, ESP_FAIL, TAG, "audio tone not initialized");
-     if (s_audio_player->player_state == PIPE_STATE_IDLE) {
-         return ESP_FAIL;
-     }
-     audio_pipeline_stop(s_audio_player->pipeline);
-     audio_pipeline_wait_for_stop(s_audio_player->pipeline);
-     audio_pipeline_terminate(s_audio_player->pipeline);
-     audio_pipeline_reset_ringbuffer(s_audio_player->pipeline);
-     audio_pipeline_reset_elements(s_audio_player->pipeline);
-     s_audio_player->player_state = PIPE_STATE_IDLE;
-     return ESP_OK;
  }
  

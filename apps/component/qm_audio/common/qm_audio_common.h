@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define QM_AUDIO_MAIN_EVENT_ID          (0xF000)
+#define QM_AUDIO_EVENT_ID            (0xF000)
 
 #define QM_AUDIO_PROV_INFO_KV_TAG        "audio/prov"
 
@@ -57,6 +57,14 @@ typedef enum {
     QM_AUDIO_EVENT_TYPE_DISPLAY_BATTERY_FULL                   = 0x3008,
     QM_AUDIO_EVENT_TYPE_DISPLAY_BATTERY_DISCHARGING            = 0x3009,
     QM_AUDIO_EVENT_TYPE_DISPLAY_MAX                            = 0x3FFF,
+
+    QM_AUDIO_EVENT_TYPE_WS_BASE                                = 0x4000,
+    QM_AUDIO_EVENT_TYPE_WS_DISCONNECT,
+    QM_AUDIO_EVENT_TYPE_WS_CONNECT,
+    QM_AUDIO_EVENT_TYPE_WS_SEND_HELLO,
+    QM_AUDIO_EVENT_TYPE_WS_RECV_HELLO_REPLY,
+
+    QM_AUDIO_EVENT_TYPE_WS_MSG_RECV,
 
     QM_AUDIO_EVENT_TYPE_CUSTOMER_BASE                          = 0x80000,
 } qm_audio_event_type_t;

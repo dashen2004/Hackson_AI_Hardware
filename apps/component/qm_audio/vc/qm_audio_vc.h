@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define VC_FETCH_TASK_STACK_SZ      (4 * 1024)
+#define VC_FETCH_TASK_STACK_SZ      (5 * 1024)
 #define VC_FETCH_TASK_PRIO          (5)
 #define VC_FETCH_TASK_PINNED_CORE   (1)
 #define VC_OUTPUT_RB_SIZE           (6 * 1024)
@@ -39,13 +39,12 @@ typedef struct {
     char         *partition_label;                      /*!< Partition label which stored the model data */
 } qm_audio_vc_cfg_t;
 
-#define DEFAULT_QM_AUDIO_VC_CFG(fmt, partition, afe_mode) {                  \
-    .afe_cfg = afe_config_init(fmt, esp_srmodel_init(partition), AFE_TYPE_VC, afe_mode),  \
+#define DEFAULT_QM_AUDIO_VC_CFG(fmt, afe_mode) {                  \
+    .afe_cfg = afe_config_init(fmt, NULL, AFE_TYPE_VC, afe_mode),  \
     .fetch_task_core = VC_FETCH_TASK_PINNED_CORE,                                     \
     .fetch_task_prio = VC_FETCH_TASK_PRIO,                                            \
     .fetch_task_stack = VC_FETCH_TASK_STACK_SZ,                                       \
     .rb_size = VC_OUTPUT_RB_SIZE,                                                     \
-    .partition_label = partition,                                                     \
 }
 
 /**

@@ -96,6 +96,9 @@ qm_err_t qm_audio_sr_destroy(qm_audio_sr_handle_t handle);
  */
 qm_err_t qm_audio_sr_add_speech_cmd(qm_audio_sr_handle_t handle, qm_audio_sr_cmd_table_t *command_str, int command_num);
 
+
+qm_err_t qm_audio_sr_get_speech_cmd(qm_audio_sr_handle_t handle, qm_audio_sr_cmd_table_t **command_str, int *command_num);
+
 #ifdef __cplusplus
 }
 #endif

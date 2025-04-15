@@ -160,7 +160,6 @@ qm_audio_prov_handle_t qm_audio_prov_open(qm_audio_prov_config_t *config)
     if(g_ble_prov_handle == NULL){
         return NULL;
     }
-    memset(g_ble_prov_handle, 0, sizeof(qm_audio_prov_t));
 
     g_ble_prov_handle->pid = config->pid;
     g_ble_prov_handle->product_secret = config->product_secret;

@@ -40,7 +40,7 @@ extern audio_hal_func_t AUDIO_CODEC_ES7210_DEFAULT_HANDLE;
         .mode = AUDIO_HAL_MODE_SLAVE,               \
         .fmt = AUDIO_HAL_I2S_NORMAL,                \
         .samples = AUDIO_HAL_16K_SAMPLES,           \
-        .bits = AUDIO_HAL_BIT_LENGTH_16BITS,        \
+        .bits = AUDIO_HAL_BIT_LENGTH_32BITS,        \
     },                                              \
 };
 
@@ -77,8 +77,6 @@ qm_audio_board_handle_t qm_audio_board_init(void)
     board_handle->adc_hal = audio_board_adc_init();
     return board_handle;
 }
-
-
 
 qm_audio_board_handle_t qm_audio_board_get_handle(void)
 {

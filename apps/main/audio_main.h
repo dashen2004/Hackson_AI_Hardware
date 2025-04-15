@@ -13,11 +13,30 @@ extern "C" {
 #include "qm.h"
 #include "qm_spec_api.h"
 
+#define CONFIG_NETWORK_URL       "ws://1.94.128.55:29096/voicePlatform/api/ws"
+
+#define CONFIG_SUPPORT_AEC              (1)
+
 #define CONFIG_XJIANG_VERSION           (2)
 #define CONFIG_XJIANG_CLOUD_PID         (10290)
 #define CONFIG_XJIANG_CLOUD_SECERT      "91B47743DC334240947B79CB80253852"
 
 #define  CONFIG_AUDIO_LIGHT_HW_VERSION  "LIGHT.0059.G.101_FW_WB74_0.0.2_0.0.2"
+
+
+//语音事件
+#define CONFIG_AUDIO_MAIN_EVENT_ID           (0xFF00)
+
+
+#define CONFIG_AUDIO_SUB_EVENT_MSG_ID        (0x0001)
+#define CONFIG_AUDIO_SUB_EVENT_CEART_WS      (0x0002)
+#define CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID     (0x0003)
+#define CONFIG_AUDIO_SUB_EVENT_CONTROL_ID    (0x0004)
+
+#define CONFIG_AUDIO_ID_LIGHT_WAKEUP1         (1)
+#define CONFIG_AUDIO_ID_LIGHT_WAKEUP2         (2)
+
+#define CONFIG_AUDIO_ID_LIGHT_NETCONFIG       (2)
 
 //遥控器事件
 #define CONFIG_AUDIO_BEACON_HOLD_TIME           (2 * 100)
@@ -57,7 +76,6 @@ extern "C" {
 #define CONFIG_AUDIO_BEACON_DELAY_OFF       (0x08)
 //清码：通电5S后执行
 #define CONFIG_AUDIO_BEACON_RESET           (0x80)
-
 
 //spec事件
 //开关灯

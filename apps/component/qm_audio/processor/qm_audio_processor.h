@@ -191,7 +191,7 @@ int player_pipeline_get_default_read_size(player_pipeline_handle_t player_pipeli
  *        - >= 0  The number of bytes successfully written
  *        - < 0   If an error occurs
  */
-int player_pipeline_write(player_pipeline_handle_t player_pipeline, char *buffer, int buf_size);
+int player_pipeline_write(char *buffer, int buf_size);
 
 /**
  * @brief Gets the raw write element handle from the player pipeline
@@ -214,35 +214,6 @@ audio_element_handle_t player_pipeline_get_raw_write(player_pipeline_handle_t pl
  *         The returned pointer must be managed appropriately, including cleanup when no longer needed.
  */
 void * audio_record_engine_init(recorder_pipeline_handle_t pipeline, pipe_record_engine_params_t *params);
-
-/**
- * @brief Initialize the audio tone.
- *
- * @return
- *      - ESP_OK   if the operation is successful
- *      - ESP_FAIL if the operation fails
- */
-esp_err_t audio_tone_init(tone_play_callback_t callbaclk);
-
-/**
- * @brief  Play audio tone from a specified URI
- *
- * @param[in]   uri  The URI of the audio source to play. This can be a file path
- *
- * @return
- *      - ESP_OK   if the operation is successful
- *      - ESP_FAIL if the operation fails
- */
-esp_err_t audio_tone_play(const char *uri);
-
-/**
- * @brief Stop audio tone playback
- *
- * @return
- *      - ESP_OK   if the operation is successful
- *      - ESP_FAIL if the operation fails
- */
-esp_err_t audio_tone_stop(void);
 
 #ifdef __cplusplus
 }

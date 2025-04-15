@@ -49,11 +49,14 @@
 #include "qm_audio_sr_iface.h"
 #include "qm_audio_vc_iface.h"
 #include "qm_audio_subproc_iface.h"
-
+#include "qm_audio_board_def.h"
 
 #define DEFAULT_READ_BUFFER_SIZE (2048)
 #define DEFAULT_CMD_Q_LEN        (3)
+
+#define RECORDER_SR_FLAG         (BIT1)
 #define RECORDER_DESTROYED       (BIT0)
+
 
 typedef enum __audio_recorder_state {
     RECORDER_ST_IDLE,
@@ -185,24 +188,17 @@ static esp_err_t audio_recorder_wakeup_timer_start(audio_recorder_t *recorder)
     }
 }
 
-static void audio_recorder_wakeup_timer_expired(void *arg)
-{
-    AUDIO_NULL_CHECK(TAG, arg, return );
-    audio_recorder_t *recorder = (audio_recorder_t *)arg;
-
-    audio_recorder_notify_events(recorder, RECORDER_EVENT_WAKEUP_TIMER_EXPIRED);
-}
-
 static qm_err_t audio_recorder_afe_monitor(qm_audio_sr_result_t *result, void *user_ctx)
 {
     AUDIO_NULL_CHECK(TAG, user_ctx, return ESP_FAIL);
     audio_recorder_t *recorder = (audio_recorder_t *)user_ctx;
+    
     switch (result->type) {
         case SR_RESULT_VERIFIED:
             break;
         case SR_RESULT_WAKEUP:
-            memcpy(&recorder->wakeup_result, &result->info.wakeup_info, sizeof(qm_audio_sr_wakeup_result_t));
-            audio_recorder_notify_events(recorder, RECORDER_EVENT_WWE_DECT);
+            xEventGroupClearBits(recorder->sync_evt, RECORDER_SR_FLAG);
+            audio_recorder_update_state_2_user(recorder, AUDIO_REC_WAKEUP_START, &result->info.wakeup_info, sizeof(qm_audio_sr_wakeup_result_t));
             break;
         case SR_RESULT_COMMAND:
             break;
@@ -223,10 +219,10 @@ static qm_err_t audio_recorder_vc_afe_monitor(qm_audio_vc_result_t *result, void
 
         switch (result->type) {
             case VC_RESULT_NOISE:
-                audio_recorder_notify_events(recorder, RECORDER_EVENT_NOISE_DECT);
+                audio_recorder_update_state_2_user(recorder, AUDIO_REC_VAD_END, NULL, 0);
                 break;
             case VC_RESULT_SPEECH:
-                audio_recorder_notify_events(recorder, RECORDER_EVENT_SPEECH_DECT);
+                audio_recorder_update_state_2_user(recorder, AUDIO_REC_VAD_START, NULL, 0);
                 break;
             default:
                 break;
@@ -240,11 +236,43 @@ static qm_err_t audio_recorder_vc_afe_monitor(qm_audio_vc_result_t *result, void
 
 static qm_err_t audio_recorder_mn_monitor(qm_audio_sr_result_t *result, void *user_ctx)
 {
-    if (result->type >= 0) {
-        return audio_recorder_send_msg(user_ctx, RECORDER_CMD_MN_DECT, (void *)result, sizeof(qm_audio_sr_result_t));
-    } else {
-        return ESP_FAIL;
+    int command_num = 0;
+    qm_audio_sr_cmd_table_t *command_str = NULL;
+    audio_recorder_t *recorder_sr = (audio_recorder_t *)user_ctx;
+    if (result->type >= 0) {    
+
+#if AUDIO_DIY_WAKENET
+    qm_audio_sr_get_speech_cmd(recorder_sr->sr_handle, &command_str, &command_num);
+    QM_LOGD("1", "command_str:%p,command_num:%d", command_str, command_num);
+    for (int i = 0; i < command_num; i++)
+    {
+        if(command_str[i].id == result->type){
+            QM_LOGD("1", "type:%d,cmd:%s,prob:%f", command_str[i].type, result->info.mn_info.str, result->info.mn_info.prob);
+            switch (command_str[i].type)
+            {
+                case QM_AUDIO_SR_WAKEUP_CMD:
+                    xEventGroupClearBits(recorder_sr->sync_evt, RECORDER_SR_FLAG);
+                    audio_recorder_update_state_2_user(recorder_sr, AUDIO_REC_WAKEUP_START, &result->info.wakeup_info, sizeof(qm_audio_sr_wakeup_result_t));
+                    break;
+                
+                case QM_AUDIO_SR_COMM_CMD:
+                    audio_recorder_update_state_2_user((audio_recorder_t *)user_ctx, result->type, &result->info.mn_info, sizeof(qm_audio_sr_mn_result_t));
+                    break;
+
+                default:
+                    break;
+            }
+            break;
+        }
+        return QM_EOK;
     }
+#else
+        return audio_recorder_update_state_2_user((audio_recorder_t *)user_ctx, result->type, &result->info.mn_info, sizeof(qm_audio_sr_mn_result_t));
+
+#endif
+    }
+
+    return ESP_FAIL;
 }
 
 static esp_err_t audio_recorder_encoder_enable(audio_recorder_t *recorder, bool enable)
@@ -255,106 +283,6 @@ static esp_err_t audio_recorder_encoder_enable(audio_recorder_t *recorder, bool 
     return ESP_OK;
 }
 
-static void audio_recorder_update_state(audio_recorder_t *recorder, int event)
-{
-    AUDIO_NULL_CHECK(TAG, recorder, return );
-    static int last_event = -1;
-    if (last_event != event) {
-        ESP_LOGV(TAG, "Recorder update state, cur %d, event %d", recorder->state, event);
-        last_event = event;
-    }
-
-    if (event == RECORDER_EVENT_WWE_DECT && recorder->state != RECORDER_ST_IDLE) {
-        audio_recorder_reset(recorder);
-    }
-    qm_audio_sr_state_t sr_st = { 0 };
-    recorder->sr_iface->base.get_state(recorder->sr_handle, &sr_st);
-
-    ESP_LOGE(TAG, "Recorder update state, cur %d, event %d", recorder->state, event);
-    switch (recorder->state) {
-
-        case RECORDER_ST_IDLE: {
-            if (event == RECORDER_EVENT_WWE_DECT) {
-                if (sr_st.wwe_enable) {
-                    audio_recorder_set_state(recorder, RECORDER_ST_WAKEUP);
-                    audio_recorder_wakeup_timer_start(recorder);
-                    audio_recorder_update_state_2_user(recorder, AUDIO_REC_WAKEUP_START, &recorder->wakeup_result, sizeof(qm_audio_sr_wakeup_result_t));
-                } else {
-                    audio_recorder_set_state(recorder, RECORDER_ST_SPEECHING);
-                    audio_recorder_update_state_2_user(recorder, AUDIO_REC_WAKEUP_START, &recorder->wakeup_result, sizeof(qm_audio_sr_wakeup_result_t));
-                    audio_recorder_update_state_2_user(recorder, AUDIO_REC_VAD_START, NULL, 0);
-                }
-                audio_recorder_encoder_enable(recorder, true);
-            } else if (!sr_st.wwe_enable && event == RECORDER_EVENT_SPEECH_DECT) {
-                if (recorder->vad_check) {
-                    audio_recorder_set_state(recorder, RECORDER_ST_WAIT_FOR_SPEECH);
-                } else {
-                    audio_recorder_set_state(recorder, RECORDER_ST_SPEECHING);
-                    audio_recorder_update_state_2_user(recorder, AUDIO_REC_VAD_START, NULL, 0);
-                }
-            }
-            break;
-        }
-        case RECORDER_ST_WAKEUP: {
-            if (event == RECORDER_EVENT_SPEECH_DECT) {
-                if (recorder->vad_check) {
-                    audio_recorder_set_state(recorder, RECORDER_ST_WAIT_FOR_SPEECH);
-                } else {
-                    audio_recorder_set_state(recorder, RECORDER_ST_SPEECHING);
-                    audio_recorder_update_state_2_user(recorder, AUDIO_REC_VAD_START, NULL, 0);
-                }
-            }
-            break;
-        }
-        case RECORDER_ST_WAIT_FOR_SPEECH: {
-            if (event == RECORDER_EVENT_NOISE_DECT) {
-                audio_recorder_set_state(recorder, RECORDER_ST_WAKEUP);
-            } else if (event == RECORDER_EVENT_SPEECH_DECT) {
-                audio_recorder_set_state(recorder, RECORDER_ST_SPEECHING);
-                esp_timer_stop(recorder->wakeup_timer);
-                audio_recorder_update_state_2_user(recorder, AUDIO_REC_VAD_START, NULL, 0);
-            } 
-            break;
-        }
-        case RECORDER_ST_SPEECHING: {
-            if (event == RECORDER_EVENT_NOISE_DECT && sr_st.wwe_enable) {
-                if (recorder->vad_check) {
-                    audio_recorder_set_state(recorder, RECORDER_ST_WAIT_FOR_SILENCE);
-                } else {
-                    audio_recorder_set_state(recorder, RECORDER_ST_WAIT_FOR_SLEEP);
-                    audio_recorder_wakeup_timer_start(recorder);
-                    audio_recorder_update_state_2_user(recorder, AUDIO_REC_VAD_END, NULL, 0);
-                }
-            }
-            break;
-        }
-        case RECORDER_ST_WAIT_FOR_SILENCE: {
-            if (event == RECORDER_EVENT_SPEECH_DECT) {
-                audio_recorder_set_state(recorder, RECORDER_ST_SPEECHING);
-            } else if (event == RECORDER_EVENT_VAD_TIMER_EXPIRED) {
-                if (sr_st.wwe_enable == true) {
-                    audio_recorder_set_state(recorder, RECORDER_ST_WAIT_FOR_SLEEP);
-                    audio_recorder_wakeup_timer_start(recorder);
-                } else {
-                    recorder->state = RECORDER_ST_IDLE;
-                }
-                audio_recorder_update_state_2_user(recorder, AUDIO_REC_VAD_END, NULL, 0);
-            }
-            break;
-        }
-        case RECORDER_ST_WAIT_FOR_SLEEP: {
-            if (event == RECORDER_EVENT_SPEECH_DECT) {
-                audio_recorder_set_state(recorder, RECORDER_ST_WAIT_FOR_SPEECH);
-            } else if (event == RECORDER_EVENT_WAKEUP_TIMER_EXPIRED) {
-                audio_recorder_set_state(recorder, RECORDER_ST_IDLE);
-                audio_recorder_update_state_2_user(recorder, AUDIO_REC_WAKEUP_END, NULL, 0);
-            }
-            break;
-        }
-        default:
-            break;
-    }
-}
 
 static void audio_recorder_reset(audio_recorder_t *recorder)
 {
@@ -363,131 +291,73 @@ static void audio_recorder_reset(audio_recorder_t *recorder)
     recorder->state = RECORDER_ST_IDLE;
 }
 
-static void audio_recorder_task(void *parameters)
+static int get_feed_max_size(audio_recorder_t *recorder_sr)
 {
-    audio_recorder_t *recorder = (audio_recorder_t *)parameters;
-    recorder_msg_t msg;
-    bool running = true;
+    int vc_size = 0;
+    int sr_size = 0;
+    int feed_size = 0;
 
-    while (running) {
-        xQueueReceive(recorder->cmd_queue, &msg, portMAX_DELAY);
-        switch (msg.id) {
-            case RECORDER_CMD_UPDATE_STATE:
-                audio_recorder_update_state(recorder, (int)msg.data);
-                break;
-            case RECORDER_CMD_TRIGGER_START: {
-                ESP_LOGI(TAG, "RECORDER_CMD_TRIGGER_START");
-                if (recorder->sr_handle && recorder->sr_iface) {
-                    qm_audio_sr_state_t sr_st = { 0 };
-                    recorder->sr_iface->base.get_state(recorder->sr_handle, &sr_st);
-                    if (sr_st.afe_state == SUSPENDED) {
-                        recorder->sr_iface->afe_suspend(recorder->sr_handle, false);
-                    }
-                }
-                memset(&recorder->wakeup_result, 0x00, sizeof(qm_audio_sr_wakeup_result_t));
-                audio_recorder_update_state(recorder, RECORDER_EVENT_WWE_DECT);
-                break;
-            }
-            case RECORDER_CMD_TRIGGER_STOP: {
-                ESP_LOGI(TAG, "RECORDER_CMD_TRIGGER_STOP [state %d]", recorder->state);
-                if ((recorder->state >= RECORDER_ST_SPEECHING) && (recorder->state <= RECORDER_ST_WAIT_FOR_SILENCE)) {
-                    audio_recorder_update_state_2_user(recorder, AUDIO_REC_VAD_END, NULL, 0);
-                }
-                if (recorder->state != RECORDER_ST_IDLE) {
-                    audio_recorder_update_state_2_user(recorder, AUDIO_REC_WAKEUP_END, NULL, 0);
-                }
-                audio_recorder_reset(recorder);
-                if (recorder->sr_handle && recorder->sr_iface) {
-                    qm_audio_sr_state_t sr_st = { 0 };
-                    recorder->sr_iface->base.get_state(recorder->sr_handle, &sr_st);
-                    if (sr_st.wwe_enable == false && sr_st.mn_enable == false && sr_st.vad_enable == false) {
-                        recorder->sr_iface->afe_suspend(recorder->sr_handle, true);
-                    }
-                }
-                break;
-            }
-            case RECORDER_CMD_DESTROY:
-                if (recorder->sr_handle && recorder->sr_iface) {
-                    recorder->sr_iface->base.enable(recorder->sr_handle, false);
-                }
-                running = false;
-                break;
-            case RECORDER_CMD_VAD_CTRL:
-                audio_recorder_reset(recorder);
-                recorder->vad_check = (bool)msg.data;
-                ESP_LOGI(TAG, "recorder vad %d", recorder->vad_check);
-                break;
-            case RECORDER_CMD_WWE_CTRL:
-                audio_recorder_reset(recorder);
-                if (recorder->sr_handle && recorder->sr_iface) {
-                    recorder->sr_iface->wwe_enable(recorder->sr_handle, (bool)msg.data);
-                }
-                break;
-            case RECORDER_CMD_MN_CTRL:
-                if (recorder->sr_handle && recorder->sr_iface) {
-                    recorder->sr_iface->mn_enable(recorder->sr_handle, (bool)msg.data);
-                }
-                break;
-            case RECORDER_CMD_MN_DECT: {
-                qm_audio_sr_result_t *sr_result = msg.data;
-                audio_recorder_update_state_2_user(recorder, sr_result->type, &sr_result->info.mn_info, sizeof(qm_audio_sr_mn_result_t));
-                break;
-            }
-            default:
-                break;
-        }
-        if (msg.data && msg.data_len) {
-            audio_free(msg.data);
-        }
+    if(recorder_sr->sr_handle){
+        sr_size = AUDIO_ADC_INPUT_CH_NUM * recorder_sr->sr_iface->get_feed_chunksize(recorder_sr->sr_handle);
     }
 
-    recorder->task_handle = NULL;
-    xEventGroupSetBits(recorder->sync_evt, RECORDER_DESTROYED);
-    vTaskDelete(NULL);
-}
-
-static inline esp_err_t ich_sort_to_och(int16_t *i_buf, int i_ch, int16_t *o_buf, int o_ch, size_t chunksize)
-{
-    for (int i = 0; i < chunksize; i++) {
-        for (int j = 0; j < o_ch; j++)
-        {
-            o_buf[i * o_ch + j] = i_buf[i * i_ch + j];
-        }
+    if(recorder_sr->vc_handle){
+        vc_size = AUDIO_ADC_INPUT_CH_NUM * recorder_sr->vc_iface->get_feed_chunksize(recorder_sr->vc_handle);
     }
-    return ESP_OK;
+
+    if(vc_size > sr_size){
+        feed_size = vc_size;
+    }else{
+        feed_size = sr_size;
+
+    }
+
+    return feed_size;
 }
 
 static void feed_task(void *parameters)
 {
     audio_recorder_t *recorder_sr = (audio_recorder_t *)parameters;
-    int o_channel_num = 0;
-    int chunksize = recorder_sr->sr_iface->get_feed_chunksize(recorder_sr->sr_handle);
-    int i_channel_num = recorder_sr->sr_iface->get_feed_channel_num(recorder_sr->sr_handle);
-    int buf_size = chunksize * sizeof(int16_t) * i_channel_num;
 
+    int buf_size = get_feed_max_size(recorder_sr) * sizeof(int16_t);
 
     int16_t *i_buf = audio_calloc(1, buf_size);
     assert(i_buf);
-    int16_t *o_buf = audio_calloc(1, buf_size);
-    assert(o_buf);
 
     int fill_cnt = 0;
 
     while (1) {
-        int ret = recorder_sr->read((char *)i_buf + fill_cnt, buf_size - fill_cnt, recorder_sr->user_data, portMAX_DELAY);
-        fill_cnt += ret;
-        if (fill_cnt == buf_size) {
-
+      
+        EventBits_t bits = xEventGroupWaitBits(recorder_sr->sync_evt, RECORDER_SR_FLAG, false, true, 0);
+        if (bits & RECORDER_SR_FLAG) {
             if(recorder_sr->sr_handle){
-                o_channel_num = recorder_sr->sr_iface->get_feed_channel_num(recorder_sr->sr_handle);
-                ich_sort_to_och(i_buf, i_channel_num, o_buf, o_channel_num, chunksize);
-                recorder_sr->sr_iface->base.feed(recorder_sr->sr_handle, o_buf, buf_size);
+                buf_size = sizeof(int16_t) * AUDIO_ADC_INPUT_CH_NUM * recorder_sr->sr_iface->get_feed_chunksize(recorder_sr->sr_handle);
             }
-
+        }else{
             if(recorder_sr->vc_handle){
-                o_channel_num = recorder_sr->vc_iface->get_feed_channel_num(recorder_sr->vc_handle);
-                ich_sort_to_och(i_buf, i_channel_num, o_buf, o_channel_num, chunksize);
-                recorder_sr->vc_iface->base.feed(recorder_sr->vc_handle, o_buf, buf_size);
+                buf_size = sizeof(int16_t) * AUDIO_ADC_INPUT_CH_NUM * recorder_sr->vc_iface->get_feed_chunksize(recorder_sr->vc_handle);
+            }
+        }
+
+        fill_cnt += recorder_sr->read((char *)i_buf + fill_cnt, buf_size - fill_cnt, recorder_sr->user_data, portMAX_DELAY);
+        if(fill_cnt == buf_size) {
+
+            if (bits & RECORDER_SR_FLAG) {
+
+                if(recorder_sr->sr_handle){
+                    short_ich_to_och(i_buf, 
+                            recorder_sr->sr_iface->get_feed_chunksize(recorder_sr->sr_handle),
+                            AUDIO_ADC_INPUT_CH_NUM, recorder_sr->sr_iface->get_feed_channel_num(recorder_sr->sr_handle));
+                    recorder_sr->sr_iface->base.feed(recorder_sr->sr_handle, i_buf, buf_size);
+                }
+                 
+            }else{
+                if(recorder_sr->vc_handle){
+                    short_ich_to_och(i_buf,
+                                recorder_sr->sr_iface->get_feed_chunksize(recorder_sr->sr_handle),
+                                AUDIO_ADC_INPUT_CH_NUM, recorder_sr->vc_iface->get_feed_channel_num(recorder_sr->vc_handle));
+                    recorder_sr->vc_iface->base.feed(recorder_sr->vc_handle, i_buf, buf_size);
+                }
             }
 
             fill_cnt -= buf_size;
@@ -495,10 +365,7 @@ static void feed_task(void *parameters)
             ESP_LOGE(TAG, "fill cnt > buffer_size, there may be memory out of range");
         }
     }
-    audio_free(i_buf);
-    vTaskDelete(NULL);
 }
-
 
 static int audio_recorder_read_from_sr(void *buffer, int buf_sz, void *user_ctx, TickType_t ticks)
 {
@@ -556,17 +423,6 @@ audio_rec_handle_t qm_audio_recorder_create(audio_rec_cfg_t *config)
 
     recorder->vad_check = true;
     recorder->sync_evt = xEventGroupCreate();
-    AUDIO_NULL_CHECK(TAG, recorder->sync_evt, goto _failed);
-    recorder->cmd_queue = xQueueCreate(DEFAULT_CMD_Q_LEN, sizeof(recorder_msg_t));
-    AUDIO_NULL_CHECK(TAG, recorder->cmd_queue, goto _failed);
-
-    esp_timer_create_args_t wakeup_timer_cfg = {
-        .callback = audio_recorder_wakeup_timer_expired,
-        .arg = recorder,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "wakeup_timer",
-    };
-    AUDIO_CHECK(TAG, (esp_timer_create(&wakeup_timer_cfg, &recorder->wakeup_timer) == ESP_OK), goto _failed, "Wakeup timer create failed");
 
     if (recorder->sr_handle) {
         qm_audio_sr_iface_t *sr_iface = recorder->sr_iface;
@@ -574,8 +430,12 @@ audio_rec_handle_t qm_audio_recorder_create(audio_rec_cfg_t *config)
 
         sr_iface->base.set_read_cb(recorder->sr_handle, recorder->read, NULL);
         sr_iface->set_mn_monitor(recorder->sr_handle, audio_recorder_mn_monitor, recorder);
+    #if !AUDIO_DIY_WAKENET
         sr_iface->set_afe_monitor(recorder->sr_handle, audio_recorder_afe_monitor, recorder);
+    #endif
         sr_iface->base.enable(recorder->sr_handle, true);
+
+        xEventGroupSetBits(recorder->sync_evt, RECORDER_SR_FLAG);
     }
 
     if (recorder->vc_handle) {
@@ -596,11 +456,7 @@ audio_rec_handle_t qm_audio_recorder_create(audio_rec_cfg_t *config)
         } else {
             encoder_iface->base.set_read_cb(recorder->encoder_handle, recorder->read, NULL);
         }
-    }
-
-    if (audio_thread_create(&recorder->task_handle, "recorder_task", audio_recorder_task, (void *)recorder, AUDIO_REC_DEF_TASK_SZ, AUDIO_REC_DEF_TASK_PRIO, true, AUDIO_REC_DEF_TASK_CORE) != ESP_OK) {
-        ESP_LOGE(TAG, "Fail to create recorder_task");
-        goto _failed;
+        recorder->encoder_iface->base.enable(recorder->encoder_handle, true);
     }
 
     if (audio_thread_create(&recorder->feed_handle, "feed_task", feed_task, (void *)recorder, AUDIO_REC_FEED_TASK_SZ, AUDIO_REC_FEED_TASK_PRIO, true, AUDIO_REC_FEED_TASK_CORE) != ESP_OK) {
@@ -666,19 +522,43 @@ qm_err_t qm_audio_recorder_waketimer_reset(audio_rec_handle_t handle)
     return audio_recorder_wakeup_timer_start(recorder);
 }
 
+qm_err_t qm_audio_recorder_data_reset(audio_rec_handle_t handle)
+{
+    AUDIO_NULL_CHECK(TAG, handle, return ESP_ERR_INVALID_ARG);
+    int ret = 0;
+    qm_audio_subproc_iface_t *subproc = NULL;
+    audio_recorder_t *recorder = (audio_recorder_t *)handle;
+    
+    if (recorder->encoder_handle) {
+        subproc = &recorder->encoder_iface->base;
+        subproc->reset(recorder->encoder_handle);
+    } 
+    
+    if (recorder->vc_handle) {
+        subproc = &recorder->vc_iface->base;
+        subproc->reset(recorder->vc_handle);
+    } 
+    
+    if (recorder->sr_handle) {
+        subproc = &recorder->sr_iface->base;
+        subproc->reset(recorder->sr_handle);
+    }
+
+    return ret;
+}
+
 int qm_audio_recorder_data_read(audio_rec_handle_t handle, void *buffer, int length, TickType_t ticks)
 {
     AUDIO_NULL_CHECK(TAG, handle, return ESP_ERR_INVALID_ARG);
     audio_recorder_t *recorder = (audio_recorder_t *)handle;
     qm_audio_subproc_iface_t *subproc = NULL;
     int ret = 0;
-    if (recorder->state == RECORDER_ST_IDLE) {
-        ESP_LOGW(TAG, "Not in speeching, return 0");
-        return 0;
-    }
     if (recorder->encoder_handle) {
         subproc = &recorder->encoder_iface->base;
         ret = subproc->fetch(recorder->encoder_handle, buffer, length, ticks);
+    } else if (recorder->vc_handle) {
+        subproc = &recorder->vc_iface->base;
+        ret = subproc->fetch(recorder->vc_handle, buffer, length, ticks);
     } else if (recorder->sr_handle) {
         subproc = &recorder->sr_iface->base;
         ret = subproc->fetch(recorder->sr_handle, buffer, length, ticks);
