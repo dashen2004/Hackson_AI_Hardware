@@ -348,7 +348,7 @@ void bsp_lcd_init(void) {
                                                                 EXAMPLE_PIN_NUM_LCD_DATA1,
                                                                 EXAMPLE_PIN_NUM_LCD_DATA2,
                                                                 EXAMPLE_PIN_NUM_LCD_DATA3,
-                                                                    EXAMPLE_LCD_H_RES * 2 * sizeof(uint16_t));
+                                                                EXAMPLE_LCD_H_RES * 10 * sizeof(uint16_t));
     ESP_ERROR_CHECK(spi_bus_initialize(EXAMPLE_LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
     ESP_LOGI(LOG_TAG, "Install panel IO");
@@ -473,98 +473,11 @@ static void lcd_task(void *arg) {
     // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
 
-#if 0
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            printf("Failed to mount or format filesystem");
-        } else if (ret == ESP_ERR_NOT_FOUND) {
-            printf("Failed to find SPIFFS partition");
-        } else {
-            printf("Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-        }
-        return;
-    }
-
-    size_t total = 0, used = 0;
-    ret = esp_spiffs_info(conf.partition_label, &total, &used);
-    if (ret != ESP_OK) {
-        printf("Failed to get SPIFFS partition information (%s). Formatting...", esp_err_to_name(ret));
-        // esp_spiffs_format(conf.partition_label);
-        // return;
-    } else {
-        printf("Partition size: total: %d, used: %d", total, used);
-    }
-
-    // // Check consistency of reported partition size info.
-    // if (used > total) {
-    //     ESP_LOGW(TAG, "Number of used bytes cannot be larger than total. Performing SPIFFS_check().");
-    //     ret = esp_spiffs_check(conf.partition_label);
-    //     // Could be also used to mend broken files, to clean unreferenced pages, etc.
-    //     // More info at https://github.com/pellepl/spiffs/wiki/FAQ#powerlosses-contd-when-should-i-run-spiffs_check
-    //     if (ret != ESP_OK) {
-    //         ESP_LOGE(TAG, "SPIFFS_check() failed (%s)", esp_err_to_name(ret));
-    //         return;
-    //     } else {
-    //         ESP_LOGI(TAG, "SPIFFS_check() successful");
-    //     }
-    // }
-
-    // // Use POSIX and C standard library functions to work with files.
-    // // First create a file.
-    // ESP_LOGI(TAG, "Opening file");
-    // FILE* f = fopen("/spiffs/hello.txt", "w");
-    // if (f == NULL) {
-    //     ESP_LOGE(TAG, "Failed to open file for writing");
-    //     return;
-    // }
-    // fprintf(f, "Hello World!\n");
-    // fclose(f);
-    // ESP_LOGI(TAG, "File written");
-
-    // // Check if destination file exists before renaming
-    // struct stat st;
-    // if (stat("/spiffs/foo.txt", &st) == 0) {
-    //     // Delete it if it exists
-    //     unlink("/spiffs/foo.txt");
-    // }
-
-    // // Rename original file
-    // ESP_LOGI(TAG, "Renaming file");
-    // if (rename("/spiffs/hello.txt", "/spiffs/foo.txt") != 0) {
-    //     ESP_LOGE(TAG, "Rename failed");
-    //     return;
-    // }
-
-    // // Open renamed file for reading
-    printf("Reading file\n");
-    FILE *f = fopen("/lvgl_res/images/brightness_high.bin", "r");
-    if (f != NULL) {
-        char line[64];
-        fgets(line, sizeof(line), f);
-        fclose(f);
-        // // strip newline
-        // char* pos = strchr(line, '\n');
-        // if (pos) {
-        //     *pos = '\0';
-        // }
-        // printf("Read from file: '%s'\n", line);
-        for (int i = 0; i < 64; i++) {
-            printf("%02x", line[i]);
-        }
-        printf("\r\n");
-    }
-
-    // // All done, unmount partition and disable SPIFFS
-    // esp_vfs_spiffs_unregister(conf.partition_label);
-    // ESP_LOGI(TAG, "SPIFFS unmounted");
-#endif
-
-
     bsp_lcd_tp_init();
     bsp_lcd_init();
     bsp_lcd_bl_init(); 
     app_lvgl();
-
+    
     lvgl_port_lock(0); // 锁定lvgl接口 
     ui_init();
     set_var_city("宁波");
@@ -591,10 +504,36 @@ static void lcd_task(void *arg) {
         lvgl_port_lock(0); // 锁定lvgl接口，以保护UI更新过程。 
         ui_tick();
         lvgl_port_unlock(); // 解锁lvgl接口以允许其他任务访问。 
-        vTaskDelay(pdMS_TO_TICKS(50)); // 函数延迟1毫秒，以避免过度占用CPU资源。
+        vTaskDelay(pdMS_TO_TICKS(100)); // 函数延迟1毫秒，以避免过度占用CPU资源。
     }
 }
 
 void lcd_init(void) {
-    audio_thread_create(NULL, "lcd_task", lcd_task, NULL, 8 * 1024, 1, true, 1);
+
+//     esp_vfs_spiffs_conf_t conf = {
+//         .base_path = "/lvgl",
+//         .partition_label = "lvgl",
+//         .max_files = 10,
+//         .format_if_mount_failed = true
+//     };
+  
+//     // Use settings defined above to initialize and mount SPIFFS filesystem.
+//     // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
+//     esp_err_t ret = esp_vfs_spiffs_register(&conf);
+
+//     bsp_lcd_tp_init();
+//     bsp_lcd_init();
+//     bsp_lcd_bl_init(); 
+//     app_lvgl();
+    
+//     lvgl_port_lock(0); // 锁定lvgl接口 
+//     ui_init();
+//     set_var_city("宁波");
+//     set_var_weather("多云");
+//     set_var_temperature("12℃");
+// //    set_var_week("星期五");
+// //    set_var_date("2025年03月14日");
+//     lvgl_port_unlock(); // 解锁lvgl接口
+
+    audio_thread_create(NULL, "lcd_task", lcd_task, NULL, 8 * 1024, 11, true, 1); // 提高优先级, 抢ram!!!
 }
