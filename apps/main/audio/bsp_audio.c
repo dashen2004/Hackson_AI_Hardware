@@ -26,6 +26,7 @@
 #include "qm_player.h"
 #include "qm_spec_api.h"
 #include "qm_utils_list.h"
+#include "qm_iot_config.h"
 
 #include "qm_audio_ws.h"
 
@@ -80,6 +81,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             if(cmd_table){
                 QM_LOGI(TAG, "AUDIO_REC:%s", cmd_table->sr_str);
                 if(cmd_table->reply_str){
+                    player_pipeline_stop(bsp_audio_handle.player_pipeline);
                     qm_player_play_file(bsp_audio_handle.player_handle, cmd_table->reply_str);
                 }
             }
@@ -100,6 +102,9 @@ static qm_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
         .mode = QM_AUDIO_WS_LISTEN_MODE_REALTIME
     };
 
+    QM_LOGI(TAG, "event %d", event->type);
+
+
     if (AUDIO_REC_WAKEUP_START == event->type) {
 
         QM_LOGI(TAG, "rec_engine_cb - AUDIO_REC_WAKEUP_START");
@@ -119,7 +124,9 @@ static qm_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
 
     } else if (AUDIO_REC_VAD_START == event->type) {
     } else if (AUDIO_REC_VAD_END == event->type) {
-    } else if (AUDIO_REC_WAKEUP_END == event->type) {
+    } 
+#if 0
+    else if (AUDIO_REC_WAKEUP_END == event->type) {
 
         QM_LOGI(TAG, "rec_engine_cb - AUDIO_REC_WAKEUP_END");
 
@@ -128,9 +135,9 @@ static qm_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
             bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_END;
             qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, QM_WAIT_FOREVER);
         }
-
-
-    } else {
+    } 
+#endif
+    else {
 
         qm_audio_sr_mn_result_t *mn_res = (qm_audio_sr_mn_result_t *)event->event_data;
         if(mn_res == NULL){
@@ -158,8 +165,10 @@ static void audio_player_dev_cb(qm_player_t handle, qm_player_event_type_t event
             if(bsp_audio_handle.ws_connect && 
                 bsp_audio_handle.rec_type == AUDIO_REC_WAKEUP_START)
             {
-
+                player_pipeline_run(bsp_audio_handle.player_pipeline);
+            #if !CONFIG_SUPPORT_AEC
                 xEventGroupSetBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
+            #endif
             }
             break;
         
@@ -192,11 +201,19 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
         break;
 
         case QM_AUDIO_WS_RECV_TYPE_TTS:
-        #if !CONFIG_SUPPORT_AEC
             if(event->data.tts.state == QM_AUDIO_WS_TTS_STATE_START){
+                player_pipeline_run(bsp_audio_handle.player_pipeline);
+            #if !CONFIG_SUPPORT_AEC
                 xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
-            }else if(event->data.tts.state == QM_AUDIO_WS_TTS_STATE_STOP){
+            #endif
+            }
+        #if 0
+            else if(event->data.tts.state == QM_AUDIO_WS_TTS_STATE_STOP){
+            
+                player_pipeline_stop(bsp_audio_handle.player_pipeline);
+            #if !CONFIG_SUPPORT_AEC
                 xEventGroupSetBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
+            #endif
             }
         #endif
         break;
@@ -231,7 +248,7 @@ static void voice_read_task(void *args)
 
         int read_len = qm_audio_recorder_data_read(bsp_audio_handle.recorder_engine, voice_data, voice_data_read_sz, portMAX_DELAY);
         if (read_len == voice_data_read_sz && (bits & JOIN_EVENT_BIT)) {
-            qm_audio_ws_data_send(bsp_audio_handle.ai_handle, voice_data, read_len, QM_WAIT_FOREVER);
+            qm_audio_ws_data_send(bsp_audio_handle.ai_handle, voice_data, read_len, QM_WAIT_FOREVER);   
         }
 
     }
@@ -245,6 +262,7 @@ void qm_audio_ws_data_cb(void *data, int len, void *user_data)
 qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
 {
     qm_audio_sr_cmd_table_t *sr_cmd = NULL;
+    int did = qm_iot_did_get();
     pipe_record_engine_params_t engine_params = {0};
 
 
@@ -262,6 +280,7 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
         sr_cmd[i].type = command_str[i].type;
         sr_cmd[i].id = command_str[i].id;
         sr_cmd[i].str = command_str[i].sr_str;
+        sr_cmd[i].prob = command_str[i].prob;
     }
     
     engine_params.cb = rec_engine_cb;
@@ -275,13 +294,13 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
 
     qm_audio_ws_cfg_t params = {
 
-        .uri = "ws://192.168.0.81:8000/xiaozhi/v1/",
+        .uri = "ws://aiagentplatform.xjiangiot.com:8000/xiaozhi/v1/",
         .buff_size = 5 * 1024,
-        .task_prio = 10,
+        .task_prio = 12,
         .task_size = 4 * 1024,
 
         .pid = CONFIG_XJIANG_CLOUD_PID,
-        .did = -1,
+        .did = did,
         
         .connect_timeout = 10,
 

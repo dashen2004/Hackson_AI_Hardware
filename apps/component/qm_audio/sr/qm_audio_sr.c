@@ -73,6 +73,18 @@ typedef struct __recorder_sr {
 
 } recorder_sr_t;
 
+// #define DEBUG_FLAG 1
+
+#if DEBUG_FLAG
+
+#include "qm_utils_timer.h"
+
+static int play_size = 0;
+static int16_t *play_buff = NULL;
+static qm_utils_time_t debug_timer = {0};
+extern void qm_audio_ws_data_cb(void *data, int len, void *user_data);
+#endif
+
 static qm_err_t recorder_sr_output(recorder_sr_t *recorder_sr, void *buffer, int len);
 
 static qm_audio_sr_result_t *recorder_sr_afe_result_convert(
@@ -103,27 +115,10 @@ static qm_audio_sr_result_t *recorder_sr_afe_result_convert(
 
 #if !defined(CONFIG_SR_MN_CN_NONE) || !defined(CONFIG_SR_MN_EN_NONE)
 
-#ifdef CONFIG_IDF_TARGET_ESP32
-static void recorder_sr_enable_wakenet_aec(recorder_sr_t *recorder_sr)
-{
-    recorder_sr->afe_handle->enable_wakenet(recorder_sr->afe_data);
-    if (recorder_sr->aec_enable) {
-        recorder_sr->afe_handle->enable_aec(recorder_sr->afe_data);
-    }
-}
-
-static void recorder_sr_disable_wakenet_aec(recorder_sr_t *recorder_sr)
-{
-    recorder_sr->afe_handle->disable_wakenet(recorder_sr->afe_data);
-    if (recorder_sr->aec_enable) {
-        recorder_sr->afe_handle->disable_aec(recorder_sr->afe_data);
-    }
-}
-#endif
-
 static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_t *afe_result)
 {
     static int detect_flag = 0;
+    static vad_state_t vad_state = VAD_SILENCE;
 
     if (!recorder_sr->mn_enable) {
         if (detect_flag == 1) {
@@ -140,6 +135,17 @@ static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_
     } else {
         if (afe_result->vad_state == VAD_SPEECH) {
             detect_flag = 1;
+        }else{
+
+            if(vad_state == VAD_SPEECH){
+                multinet->clean(recorder_sr->mn_handle);
+            }
+
+        }
+
+        if(vad_state != afe_result->vad_state){
+            vad_state = afe_result->vad_state;
+            QM_LOGD(TAG, "vad state:%d", afe_result->vad_state);
         }
     }
 
@@ -160,18 +166,21 @@ static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_
                 sr_result.info.mn_info.prob = mn_result->prob[0];
                 memcpy(sr_result.info.mn_info.str, mn_result->string, RECORDER_SR_MN_STRING_MAX_LEN);
 
-
                 QM_LOGD("1", "type:%d,phrase_id:%d,str:%s", 
                     sr_result.type, sr_result.info.mn_info.phrase_id, sr_result.info.mn_info.str);
 
                 recorder_sr->mn_monitor(&sr_result, recorder_sr->mn_monitor_ctx);
-            }
-            detect_flag = 0;
-        }
 
+                multinet->clean(recorder_sr->mn_handle);
+            }
+        }
+    
         if (mn_state == ESP_MN_STATE_TIMEOUT) {
-            detect_flag = 0;
-            ESP_LOGI(TAG, "MN dect quit");
+            if (!recorder_sr->wwe_enable) {
+                detect_flag = 0;
+                ESP_LOGI(TAG, "MN dect quit");
+                multinet->clean(recorder_sr->mn_handle);
+            }
         }
     }
     return ESP_OK;
@@ -197,6 +206,19 @@ static void fetch_task(void *parameters)
                     recorder_sr->afe_monitor_ctx);
         }
         recorder_sr_output(recorder_sr, afe_result->data, afe_result->data_size);
+
+    #if DEBUG_FLAG        
+        memcpy(play_buff + play_size, afe_result->data,afe_result->data_size);
+        play_size += afe_result->data_size;
+
+        if(!qm_utils_time_left(&debug_timer)){
+            ESP_LOGI(TAG, "Audio communication task fetch size: %d", play_size);
+            qm_audio_ws_data_cb(play_buff, play_size, NULL);
+            play_size = 0;
+            qm_utils_time_countdown_ms(&debug_timer, 5 * 1000);
+        }
+    #endif     
+
     }
     xEventGroupClearBits(recorder_sr->events, FETCH_TASK_RUNNING);
     xEventGroupSetBits(recorder_sr->events, FETCH_TASK_DESTROY);
@@ -437,6 +459,16 @@ static qm_audio_sr_iface_t recorder_sr_iface = {
 qm_audio_sr_handle_t qm_audio_sr_create(qm_audio_sr_cfg_t *cfg, qm_audio_sr_iface_t **iface)
 {
     AUDIO_NULL_CHECK(TAG, cfg, return NULL);
+
+#if DEBUG_FLAG
+    play_buff = (int16_t *)qm_malloc(256 * 1024 * sizeof(int16_t));
+    if(play_buff == NULL){
+        return NULL;
+    }
+    memset(play_buff, 0,  256 * 1024 * sizeof(int16_t));
+    
+    qm_utils_time_countdown_ms(&debug_timer, 5 * 1000);
+#endif
 
     recorder_sr_t *recorder_sr = audio_calloc(1, sizeof(recorder_sr_t));
     AUDIO_NULL_CHECK(TAG, recorder_sr, return NULL);

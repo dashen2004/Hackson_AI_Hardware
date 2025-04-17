@@ -20,10 +20,11 @@ typedef void *qm_audio_sr_handle_t;
 
 typedef struct {
     enum {
-        QM_AUDIO_SR_WAKEUP_CMD,          /*!< Wakeup start */
+        QM_AUDIO_SR_WAKEUP_CMD = 1,          /*!< Wakeup start */
         QM_AUDIO_SR_COMM_CMD,            /*!< Wakeup stop */
     } type;                            /*!< sr type */
     int id;
+    float prob;
     char *str;
 } qm_audio_sr_cmd_table_t;
 

@@ -190,7 +190,7 @@ qm_audio_stream_handle_t create_player_i2s_stream(bool_t enable_task)
     }
 
     i2s_cfg.stack_in_ext = 1;
-    i2s_cfg.out_rb_size = 4 * 1024;
+    i2s_cfg.out_rb_size = 8 * 1024;
     i2s_cfg.need_expand = true;
     i2s_cfg.expand_src_bits = 16;
     i2s_cfg.buffer_len = 1416;
@@ -241,12 +241,14 @@ qm_audio_sr_cfg_t *get_default_audio_sr_config(void)
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->wakenet_init = false;
 #endif
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_init = true;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_mode = AEC_MODE_SR_HIGH_PERF;
+
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->memory_alloc_mode = AFE_MEMORY_ALLOC_MORE_PSRAM;
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->wakenet_mode = DET_MODE_90;
  
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->vad_init = true;
-    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->vad_mode = VAD_MODE_2;
-    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->vad_min_noise_ms = 200;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->vad_mode = VAD_MODE_4;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->vad_min_noise_ms = 500;
 
 
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_perferred_core = 1;

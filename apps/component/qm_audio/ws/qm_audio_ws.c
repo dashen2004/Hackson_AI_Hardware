@@ -379,7 +379,7 @@ qm_audio_ws_handle_t qm_audio_ws_create(qm_audio_ws_cfg_t *cfg)
     if(audio_ctx->did > 0){
         memset(temp_data, 0, CONFIG_QM_AUDIO_WS_MAX_SIZE);
         qm_snprintf(temp_data, CONFIG_QM_AUDIO_WS_MAX_SIZE, "%d", audio_ctx->did);
-        esp_websocket_client_append_header(audio_ctx->client, PID_PARAMS, temp_data);
+        esp_websocket_client_append_header(audio_ctx->client, DID_PARAMS, temp_data);
     }
 #if CONFIG_QM_AUDIO_WS_SEND_TASK_SUPPORT   
     qm_task_new(&audio_ctx->send_task, "ws_send", audio_send_process_task, audio_ctx, cfg->task_size, cfg->task_prio);

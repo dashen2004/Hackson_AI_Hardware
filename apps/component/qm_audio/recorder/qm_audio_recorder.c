@@ -127,6 +127,18 @@ typedef struct __audio_recorder {
 
 } audio_recorder_t;
 
+// #define DEBUG_FLAG 1
+
+#if DEBUG_FLAG
+
+#include "qm_utils_timer.h"
+
+static int play_size = 0;
+static int16_t *play_buff = NULL;
+static qm_utils_time_t debug_timer = {0};
+extern void qm_audio_ws_data_cb(void *data, int len, void *user_data);
+#endif
+
 static void audio_recorder_reset(audio_recorder_t *recorder);
 
 static const char *TAG = "AUDIO_RECORDER";
@@ -248,6 +260,11 @@ static qm_err_t audio_recorder_mn_monitor(qm_audio_sr_result_t *result, void *us
     {
         if(command_str[i].id == result->type){
             QM_LOGD("1", "type:%d,cmd:%s,prob:%f", command_str[i].type, result->info.mn_info.str, result->info.mn_info.prob);
+            if(result->info.mn_info.prob < command_str[i].prob){
+                QM_LOGW("1","except prob:%f, now prob:%f", result->info.mn_info.prob, command_str[i].prob);
+                break;
+            }
+
             switch (command_str[i].type)
             {
                 case QM_AUDIO_SR_WAKEUP_CMD:
@@ -264,8 +281,8 @@ static qm_err_t audio_recorder_mn_monitor(qm_audio_sr_result_t *result, void *us
             }
             break;
         }
-        return QM_EOK;
     }
+    return QM_EOK;
 #else
         return audio_recorder_update_state_2_user((audio_recorder_t *)user_ctx, result->type, &result->info.mn_info, sizeof(qm_audio_sr_mn_result_t));
 
@@ -341,6 +358,22 @@ static void feed_task(void *parameters)
 
         fill_cnt += recorder_sr->read((char *)i_buf + fill_cnt, buf_size - fill_cnt, recorder_sr->user_data, portMAX_DELAY);
         if(fill_cnt == buf_size) {
+
+        #if DEBUG_FLAG        
+        
+            for(int i = 0; i < (buf_size / sizeof(int16_t) / AUDIO_ADC_INPUT_CH_NUM); i++)
+            {
+                play_buff[i + play_size] = i_buf[i * AUDIO_ADC_INPUT_CH_NUM + 1];
+            }
+            play_size+= (buf_size / sizeof(int16_t) / AUDIO_ADC_INPUT_CH_NUM);
+
+            if(!qm_utils_time_left(&debug_timer)){
+                ESP_LOGI(TAG, "Audio communication task fetch size: %d", play_size);
+                qm_audio_ws_data_cb(play_buff, play_size, NULL);
+                play_size = 0;
+                qm_utils_time_countdown_ms(&debug_timer, 5 * 1000);
+            }
+        #endif      
 
             if (bits & RECORDER_SR_FLAG) {
 
@@ -424,6 +457,15 @@ audio_rec_handle_t qm_audio_recorder_create(audio_rec_cfg_t *config)
     recorder->vad_check = true;
     recorder->sync_evt = xEventGroupCreate();
 
+#if DEBUG_FLAG
+    play_buff = (int16_t *)qm_malloc(256 * 1024 * sizeof(int16_t));
+    if(play_buff == NULL){
+        return NULL;
+    }
+    memset(play_buff, 0,  256 * 1024 * sizeof(int16_t));
+    
+    qm_utils_time_countdown_ms(&debug_timer, 5 * 1000);
+#endif
     if (recorder->sr_handle) {
         qm_audio_sr_iface_t *sr_iface = recorder->sr_iface;
         AUDIO_NULL_CHECK(TAG, sr_iface, goto _failed);
@@ -528,7 +570,7 @@ qm_err_t qm_audio_recorder_data_reset(audio_rec_handle_t handle)
     int ret = 0;
     qm_audio_subproc_iface_t *subproc = NULL;
     audio_recorder_t *recorder = (audio_recorder_t *)handle;
-    
+
     if (recorder->encoder_handle) {
         subproc = &recorder->encoder_iface->base;
         subproc->reset(recorder->encoder_handle);

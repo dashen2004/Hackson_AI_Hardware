@@ -213,7 +213,7 @@
  
      audio_element_set_write_cb(player_pipeline->player_rsp, _player_write_nop_cb, NULL);
      audio_pipeline_register(player_pipeline->audio_pipeline, player_pipeline->player_rsp, "player_rsp");
-     const char *link_tag[3] = {"player_raw", "player_rsp"};
+     const char *link_tag[2] = {"player_raw", "player_rsp"};
      audio_pipeline_link(player_pipeline->audio_pipeline, &link_tag[0], 2);
  
      audio_pipeline_run(player_pipeline->audio_pipeline);
@@ -308,18 +308,7 @@
      qm_audio_sr_cfg_t *recorder_sr_cfg = get_default_audio_sr_config();
      qm_audio_vc_cfg_t *recorder_vc_cfg = get_default_audio_vc_config();
 
- #if defined (CONFIG_AUDIO_SUPPORT_G711A_DECODER)
-     rsp_filter_cfg_t filter_cfg = DEFAULT_RESAMPLE_FILTER_CONFIG();
-     filter_cfg.src_ch = 1;
-     filter_cfg.src_rate = 16000;
-     filter_cfg.dest_ch = 1;
-     filter_cfg.dest_rate = 8000;
-     filter_cfg.complexity = 0;
-     filter_cfg.stack_in_ext = true;
-     filter_cfg.max_indata_bytes = 1024;
-     recorder_encoder_cfg.resample = rsp_filter_init(&filter_cfg);
- #endif // CONFIG_AUDIO_SUPPORT_G711A_DECODER
- 
+
      recorder_encoder_cfg.encoder = create_record_encoder_stream();
  
      audio_rec_cfg_t cfg = AUDIO_RECORDER_DEFAULT_CFG();
@@ -343,9 +332,7 @@
      }
 
      pipeline->recorder_engine = qm_audio_recorder_create(&cfg);
-#if 0
-     audio_recorder_trigger_start(pipeline->recorder_engine);
- #endif // CONFIG_CONTINUOUS_CONVERSATION_MODE
+
      return pipeline->recorder_engine;
  }
  
