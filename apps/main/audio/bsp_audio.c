@@ -53,6 +53,9 @@ struct bsp_audio_handle_t {
     
     qm_player_t player_handle;
     qm_audio_ws_handle_t ai_handle;
+
+    qm_audio_ws_recv_event_cb_t event_cb;
+    void *user_data;
 };
 
 static struct bsp_audio_handle_t bsp_audio_handle = {0};
@@ -101,9 +104,6 @@ static qm_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
     qm_audio_ws_listen_param_t listen = {
         .mode = QM_AUDIO_WS_LISTEN_MODE_REALTIME
     };
-
-    QM_LOGI(TAG, "event %d", event->type);
-
 
     if (AUDIO_REC_WAKEUP_START == event->type) {
 
@@ -193,11 +193,15 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
         break;
 
         case QM_AUDIO_WS_RECV_TYPE_STT:
-
+            if(bsp_audio_handle.event_cb){
+                bsp_audio_handle.event_cb(event, bsp_audio_handle.user_data);
+            }
         break;
 
         case QM_AUDIO_WS_RECV_TYPE_LLM:
-
+            if(bsp_audio_handle.event_cb){
+                bsp_audio_handle.event_cb(event, bsp_audio_handle.user_data);
+            }
         break;
 
         case QM_AUDIO_WS_RECV_TYPE_TTS:
@@ -207,6 +211,11 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
                 xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
             #endif
             }
+
+            if(bsp_audio_handle.event_cb){
+                bsp_audio_handle.event_cb(event, bsp_audio_handle.user_data);
+            }
+
         #if 0
             else if(event->data.tts.state == QM_AUDIO_WS_TTS_STATE_STOP){
             
@@ -257,6 +266,15 @@ static void voice_read_task(void *args)
 void qm_audio_ws_data_cb(void *data, int len, void *user_data)
 {
     raw_stream_write(player_pipeline_get_raw_write(bsp_audio_handle.player_pipeline), data, len);
+}
+
+qm_err_t bsp_audio_resgiter(qm_audio_ws_recv_event_cb_t event_cb, void *user_data)
+{
+
+    bsp_audio_handle.event_cb = event_cb;
+    bsp_audio_handle.user_data = user_data;
+
+    return QM_EOK;
 }
 
 qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)

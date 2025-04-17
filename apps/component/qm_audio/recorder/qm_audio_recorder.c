@@ -269,7 +269,7 @@ static qm_err_t audio_recorder_mn_monitor(qm_audio_sr_result_t *result, void *us
             {
                 case QM_AUDIO_SR_WAKEUP_CMD:
                     xEventGroupClearBits(recorder_sr->sync_evt, RECORDER_SR_FLAG);
-                    audio_recorder_update_state_2_user(recorder_sr, AUDIO_REC_WAKEUP_START, &result->info.wakeup_info, sizeof(qm_audio_sr_wakeup_result_t));
+                    audio_recorder_update_state_2_user((audio_recorder_t *)user_ctx, AUDIO_REC_WAKEUP_START, &result->info.wakeup_info, sizeof(qm_audio_sr_wakeup_result_t));
                     break;
                 
                 case QM_AUDIO_SR_COMM_CMD:
