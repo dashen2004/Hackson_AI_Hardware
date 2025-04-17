@@ -44,7 +44,6 @@ static void monitor_task(void *arg)
 }
 #endif
 
-
 void app_main()
 {
     ESP_ERROR_CHECK(nvs_flash_init());
@@ -64,6 +63,9 @@ void app_main()
 #if defined(ENABLE_TASK_MONITOR)
     audio_thread_create(NULL, "monitor_task", monitor_task, NULL, 4 * 1024, 1, true, 1);
 #endif
+
+    // extern void lcd_init(void);
+    // lcd_init();
 
     // init byte rtc engine
     qm_main();

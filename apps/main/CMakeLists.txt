@@ -1,6 +1,9 @@
+set(UI_DIR ../ui) 
+file(GLOB_RECURSE UI_SRCS ${UI_DIR}/*.c)
 
 set(COMPONENT_SRCS 
 
+    "lcd.c"
     "main.c" 
     "audio_main.c"
 
@@ -126,6 +129,8 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/hal/net/qm_udp.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/hal/ble/qm_ble_gap.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qm_db/qm_hal_kv.c"
+
+    ${UI_SRCS}
 
     )
 set(COMPONENT_ADD_INCLUDEDIRS 
@@ -261,6 +266,8 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "$ENV{ADF_PATH}/qumi/utility/barcode"
     "$ENV{ADF_PATH}/qumi/utility/sprintf"
     "$ENV{ADF_PATH}/qumi/utility/sscanf"
+
+    ${UI_DIR}
     )
 
 
@@ -268,3 +275,4 @@ register_component()
 
 
 spiffs_create_partition_image(spiffs_data ../spiffs FLASH_IN_PROJECT)
+spiffs_create_partition_image(lvgl ../ui/spiffs FLASH_IN_PROJECT)

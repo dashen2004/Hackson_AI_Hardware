@@ -21,6 +21,10 @@ static bool_t connect = QM_FALSE;
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv);
 static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv);
 
+bool_t get_connect(void) {
+    return connect;
+}
+
 static struct qm_cli_command meminfo_key = {
     .name = "meminfo",
     .help = "meminfo",
