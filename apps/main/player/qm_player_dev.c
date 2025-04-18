@@ -5,20 +5,13 @@
 #include "qm_player.h"
 #include "qm_player_dev.h"
 
+#include "qm_audio_stream.h"
+
 #define TAG  "player_hal"
 
 static esp_err_t audio_mute_function(AUDIO_PLAYER_MUTE_SETTING setting)
 {
-    // Volume saved when muting and restored when unmuting. Restoring volume is necessary as es8311_set_voice_mute(QM_TRUE) results in voice volume (REG32) being set to zero.
-    // int last_volume = bsp_codec_volume_get();
-    // bsp_codec_mute_set(setting == AUDIO_PLAYER_MUTE ? QM_TRUE : QM_FALSE);
-
-    // // restore the voice volume upon unmuting
-    // if (setting == AUDIO_PLAYER_UNMUTE) {
-    //     bsp_codec_volume_set(last_volume, NULL);
-    // }
-
-    // QM_LOGI(TAG, "mute setting %d, volume:%d", setting, last_volume);
+    audio_play_stream_mute(setting == AUDIO_PLAYER_MUTE ? true : false);
 
     return ESP_OK;
 }

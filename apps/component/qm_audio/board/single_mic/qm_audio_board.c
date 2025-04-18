@@ -66,8 +66,6 @@ qm_audio_board_handle_t qm_audio_board_init(void)
     return board_handle;
 }
 
-
-
 qm_audio_board_handle_t qm_audio_board_get_handle(void)
 {
     return board_handle;

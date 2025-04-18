@@ -14,7 +14,13 @@ extern "C" {
 
 #define DEAFALUT_REPLY_WAV    ("/spiffs/dingding.wav")
 
+#define WAKEUP_TIEMOUT_PLAYER_PATH     (DEAFALUT_REPLY_WAV)
+
+// #define TEST_PLAYER_PATH     ("/spiffs/test.wav")
+
 qm_err_t audio_cloud_init(void);
+
+void audio_cloud_event_post(int audio_event);
 
 #ifdef __cplusplus
 }

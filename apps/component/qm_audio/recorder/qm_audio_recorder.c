@@ -115,6 +115,7 @@ typedef struct __audio_recorder {
     audio_thread_t            task_handle;
     audio_thread_t            feed_handle;
 
+    int                       wakeup_state;
     int                       wakeup_time;
     esp_timer_handle_t        wakeup_timer;
 
@@ -164,13 +165,6 @@ static esp_err_t audio_recorder_send_msg(audio_recorder_t *recorder, int msg_id,
     return ESP_OK;
 }
 
-static esp_err_t audio_recorder_notify_events(audio_recorder_t *recorder, int event)
-{
-    AUDIO_NULL_CHECK(TAG, recorder, return ESP_FAIL);
-
-    return audio_recorder_send_msg(recorder, RECORDER_CMD_UPDATE_STATE, (void *)event, 0);
-}
-
 static inline esp_err_t audio_recorder_update_state_2_user(audio_recorder_t *recorder, int type, void *event_data, size_t len)
 {
     AUDIO_NULL_CHECK(TAG, recorder, return ESP_FAIL);
@@ -209,7 +203,6 @@ static qm_err_t audio_recorder_afe_monitor(qm_audio_sr_result_t *result, void *u
         case SR_RESULT_VERIFIED:
             break;
         case SR_RESULT_WAKEUP:
-            xEventGroupClearBits(recorder->sync_evt, RECORDER_SR_FLAG);
             audio_recorder_update_state_2_user(recorder, AUDIO_REC_WAKEUP_START, &result->info.wakeup_info, sizeof(qm_audio_sr_wakeup_result_t));
             break;
         case SR_RESULT_COMMAND:
@@ -246,6 +239,15 @@ static qm_err_t audio_recorder_vc_afe_monitor(qm_audio_vc_result_t *result, void
     return ESP_OK;
 }
 
+static void audio_recorder_wakeup_timer_expired(void *arg)
+{
+    AUDIO_NULL_CHECK(TAG, arg, return );
+    audio_recorder_t *recorder = (audio_recorder_t *)arg;
+
+    recorder->wakeup_state = 0;
+    audio_recorder_update_state_2_user(recorder, AUDIO_REC_WAKEUP_END, NULL, 0);
+}
+
 static qm_err_t audio_recorder_mn_monitor(qm_audio_sr_result_t *result, void *user_ctx)
 {
     int command_num = 0;
@@ -268,12 +270,19 @@ static qm_err_t audio_recorder_mn_monitor(qm_audio_sr_result_t *result, void *us
             switch (command_str[i].type)
             {
                 case QM_AUDIO_SR_WAKEUP_CMD:
-                    xEventGroupClearBits(recorder_sr->sync_evt, RECORDER_SR_FLAG);
-                    audio_recorder_update_state_2_user((audio_recorder_t *)user_ctx, AUDIO_REC_WAKEUP_START, &result->info.wakeup_info, sizeof(qm_audio_sr_wakeup_result_t));
+                    
+                    recorder_sr->wakeup_state = 1;
+                    audio_recorder_wakeup_timer_start(recorder_sr);
+                    audio_recorder_update_state_2_user(recorder_sr, AUDIO_REC_WAKEUP_START, &result->info.wakeup_info, sizeof(qm_audio_sr_wakeup_result_t));
                     break;
                 
                 case QM_AUDIO_SR_COMM_CMD:
-                    audio_recorder_update_state_2_user((audio_recorder_t *)user_ctx, result->type, &result->info.mn_info, sizeof(qm_audio_sr_mn_result_t));
+
+                    if(recorder_sr->wakeup_state){
+                        audio_recorder_wakeup_timer_start(recorder_sr);
+                        audio_recorder_update_state_2_user(recorder_sr, result->type, &result->info.mn_info, sizeof(qm_audio_sr_mn_result_t));
+                    }
+
                     break;
 
                 default:
@@ -299,7 +308,6 @@ static esp_err_t audio_recorder_encoder_enable(audio_recorder_t *recorder, bool 
     }
     return ESP_OK;
 }
-
 
 static void audio_recorder_reset(audio_recorder_t *recorder)
 {
@@ -432,6 +440,35 @@ static void audio_recorder_free(audio_recorder_t *recorder)
     free(recorder);
 }
 
+qm_err_t qm_audio_recorder_enable_sr_mode(audio_rec_handle_t handle, uint8_t enable)
+{
+    audio_recorder_t *recorder = (audio_recorder_t *)handle;
+
+    if(enable){
+        xEventGroupSetBits(recorder->sync_evt, RECORDER_SR_FLAG);
+    }else{
+        esp_timer_stop(recorder->wakeup_timer);
+        xEventGroupClearBits(recorder->sync_evt, RECORDER_SR_FLAG);
+    }
+
+    return QM_EOK;
+}
+
+qm_err_t qm_audio_recorder_enable_vc_mode(audio_rec_handle_t handle, uint8_t enable)
+{
+    audio_recorder_t *recorder = (audio_recorder_t *)handle;
+
+    if(enable){
+        esp_timer_stop(recorder->wakeup_timer);
+        xEventGroupClearBits(recorder->sync_evt, RECORDER_SR_FLAG);
+    }else{
+        xEventGroupSetBits(recorder->sync_evt, RECORDER_SR_FLAG);
+    }
+
+    return QM_EOK;
+}
+
+
 audio_rec_handle_t qm_audio_recorder_create(audio_rec_cfg_t *config)
 {
     AUDIO_NULL_CHECK(TAG, config, return NULL);
@@ -466,6 +503,16 @@ audio_rec_handle_t qm_audio_recorder_create(audio_rec_cfg_t *config)
     
     qm_utils_time_countdown_ms(&debug_timer, 5 * 1000);
 #endif
+
+    esp_timer_create_args_t wakeup_timer_cfg = {
+        .callback = audio_recorder_wakeup_timer_expired,
+        .arg = recorder,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "wakeup_timer",
+    };
+    AUDIO_CHECK(TAG, (esp_timer_create(&wakeup_timer_cfg, &recorder->wakeup_timer) == ESP_OK), goto _failed, "Wakeup timer create failed");
+
+
     if (recorder->sr_handle) {
         qm_audio_sr_iface_t *sr_iface = recorder->sr_iface;
         AUDIO_NULL_CHECK(TAG, sr_iface, goto _failed);

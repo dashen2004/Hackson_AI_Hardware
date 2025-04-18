@@ -148,7 +148,6 @@ typedef void (*qm_audio_ws_recv_event_cb_t)(qm_audio_ws_recv_evt_t *event, void 
 
 typedef void (*qm_audio_ws_data_cb_t)(void *data, int len, void *user_data);
 
-
 /**
  * @brief Audio recorder configuration
  */

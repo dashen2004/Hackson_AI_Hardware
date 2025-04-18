@@ -21,9 +21,9 @@ typedef struct {
     } type;                            /*!< sr type */
     int id;
     char *sr_str;
-    char *reply_str;
     char *note;
-    float prob;
+    char *reply_str;
+    float prob;    //normal_prob,
 } bsp_audio_cmd_table_t;
 
 qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num);

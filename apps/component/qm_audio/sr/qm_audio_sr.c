@@ -120,6 +120,8 @@ static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_
     static int detect_flag = 0;
     static vad_state_t vad_state = VAD_SILENCE;
 
+    esp_mn_state_t mn_state = 0;
+
     if (!recorder_sr->mn_enable) {
         if (detect_flag == 1) {
             detect_flag = 0;
@@ -133,29 +135,49 @@ static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_
             detect_flag = 1;
         }
     } else {
-        if (afe_result->vad_state == VAD_SPEECH) {
-            detect_flag = 1;
-        }else{
-
-            if(vad_state == VAD_SPEECH){
-                multinet->clean(recorder_sr->mn_handle);
-            }
-
-        }
-
+        
         if(vad_state != afe_result->vad_state){
             vad_state = afe_result->vad_state;
             QM_LOGD(TAG, "vad state:%d", afe_result->vad_state);
+            
+            multinet->clean(recorder_sr->mn_handle);
+
+            if (afe_result->vad_state == VAD_SPEECH) {
+                detect_flag = 1;
+
+                if (afe_result->vad_cache_size > 0) {
+                    int offset = 0;
+                    int chunk_size = multinet->get_samp_chunksize(recorder_sr->mn_handle);
+                                        
+                    do{
+                        if(afe_result->vad_cache_size >= chunk_size){
+                            mn_state = multinet->detect(recorder_sr->mn_handle, afe_result->vad_cache + offset);
+                            if(mn_state == ESP_MN_STATE_DETECTED){
+                                goto __detect;
+                            }
+                            offset += (chunk_size / sizeof(int16_t));
+                            afe_result->vad_cache_size -= chunk_size;
+                        }else{
+                            afe_result->vad_cache_size = 0;
+                        }
+                    }while (afe_result->vad_cache_size);
+                }
+
+            }else{
+    
+                detect_flag = 0;
+            }
         }
     }
 
     if (detect_flag == 1) {
-        esp_mn_state_t mn_state = multinet->detect(recorder_sr->mn_handle, afe_result->data);
+        mn_state = multinet->detect(recorder_sr->mn_handle, afe_result->data);
 
         if (mn_state == ESP_MN_STATE_DETECTING) {
             return ESP_OK;
         }
         if (mn_state == ESP_MN_STATE_DETECTED) {
+    __detect:
             QM_LOGD("1", "ESP_MN_STATE_DETECTED");
             esp_mn_results_t *mn_result = multinet->get_results(recorder_sr->mn_handle);
             if (recorder_sr->mn_monitor) {
@@ -171,12 +193,11 @@ static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_
 
                 recorder_sr->mn_monitor(&sr_result, recorder_sr->mn_monitor_ctx);
 
-                multinet->clean(recorder_sr->mn_handle);
             }
         }
     
         if (mn_state == ESP_MN_STATE_TIMEOUT) {
-            if (!recorder_sr->wwe_enable) {
+            if (recorder_sr->wwe_enable) {
                 detect_flag = 0;
                 ESP_LOGI(TAG, "MN dect quit");
                 multinet->clean(recorder_sr->mn_handle);
@@ -191,6 +212,11 @@ static void fetch_task(void *parameters)
 {
     recorder_sr_t *recorder_sr = (recorder_sr_t *)parameters;
     recorder_sr->fetch_running = true;
+
+    int fetch_size = recorder_sr->afe_handle->get_fetch_chunksize(recorder_sr->afe_data);
+    int feed_size = recorder_sr->afe_handle->get_feed_chunksize(recorder_sr->afe_data);
+    ESP_LOGI(TAG, "Audio SR task started, feed size: %d fetch size: %d",
+        feed_size, fetch_size);
 
     while (recorder_sr->fetch_running) {
         xEventGroupWaitBits(recorder_sr->events, FETCH_TASK_RUNNING, false, true, portMAX_DELAY);
@@ -535,7 +561,7 @@ qm_audio_sr_handle_t qm_audio_sr_create(qm_audio_sr_cfg_t *cfg, qm_audio_sr_ifac
         char *mn_name = esp_srmodel_filter(recorder_sr->models, ESP_MN_PREFIX, recorder_sr->mn_language);
         AUDIO_NULL_CHECK(TAG, mn_name, goto _failed);
         multinet = esp_mn_handle_from_name(mn_name);
-        recorder_sr->mn_handle = multinet->create(mn_name, 10 * 1000);
+        recorder_sr->mn_handle = multinet->create(mn_name, 60 * 1000);
         AUDIO_NULL_CHECK(TAG, recorder_sr->mn_handle, goto _failed);
         recorder_sr->mn_enable = true;
     }

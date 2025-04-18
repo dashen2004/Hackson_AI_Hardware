@@ -283,6 +283,7 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         break;
     case WEBSOCKET_EVENT_FINISH:
         QM_LOGI(LOG_TAG, "WEBSOCKET_EVENT_FINISH");
+        qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_DISCONNECT, NULL, 0);
         break;
     }
 }

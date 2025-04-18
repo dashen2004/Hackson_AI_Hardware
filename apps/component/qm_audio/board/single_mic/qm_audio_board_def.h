@@ -5,7 +5,7 @@
  * @brief Audio Codec Chip Function Definition
  */
 #define FUNC_AUDIO_CODEC_EN         (1)
-#define ES8311_MCLK_SOURCE          (1)   /* 0 From MCLK of esp32   1 From BCLK */
+#define ES8311_MCLK_SOURCE          (0)   /* 0 From MCLK of esp32   1 From BCLK */
 #define HEADPHONE_DETECT            (-1)
 #define PA_ENABLE_GPIO              GPIO_NUM_46
 #define CODEC_ADC_I2S_PORT          ((i2s_port_t)0)
@@ -14,9 +14,17 @@
 #define RECORD_HARDWARE_AEC         (true)
 #define BOARD_PA_GAIN               (1) /* Power amplifier gain defined by board (dB) */
 
-/**
- * @brief ADC input data format
- */
-#define AUDIO_ADC_INPUT_CH_FORMAT "MR"
+#define AUDIO_ADC_INPUT_CH_NUM      (2)
+#define AUDIO_SR_INPUT_CH_FORMAT    "MR"
+#define AUDIO_VC_INPUT_CH_FORMAT    "MR"
+
+#define AUDIO_DIY_WAKENET           (1)
+
+
+static __attribute__((always_inline)) inline qm_err_t short_ich_to_och(int16_t *i_buf, int chunksize, int i_ch, int o_ch)
+{
+    return QM_EOK;
+}
+
 
 #endif

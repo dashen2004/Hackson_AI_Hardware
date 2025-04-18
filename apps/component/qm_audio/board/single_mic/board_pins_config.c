@@ -64,8 +64,7 @@ esp_err_t get_i2s_pins(int port, board_i2s_pin_t *i2s_config)
         i2s_config->ws_io_num = GPIO_NUM_45;
         i2s_config->data_out_num = GPIO_NUM_15;
         i2s_config->data_in_num = GPIO_NUM_16;
-        // i2s_config->mck_io_num = GPIO_NUM_2;
-        i2s_config->mck_io_num = -1;
+        i2s_config->mck_io_num = GPIO_NUM_2;
     } else if (port == 1) {
         i2s_config->bck_io_num = -1;
         i2s_config->ws_io_num = -1;

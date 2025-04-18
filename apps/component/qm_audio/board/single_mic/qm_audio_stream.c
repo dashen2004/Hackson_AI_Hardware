@@ -30,11 +30,16 @@
 #include "esp_afe_config.h"
 #include "esp_mn_iface.h"
 
+#include "esp_spiffs.h"
+#include "esp_vfs_fat.h"
+
 static const char *TAG = "single_mic";
+
+#define CONFIG_BSP_SPIFFS_MAX_FILES         (5)
 
 #if defined (CONFIG_AUDIO_SUPPORT_OPUS_DECODER)
 #define SAMPLE_RATE         16000
-#define BIT_RATE            32000
+#define BIT_RATE            25000
 #define COMPLEXITY          0
 #define FRAME_TIME_MS       20 
 #endif
@@ -52,13 +57,15 @@ static const char *TAG = "single_mic";
 
 qm_audio_stream_handle_t create_record_encoder_stream(void)
 {
-    audio_element_handle_t encoder_stream = NULL;
+#if 0
+    qm_audio_stream_handle_t encoder_stream = NULL;
 #if defined (CONFIG_AUDIO_SUPPORT_OPUS_DECODER)
     raw_opus_enc_config_t opus_cfg = RAW_OPUS_ENC_CONFIG_DEFAULT();
     opus_cfg.sample_rate        = SAMPLE_RATE;
     opus_cfg.channel            = CHANNEL;
     opus_cfg.bitrate            = BIT_RATE;
     opus_cfg.complexity         = COMPLEXITY;
+    opus_cfg.frame_duration     = RAW_OPUS_ENC_FRAME_DURATION_60_MS;
     encoder_stream = raw_opus_encoder_init(&opus_cfg);
 #elif defined (CONFIG_AUDIO_SUPPORT_AAC_DECODER)
     aac_encoder_cfg_t aac_cfg = DEFAULT_AAC_ENCODER_CONFIG();
@@ -71,6 +78,9 @@ qm_audio_stream_handle_t create_record_encoder_stream(void)
     encoder_stream = g711_encoder_init(&g711_cfg);
 #endif
     return encoder_stream;
+#else
+    return NULL;
+#endif
 }
 
 qm_audio_stream_handle_t create_record_raw_stream(void)
@@ -89,6 +99,10 @@ qm_audio_stream_handle_t create_record_i2s_stream(void)
     audio_element_handle_t i2s_stream = NULL;
     i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT_WITH_PARA(I2S_NUM_0, 16000, 16, AUDIO_STREAM_READER);
     i2s_stream = i2s_stream_init(&i2s_cfg);
+
+    es8311_set_mic_gain(ES8311_MIC_GAIN_30DB);
+    es8311_codec_set_voice_volume(100);
+
     return i2s_stream;
 }
 
@@ -139,6 +153,26 @@ qm_audio_stream_handle_t create_player_raw_stream(void)
 qm_audio_stream_handle_t create_player_i2s_stream(bool_t enable_task)
 {
     audio_element_handle_t i2s_stream = NULL;
+    
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/spiffs",
+        .partition_label = "spiffs_data",
+        .max_files = CONFIG_BSP_SPIFFS_MAX_FILES,
+        .format_if_mount_failed = QM_TRUE,
+    };
+    
+    esp_err_t ret_val = esp_vfs_spiffs_register(&conf);
+    ESP_ERROR_CHECK(ret_val);
+
+    size_t total = 0, used = 0;
+    ret_val = esp_spiffs_info(conf.partition_label, &total, &used);
+    if (ret_val != QM_EOK) {
+        ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret_val));
+    } else {
+        ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+    }
+
+    
     i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT_WITH_PARA(I2S_NUM_0, 16000, 16, AUDIO_STREAM_WRITER);
     i2s_cfg.out_rb_size = 8 * 1024;
     i2s_cfg.buffer_len = 708;
@@ -192,40 +226,69 @@ qm_audio_stream_handle_t create_audio_player_spiffs_stream(void)
 qm_audio_sr_cfg_t *get_default_audio_sr_config(void)
 {
     static qm_audio_sr_cfg_t recorder_sr_cfg = {0};
-
-    srmodel_list_t *models = esp_srmodel_init("model");
-    char* ns_model_name = esp_srmodel_filter(models, ESP_NSNET_PREFIX, NULL);
-    qm_audio_sr_cfg_t sr_cfg = DEFAULT_QM_AUDIO_SR_CFG(AUDIO_SR_INPUT_CH_FORMAT, "model", AFE_MODE_LOW_COST);
+#if 1
+    qm_audio_sr_cfg_t sr_cfg = DEFAULT_QM_AUDIO_SR_CFG(AUDIO_SR_INPUT_CH_FORMAT, "model", AFE_MODE_HIGH_PERF);
  
     memcpy(&recorder_sr_cfg, &sr_cfg, sizeof(qm_audio_sr_cfg_t));
-    
+
+#if AUDIO_DIY_WAKENET
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->wakenet_init = false;
+#endif
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_init = true;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_mode = AEC_MODE_SR_HIGH_PERF;
+
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->memory_alloc_mode = AFE_MEMORY_ALLOC_MORE_PSRAM;
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->wakenet_mode = DET_MODE_90;
+ 
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->vad_init = true;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->vad_mode = VAD_MODE_2;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->vad_min_noise_ms = 500;
+
+    // ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_linear_gain = 10.0;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_ringbuf_size = 100;
+    
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_perferred_core = 1;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_perferred_priority = 1;
+
     return &recorder_sr_cfg;
+#else
+    return NULL;
+#endif
 }
 
 qm_audio_vc_cfg_t *get_default_audio_vc_config(void)
 {
+    #if 1
     static qm_audio_vc_cfg_t recorder_vc_cfg = {0};
 
     srmodel_list_t *models = esp_srmodel_init("model");
     char* ns_model_name = esp_srmodel_filter(models, ESP_NSNET_PREFIX, NULL);
-    qm_audio_vc_cfg_t vc_cfg = DEFAULT_QM_AUDIO_VC_CFG(AUDIO_VC_INPUT_CH_FORMAT, "model", AFE_MODE_LOW_COST);
+    
+    qm_audio_vc_cfg_t vc_cfg = DEFAULT_QM_AUDIO_VC_CFG(AUDIO_VC_INPUT_CH_FORMAT, AEC_MODE_VOIP_HIGH_PERF);
  
     memcpy(&recorder_vc_cfg, &vc_cfg, sizeof(qm_audio_vc_cfg_t));
 
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->aec_init = true;
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->aec_mode = AEC_MODE_VOIP_HIGH_PERF;
+
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->memory_alloc_mode = AFE_MEMORY_ALLOC_MORE_PSRAM;
 
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_init = false;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_mode = VAD_MODE_2;
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_min_noise_ms = 100;
 
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->ns_init = true;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->ns_model_name = ns_model_name;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_ns_mode = AFE_NS_MODE_NET;
 
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_ringbuf_size = 100;
 
-    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->agc_init = true;
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_core = 1;
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_priority = 1;
+
 
     return &recorder_vc_cfg;
+#else
+    return NULL;
+#endif
 }

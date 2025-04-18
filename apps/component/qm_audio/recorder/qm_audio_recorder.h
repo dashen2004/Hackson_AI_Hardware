@@ -111,6 +111,25 @@ audio_rec_handle_t qm_audio_recorder_create(audio_rec_cfg_t *cfg);
  */
 qm_err_t qm_audio_recorder_waketimer_reset(audio_rec_handle_t handle);
 
+/**
+ * @brief 
+ *
+ * @param handle Audio recorder handle
+ *
+ * @return ESP_OK
+ *         ESP_FAIL
+ */
+qm_err_t qm_audio_recorder_enable_sr_mode(audio_rec_handle_t handle, uint8_t enable);
+
+/**
+ * @brief 
+ *
+ * @param handle Audio recorder handle
+ *
+ * @return ESP_OK
+ *         ESP_FAIL
+ */
+qm_err_t qm_audio_recorder_enable_vc_mode(audio_rec_handle_t handle, uint8_t enable);
 
 /**
  * @brief Read data from audio recorder
