@@ -11,8 +11,6 @@
 
 static esp_err_t audio_mute_function(AUDIO_PLAYER_MUTE_SETTING setting)
 {
-    audio_play_stream_mute(setting == AUDIO_PLAYER_MUTE ? true : false);
-
     return ESP_OK;
 }
 

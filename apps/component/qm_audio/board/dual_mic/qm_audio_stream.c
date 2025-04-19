@@ -98,9 +98,9 @@ qm_audio_stream_handle_t create_record_i2s_stream(void)
 {
     audio_hal_codec_i2s_iface_t i2s_iface = {0};
     es7210_mic_select(ES7210_INPUT_MIC1 | ES7210_INPUT_MIC2 | ES7210_INPUT_MIC3 | ES7210_INPUT_MIC4);
-    es7210_adc_set_gain(ES7210_INPUT_MIC1 | ES7210_INPUT_MIC2, GAIN_30DB);
+    es7210_adc_set_gain(ES7210_INPUT_MIC2, GAIN_34_5DB);
     es7210_adc_set_gain(ES7210_INPUT_MIC3, GAIN_0DB);
-    es7210_adc_set_gain(ES7210_INPUT_MIC4, GAIN_0DB);
+    es7210_adc_set_gain(ES7210_INPUT_MIC1 | ES7210_INPUT_MIC4, GAIN_0DB);
 
     es8311_codec_set_voice_volume(70);
     

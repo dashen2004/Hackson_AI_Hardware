@@ -14,6 +14,7 @@ extern "C" {
 #include "qm_spec_api.h"
 
 #define CONFIG_NETWORK_URL       "ws://1.94.128.55:29096/voicePlatform/api/ws"
+#define CONFIG_NETWORK_DELAY_MS         (1500)
 
 #define CONFIG_SUPPORT_AEC              (1)
 
@@ -25,18 +26,38 @@ extern "C" {
 
 
 //语音事件
+#define CONFIG_AUDIO_WAKEUPT_TIMEOUT         (60 * 1000)
+
 #define CONFIG_AUDIO_MAIN_EVENT_ID           (0xFF00)
 
-
-#define CONFIG_AUDIO_SUB_EVENT_MSG_ID        (0x0001)
-#define CONFIG_AUDIO_SUB_EVENT_CEART_WS      (0x0002)
-#define CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID     (0x0003)
+#define CONFIG_AUDIO_SUB_EVENT_CEART_WS      (0x0001)
+#define CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID     (0x0002)
+#define CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID    (0x0003)
 #define CONFIG_AUDIO_SUB_EVENT_CONTROL_ID    (0x0004)
 
-#define CONFIG_AUDIO_ID_LIGHT_WAKEUP1         (1)
-#define CONFIG_AUDIO_ID_LIGHT_WAKEUP2         (2)
+#define CONFIG_AUDIO_ID_LIGHT_WAKEUP         (1)
+#define CONFIG_AUDIO_ID_LIGHT_NETCONFIG      (2)
+#define CONFIG_AUDIO_ID_LIGHT_ON             (3)             //开灯/打开灯光
+#define CONFIG_AUDIO_ID_LIGHT_OFF            (4)             //关灯/关闭灯光
+#define CONFIG_AUDIO_ID_LIGHT_UP             (5)             //亮一点/调亮一点
+#define CONFIG_AUDIO_ID_LIGHT_DOWN           (6)             //暗一点/调暗一点
+#define CONFIG_AUDIO_ID_LIGHT_MAX            (7)             //最大亮度
+#define CONFIG_AUDIO_ID_LIGHT_MIN            (8)             //最小亮度
+#define CONFIG_AUDIO_ID_LIGHT_MOD            (9)             //中等亮度
+#define CONFIG_AUDIO_ID_LIGHT_ALL            (10)            //全亮
+#define CONFIG_AUDIO_ID_LIGHT_NEUTER         (11)            //中性光
+#define CONFIG_AUDIO_ID_LIGHT_NATURE         (12)            //自然光
+#define CONFIG_AUDIO_ID_LIGHT_SLEEP          (13)            //睡觉
+#define CONFIG_AUDIO_ID_LIGHT_NIGHT          (14)            //小夜灯
+#define CONFIG_AUDIO_ID_LIGHT_CHANGE         (15)            //变光
+#define CONFIG_AUDIO_ID_LIGHT_READ1          (16)            //阅读模式
+#define CONFIG_AUDIO_ID_LIGHT_READ2          (17)            //看书
+#define CONFIG_AUDIO_ID_LIGHT_IDLE           (18)            //休闲模式
+#define CONFIG_AUDIO_ID_LIGHT_TOP            (19)            //上光
+#define CONFIG_AUDIO_ID_LIGHT_LOWER          (20)            //下光
+#define CONFIG_AUDIO_ID_LIGHT_TIMER          (21)            //定时模式
+#define CONFIG_AUDIO_ID_LIGHT_RESET          (22)            //恢复出厂设置
 
-#define CONFIG_AUDIO_ID_LIGHT_NETCONFIG       (2)
 
 //遥控器事件
 #define CONFIG_AUDIO_BEACON_HOLD_TIME           (2 * 100)

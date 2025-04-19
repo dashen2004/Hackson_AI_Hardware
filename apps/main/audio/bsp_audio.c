@@ -99,7 +99,8 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         {
             qm_audio_ws_cfg_t params = {
         
-                .uri = "ws://192.168.0.81:8000/xiaozhi/v1/",
+                // .uri = "ws://192.168.0.81:8000/xiaozhi/v1/",
+                .uri = "ws://aiagentplatform.xjiangiot.com:8000/xiaozhi/v1/",
                 .buff_size = 10 * 1024,
                 .task_prio = 12,
                 .task_size = 4 * 1024,
@@ -310,6 +311,8 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
         case QM_AUDIO_WS_RECV_TYPE_DISCONNECT:
             bsp_audio_handle.ws_connect = QM_FALSE;
             xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
+
+            qm_audio_ws_start(bsp_audio_handle.ai_handle); //重连ws
         break;
         
         default:
