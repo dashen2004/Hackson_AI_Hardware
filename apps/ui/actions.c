@@ -25,7 +25,7 @@
 #define loadScreenEx    loadScreen
 // extern void loadScreenEx(enum ScreensEnum screenId);
 
-static uint8_t emotion_index = 0;
+// static uint8_t emotion_index = 0;
 
 static bool hit_test(lv_event_t * e) {
     lv_point_t pt;
@@ -86,35 +86,7 @@ void action_gesture_handler(lv_event_t * e) {
     lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
     if (currentPage == objects.page_main) {
         if (dir == LV_DIR_LEFT) {
-            switch (emotion_index) {
-                case 0: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion01.gif"); break;
-                case 1: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion02.gif"); break;
-                case 2: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion03.gif"); break;
-                case 3: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion04.gif"); break;
-                case 4: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion05.gif"); break;
-                case 5: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion06.gif"); break;
-                case 6: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion07.gif"); break;
-                case 7: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion08.gif"); break;
-                case 8: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion09.gif"); break;
-                case 9: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion10.gif"); break;
-                case 10: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion11.gif"); break;
-                case 11: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion12.gif"); break;
-                case 12: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion13.gif"); break;
-                case 13: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion14.gif"); break;
-                case 14: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion15.gif"); break;
-                case 15: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion16.gif"); break;
-                case 16: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion17.gif"); break;
-                case 17: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion18.gif"); break;
-                case 18: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion19.gif"); break;
-                case 19: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion20.gif"); break;
-                case 20: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion21.gif"); break;
-                default: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion01.gif"); break;
-            }
-            if (emotion_index < 20) {
-                emotion_index++;
-            } else {
-                emotion_index = 0;
-            }
+            // lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion01.gif");
             loadScreenEx(SCREEN_ID_PAGE_RECOG);
         } else if (dir == LV_DIR_RIGHT) {            
             // lv_obj_add_event_cb(objects.page_brightness, event_hook, LV_EVENT_ALL, NULL);
@@ -156,35 +128,7 @@ void action_memu_home_click(lv_event_t * e) {
 // 菜单页点击语音按键
 void action_menu_speech_click(lv_event_t * e) {
     if (hit_test(e)) {
-        switch (emotion_index) {
-            case 0: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion01.gif"); break;
-            case 1: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion02.gif"); break;
-            case 2: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion03.gif"); break;
-            case 3: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion04.gif"); break;
-            case 4: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion05.gif"); break;
-            case 5: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion06.gif"); break;
-            case 6: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion07.gif"); break;
-            case 7: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion08.gif"); break;
-            case 8: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion09.gif"); break;
-            case 9: lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion10.gif"); break;
-            case 10: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion11.gif"); break;
-            case 11: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion12.gif"); break;
-            case 12: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion13.gif"); break;
-            case 13: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion14.gif"); break;
-            case 14: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion15.gif"); break;
-            case 15: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion16.gif"); break;
-            case 16: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion17.gif"); break;
-            case 17: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion18.gif"); break;
-            case 18: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion19.gif"); break;
-            case 19: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion20.gif"); break;
-            case 20: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion21.gif"); break;
-            default: lv_gif_set_src(objects.emotion, "/lvgl/images/emotion01.gif"); break;
-        }
-        if (emotion_index < 20) {
-            emotion_index++;
-        } else {
-            emotion_index = 0;
-        }
+        // lv_gif_set_src(objects.emotion,  "/lvgl/images/emotion01.gif");
         loadScreenEx(SCREEN_ID_PAGE_RECOG);
     }
 }

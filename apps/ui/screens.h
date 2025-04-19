@@ -79,6 +79,7 @@ typedef struct _objects_t {
     lv_obj_t *obj36;
     lv_obj_t *obj37;
     lv_obj_t *emotion;
+    lv_obj_t *subtitles;
 } objects_t;
 
 extern objects_t objects;

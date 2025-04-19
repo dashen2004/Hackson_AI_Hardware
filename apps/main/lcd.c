@@ -460,6 +460,62 @@ static void periodic_timer_callback(void* arg) {
 }
 
 #include "esp_spiffs.h"
+#include "bsp_audio.h"
+#include "qm_audio_ws.h"
+
+#define EMOTION_NUM 21
+
+static char emotions[EMOTION_NUM][16] = {
+    "neutral", // 中性
+    "happy", // 开心
+    "funny", // 有趣
+    "laughing", // 大笑
+    "sad", // 悲伤
+    "angry", // 生气
+    "crying", // 哭泣
+    "loving", // 爱
+    "embarrassed", // 尴尬
+    "surprised", // 惊讶
+    "shocked", // 震惊
+    "thinking", // 思考
+    "winking", // 眨眼
+    "cool", // 酷
+    "relaxed", // 放松
+    "delicious", // 美味
+    "kissy", // 亲吻
+    "confident", // 自信
+    "silly", // 愚蠢
+    "sleepy", // 困倦
+    "confused", // 困惑
+};
+
+static int8_t get_emotion_idx(char *s) {
+    for (uint8_t i = 0; i < EMOTION_NUM; i++) {
+        if (strcmp(emotions[i], s) == 0) {
+            return i + 1;
+        }
+    }
+    return 0;
+}
+
+static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_data) {
+    switch (event->recv_type) {
+        case QM_AUDIO_WS_RECV_TYPE_LLM: {
+            int8_t idx = get_emotion_idx(event->data.llm.emotion);
+            if (idx) {
+                set_var_emotion(idx);
+            }
+            break;
+        }
+        case QM_AUDIO_WS_RECV_TYPE_TTS: {
+            set_var_subtitles(event->data.tts.text);
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+}
 
 static void lcd_task(void *arg) {
     esp_vfs_spiffs_conf_t conf = {
@@ -499,6 +555,8 @@ static void lcd_task(void *arg) {
     ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));   
     ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 500000));
     periodic_timer_callback(NULL);
+
+    bsp_audio_resgiter(audio_ws_recv_event_cb, NULL);
 
     while (1) {
         lvgl_port_lock(0); // 锁定lvgl接口，以保护UI更新过程。 

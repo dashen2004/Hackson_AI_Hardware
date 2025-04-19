@@ -37,6 +37,8 @@ static char var_setup_volume_value_s[33] = "50%";
 static char var_brightness_top_s[33] = "50%";
 static char var_brightness_bottom_s[33] = "50%";
 
+static char var_subtitles[512] = { 0 };
+
 static char var_time[33];
 static char var_week[33];
 static char var_date[33];
@@ -51,6 +53,9 @@ static int32_t var_setup_volume_value = 50;
 // static bool var_brightness_light_onoff = false;
 static int32_t var_screen_tmo = 0;
 static int32_t var_language = 0;
+
+static int8_t  last_emotion = 0;
+static int8_t  var_emotion  = 0;
 
 const char *get_var_time() {
     return var_time;
@@ -617,4 +622,31 @@ const char *get_var_setup_about_device_info_value() {
 
 void set_var_setup_about_device_info_value(const char *value){
     strcpy(var_setup_about_device_info_value, value);
+}
+
+const char *get_var_subtitles() {
+    return var_subtitles;
+}
+
+void set_var_subtitles(const char *value) {
+    if (value != NULL) {
+        strcpy(var_subtitles, value);
+    }
+}
+
+bool is_emotion_changed(void) {
+    return (last_emotion != var_emotion);
+}
+
+int8_t get_var_emotion(void) {
+    return var_emotion;
+}
+
+void set_var_emotion(const int8_t emotion) {
+    var_emotion = emotion;
+    // printf("emotion: %d, %d\n", var_emotion, last_emotion);
+}
+
+void update_last_emotion(void) {
+    last_emotion = var_emotion;
 }

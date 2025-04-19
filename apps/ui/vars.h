@@ -56,7 +56,8 @@ enum FlowGlobalVariables {
     FLOW_GLOBAL_VARIABLE_SETUP_ABOUT_SW_VER_TITLE = 38,
     FLOW_GLOBAL_VARIABLE_SETUP_ABOUT_SW_VER_VALUE = 39,
     FLOW_GLOBAL_VARIABLE_SETUP_ABOUT_DEVICE_INFO_TITLE = 40,
-    FLOW_GLOBAL_VARIABLE_SETUP_ABOUT_DEVICE_INFO_VALUE = 41
+    FLOW_GLOBAL_VARIABLE_SETUP_ABOUT_DEVICE_INFO_VALUE = 41,
+    FLOW_GLOBAL_VARIABLE_SUBTITLES = 42,
 };
 
 // Native global variables
@@ -145,6 +146,13 @@ extern const char *get_var_setup_about_device_info_title();
 extern void set_var_setup_about_device_info_title(const char *value);
 extern const char *get_var_setup_about_device_info_value();
 extern void set_var_setup_about_device_info_value(const char *value);
+extern const char *get_var_subtitles();
+extern void set_var_subtitles(const char *value);
+
+extern bool is_emotion_changed(void);
+extern int8_t get_var_emotion(void);
+extern void set_var_emotion(const int8_t emotion);
+void update_last_emotion(void);
 
 
 #ifdef __cplusplus
