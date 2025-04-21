@@ -70,6 +70,8 @@ IRAM_ATTR static bool notify_refresh_ready(esp_lcd_panel_io_handle_t panel_io, e
     return (need_yield == pdTRUE);
 }
 
+static int bl_brightness_percent = 0;
+
 void bsp_lcd_bl_set(int brightness_percent) {
     if (brightness_percent > 100) {
         brightness_percent = 100;
@@ -78,10 +80,15 @@ void bsp_lcd_bl_set(int brightness_percent) {
         brightness_percent = 0;
     }
 
+    bl_brightness_percent = brightness_percent;
     ESP_LOGI(LOG_TAG, "Setting LCD backlight: %d%%", brightness_percent);
     uint32_t duty_cycle = (1023 * brightness_percent) / 100; // LEDC resolution set to 10bits, thus: 100% = 1023
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, duty_cycle);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+}
+
+int bsp_lcd_bl_brightness_percent_get(void) {
+    return bl_brightness_percent;
 }
 
 void bsp_lcd_bl_off(void) {
@@ -386,7 +393,7 @@ void app_lvgl(void)
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = io_handle,
         .panel_handle = panel_handle,
-        .buffer_size = EXAMPLE_LCD_H_RES * 40 * sizeof(uint16_t),
+        .buffer_size = EXAMPLE_LCD_H_RES * 180 * sizeof(uint16_t),
         .double_buffer = 0,
         .hres = EXAMPLE_LCD_H_RES,
         .vres = EXAMPLE_LCD_V_RES,
@@ -399,9 +406,10 @@ void app_lvgl(void)
             .mirror_y = false,
         },
         .flags = {
-            .buff_spiram = true,
-            .swap_bytes = true,
-            .buff_dma = true,
+            .buff_spiram = 1,
+            .swap_bytes = 1,
+            .buff_dma = 1,
+            .full_refresh = 1,
         }
     };
     lvgl_disp = lvgl_port_add_disp(&disp_cfg);
@@ -517,6 +525,22 @@ static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_dat
     }
 }
 
+// extern int bsp_lcd_bl_brightness_percent_get(void);
+// extern void bsp_lcd_bl_off(void);
+// extern void bsp_lcd_bl_on(void);
+
+static qm_timer_t turnoff_screen_timer = {0};
+
+static void turnoff_screen_timer_handle(qm_timer_t *timer,  void *arg) {
+    bsp_lcd_bl_off();
+}
+
+void turnoff_screen_timer_start(void) {
+    if (!qm_timer_is_valid(&turnoff_screen_timer)) {
+        qm_timer_new(&turnoff_screen_timer, turnoff_screen_timer_handle, NULL, CONFIG_QM_LIGHT_MONITOR_INTERVAL, 0);
+    }
+}
+
 static void lcd_task(void *arg) {
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/lvgl",
@@ -546,7 +570,7 @@ static void lcd_task(void *arg) {
     vTaskDelay(500);
 
     bsp_lcd_bl_on();
-
+    
     const esp_timer_create_args_t periodic_timer_args = {
         .callback = &periodic_timer_callback,   //定时器回调函数
         .name = "periodic"                      //定时器名称

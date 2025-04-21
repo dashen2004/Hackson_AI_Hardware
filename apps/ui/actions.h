@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+extern void event_all_handler(lv_event_t * e);
+
 extern void action_gesture_handler(lv_event_t * e);
 extern void action_memu_home_click(lv_event_t * e);
 extern void action_menu_speech_click(lv_event_t * e);

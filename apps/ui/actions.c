@@ -5,7 +5,7 @@
 #include "vars.h"
 #include "screens.h"
 
-#include "esp_timer.h"
+// #include "esp_timer.h"
 
 #include "bsp_light.h"
 
@@ -115,6 +115,15 @@ void action_gesture_handler(lv_event_t * e) {
         if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
             loadScreenEx(SCREEN_ID_PAGE_SETUP);
         }
+    }
+}
+
+void event_all_handler(lv_event_t * e) {
+    
+
+
+    if (bsp_lcd_bl_brightness_percent_get() == 0) {
+        bsp_lcd_bl_on();
     }
 }
 
