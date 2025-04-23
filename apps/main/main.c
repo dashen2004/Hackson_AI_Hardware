@@ -19,17 +19,13 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 
-#include "audio_sys.h"
-#include "audio_thread.h"
 
 #include "qm.h"
-
-#include "audio_mem.h"
 
 #include "esp_bt.h"
 #include "esp_bt_main.h"
 
-#define ENABLE_TASK_MONITOR
+// #define ENABLE_TASK_MONITOR
 
 static char *TAG = "main";
 
@@ -63,9 +59,6 @@ void app_main()
 #if defined(ENABLE_TASK_MONITOR)
     audio_thread_create(NULL, "monitor_task", monitor_task, NULL, 4 * 1024, 1, true, 1);
 #endif
-
-    // extern void lcd_init(void);
-    // lcd_init();
 
     // init byte rtc engine
     qm_main();

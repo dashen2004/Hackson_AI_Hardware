@@ -395,7 +395,7 @@ static void feed_task(void *parameters)
             }else{
                 if(recorder_sr->vc_handle){
                     short_ich_to_och(i_buf,
-                                recorder_sr->sr_iface->get_feed_chunksize(recorder_sr->sr_handle),
+                                recorder_sr->vc_iface->get_feed_chunksize(recorder_sr->vc_handle),
                                 AUDIO_ADC_INPUT_CH_NUM, recorder_sr->vc_iface->get_feed_channel_num(recorder_sr->vc_handle));
                     recorder_sr->vc_iface->base.feed(recorder_sr->vc_handle, i_buf, buf_size);
                 }

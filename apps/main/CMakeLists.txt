@@ -10,7 +10,7 @@ set(COMPONENT_SRCS
     "./light/bsp_light.c"
     "./light/audio_light.c"
     "./cloud/xjiang_cloud.c"
-    "./beacon/audio_beacon.c"
+    # "./beacon/audio_beacon.c"
     "./audio/bsp_audio.c"
     "./audio/audio_cloud.c"
 
@@ -28,6 +28,10 @@ set(COMPONENT_SRCS
     "../component/qm_audio/board/dual_mic/qm_audio_board.c"
     "../component/qm_audio/board/dual_mic/qm_audio_stream.c"   
 
+    # "../component/qm_audio/board/single_mic/board_pins_config.c"
+    # "../component/qm_audio/board/single_mic/qm_audio_board.c"
+    # "../component/qm_audio/board/single_mic/qm_audio_stream.c"   
+
 
     "../component/qm_light/pwm_alg/qm_light_alg.c"
     "../component/qm_light/driver/qm_light_driver.c"
@@ -43,10 +47,13 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/components/mqtt/MQTTPacket/MQTTSerializePublish.c"
     "$ENV{ADF_PATH}/qumi/components/mqtt/MQTTPacket/MQTTSubscribeClient.c"
     "$ENV{ADF_PATH}/qumi/components/mqtt/MQTTPacket/MQTTUnsubscribeClient.c"
+    
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/pub/qm_iot_pub.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/dev/qm_iot_dev.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ntp/qm_iot_ntp.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ota/qm_iot_ota.c"
+    "$ENV{ADF_PATH}/qumi/components/qm_cloud/weather/qm_iot_weather.c"
+
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ota/crypto/qm_iot_crypto.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ota/file_streams/src/qm_iot_streams_base64.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ota/file_streams/src/qm_iot_streams_cbor.c"
@@ -68,7 +75,6 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ntp/qm_iot_ntp.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/shadow/qm_iot_shadow.c"
 
-    
     "$ENV{ADF_PATH}/qumi/components/http/util_httpc.c"
     "$ENV{ADF_PATH}/qumi/components/network/util_net.c"
 
@@ -152,7 +158,10 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_audio/ws"
     "../component/qm_audio/encoder"
     "../component/qm_audio/board"
+    
     "../component/qm_audio/board/dual_mic"
+    # "../component/qm_audio/board/single_mic"
+
 
     "../component/qm_audio/sr"
     "../component/qm_audio/vc"
@@ -167,10 +176,13 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "$ENV{ADF_PATH}/qumi/components/bson/jsonsl"
 
     "$ENV{ADF_PATH}/qumi/components/ble_remoter/include"
+    
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/common"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/pub"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/dev"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ntp"
+    "$ENV{ADF_PATH}/qumi/components/qm_cloud/weather"
+
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ota"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ota/crypto"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ota/file_streams/include"

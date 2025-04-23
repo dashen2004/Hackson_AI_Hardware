@@ -98,9 +98,9 @@ qm_audio_stream_handle_t create_record_i2s_stream(void)
 {
     audio_hal_codec_i2s_iface_t i2s_iface = {0};
     es7210_mic_select(ES7210_INPUT_MIC1 | ES7210_INPUT_MIC2 | ES7210_INPUT_MIC3 | ES7210_INPUT_MIC4);
-    es7210_adc_set_gain(ES7210_INPUT_MIC2, GAIN_34_5DB);
+    es7210_adc_set_gain(ES7210_INPUT_MIC1 |ES7210_INPUT_MIC2, GAIN_34_5DB);
     es7210_adc_set_gain(ES7210_INPUT_MIC3, GAIN_0DB);
-    es7210_adc_set_gain(ES7210_INPUT_MIC1 | ES7210_INPUT_MIC4, GAIN_0DB);
+    es7210_adc_set_gain(ES7210_INPUT_MIC4, GAIN_0DB);
 
     es8311_codec_set_voice_volume(70);
     
@@ -110,11 +110,10 @@ qm_audio_stream_handle_t create_record_i2s_stream(void)
     i2s_iface.fmt = AUDIO_HAL_I2S_NORMAL;
 
     es7210_adc_config_i2s(AUDIO_HAL_CODEC_MODE_ENCODE, &i2s_iface);
-    es7210_read_all();
-
+    
     qm_audio_stream_handle_t i2s_stream = NULL;
     i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT_WITH_PARA(I2S_NUM_0, CODEC_ADC_SAMPLE_RATE, CODEC_ADC_BITS_PER_SAMPLE, AUDIO_STREAM_READER);
-    
+    i2s_cfg.stack_in_ext = 1;
     i2s_cfg.out_rb_size = 4 * 1024;
     i2s_stream = i2s_stream_init(&i2s_cfg);
     
@@ -228,6 +227,7 @@ qm_audio_stream_handle_t create_ch1_to_ch2_rsp_stream() // create_audio_player_r
     filter_cfg.stack_in_ext = true;
     filter_cfg.task_core = 1;
     filter_cfg.complexity = 5;
+    filter_cfg.task_prio = 23;
     filter = rsp_filter_init(&filter_cfg);
     return filter;
 }
@@ -242,7 +242,7 @@ qm_audio_sr_cfg_t *get_default_audio_sr_config(void)
 {
     static qm_audio_sr_cfg_t recorder_sr_cfg = {0};
 #if 1
-    qm_audio_sr_cfg_t sr_cfg = DEFAULT_QM_AUDIO_SR_CFG(AUDIO_SR_INPUT_CH_FORMAT, "model", AFE_MODE_HIGH_PERF);
+    qm_audio_sr_cfg_t sr_cfg = DEFAULT_QM_AUDIO_SR_CFG(AUDIO_SR_INPUT_CH_FORMAT, "model", AFE_MODE_LOW_COST);
  
     memcpy(&recorder_sr_cfg, &sr_cfg, sizeof(qm_audio_sr_cfg_t));
 
@@ -250,7 +250,7 @@ qm_audio_sr_cfg_t *get_default_audio_sr_config(void)
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->wakenet_init = false;
 #endif
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_init = true;
-    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_mode = AEC_MODE_SR_HIGH_PERF;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_mode = AFE_MODE_LOW_COST;
 
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->memory_alloc_mode = AFE_MEMORY_ALLOC_MORE_PSRAM;
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->wakenet_mode = DET_MODE_90;
@@ -264,7 +264,7 @@ qm_audio_sr_cfg_t *get_default_audio_sr_config(void)
 #if AUDIO_DIY_WAKENET
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_linear_gain = 10.0;
 #endif
-    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_ringbuf_size = 100;
+    // ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_ringbuf_size = 100;
  
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_perferred_core = 1;
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->afe_perferred_priority = 5;
@@ -300,7 +300,7 @@ qm_audio_vc_cfg_t *get_default_audio_vc_config(void)
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->ns_model_name = ns_model_name;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_ns_mode = AFE_NS_MODE_NET;
 
-    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_ringbuf_size = 100;
+    // ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_ringbuf_size = 100;
 
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_core = 1;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_priority = 5;

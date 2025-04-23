@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 #define VC_FETCH_TASK_STACK_SZ      (5 * 1024)
-#define VC_FETCH_TASK_PRIO          (5)
+#define VC_FETCH_TASK_PRIO          (22)
 #define VC_FETCH_TASK_PINNED_CORE   (1)
 #define VC_OUTPUT_RB_SIZE           (6 * 1024)
 

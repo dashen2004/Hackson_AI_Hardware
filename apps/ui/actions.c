@@ -542,16 +542,25 @@ void action_network_config_cancel_click(lv_event_t * e) {
     }
 }
 
+#if 0
 static qm_work_t delay_reboot = { 0 };
 
 static void delay_reboot_action(void *arg) {
     qm_reboot();
 }
+#endif
+
+extern int xjiang_cloud_reset(void);
 
 void action_network_config_submit_click(lv_event_t * e) {
     if (hit_test(e)) {
         set_var_awss_value(true, true);
+
+        xjiang_cloud_reset();
+    
+        #if 0
         qm_post_delayed_action(&delay_reboot, delay_reboot_action, NULL, 100);
+    #endif
     }
 }
 

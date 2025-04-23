@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 #define SR_FETCH_TASK_STACK_SZ      (4 * 1024)
-#define SR_FETCH_TASK_PRIO          (5)
+#define SR_FETCH_TASK_PRIO          (22)
 #define SR_FETCH_TASK_PINNED_CORE   (1)
 #define SR_OUTPUT_RB_SIZE        (6 * 1024)
 

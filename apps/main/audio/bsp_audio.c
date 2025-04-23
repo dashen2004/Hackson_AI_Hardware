@@ -102,7 +102,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                 // .uri = "ws://192.168.0.81:8000/xiaozhi/v1/",
                 .uri = "ws://aiagentplatform.xjiangiot.com:8000/xiaozhi/v1/",
                 .buff_size = 10 * 1024,
-                .task_prio = 12,
+                .task_prio = 22,
                 .task_size = 4 * 1024,
         
                 .pid = CONFIG_XJIANG_CLOUD_PID,
@@ -159,7 +159,6 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                     player_pipeline_stop(bsp_audio_handle.player_pipeline);
                     qm_player_play_file(bsp_audio_handle.player_handle, cmd_table->reply_str);
                 }
-                audio_cloud_event_post(cmd_table->id);
             }
             
         break;
@@ -168,7 +167,6 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         break;
     }
 }
-
 
 static qm_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
 {
@@ -268,7 +266,6 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
     switch (event->recv_type)
     {
         case QM_AUDIO_WS_RECV_TYPE_CONNECT:
-        
         break;
         
         case QM_AUDIO_WS_RECV_TYPE_HELLO_REPLY:
@@ -311,8 +308,6 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
         case QM_AUDIO_WS_RECV_TYPE_DISCONNECT:
             bsp_audio_handle.ws_connect = QM_FALSE;
             xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
-
-            qm_audio_ws_start(bsp_audio_handle.ai_handle); //重连ws
         break;
         
         default:
@@ -369,13 +364,15 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
     bsp_audio_handle.command_str = command_str;
     bsp_audio_handle.command_num = command_num;
 
-    sr_cmd = (qm_audio_sr_cmd_table_t *)qm_malloc(sizeof(qm_audio_sr_cmd_table_t) * command_num);
-    for (int i = 0; i < command_num; i++)
-    {
-        sr_cmd[i].type = command_str[i].type;
-        sr_cmd[i].id = command_str[i].id;
-        sr_cmd[i].str = command_str[i].sr_str;
-        sr_cmd[i].prob = command_str[i].prob;
+    if(command_str && command_num){
+        sr_cmd = (qm_audio_sr_cmd_table_t *)qm_malloc(sizeof(qm_audio_sr_cmd_table_t) * command_num);
+        for (int i = 0; i < command_num; i++)
+        {
+            sr_cmd[i].type = command_str[i].type;
+            sr_cmd[i].id = command_str[i].id;
+            sr_cmd[i].str = command_str[i].sr_str;
+            sr_cmd[i].prob = command_str[i].prob;
+        }
     }
     
     engine_params.cb = rec_engine_cb;

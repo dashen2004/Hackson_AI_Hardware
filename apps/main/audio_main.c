@@ -21,6 +21,9 @@ extern void lcd_init(void);
 
 void qm_application_start(void)
 {    
+
+    QM_LOGD("1", "Ver:%s", CONFIG_AUDIO_LIGHT_HW_VERSION);
+
     bool mute = false, awss = false;
     int buffer_len = 0, volume = 0, scr_tmo = 0, lang = 0;
     if (qm_kv_get(MUTE_KEY_NAME, &mute, &buffer_len)) {
@@ -48,7 +51,7 @@ void qm_application_start(void)
 
     // audio_beacon_init();
 
-    // xjiang_cloud_init();
+    xjiang_cloud_init();
 
     audio_cloud_init(); // codec init
 

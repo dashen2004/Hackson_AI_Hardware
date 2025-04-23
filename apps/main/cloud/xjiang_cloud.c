@@ -12,6 +12,9 @@
 #include "qm_work.h"
 #include "qm_event.h"
 
+#include "audio_sys.h"
+#include "audio_thread.h"
+#include "audio_mem.h"
 
 #define LOG_TAG "APP"
 
@@ -40,7 +43,8 @@ static struct qm_cli_command resetinfo_key = {
 
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv)
 {
-    qm_cli_printf("system free mem: %u", qm_free_mem_get());
+    audio_sys_get_real_time_stats();
+    AUDIO_MEM_SHOW("XJ");
 }
 
 static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv)
@@ -62,6 +66,9 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             connect = QM_TRUE;
             audio_light_snapshot_report();
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CEART_WS, NULL, 0);
+
+            qm_iot_set_weahter_request(iot_handle);
+        
         break;
 
         case QM_IOT_EVENT_CLOUD_DISCONN:
@@ -83,6 +90,24 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_RESET");
             connect = QM_FALSE;
         break;
+
+        case QM_IOT_EVENT_WEATHER_NOTIFY:
+            QM_LOGD(LOG_TAG, "QM_IOT_EVENT_WEATHER_NOTIFY");
+
+            QM_LOGD(LOG_TAG, "weather_type:%d", event->data.weather_notify.weather_type);
+            QM_LOGD(LOG_TAG, "temp:%d", event->data.weather_notify.temp);
+            QM_LOGD(LOG_TAG, "humidity:%d", event->data.weather_notify.humidity);
+            QM_LOGD(LOG_TAG, "city_id:%d", event->data.weather_notify.city_id);
+            QM_LOGD(LOG_TAG, "condition:%.*s", event->data.weather_notify.condition_len, event->data.weather_notify.condition);
+            QM_LOGD(LOG_TAG, "country_name:%.*s", event->data.weather_notify.country_name_len, event->data.weather_notify.country_name);
+            QM_LOGD(LOG_TAG, "pname:%.*s", event->data.weather_notify.pname_len, event->data.weather_notify.pname);
+            QM_LOGD(LOG_TAG, "secondaryname:%.*s", event->data.weather_notify.secondaryname_len, event->data.weather_notify.secondaryname);
+            QM_LOGD(LOG_TAG, "name:%.*s", event->data.weather_notify.name_len, event->data.weather_notify.name);
+            QM_LOGD(LOG_TAG, "sunset:%.*s", event->data.weather_notify.sunset_len, event->data.weather_notify.sunset);
+            QM_LOGD(LOG_TAG, "sunrise:%.*s", event->data.weather_notify.sunrise_len, event->data.weather_notify.sunrise);
+
+        break;
+
 
         default:
         break;

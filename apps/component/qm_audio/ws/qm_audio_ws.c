@@ -12,6 +12,10 @@
 
 #include "esp_websocket_client.h"
 
+#include "audio_error.h"
+#include "audio_mem.h"
+#include "audio_thread.h"
+
 
 #ifndef CONFIG_QM_AUDIO_WS_MAX_SIZE     
 #define CONFIG_QM_AUDIO_WS_MAX_SIZE                   (32)
@@ -184,7 +188,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             if(audio_dev->event_cb){
                 audio_dev->event_cb(&recv, audio_dev->user_data);
             }
-
+            esp_websocket_client_stop(audio_dev->client);
         break;
 
         case QM_AUDIO_EVENT_TYPE_WS_SEND_HELLO:
@@ -267,6 +271,7 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         }
         break;
     case WEBSOCKET_EVENT_DATA:
+        // QM_LOGI(LOG_TAG,"WEBSOCKET_EVENT_DATA, opcode=0x%02X Total payload length=%d, data_len=%d, offset=%d", data->op_code, data->payload_len, data->data_len, data->payload_offset);
         if(data->op_code == 0x01 || data->op_code == 0x02){
             websocket_audio_recv(audio_dev, data->op_code ,(uint8_t *)data->data_ptr, data->data_len, data->payload_len, data->payload_offset);
         }
@@ -283,6 +288,7 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         break;
     case WEBSOCKET_EVENT_FINISH:
         QM_LOGI(LOG_TAG, "WEBSOCKET_EVENT_FINISH");
+        esp_websocket_client_start(audio_dev->client);
         qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_DISCONNECT, NULL, 0);
         break;
     }
@@ -385,8 +391,13 @@ qm_audio_ws_handle_t qm_audio_ws_create(qm_audio_ws_cfg_t *cfg)
 #if CONFIG_QM_AUDIO_WS_SEND_TASK_SUPPORT   
     qm_task_new(&audio_ctx->send_task, "ws_send", audio_send_process_task, audio_ctx, cfg->task_size, cfg->task_prio);
 #endif
-    qm_task_new(&audio_ctx->binary_task, "ws_binary", audio_data_process_task, audio_ctx, cfg->task_size, cfg->task_prio);
-
+    audio_thread_create(NULL, "ws_binary",
+        audio_data_process_task,
+        (void *)audio_ctx,
+        cfg->task_size,
+        cfg->task_prio,
+        true,
+        cfg->pinned_core);
     esp_websocket_register_events(audio_ctx->client, WEBSOCKET_EVENT_ANY, websocket_event_handler, (void *)audio_ctx->client);
     
     qm_event_register(QM_AUDIO_EVENT_ID, qm_audio_event_handler, audio_ctx);

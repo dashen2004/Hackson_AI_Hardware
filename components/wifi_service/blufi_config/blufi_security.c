@@ -23,7 +23,8 @@
  */
 
 #include "sdkconfig.h"
-#if ((defined CONFIG_BT_BLE_BLUFI_ENABLE) || (defined CONFIG_BT_NIMBLE_ENABLED))
+// #if ((defined CONFIG_BT_BLE_BLUFI_ENABLE) || (defined CONFIG_BT_NIMBLE_ENABLED))
+#if (0)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
