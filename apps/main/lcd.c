@@ -27,6 +27,9 @@
 
 #include "audio_thread.h"
 
+#include "qm.h"
+#include "qm_kv.h"
+
 #include "lvgl.h"
 #include "ui.h"
 #include "vars.h"
@@ -92,11 +95,15 @@ int bsp_lcd_bl_brightness_percent_get(void) {
 }
 
 void bsp_lcd_bl_off(void) {
-    bsp_lcd_bl_set(0);
+    if (bl_brightness_percent) {
+        bsp_lcd_bl_set(0);
+    }
 }
 
 void bsp_lcd_bl_on(void) {
-    bsp_lcd_bl_set(100);
+    if (!bl_brightness_percent) {
+        bsp_lcd_bl_set(100);
+    }
 }
 
 void bsp_lcd_bl_init(void) {
@@ -434,21 +441,21 @@ static void periodic_timer_callback(void* arg) {
 
     char temp[33];
     sprintf(temp, "%02d:%02d", tm->tm_hour, tm->tm_min);
-    set_var_time(temp);
+    lv_label_set_text(objects.text_time, temp);
     switch (tm->tm_wday) {
-        case 0: set_var_week("星期日"); break;
-        case 1: set_var_week("星期一"); break;
-        case 2: set_var_week("星期二"); break;
-        case 3: set_var_week("星期三"); break;
-        case 4: set_var_week("星期四"); break;
-        case 5: set_var_week("星期五"); break;
-        case 6: set_var_week("星期六"); break;
+        case 0: lv_label_set_text(objects.text_weekday, "星期日"); break;
+        case 1: lv_label_set_text(objects.text_weekday, "星期一"); break;
+        case 2: lv_label_set_text(objects.text_weekday, "星期二"); break;
+        case 3: lv_label_set_text(objects.text_weekday, "星期三"); break;
+        case 4: lv_label_set_text(objects.text_weekday, "星期四"); break;
+        case 5: lv_label_set_text(objects.text_weekday, "星期五"); break;
+        case 6: lv_label_set_text(objects.text_weekday, "星期六"); break;
     }
     // sprintf(temp, "%04d%s%02d%s%02d%s", tm->tm_year + 100, "年", tm->tm_mon + 1, "月", tm->tm_mday, "日");
     sprintf(temp, "%04d-%02d-%02d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
-    set_var_date(temp);
+    lv_label_set_text(objects.text_date, temp);
 
-    if (objects.icon_wifi != NULL) {
+    if (objects.image_wifi1 != NULL) {
         static bool_t last_connect = false;
         // 改变图标
         lvgl_port_lock(0);
@@ -456,12 +463,12 @@ static void periodic_timer_callback(void* arg) {
         if (get_connect() != last_connect) {
             last_connect = get_connect();
             if (last_connect) {
-                lv_image_set_src(objects.icon_wifi, "/lvgl/images/wifi_connected.bin");
+                lv_image_set_src(objects.image_wifi1, "/lvgl/images/wifi_connected.bin");
             } else {
-                lv_image_set_src(objects.icon_wifi, "/lvgl/images/wifi_disconnected.bin");
+                lv_image_set_src(objects.image_wifi1, "/lvgl/images/wifi_disconnected.bin");
             }
         }
-        lv_image_set_src(objects.icon_weather, "/lvgl/images/weather_day_sunny.bin");
+        lv_image_set_src(objects.image_weather, "/lvgl/images/weather_day_sunny.bin");
         lvgl_port_unlock();
         wifi_icon_state ^= 1;
     }
@@ -507,37 +514,40 @@ static int8_t get_emotion_idx(char *s) {
 }
 
 static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_data) {
-    switch (event->recv_type) {
-        case QM_AUDIO_WS_RECV_TYPE_LLM: {
-            int8_t idx = get_emotion_idx(event->data.llm.emotion);
-            if (idx) {
-                set_var_emotion(idx);
-            }
-            break;
-        }
-        case QM_AUDIO_WS_RECV_TYPE_TTS: {
-            set_var_subtitles(event->data.tts.text);
-            break;
-        }
-        default: {
-            break;
-        }
+    // switch (event->recv_type) {
+    //     case QM_AUDIO_WS_RECV_TYPE_LLM: {
+    //         int8_t idx = get_emotion_idx(event->data.llm.emotion);
+    //         if (idx) {
+    //             set_var_emotion(idx);
+    //         }
+    //         break;
+    //     }
+    //     case QM_AUDIO_WS_RECV_TYPE_TTS: {
+    //         set_var_subtitles(event->data.tts.text);
+    //         break;
+    //     }
+    //     default: {
+    //         break;
+    //     }
+    // }
+}
+
+static qm_timer_t turnoff_timer = { 0 };
+static int        turnoff_timeout_tbl[4] = { 30000, 60000, 300000, 2147483647 }; // 30秒, 1分, 5分, 永不 //  { 15000, 30000, 45000, 60000 };
+
+void turnoff_timer_reset(void) {
+    set_var_turnoff_value(qm_now_ms());
+    bsp_lcd_bl_on();
+}
+
+static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) {
+    int scr_tmo = get_var_scr_tmo_value(); // 0 - 30秒, 1 - 1分, 2 - 5分, 3 - Never
+    if (scr_tmo < 0 || scr_tmo > 3) {
+        scr_tmo = 0;
     }
-}
-
-// extern int bsp_lcd_bl_brightness_percent_get(void);
-// extern void bsp_lcd_bl_off(void);
-// extern void bsp_lcd_bl_on(void);
-
-static qm_timer_t turnoff_screen_timer = {0};
-
-static void turnoff_screen_timer_handle(qm_timer_t *timer,  void *arg) {
-    bsp_lcd_bl_off();
-}
-
-void turnoff_screen_timer_start(void) {
-    if (!qm_timer_is_valid(&turnoff_screen_timer)) {
-        qm_timer_new(&turnoff_screen_timer, turnoff_screen_timer_handle, NULL, CONFIG_QM_LIGHT_MONITOR_INTERVAL, 0);
+    // printf("%ld, %ld, %d\n", qm_now_ms(), get_var_turnoff_value(), turnoff_timeout_tbl[scr_tmo]);
+    if (qm_now_ms() - get_var_turnoff_value() >= turnoff_timeout_tbl[scr_tmo]) {
+        bsp_lcd_bl_off();
     }
 }
 
@@ -548,7 +558,7 @@ static void lcd_task(void *arg) {
         .max_files = 10,
         .format_if_mount_failed = true
     };
-  
+
     // Use settings defined above to initialize and mount SPIFFS filesystem.
     // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
@@ -560,25 +570,15 @@ static void lcd_task(void *arg) {
     
     lvgl_port_lock(0); // 锁定lvgl接口 
     ui_init();
-    set_var_city("宁波");
-    set_var_weather("多云");
-    set_var_temperature("12℃");
-//    set_var_week("星期五");
-//    set_var_date("2025年03月14日");
     lvgl_port_unlock(); // 解锁lvgl接口
 
     vTaskDelay(500);
 
     bsp_lcd_bl_on();
-    
-    const esp_timer_create_args_t periodic_timer_args = {
-        .callback = &periodic_timer_callback,   //定时器回调函数
-        .name = "periodic"                      //定时器名称
-    };
-    esp_timer_handle_t periodic_timer;
-    ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));   
-    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 500000));
-    periodic_timer_callback(NULL);
+
+    set_var_turnoff_value(qm_now_ms());
+    qm_timer_new  (&turnoff_timer, turnoff_timer_handler, NULL, 1000, 1);
+    qm_timer_start(&turnoff_timer);
 
     bsp_audio_resgiter(audio_ws_recv_event_cb, NULL);
 
@@ -591,31 +591,5 @@ static void lcd_task(void *arg) {
 }
 
 void lcd_init(void) {
-
-//     esp_vfs_spiffs_conf_t conf = {
-//         .base_path = "/lvgl",
-//         .partition_label = "lvgl",
-//         .max_files = 10,
-//         .format_if_mount_failed = true
-//     };
-  
-//     // Use settings defined above to initialize and mount SPIFFS filesystem.
-//     // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
-//     esp_err_t ret = esp_vfs_spiffs_register(&conf);
-
-//     bsp_lcd_tp_init();
-//     bsp_lcd_init();
-//     bsp_lcd_bl_init(); 
-//     app_lvgl();
-    
-//     lvgl_port_lock(0); // 锁定lvgl接口 
-//     ui_init();
-//     set_var_city("宁波");
-//     set_var_weather("多云");
-//     set_var_temperature("12℃");
-// //    set_var_week("星期五");
-// //    set_var_date("2025年03月14日");
-//     lvgl_port_unlock(); // 解锁lvgl接口
-
     audio_thread_create(NULL, "lcd_task", lcd_task, NULL, 8 * 1024, 11, true, 1); // 提高优先级, 抢ram!!!
 }

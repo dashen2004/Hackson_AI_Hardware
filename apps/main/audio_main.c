@@ -1,5 +1,6 @@
 
 #include "qm.h"
+#include "qm_kv.h"
 
 #include "xjiang_cloud.h"
 
@@ -8,14 +9,53 @@
 #include "audio_light.h"
 #include "audio_beacon.h"
 
+#include "vars.h"
+
+extern void lcd_init(void);
+
+#define MUTE_KEY_NAME       "mute"
+#define VOLUME_KEY_NAME     "volume"
+#define SCR_TMO_KEY_NAME    "scr_tmo"
+#define LANG_KEY_NAME       "lang"
+#define AWSS_KEY_NAME       "awss"
+
 void qm_application_start(void)
-{
+{    
+    bool mute = false, awss = false;
+    int buffer_len = 0, volume = 0, scr_tmo = 0, lang = 0;
+    if (qm_kv_get(MUTE_KEY_NAME, &mute, &buffer_len)) {
+        mute = false;
+    }
+    if (qm_kv_get(VOLUME_KEY_NAME, &volume, &buffer_len)) {
+        volume = 70;
+    }
+    if (qm_kv_get(SCR_TMO_KEY_NAME, &scr_tmo, &buffer_len)) {
+        scr_tmo = 0;
+    }
+    if (qm_kv_get(LANG_KEY_NAME, &lang, &buffer_len)) {
+        lang = 0;
+    }
+    if (qm_kv_get(AWSS_KEY_NAME, &awss, &buffer_len)) {
+        awss = 0;
+    }
+    if (awss) {
+        qm_kv_del(AWSS_KEY_NAME);
+    }
+
+    lcd_init();
+
     audio_light_init();
 
-    audio_beacon_init();
+    // audio_beacon_init();
 
-    xjiang_cloud_init();
+    // xjiang_cloud_init();
 
-    audio_cloud_init();
+    audio_cloud_init(); // codec init
 
+    // 音量初始化(from kv)
+    set_var_mute_value(mute, false);
+    set_var_volume_value(volume, false);
+    set_var_scr_tmo_value(scr_tmo, false);
+    set_var_language_value(lang, false);
+    set_var_awss_value(awss, false);
 }

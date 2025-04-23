@@ -7,12 +7,6 @@
 #include "actions.h"
 #include "vars.h"
 
-
-
-
-
-
-
 #if defined(EEZ_FOR_LVGL)
 
 void ui_init() {
@@ -45,7 +39,13 @@ void loadScreen(enum ScreensEnum screenId) {
 
 void ui_init() {
     create_screens();
-    loadScreen(SCREEN_ID_PAGE_MAIN);
+    if (get_var_awss_value()) {
+        extern void goto_network_config_process_page(void);
+        goto_network_config_process_page();
+    } else {
+        extern void goto_main_page(void);
+        goto_main_page();
+    }
 }
 
 void ui_tick() {
