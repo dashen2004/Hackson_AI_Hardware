@@ -239,7 +239,9 @@ static void wifi_test_timer_handler(qm_timer_t *timer,  void *arg) {
 
 void goto_main_page(void) {
     if (use_simple_page) {
+        lvgl_port_lock(0);
         loadScreenEx(SCREEN_ID_PAGE_NOWIFI_MAIN);
+        lvgl_port_unlock();
     } else {
         update_time();
         update_weather_ui();
@@ -393,7 +395,7 @@ void action_page_brightness_event_cb(lv_event_t * e) {
         if (obj == objects.page_brightness) {
             lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
             if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
-                loadScreenEx(SCREEN_ID_PAGE_MAIN);
+                goto_main_page();
             }
         }
     } else if (event == LV_EVENT_CLICKED) { 

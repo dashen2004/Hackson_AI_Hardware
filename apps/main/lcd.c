@@ -548,6 +548,10 @@ static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) {
     // printf("%ld, %ld, %d\n", qm_now_ms(), get_var_turnoff_value(), turnoff_timeout_tbl[scr_tmo]);
     if (qm_now_ms() - get_var_turnoff_value() >= turnoff_timeout_tbl[scr_tmo]) {
         bsp_lcd_bl_off();
+        if (!bl_brightness_percent) {
+            extern void goto_main_page(void);
+            goto_main_page();
+        }
     }
 }
 
