@@ -13,6 +13,8 @@
 #include "lvgl.h"
 
 #include "bsp_light.h"
+#include "audio_light.h"
+
 
 /*
     有些gif刚加载时会白色闪烁, 所以在lv_gif.c中做一些屏蔽处理
@@ -326,6 +328,7 @@ static void set_light_mode(bsp_light_mode_t value, bool flag) {
     }
     if (flag) {
         bsp_light_mode(value);
+        audio_light_snapshot_report();
     }
 }
 
@@ -383,6 +386,7 @@ static void light_onoff(bool value, bool flag) {
             bsp_light_bri_on_off(true);
         }
     }
+    audio_light_snapshot_report();
 }
 
 void action_page_brightness_event_cb(lv_event_t * e) {

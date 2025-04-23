@@ -8,6 +8,8 @@
 #include "bsp_light.h"
 #include "es8311.h"
 #include "qm_kv.h"
+#include "audio_light.h"
+
 
 // static char var_mode_nightlamp_title[33] = "小夜灯";
 // static char var_mode_read_title[33] = "阅读";
@@ -128,6 +130,7 @@ void set_var_brightness_top(int32_t value, bool flag) {
     if (flag) {
         // printf("bsp_light_bri_up_set - %ld\n", value);
         bsp_light_bri_up_set(value);
+        audio_light_snapshot_report();
     }
 }
 
@@ -141,6 +144,7 @@ void set_var_brightness_bottom(int32_t value, bool flag) {
     if (flag) {
         // printf("bsp_light_bri_up_set - %ld\n", value);
         bsp_light_bri_down_set(value);
+        audio_light_snapshot_report();
     }
 }
 
