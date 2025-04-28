@@ -65,7 +65,7 @@ typedef struct {
         .task_stack = 7168,       \
         .task_affinity = -1,      \
         .task_max_sleep_ms = 500, \
-        .timer_period_ms = 50,     \
+        .timer_period_ms = 5,     \
     }
 
 /**
