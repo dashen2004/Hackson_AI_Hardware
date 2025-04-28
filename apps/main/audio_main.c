@@ -9,15 +9,7 @@
 #include "audio_light.h"
 #include "audio_beacon.h"
 
-#include "vars.h"
-
-extern void lcd_init(void);
-
-#define MUTE_KEY_NAME       "mute"
-#define VOLUME_KEY_NAME     "volume"
-#define SCR_TMO_KEY_NAME    "scr_tmo"
-#define LANG_KEY_NAME       "lang"
-#define AWSS_KEY_NAME       "awss"
+#include "lcd.h"
 
 void qm_application_start(void)
 {    
@@ -51,14 +43,21 @@ void qm_application_start(void)
 
     // audio_beacon_init();
 
-    xjiang_cloud_init();
+#if (CONFIG_LCD_DISABLE_CLOUD == 0)
+        xjiang_cloud_init();
+#endif
 
+#if (CONFIG_LCD_DISABLE_AUDIO == 0)
     audio_cloud_init(); // codec init
-
-    // 音量初始化(from kv)
+    // 音量/静音初始化(from kv)
     set_var_mute_value(mute, false);
     set_var_volume_value(volume, false);
+#endif
+
+    // 屏幕超时
     set_var_scr_tmo_value(scr_tmo, false);
+    // 语言
     set_var_language_value(lang, false);
+    // 配网标志
     set_var_awss_value(awss, false);
 }

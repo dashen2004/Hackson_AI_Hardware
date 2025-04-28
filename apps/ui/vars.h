@@ -26,14 +26,12 @@ extern bool get_var_mute_value();
 extern void set_var_mute_value(bool value, bool flag);
 extern int32_t get_var_volume_value();
 extern void set_var_volume_value(int32_t value, bool flag);
+extern bool get_var_brightness_onoff(void);
+extern void set_var_brightness_onoff(bool value);
 extern int32_t get_var_brightness_top();
-extern void set_var_brightness_top(int32_t value, bool flag);
+extern void set_var_brightness_top(int32_t value);
 extern int32_t get_var_brightness_bottom();
-extern void set_var_brightness_bottom(int32_t value, bool flag);
-extern const char *get_var_subtitles();
-extern void set_var_subtitles(const char *value);
-extern int32_t get_var_emotion_idx();
-extern void set_var_emotion_idx(int32_t value);
+extern void set_var_brightness_bottom(int32_t value);
 
 extern int32_t get_var_scr_tmo_value(void);
 extern void set_var_scr_tmo_value(int32_t value, bool flag);
@@ -46,10 +44,28 @@ extern void set_var_language_value(int32_t value, bool flag);
 extern bool get_var_awss_value(void);
 extern void set_var_awss_value(bool value, bool flag);
 
-// extern bool is_emotion_changed(void);
-// extern int8_t get_var_emotion(void);
-// extern void set_var_emotion(const int8_t emotion);
-// void update_last_emotion(void);
+char *get_var_city(void);
+void set_var_city(char *value, size_t size);
+int8_t get_var_weather_id(void);
+void set_var_weather_id(int8_t value);
+int8_t get_var_temperature(void);
+void set_var_temperature(int8_t value);
+
+int8_t get_var_light_mode(void);
+void set_var_light_mode(int8_t value, bool flag);
+
+// void set_var_weather_info_got(bool timeout, char *__city, int __weather_id, int __temperature);
+// bool get_var_weather_info_got(void);
+
+extern int8_t get_var_emotion_id(void);
+extern void set_var_emotion_id(int8_t value);
+extern char *get_var_subtitles();
+extern void set_var_subtitles(const char *value);
+
+int8_t get_var_ota_status(void);
+void set_var_ota_status(int8_t value, bool need_lock);
+int8_t get_var_ota_percent(void);
+void set_var_ota_percent(int8_t value);
 
 
 #ifdef __cplusplus

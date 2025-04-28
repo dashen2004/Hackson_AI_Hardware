@@ -16,10 +16,14 @@
 #include "audio_thread.h"
 #include "audio_mem.h"
 
+#include "vars.h"
+
 #define LOG_TAG "APP"
 
 static void *iot_handle = NULL;
 static bool_t connect = QM_FALSE;
+static qm_timer_t weather_request_timer = { 0 };
+static qm_work_t weather_request_timeout_action = { 0 };
 
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv);
 static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv);
@@ -52,6 +56,16 @@ static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv)
     qm_iot_reset(iot_handle);
 }
 
+static void weather_request_timeout_action_handler(void *arg) {
+    QM_LOGD(LOG_TAG, "weather request timeout!");
+    set_var_weather_id(-1);
+}
+
+static void weather_request_timer_handler(qm_timer_t *timer,  void *arg) {
+    qm_iot_set_weahter_request(iot_handle);
+    qm_post_delayed_action(&weather_request_timeout_action, weather_request_timeout_action_handler, NULL, 30 * 1000); // 30秒超时
+}
+
 static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void *userdata)
 {
     static qm_iot_event_type_t last_type;
@@ -66,9 +80,12 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             connect = QM_TRUE;
             audio_light_snapshot_report();
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CEART_WS, NULL, 0);
-
             qm_iot_set_weahter_request(iot_handle);
-        
+            qm_post_delayed_action(&weather_request_timeout_action, weather_request_timeout_action_handler, NULL, 30 * 1000); // 30秒超时
+            if (!qm_timer_is_valid(&weather_request_timer)) {
+                qm_timer_new  (&weather_request_timer, weather_request_timer_handler, NULL, 60 * 60 * 1000, 1); // 1小时
+                qm_timer_start(&weather_request_timer);
+            }
         break;
 
         case QM_IOT_EVENT_CLOUD_DISCONN:
@@ -106,11 +123,31 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "sunset:%.*s", event->data.weather_notify.sunset_len, event->data.weather_notify.sunset);
             QM_LOGD(LOG_TAG, "sunrise:%.*s", event->data.weather_notify.sunrise_len, event->data.weather_notify.sunrise);
 
+            set_var_city(event->data.weather_notify.secondaryname, event->data.weather_notify.secondaryname_len);
+            set_var_weather_id(event->data.weather_notify.weather_type);
+            set_var_temperature(event->data.weather_notify.temp);
+            qm_cancel_delayed_action(&weather_request_timeout_action);
         break;
 
+        case QM_IOT_EVENT_OTA_START:
+            set_var_ota_status(0, true);
+            break;
+
+        case QM_IOT_EVENT_OTA_PROGRESS_UPADTE:
+            set_var_ota_status(0, true);
+            set_var_ota_percent(event->data.ota_progress_update.progress_details);
+            break;
+
+        case QM_IOT_EVENT_OTA_SUCCESS:
+            set_var_ota_status(1, true);
+            break;
+
+        case QM_IOT_EVENT_OTA_FAILED:
+            set_var_ota_status(2, true); 
+            break;
 
         default:
-        break;
+            break;
     }
 
 }

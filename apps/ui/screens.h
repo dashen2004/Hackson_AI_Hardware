@@ -8,7 +8,6 @@ extern "C" {
 #endif
 
 typedef struct _objects_t {
-    lv_obj_t *page_nowifi_main;
     lv_obj_t *page_main;
     lv_obj_t *page_menu;
     lv_obj_t *page_mode;
@@ -18,25 +17,26 @@ typedef struct _objects_t {
     lv_obj_t *page_setup_screen;
     lv_obj_t *page_setup_language;
     lv_obj_t *page_setup_about;
-    // lv_obj_t *page_recog;
-    lv_obj_t *page_network_config_prepare;
-    lv_obj_t *page_network_config_process;
-    lv_obj_t *page_network_config_success;
+    lv_obj_t *page_netconfig;
+    lv_obj_t *page_ota;
+    lv_obj_t *page_recog;
     lv_obj_t *slider_brightness_top;
     lv_obj_t *slider_brightness_bottom;
     lv_obj_t *slider_volume_value;
-    lv_obj_t *image_logo;
-    lv_obj_t *image_wifi0;
+    lv_obj_t *bar_ota_percent;
+    lv_obj_t *image_wifi;
+    lv_obj_t *container_normal;
+    lv_obj_t *image_weather_unknown;
+    lv_obj_t *text_weather_unknown;
+    lv_obj_t *image_weather;
     lv_obj_t *text_city;
     lv_obj_t *text_weather;
     lv_obj_t *text_temperature;
-    lv_obj_t *text_weather_unknown;
     lv_obj_t *text_time;
     lv_obj_t *text_weekday;
     lv_obj_t *text_date;
-    lv_obj_t *image_wifi1;
-    lv_obj_t *image_weather;
-    lv_obj_t *image_weather_unknown;
+    lv_obj_t *container_simple;
+    lv_obj_t *image_logo;
     lv_obj_t *menu_bg;
     lv_obj_t *menu_home;
     lv_obj_t *menu_speech;
@@ -64,6 +64,7 @@ typedef struct _objects_t {
     lv_obj_t *text_setup_language;
     lv_obj_t *text_setup_about;
     lv_obj_t *text_setup_wifi;
+    lv_obj_t *container_mask;
     lv_obj_t *submit_win;
     lv_obj_t *text_network_config_infomation;
     lv_obj_t *text_network_config_cancel;
@@ -89,50 +90,60 @@ typedef struct _objects_t {
     lv_obj_t *setup_language_cn;
     lv_obj_t *text_language_en;
     lv_obj_t *setup_language_en;
+    lv_obj_t *container_about_info;
     lv_obj_t *text_about_ip_addr;
+    lv_obj_t *text_about_ip_addr_value;
+    lv_obj_t *line_1;
     lv_obj_t *text_about_mac_addr;
+    lv_obj_t *text_about_mac_addr_value;
+    lv_obj_t *line_2;
     lv_obj_t *text_about_hw_ver;
     lv_obj_t *text_about_sw_ver;
-    lv_obj_t *text_about_device_info;
-    lv_obj_t *text_about_ip_addr_value;
-    lv_obj_t *text_about_mac_addr_value;
+    lv_obj_t *line_3;
     lv_obj_t *text_about_hw_ver_value;
     lv_obj_t *text_about_sw_ver_value;
-    lv_obj_t *text_about_device_info_value;
-    lv_obj_t *emotion;
-    lv_obj_t *subtitles;
-    lv_obj_t *text_network_config_prepare;
-    lv_obj_t *image_wifi_level_1;
-    lv_obj_t *image_wifi_level_2;
-    lv_obj_t *image_wifi_level_3;
-    lv_obj_t *image_wifi_level_4;
-    lv_obj_t *text_network_config_process;
-    lv_obj_t *text_network_config_success;
-    lv_obj_t *text_network_config_success_countdown;
-    lv_obj_t *obj0;
+    lv_obj_t *container_netconfig_reboot;
+    lv_obj_t *text_netconfig_reboot_title;
+    lv_obj_t *container_netconfig_prepare;
+    lv_obj_t *image_netconfig_prepare_1;
+    lv_obj_t *text_netconfig_prepare_title;
+    lv_obj_t *container_netconfig_process;
+    lv_obj_t *image_netconfig_prepare_2;
+    lv_obj_t *image_netconfig_wifi_level_1;
+    lv_obj_t *image_netconfig_wifi_level_2;
+    lv_obj_t *image_netconfig_wifi_level_3;
+    lv_obj_t *image_netconfig_wifi_level_4;
+    lv_obj_t *text_netconfig_process_title;
+    lv_obj_t *container_netconfig_success;
+    lv_obj_t *image_netconfig_success;
+    lv_obj_t *text_netconfig_success_title;
+    lv_obj_t *text_netconfig_success_countdown;
+    lv_obj_t *container_ota_process;
+    lv_obj_t *text_ota_title;
+    lv_obj_t *text_ota_subtitle;
+    lv_obj_t *container_failure;
+    lv_obj_t *text_ota_failure_title;
+    lv_obj_t *text_ota_failure_code;
+    lv_obj_t *image_recog_emotion;
+    lv_obj_t *text_recog_subtitles;
 } objects_t;
 
 extern objects_t objects;
 
 enum ScreensEnum {
-    SCREEN_ID_PAGE_NOWIFI_MAIN = 1,
-    SCREEN_ID_PAGE_MAIN = 2,
-    SCREEN_ID_PAGE_MENU = 3,
-    SCREEN_ID_PAGE_MODE = 4,
-    SCREEN_ID_PAGE_BRIGHTNESS = 5,
-    SCREEN_ID_PAGE_SETUP = 6,
-    SCREEN_ID_PAGE_SETUP_VOLUME = 7,
-    SCREEN_ID_PAGE_SETUP_SCREEN = 8,
-    SCREEN_ID_PAGE_SETUP_LANGUAGE = 9,
-    SCREEN_ID_PAGE_SETUP_ABOUT = 10,
-    SCREEN_ID_PAGE_NETWORK_CONFIG_PREPARE = 11,
-    SCREEN_ID_PAGE_NETWORK_CONFIG_PROCESS = 12,
-    SCREEN_ID_PAGE_NETWORK_CONFIG_SUCCESS = 13,
-    // SCREEN_ID_PAGE_RECOG = 14,
+    SCREEN_ID_PAGE_MAIN = 1,
+    SCREEN_ID_PAGE_MENU = 2,
+    SCREEN_ID_PAGE_MODE = 3,
+    SCREEN_ID_PAGE_BRIGHTNESS = 4,
+    SCREEN_ID_PAGE_SETUP = 5,
+    SCREEN_ID_PAGE_SETUP_VOLUME = 6,
+    SCREEN_ID_PAGE_SETUP_SCREEN = 7,
+    SCREEN_ID_PAGE_SETUP_LANGUAGE = 8,
+    SCREEN_ID_PAGE_SETUP_ABOUT = 9,
+    SCREEN_ID_PAGE_NETCONFIG = 10,
+    SCREEN_ID_PAGE_OTA = 11,
+    SCREEN_ID_PAGE_RECOG = 12,
 };
-
-void create_screen_page_nowifi_main();
-void tick_screen_page_nowifi_main();
 
 void create_screen_page_main();
 void tick_screen_page_main();
@@ -161,23 +172,19 @@ void tick_screen_page_setup_language();
 void create_screen_page_setup_about();
 void tick_screen_page_setup_about();
 
+void create_screen_page_netconfig();
+void tick_screen_page_netconfig();
+
+void create_screen_page_ota();
+void tick_screen_page_ota();
+
 void create_screen_page_recog();
 void tick_screen_page_recog();
-
-void create_screen_page_network_config_prepare();
-void tick_screen_page_network_config_prepare();
-
-void create_screen_page_network_config_process();
-void tick_screen_page_network_config_process();
-
-void create_screen_page_network_config_success();
-void tick_screen_page_network_config_success();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);
 
 void create_screens();
-
 
 #ifdef __cplusplus
 }

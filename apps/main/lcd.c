@@ -30,9 +30,7 @@
 #include "qm.h"
 #include "qm_kv.h"
 
-#include "lvgl.h"
-#include "ui.h"
-#include "vars.h"
+#include "lcd.h"
 
 #define LOG_TAG "app"
 
@@ -427,52 +425,11 @@ void app_lvgl(void)
         .handle = tp_handle,
     };
     lvgl_touch_indev = lvgl_port_add_touch(&touch_cfg);
+
+    lvgl_port_task_wake(LVGL_PORT_EVENT_DISPLAY, NULL);
 }
 
-static uint8_t wifi_icon_state = 0;
-
-#include "qm_time.h"
-
-static void periodic_timer_callback(void* arg) {
-    qm_time_t t = qm_time(NULL);
-    struct qm_tm *tm = qm_localtime(&t);
-    // time_t s = esp_timer_get_time() / 1000 / 1000;
-    // struct tm *t = localtime(&s);
-
-    char temp[33];
-    sprintf(temp, "%02d:%02d", tm->tm_hour, tm->tm_min);
-    lv_label_set_text(objects.text_time, temp);
-    switch (tm->tm_wday) {
-        case 0: lv_label_set_text(objects.text_weekday, "星期日"); break;
-        case 1: lv_label_set_text(objects.text_weekday, "星期一"); break;
-        case 2: lv_label_set_text(objects.text_weekday, "星期二"); break;
-        case 3: lv_label_set_text(objects.text_weekday, "星期三"); break;
-        case 4: lv_label_set_text(objects.text_weekday, "星期四"); break;
-        case 5: lv_label_set_text(objects.text_weekday, "星期五"); break;
-        case 6: lv_label_set_text(objects.text_weekday, "星期六"); break;
-    }
-    // sprintf(temp, "%04d%s%02d%s%02d%s", tm->tm_year + 100, "年", tm->tm_mon + 1, "月", tm->tm_mday, "日");
-    sprintf(temp, "%04d-%02d-%02d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
-    lv_label_set_text(objects.text_date, temp);
-
-    if (objects.image_wifi1 != NULL) {
-        static bool_t last_connect = false;
-        // 改变图标
-        lvgl_port_lock(0);
-        extern bool_t get_connect(void);
-        if (get_connect() != last_connect) {
-            last_connect = get_connect();
-            if (last_connect) {
-                lv_image_set_src(objects.image_wifi1, "/lvgl/images/wifi_connected.bin");
-            } else {
-                lv_image_set_src(objects.image_wifi1, "/lvgl/images/wifi_disconnected.bin");
-            }
-        }
-        lv_image_set_src(objects.image_weather, "/lvgl/images/weather_day_sunny.bin");
-        lvgl_port_unlock();
-        wifi_icon_state ^= 1;
-    }
-}
+//#include "qm_time.h"
 
 #include "esp_spiffs.h"
 #include "bsp_audio.h"
@@ -507,29 +464,29 @@ static char emotions[EMOTION_NUM][16] = {
 static int8_t get_emotion_idx(char *s) {
     for (uint8_t i = 0; i < EMOTION_NUM; i++) {
         if (strcmp(emotions[i], s) == 0) {
-            return i + 1;
+            return i;
         }
     }
-    return 0;
+    return -1;
 }
 
 static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_data) {
-    // switch (event->recv_type) {
-    //     case QM_AUDIO_WS_RECV_TYPE_LLM: {
-    //         int8_t idx = get_emotion_idx(event->data.llm.emotion);
-    //         if (idx) {
-    //             set_var_emotion(idx);
-    //         }
-    //         break;
-    //     }
-    //     case QM_AUDIO_WS_RECV_TYPE_TTS: {
-    //         set_var_subtitles(event->data.tts.text);
-    //         break;
-    //     }
-    //     default: {
-    //         break;
-    //     }
-    // }
+    switch (event->recv_type) {
+        case QM_AUDIO_WS_RECV_TYPE_LLM: {
+            int8_t idx = get_emotion_idx(event->data.llm.emotion);
+            if (idx >= 0 && idx < 21) {
+                set_var_emotion_id(idx);
+            }
+            break;
+        }
+        case QM_AUDIO_WS_RECV_TYPE_TTS: {
+            set_var_subtitles(event->data.tts.text);
+            break;
+        }
+        default: {
+            break;
+        }
+    }
 }
 
 static qm_timer_t turnoff_timer = { 0 };
@@ -545,8 +502,9 @@ static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) {
     if (scr_tmo < 0 || scr_tmo > 3) {
         scr_tmo = 0;
     }
-    // printf("%ld, %ld, %d\n", qm_now_ms(), get_var_turnoff_value(), turnoff_timeout_tbl[scr_tmo]);
-    if (qm_now_ms() - get_var_turnoff_value() >= turnoff_timeout_tbl[scr_tmo]) {
+    if (get_current_screen() == SCREEN_ID_PAGE_OTA || get_current_screen() == SCREEN_ID_PAGE_NETCONFIG) {
+        set_var_turnoff_value(qm_now_ms());
+    } else if (qm_now_ms() - get_var_turnoff_value() >= turnoff_timeout_tbl[scr_tmo]) {
         bsp_lcd_bl_off();
         if (!bl_brightness_percent) {
             extern void goto_main_page(void);
@@ -571,7 +529,7 @@ static void lcd_task(void *arg) {
     bsp_lcd_init();
     bsp_lcd_bl_init(); 
     app_lvgl();
-    
+
     lvgl_port_lock(0); // 锁定lvgl接口 
     ui_init();
     lvgl_port_unlock(); // 解锁lvgl接口
@@ -590,10 +548,10 @@ static void lcd_task(void *arg) {
         lvgl_port_lock(0); // 锁定lvgl接口，以保护UI更新过程。 
         ui_tick();
         lvgl_port_unlock(); // 解锁lvgl接口以允许其他任务访问。 
-        vTaskDelay(pdMS_TO_TICKS(100)); // 函数延迟1毫秒，以避免过度占用CPU资源。
+        vTaskDelay(pdMS_TO_TICKS(100)); // 函数延迟100毫秒，以避免过度占用CPU资源。
     }
 }
 
 void lcd_init(void) {
-    audio_thread_create(NULL, "lcd_task", lcd_task, NULL, 8 * 1024, 11, true, 1); // 提高优先级, 抢ram!!!
+    audio_thread_create(NULL, "lcd_task", lcd_task, NULL, 8 * 1024, 4, true, 1);
 }

@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-
+enum ScreensEnum get_current_screen(void);
 
 void ui_init();
 void ui_tick();

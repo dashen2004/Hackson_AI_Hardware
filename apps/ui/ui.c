@@ -20,6 +20,7 @@ void ui_tick() {
 
 #else
 
+#include <stdio.h>
 #include <string.h>
 
 static int16_t currentScreen = -1;
@@ -37,11 +38,15 @@ void loadScreen(enum ScreensEnum screenId) {
     lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
 }
 
+enum ScreensEnum get_current_screen(void) {
+    return currentScreen + 1;
+}
+
 void ui_init() {
     create_screens();
     if (get_var_awss_value()) {
-        extern void goto_network_config_process_page(void);
-        goto_network_config_process_page();
+        extern void goto_netconfig_process_page(void);
+        goto_netconfig_process_page();
     } else {
         extern void goto_main_page(void);
         goto_main_page();
