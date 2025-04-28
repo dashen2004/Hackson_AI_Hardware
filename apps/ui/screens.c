@@ -87,7 +87,7 @@ void create_screen_page_main() {
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE | LV_OBJ_FLAG_HIDDEN);
             {
                 lv_obj_t *parent_obj = obj;
                 {
@@ -195,6 +195,7 @@ void create_screen_page_main() {
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
             {
                 lv_obj_t *parent_obj = obj;
                 {
@@ -747,7 +748,6 @@ void create_screen_page_setup() {
     objects.page_setup = obj;
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 360, 360);
-    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
     lv_obj_add_event_cb(obj, action_gesture_handler, LV_EVENT_GESTURE, (void *)0);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     {
@@ -1037,7 +1037,6 @@ void create_screen_page_setup_volume() {
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 360, 360);
     lv_obj_add_event_cb(obj, action_gesture_handler, LV_EVENT_GESTURE, (void *)0);
-    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     {
         lv_obj_t *parent_obj = obj;
@@ -1191,7 +1190,6 @@ void create_screen_page_setup_screen() {
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 360, 360);
     lv_obj_add_event_cb(obj, action_gesture_handler, LV_EVENT_GESTURE, (void *)0);
-    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     {
         lv_obj_t *parent_obj = obj;
@@ -1397,7 +1395,6 @@ void create_screen_page_setup_language() {
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 360, 360);
     lv_obj_add_event_cb(obj, action_gesture_handler, LV_EVENT_GESTURE, (void *)0);
-    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     {
         lv_obj_t *parent_obj = obj;
@@ -2026,7 +2023,6 @@ void create_screen_page_recog() {
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 360, 360);
     lv_obj_add_event_cb(obj, action_gesture_handler, LV_EVENT_GESTURE, (void *)0);
-    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     {
         lv_obj_t *parent_obj = obj;
