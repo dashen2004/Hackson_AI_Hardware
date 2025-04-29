@@ -18,6 +18,8 @@
 
 #include "vars.h"
 
+#include "bsp_light.h"
+
 #define LOG_TAG "APP"
 
 static void *iot_handle = NULL;
@@ -209,7 +211,10 @@ qm_err_t xjiang_cloud_report(qm_spec_property_t *property)
 
 int xjiang_cloud_reset(void)
 {
-    return qm_iot_reset(iot_handle);
+    bsp_light_reset();
+    qm_iot_reset(iot_handle);
+    bsp_light_store_update();
+    return QM_EOK;
 }
 
 int xjiang_cloud_init(void)
