@@ -527,16 +527,15 @@ qm_err_t bsp_light_bri_up_set(int bri)
     
     store->up_bri = LIGHT_LIGHTNESS_UNIT(bri);
 
-    if(store->up_bri && store->down_bri){
-        store->sel = BSP_LIGHT_SEL_DUAL;
-    }else{
-        store->sel = BSP_LIGHT_SEL_UP;
-    }
-
     if(!store->up_bri && !store->down_bri){
+        store->sel = BSP_LIGHT_SEL_UP;
         store->up_bri = LIGHT_LIGHTNESS_UNIT(1);
+    }else if(!store->up_bri && store->down_bri){
+        store->sel = BSP_LIGHT_SEL_DOWN;
+    }else if(store->up_bri && store->down_bri){
+        store->sel = BSP_LIGHT_SEL_DUAL;
     }
-
+    
     store->on_off = QM_TRUE;
     store->mode = BSP_LIGHT_MODE_NONE;
 
@@ -553,14 +552,13 @@ qm_err_t bsp_light_bri_down_set(int bri)
     
     store->down_bri = LIGHT_LIGHTNESS_UNIT(bri);
 
-    if(store->up_bri && store->down_bri){
-        store->sel = BSP_LIGHT_SEL_DUAL;
-    }else{
-        store->sel = BSP_LIGHT_SEL_DOWN;
-    }
-
     if(!store->up_bri && !store->down_bri){
+        store->sel = BSP_LIGHT_SEL_UP;
         store->down_bri = LIGHT_LIGHTNESS_UNIT(1);
+    }else if(!store->up_bri && store->down_bri){
+        store->sel = BSP_LIGHT_SEL_DOWN;
+    }else if(store->up_bri && store->down_bri){
+        store->sel = BSP_LIGHT_SEL_DUAL;
     }
 
     store->on_off = QM_TRUE;
