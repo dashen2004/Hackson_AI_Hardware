@@ -32,6 +32,8 @@
 #define loadScreenEx    loadScreen
 // extern void loadScreenEx(enum ScreensEnum screenId);
 
+extern int bsp_lcd_bl_brightness_percent_get(void);
+
 // static uint8_t emotion_index = 0;
 
 static bool hit_test(lv_event_t * e) {
@@ -42,7 +44,6 @@ static bool hit_test(lv_event_t * e) {
 
 // ******** 首页 ******** //
 void goto_main_page(void) {
-    
     loadScreenEx(SCREEN_ID_PAGE_MAIN);
 }
 
@@ -53,25 +54,25 @@ static void goto_menu_page(void) {
 
 // ******** 灯光模式页面 ******** //
 void action_nightlamp_click(lv_event_t * e) {
-    if (hit_test(e) && bsp_light_store_get()->mode != BSP_LIGHT_MODE_NIGHT) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->mode != BSP_LIGHT_MODE_NIGHT) {
         set_var_light_mode(BSP_LIGHT_MODE_NIGHT, true);
     }
 }
 
 void action_read_click(lv_event_t * e) {
-    if (hit_test(e) && bsp_light_store_get()->mode != BSP_LIGHT_MODE_READ) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->mode != BSP_LIGHT_MODE_READ) {
         set_var_light_mode(BSP_LIGHT_MODE_READ, true);
     }
 }
 
 void action_idle_click(lv_event_t * e) {
-    if (hit_test(e) && bsp_light_store_get()->mode != BSP_LIGHT_MODE_IDLE) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->mode != BSP_LIGHT_MODE_IDLE) {
         set_var_light_mode(BSP_LIGHT_MODE_IDLE, true);
     }
 }
 
 void action_sleep_click(lv_event_t * e) {
-    if (hit_test(e) && bsp_light_store_get()->mode != BSP_LIGHT_MODE_SLEEP) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->mode != BSP_LIGHT_MODE_SLEEP) {
         set_var_light_mode(BSP_LIGHT_MODE_SLEEP, true);
     }
 }
@@ -90,13 +91,13 @@ void action_page_brightness_event_cb(lv_event_t * e) {
         lv_indev_wait_release(lv_indev_get_act()); 
         if (obj == objects.page_brightness) {
             lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+            if (bsp_lcd_bl_brightness_percent_get() != 0 && (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT)) {
                 goto_main_page();
             }
         }
     } else if (event == LV_EVENT_CLICKED) { 
         if (obj == objects.image_brightness_light_onoff) {
-            if (hit_test(e)) {
+            if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
                 set_var_brightness_onoff(bsp_light_store_get()->on_off ? false : true);
             }
         }
@@ -115,7 +116,7 @@ static void goto_setup_page(void) {
 
 // ******** 音量设置页面 ******** //
 void action_volume_mute_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         set_var_mute_value(get_var_mute_value() ? false : true, true);
     }
 }
@@ -128,7 +129,7 @@ static void goto_volume_page(void) {
 
 // 自动息屏页点击30S
 void action_screen_30s_click(lv_event_t * e) {
-    if (hit_test(e) && get_var_scr_tmo_value() != 0) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && get_var_scr_tmo_value() != 0) {
         set_var_scr_tmo_value(0, true);
         loadScreenEx(SCREEN_ID_PAGE_SETUP);
     }
@@ -136,7 +137,7 @@ void action_screen_30s_click(lv_event_t * e) {
 
 // 自动息屏页点击1分钟
 void action_screen_1min_click(lv_event_t * e) {
-    if (hit_test(e) && get_var_scr_tmo_value() != 1) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && get_var_scr_tmo_value() != 1) {
         set_var_scr_tmo_value(1, true);
         loadScreenEx(SCREEN_ID_PAGE_SETUP);
     }
@@ -144,7 +145,7 @@ void action_screen_1min_click(lv_event_t * e) {
 
 // 自动息屏页点击5分钟
 void action_screen_5min_click(lv_event_t * e) {
-    if (hit_test(e) && get_var_scr_tmo_value() != 2) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && get_var_scr_tmo_value() != 2) {
         set_var_scr_tmo_value(2, true);
         loadScreenEx(SCREEN_ID_PAGE_SETUP);
     }
@@ -152,7 +153,7 @@ void action_screen_5min_click(lv_event_t * e) {
 
 // 自动息屏页点击永不
 void action_screen_never_click(lv_event_t * e) {
-    if (hit_test(e) && get_var_scr_tmo_value() != 3) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && get_var_scr_tmo_value() != 3) {
         set_var_scr_tmo_value(3, true);
         loadScreenEx(SCREEN_ID_PAGE_SETUP);
     }
@@ -170,7 +171,7 @@ static void goto_language_page(void) {
 
 // ******** 开启配网 ******** //
 void action_network_config_cancel_click(lv_event_t * e) {
-    if (hit_test(e) && !lv_obj_has_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && !lv_obj_has_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN)) {
         lv_obj_add_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN);
     }
 }
@@ -183,7 +184,7 @@ static void cloud_reset_delayed_action_handler(void *arg) {
 }
 
 void action_network_config_submit_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         
         lv_obj_add_flag  (objects.container_netconfig_prepare, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag  (objects.container_netconfig_process, LV_OBJ_FLAG_HIDDEN);
@@ -343,30 +344,32 @@ void action_gesture_handler(lv_event_t * e) {
 
     lv_obj_t *currentPage = lv_scr_act();
     lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-    if (currentPage == objects.page_main) {
-        if (dir == LV_DIR_LEFT) {
-            goto_recog_page();
-        } else if (dir == LV_DIR_RIGHT) {
-            goto_brightness_page();
-        } else if (dir == LV_DIR_TOP) {
-            goto_menu_page();
-        } else if (dir == LV_DIR_BOTTOM) {
-            goto_setup_page();
+    if (bsp_lcd_bl_brightness_percent_get() != 0) {
+        if (currentPage == objects.page_main) {
+            if (dir == LV_DIR_LEFT) {
+                goto_recog_page();
+            } else if (dir == LV_DIR_RIGHT) {
+                goto_brightness_page();
+            } else if (dir == LV_DIR_TOP) {
+                goto_menu_page();
+            } else if (dir == LV_DIR_BOTTOM) {
+                goto_setup_page();
+            }
         }
-    }
-    else if (currentPage == objects.page_brightness) {
-        if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
-            goto_main_page();
+        else if (currentPage == objects.page_brightness) {
+            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+                goto_main_page();
+            }
         }
-    }
-    else if (currentPage == objects.page_mode || currentPage == objects.page_brightness || currentPage == objects.page_setup || currentPage == objects.page_recog) {
-        if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
-            goto_main_page();
+        else if (currentPage == objects.page_mode || currentPage == objects.page_brightness || currentPage == objects.page_setup || currentPage == objects.page_recog) {
+            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+                goto_main_page();
+            }
         }
-    }
-    else if (currentPage == objects.page_setup_volume || currentPage == objects.page_setup_screen || currentPage == objects.page_setup_language || currentPage == objects.page_setup_about) {
-        if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
-            goto_setup_page();
+        else if (currentPage == objects.page_setup_volume || currentPage == objects.page_setup_screen || currentPage == objects.page_setup_language || currentPage == objects.page_setup_about) {
+            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+                goto_setup_page();
+            }
         }
     }
 }
@@ -374,81 +377,81 @@ void action_gesture_handler(lv_event_t * e) {
 // ******** 总体事件(来用亮屏) ******** //
 void event_all_handler(lv_event_t * e) {
     lv_event_code_t event = lv_event_get_code(e);
-    if (event == LV_EVENT_PRESSED) {
+    if (event <= LV_EVENT_HOVER_LEAVE) { // Input device events
         extern void turnoff_timer_reset(void);
         turnoff_timer_reset();
     }
 }
 
 void action_home_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_main_page();
     }
 }
 
 void action_recog_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_recog_page();
     }
 }
 
 void action_setup_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_setup_page();
     }
 }
 
 void action_mode_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_mode_page();
     }
 }
 
 void action_brightness_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_brightness_page();
     }
 }
 
 void action_volume_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_volume_page();
     }
 }
 
 void action_screen_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_screen_page();
     }
 }
 
 void action_language_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_language_page();
     }
 }
 
 void action_wifi_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_wifi_page();
     }
 }
 
 void action_about_click(lv_event_t * e) {
-    if (hit_test(e)) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_about_page();
     }
 }
 
 void action_language_cn_click(lv_event_t * e) {
-    if (hit_test(e) && get_var_language_value() != 0) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && get_var_language_value() != 0) {
         set_var_language_value(0, true);
         loadScreenEx(SCREEN_ID_PAGE_SETUP);
     }
 }
 
 void action_language_en_click(lv_event_t * e) {
-    if (hit_test(e) && get_var_language_value() != 1) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && get_var_language_value() != 1) {
         set_var_language_value(1, true);
         loadScreenEx(SCREEN_ID_PAGE_SETUP);
     }

@@ -508,7 +508,9 @@ static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) {
         bsp_lcd_bl_off();
         if (!bl_brightness_percent) {
             extern void goto_main_page(void);
+            lvgl_port_lock(0);
             goto_main_page();
+            lvgl_port_unlock();
         }
     }
 }

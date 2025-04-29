@@ -34,6 +34,7 @@ static lv_obj_t *getLvglObjectFromIndex(int32_t index) {
 
 void loadScreen(enum ScreensEnum screenId) {
     currentScreen = screenId - 1;
+    // printf("currentScreen: %d\n", currentScreen);
     lv_obj_t *screen = getLvglObjectFromIndex(currentScreen);
     lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
 }
