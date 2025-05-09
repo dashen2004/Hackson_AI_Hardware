@@ -40,6 +40,8 @@ extern void action_wifi_click(lv_event_t * e);
 extern void action_network_config_cancel_click(lv_event_t * e);
 extern void action_network_config_submit_click(lv_event_t * e);
 
+extern void action_return_home_click(lv_event_t * e);
+
 
 #ifdef __cplusplus
 }

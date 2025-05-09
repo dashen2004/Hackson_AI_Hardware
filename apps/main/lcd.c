@@ -461,6 +461,9 @@ static char emotions[EMOTION_NUM][16] = {
     "confused", // 困惑
 };
 
+static qm_timer_t turnoff_timer = { 0 };
+static int        turnoff_timeout_tbl[4] = { 30000, 60000, 300000, 2147483647 }; // 30秒, 1分, 5分, 永不 //  { 15000, 30000, 45000, 60000 };
+
 static int8_t get_emotion_idx(char *s) {
     for (uint8_t i = 0; i < EMOTION_NUM; i++) {
         if (strcmp(emotions[i], s) == 0) {
@@ -473,6 +476,7 @@ static int8_t get_emotion_idx(char *s) {
 static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_data) {
     switch (event->recv_type) {
         case QM_AUDIO_WS_RECV_TYPE_LLM: {
+            turnoff_timer_reset(1);
             int8_t idx = get_emotion_idx(event->data.llm.emotion);
             if (idx >= 0 && idx < 21) {
                 set_var_emotion_id(idx);
@@ -480,6 +484,7 @@ static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_dat
             break;
         }
         case QM_AUDIO_WS_RECV_TYPE_TTS: {
+            turnoff_timer_reset(1);
             set_var_subtitles(event->data.tts.text);
             break;
         }
@@ -489,10 +494,20 @@ static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_dat
     }
 }
 
-static qm_timer_t turnoff_timer = { 0 };
-static int        turnoff_timeout_tbl[4] = { 30000, 60000, 300000, 2147483647 }; // 30秒, 1分, 5分, 永不 //  { 15000, 30000, 45000, 60000 };
+extern void goto_recog_page(void);
 
-void turnoff_timer_reset(void) {
+void turnoff_timer_reset(uint8_t flag) { // 0 - screen operation, 1 - audio receive
+    if (flag == 0) {
+        set_var_screen_operation_tick();
+    } else {
+        if (get_var_recog_page_leave() == 0 || qm_now_ms() - get_var_screen_operation_tick() >= 10 * 1000) {
+            if (get_current_screen() != SCREEN_ID_PAGE_RECOG) {
+                lvgl_port_lock(0);
+                goto_recog_page();
+                lvgl_port_unlock();
+            }
+        }
+    }
     set_var_turnoff_value(qm_now_ms());
     bsp_lcd_bl_on();
 }
@@ -514,6 +529,8 @@ static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) {
         }
     }
 }
+
+extern void wifi_set_blink(void);
 
 static void lcd_task(void *arg) {
     esp_vfs_spiffs_conf_t conf = {
@@ -545,6 +562,8 @@ static void lcd_task(void *arg) {
     qm_timer_start(&turnoff_timer);
 
     bsp_audio_resgiter(audio_ws_recv_event_cb, NULL);
+
+    wifi_set_blink();
 
     while (1) {
         lvgl_port_lock(0); // 锁定lvgl接口，以保护UI更新过程。 

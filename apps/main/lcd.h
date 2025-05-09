@@ -17,6 +17,10 @@
 #define CONFIG_LCD_DISABLE_AUDIO    0
 #define CONFIG_LCD_DISABLE_CLOUD    0
 
+int bsp_lcd_bl_brightness_percent_get(void);
+void bsp_lcd_bl_off(void);
+void bsp_lcd_bl_on(void);
+void turnoff_timer_reset(uint8_t flag);
 void lcd_init(void);
 
 #endif /* __LCD_H__ */

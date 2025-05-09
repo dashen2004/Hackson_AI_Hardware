@@ -15,6 +15,8 @@
 #include "bsp_light.h"
 #include "audio_light.h"
 
+#include "lcd.h"
+
 
 /*
     有些gif刚加载时会白色闪烁, 所以在lv_gif.c中做一些屏蔽处理
@@ -43,6 +45,97 @@ static bool hit_test(lv_event_t * e) {
 }
 
 // ******** 首页 ******** //
+static qm_timer_t wifi_blink_timer = { 0 };
+static uint8_t    wifi_level_s = 0;
+
+static void wifi_blink_timer_handler(qm_timer_t *timer,  void *arg) {
+    lvgl_port_lock(0);
+    switch (wifi_level_s) {
+        case 0: {
+            lv_obj_add_flag  (objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
+            break;
+        }
+        case 1: {
+            lv_obj_add_flag  (objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag  (objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
+            break;
+        }
+        case 2: {
+            lv_obj_add_flag  (objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag  (objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag  (objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
+            break;
+        }
+        case 3: {
+            lv_obj_add_flag  (objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag  (objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag  (objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag  (objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+    lvgl_port_unlock();
+    if (++wifi_level_s > 3) {
+        wifi_level_s = 0;
+    }
+}
+
+void wifi_set_disconnected(void) {
+    if (qm_timer_is_valid(&wifi_blink_timer)) {
+        qm_timer_stop(&wifi_blink_timer);
+        qm_timer_free(&wifi_blink_timer);
+    }
+    lvgl_port_lock(0);
+    lv_obj_add_flag(objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
+    lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_disconnected.bin");
+    lvgl_port_unlock();
+}
+
+void wifi_set_connected(void) {
+    if (qm_timer_is_valid(&wifi_blink_timer)) {
+        qm_timer_stop(&wifi_blink_timer);
+        qm_timer_free(&wifi_blink_timer);
+    }
+    lvgl_port_lock(0);
+    lv_obj_add_flag(objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
+    lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_connected.bin");
+    lvgl_port_unlock();
+}
+
+void wifi_set_blink(void) {
+    if (!qm_timer_is_valid(&wifi_blink_timer)) {
+        qm_timer_new  (&wifi_blink_timer, wifi_blink_timer_handler, NULL, 500, 1);
+        qm_timer_start(&wifi_blink_timer);
+    }
+    wifi_level_s = 1;
+    lvgl_port_lock(0);
+    lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_connected.bin");
+    lv_img_set_src(objects.image_wifi_level_s_1, "/lvgl/images/wifi_level_s_1.bin");
+    lv_img_set_src(objects.image_wifi_level_s_2, "/lvgl/images/wifi_level_s_2.bin");
+    lv_img_set_src(objects.image_wifi_level_s_3, "/lvgl/images/wifi_level_s_3.bin");
+    lv_img_set_src(objects.image_wifi_level_s_4, "/lvgl/images/wifi_level_s_4.bin");
+    lv_obj_add_flag(objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
+    lvgl_port_unlock();
+}
+
 void goto_main_page(void) {
     loadScreenEx(SCREEN_ID_PAGE_MAIN);
 }
@@ -170,18 +263,39 @@ static void goto_language_page(void) {
 }
 
 // ******** 开启配网 ******** //
+static qm_timer_t netconfig_reboot_timer = { 0 };
+static int8_t     netconfig_reboot_countdown = 3;
+
+extern int xjiang_cloud_reset(void);
+extern bool_t get_connect(void);
+void goto_netconfig_success_page(void);
+
+static void netconfig_reboot_timer_handler(qm_timer_t *timer,  void *arg) {
+    if (--netconfig_reboot_countdown >= 0) {
+        char s[32];
+        sprintf(s, "%d秒后重启设备", netconfig_reboot_countdown);
+        lvgl_port_lock(0);
+        lv_label_set_text(objects.text_netconfig_reboot_title, s);
+        lvgl_port_unlock();
+    } else {
+        qm_timer_stop(timer); 
+        qm_timer_free(timer);
+        xjiang_cloud_reset();
+    }
+}
+
+
 void action_network_config_cancel_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && !lv_obj_has_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN)) {
         lv_obj_add_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN);
     }
 }
 
-static qm_work_t cloud_reset_delayed_action = { 0 };
-extern int xjiang_cloud_reset(void);
+// static qm_work_t cloud_reset_delayed_action = { 0 };
 
-static void cloud_reset_delayed_action_handler(void *arg) {
-    xjiang_cloud_reset();
-}
+// static void cloud_reset_delayed_action_handler(void *arg) {
+//     xjiang_cloud_reset();
+// }
 
 void action_network_config_submit_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
@@ -192,8 +306,14 @@ void action_network_config_submit_click(lv_event_t * e) {
         lv_obj_clear_flag(objects.container_netconfig_reboot,  LV_OBJ_FLAG_HIDDEN);
         loadScreenEx(SCREEN_ID_PAGE_NETCONFIG);
         set_var_awss_value(true, true);
+
+        if (!qm_timer_is_valid(&netconfig_reboot_timer)) {
+            netconfig_reboot_countdown = 3;
+            qm_timer_new  (&netconfig_reboot_timer, netconfig_reboot_timer_handler, NULL, 1000, 1);
+            qm_timer_start(&netconfig_reboot_timer);
+        }
         
-        qm_post_delayed_action(&cloud_reset_delayed_action, cloud_reset_delayed_action_handler, NULL, 3000);
+        // qm_post_delayed_action(&cloud_reset_delayed_action, cloud_reset_delayed_action_handler, NULL, 3000);
         // xjiang_cloud_reset();
     }
 }
@@ -210,32 +330,35 @@ static void goto_about_page(void) {
 }
 
 // ******** 语音识别页面 ******** //
-static void goto_recog_page(void) {
+void goto_recog_page(void) {
+    set_var_recog_page_leave(0);
     loadScreenEx(SCREEN_ID_PAGE_RECOG);
 }
 
 // ******** 配网页面 ******** //
 static qm_timer_t netconfig_process_timer = { 0 };
+static qm_timer_t netconfig_success_timer = { 0 };
 static uint32_t   netconfig_start_tick = 0;
-static uint8_t    wifi_level = 0;
-static uint8_t    netconfig_success = 0;
-
-extern bool_t get_connect(void);
-void goto_netconfig_success_page(void);
+static int8_t     wifi_level = 0;
+static int8_t     netconfig_success = 0;
+static int8_t     netconfig_success_countdown = 3;
+static enum ScreensEnum last_screen;
 
 static void netconfig_process_timer_handler(qm_timer_t *timer,  void *arg) {
     set_var_turnoff_value(qm_now_ms());
     if (netconfig_success == 0) {
         if (qm_now_ms() - netconfig_start_tick >= 3 * 60 * 1000) {
-            lvgl_port_lock(0); 
-            goto_main_page(); 
-            lvgl_port_unlock();
-
+            if (get_current_screen() == SCREEN_ID_PAGE_NETCONFIG) {
+                lvgl_port_lock(0); 
+                goto_main_page(); 
+                lvgl_port_unlock();
+            }
             qm_timer_stop(timer); 
             qm_timer_free(timer);
             return;
         }
         if (get_connect()) {
+            last_screen = (get_current_screen() == SCREEN_ID_PAGE_NETCONFIG ? SCREEN_ID_PAGE_MAIN : get_current_screen());
             lvgl_port_lock(0);
             goto_netconfig_success_page();
             lvgl_port_unlock();
@@ -284,7 +407,7 @@ static void netconfig_process_timer_handler(qm_timer_t *timer,  void *arg) {
         }
     } else {
         lvgl_port_lock(0);
-        goto_main_page();
+        loadScreenEx(last_screen); // goto_main_page();
         lvgl_port_unlock();
 
         qm_timer_stop(timer); 
@@ -309,17 +432,53 @@ void goto_netconfig_process_page(void) {
     }
 }
 
+static void netconfig_success_timer_handler(qm_timer_t *timer,  void *arg) {
+    if (--netconfig_success_countdown >= 0) {
+        char s[32];
+        sprintf(s, "%d秒后返回主页", netconfig_success_countdown);
+        lvgl_port_lock(0);
+        lv_label_set_text(objects.text_netconfig_success_countdown, s);
+        lvgl_port_unlock();
+    } else {
+        qm_timer_stop(timer); 
+        qm_timer_free(timer);
+    }
+}
+
 void goto_netconfig_success_page(void) {
     lv_obj_add_flag  (objects.container_netconfig_prepare, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag  (objects.container_netconfig_process, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag  (objects.container_netconfig_reboot,  LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(objects.container_netconfig_success, LV_OBJ_FLAG_HIDDEN);
+    
+    if (!qm_timer_is_valid(&netconfig_success_timer)) {
+        netconfig_success_countdown = 3;
+        qm_timer_new  (&netconfig_success_timer, netconfig_success_timer_handler, NULL, 1000, 1);
+        qm_timer_start(&netconfig_success_timer);
+    }
+
     if (get_current_screen() != SCREEN_ID_PAGE_NETCONFIG) {
         loadScreenEx(SCREEN_ID_PAGE_NETCONFIG);
     }
 }
 
 // ******** ota页面 ******** //
+static qm_timer_t ota_success_timer = { 0 };
+static int8_t     ota_success_countdown = 3;
+
+static void ota_success_timer_handler(qm_timer_t *timer,  void *arg) {
+    if (--ota_success_countdown >= 0) {
+        char s[32];
+        sprintf(s, "%d秒后重启", ota_success_countdown);
+        lvgl_port_lock(0);
+        lv_label_set_text(objects.text_ota_subtitle, s);
+        lvgl_port_unlock();
+    } else {
+        qm_timer_stop(timer); 
+        qm_timer_free(timer);
+    }
+}
+
 void goto_ota_process_page(void) {
     if (get_current_screen() != SCREEN_ID_PAGE_OTA) {
         loadScreenEx(SCREEN_ID_PAGE_OTA);
@@ -327,6 +486,11 @@ void goto_ota_process_page(void) {
 }
 
 void goto_ota_success_page(void) {
+    if (!qm_timer_is_valid(&ota_success_timer)) {
+        ota_success_countdown = 3;
+        qm_timer_new  (&ota_success_timer, ota_success_timer_handler, NULL, 1000, 1);
+        qm_timer_start(&ota_success_timer);
+    }
     if (get_current_screen() != SCREEN_ID_PAGE_OTA) {
         loadScreenEx(SCREEN_ID_PAGE_OTA);
     }
@@ -361,8 +525,14 @@ void action_gesture_handler(lv_event_t * e) {
                 goto_main_page();
             }
         }
-        else if (currentPage == objects.page_mode || currentPage == objects.page_brightness || currentPage == objects.page_setup || currentPage == objects.page_recog) {
+        else if (currentPage == objects.page_mode || currentPage == objects.page_brightness || currentPage == objects.page_setup) {
             if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+                goto_main_page();
+            }
+        }
+        else if (currentPage == objects.page_recog) {
+            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+                set_var_recog_page_leave(1);
                 goto_main_page();
             }
         }
@@ -378,8 +548,7 @@ void action_gesture_handler(lv_event_t * e) {
 void event_all_handler(lv_event_t * e) {
     lv_event_code_t event = lv_event_get_code(e);
     if (event <= LV_EVENT_HOVER_LEAVE) { // Input device events
-        extern void turnoff_timer_reset(void);
-        turnoff_timer_reset();
+        turnoff_timer_reset(0);
     }
 }
 
@@ -457,3 +626,6 @@ void action_language_en_click(lv_event_t * e) {
     }
 }
 
+void action_return_home_click(lv_event_t * e) {
+    goto_main_page();
+}

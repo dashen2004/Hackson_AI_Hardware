@@ -25,6 +25,10 @@ typedef struct _objects_t {
     lv_obj_t *slider_volume_value;
     lv_obj_t *bar_ota_percent;
     lv_obj_t *image_wifi;
+    lv_obj_t *image_wifi_level_s_1;
+    lv_obj_t *image_wifi_level_s_2;
+    lv_obj_t *image_wifi_level_s_3;
+    lv_obj_t *image_wifi_level_s_4;
     lv_obj_t *container_normal;
     lv_obj_t *image_weather_unknown;
     lv_obj_t *text_weather_unknown;
@@ -114,6 +118,7 @@ typedef struct _objects_t {
     lv_obj_t *image_netconfig_wifi_level_3;
     lv_obj_t *image_netconfig_wifi_level_4;
     lv_obj_t *text_netconfig_process_title;
+    lv_obj_t *text_return_home;
     lv_obj_t *container_netconfig_success;
     lv_obj_t *image_netconfig_success;
     lv_obj_t *text_netconfig_success_title;

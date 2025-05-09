@@ -13,6 +13,8 @@
 
 #include "bsp_light.h"
 
+#include "lcd.h"
+
 
 objects_t objects;
 lv_obj_t *tick_value_change_obj;
@@ -30,6 +32,7 @@ static void event_handler_cb_page_brightness_slider_brightness_top(lv_event_t *e
     if (event == LV_EVENT_VALUE_CHANGED && bsp_lcd_bl_brightness_percent_get() != 0) {
         lv_obj_t *ta = lv_event_get_target(e);
         if (tick_value_change_obj != ta) {
+            turnoff_timer_reset(0);
             int32_t value = lv_slider_get_value(ta);
             set_var_brightness_top(value);
         }
@@ -41,6 +44,7 @@ static void event_handler_cb_page_brightness_slider_brightness_bottom(lv_event_t
     if (event == LV_EVENT_VALUE_CHANGED && bsp_lcd_bl_brightness_percent_get() != 0) {
         lv_obj_t *ta = lv_event_get_target(e);
         if (tick_value_change_obj != ta) {
+            turnoff_timer_reset(0);
             int32_t value = lv_slider_get_value(ta);
             set_var_brightness_bottom(value);
         }
@@ -52,6 +56,7 @@ static void event_handler_cb_page_setup_volume_volume_value(lv_event_t *e) {
     if (event == LV_EVENT_VALUE_CHANGED && bsp_lcd_bl_brightness_percent_get() != 0) {
         lv_obj_t *ta = lv_event_get_target(e);
         if (tick_value_change_obj != ta) {
+            turnoff_timer_reset(0);
             int32_t value = lv_slider_get_value(ta);
             set_var_volume_value(value, true);
         }
@@ -75,6 +80,42 @@ void create_screen_page_main() {
             lv_obj_set_pos(obj, 165, 14);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_img_set_src(obj, "/lvgl/images/wifi_disconnected.bin");
+        }
+        {
+            // image_wifi_level_s_1
+            lv_obj_t *obj = lv_img_create(parent_obj);
+            objects.image_wifi_level_s_1 = obj;
+            lv_obj_set_pos(obj, 178, 37);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_img_set_src(obj, "/lvgl/images/wifi_level_s_1.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        }
+        {
+            // image_wifi_level_s_2
+            lv_obj_t *obj = lv_img_create(parent_obj);
+            objects.image_wifi_level_s_2 = obj;
+            lv_obj_set_pos(obj, 174, 31);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_img_set_src(obj, "/lvgl/images/wifi_level_s_2.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        }
+        {
+            // image_wifi_level_s_3
+            lv_obj_t *obj = lv_img_create(parent_obj);
+            objects.image_wifi_level_s_3 = obj;
+            lv_obj_set_pos(obj, 170, 25);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_img_set_src(obj, "/lvgl/images/wifi_level_s_3.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        }
+        {
+            // image_wifi_level_s_4
+            lv_obj_t *obj = lv_img_create(parent_obj);
+            objects.image_wifi_level_s_4 = obj;
+            lv_obj_set_pos(obj, 167, 20);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_img_set_src(obj, "/lvgl/images/wifi_level_s_4.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
         }
         {
             // container_normal
@@ -313,18 +354,18 @@ void tick_screen_page_main() {
             }
         }
     }
-    {
-        // 更新网络图标
-        static bool connect_last = false;
-        if (connect_last != get_connect()) {
-            connect_last = get_connect();
-            if (connect_last) {
-                lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_connected.bin");
-            } else {
-                lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_disconnected.bin");
-            }
-        }
-    }
+    // {
+    //     // 更新网络图标
+    //     static bool connect_last = false;
+    //     if (connect_last != get_connect()) {
+    //         connect_last = get_connect();
+    //         if (connect_last) {
+    //             lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_connected.bin");
+    //         } else {
+    //             lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_disconnected.bin");
+    //         }
+    //     }
+    // }
 }
 
 void create_screen_page_menu() {
@@ -1823,11 +1864,28 @@ void create_screen_page_netconfig() {
                     objects.text_netconfig_process_title = obj;
                     lv_obj_set_pos(obj, 0, 233);
                     lv_obj_set_size(obj, LV_PCT(100), LV_SIZE_CONTENT);
-                    lv_label_set_text(obj, "配网中\n请耐心等待...");
+                    lv_label_set_text(obj, "配网中  请耐心等待...");
                     lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_font(obj, font_pingfang_24px, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_line_space(obj, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+                }
+                {
+                    // text_return_home
+                    lv_obj_t *obj = lv_label_create(parent_obj);
+                    objects.text_return_home = obj;
+                    lv_obj_set_pos(obj, 120, 270);
+                    lv_obj_set_size(obj, 120, 42);
+                    lv_label_set_text(obj, "返回主页");
+                    lv_obj_add_event_cb(obj, action_return_home_click, LV_EVENT_CLICKED, (void *)0);
+                    lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_font(obj, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 21, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff333333), LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_top(obj, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_CLICKABLE);
                 }
             }
         }

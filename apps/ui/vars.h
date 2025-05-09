@@ -67,6 +67,10 @@ void set_var_ota_status(int8_t value, bool need_lock);
 int8_t get_var_ota_percent(void);
 void set_var_ota_percent(int8_t value);
 
+bool get_var_recog_page_leave(void);
+void set_var_recog_page_leave(bool value);
+uint32_t get_var_screen_operation_tick(void);
+void set_var_screen_operation_tick(void);
 
 #ifdef __cplusplus
 }

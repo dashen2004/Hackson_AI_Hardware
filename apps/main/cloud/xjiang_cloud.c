@@ -26,6 +26,9 @@ static void *iot_handle = NULL;
 static bool_t connect = QM_FALSE;
 static qm_timer_t weather_request_timer = { 0 };
 static qm_work_t weather_request_timeout_action = { 0 };
+static qm_work_t set_disconnected_action = { 0 };
+static qm_work_t set_connected_action = { 0 };
+static qm_work_t set_blink_action = { 0 };
 
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv);
 static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv);
@@ -68,8 +71,23 @@ static void weather_request_timer_handler(qm_timer_t *timer,  void *arg) {
     qm_post_delayed_action(&weather_request_timeout_action, weather_request_timeout_action_handler, NULL, 30 * 1000); // 30秒超时
 }
 
-static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void *userdata)
-{
+extern void wifi_set_disconnected(void);
+extern void wifi_set_connected(void);
+extern void wifi_set_blink(void);
+
+static void delay_set_disconnected(void *argv) {
+    wifi_set_disconnected();
+}
+
+static void delay_set_connected(void *argv) {
+    wifi_set_connected();
+}
+
+static void delay_set_blink(void *argv) {
+    wifi_set_blink();
+}
+
+static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void *userdata) {
     static qm_iot_event_type_t last_type;
     if(handle == NULL || event == NULL){
         return ;
@@ -77,6 +95,10 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
 
     switch (event->type)
     {
+        case QM_IOT_EVENT_CONFIG_TIMEOUT:
+            qm_post_delayed_action(&set_disconnected_action, delay_set_disconnected, NULL, 0);
+            break;
+
         case QM_IOT_EVENT_CLOUD_CONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_CONN");
             connect = QM_TRUE;
@@ -88,11 +110,13 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
                 qm_timer_new  (&weather_request_timer, weather_request_timer_handler, NULL, 60 * 60 * 1000, 1); // 1小时
                 qm_timer_start(&weather_request_timer);
             }
+            qm_post_delayed_action(&set_connected_action, delay_set_connected, NULL, 0);
         break;
 
         case QM_IOT_EVENT_CLOUD_DISCONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_DISCONN");
             connect = QM_FALSE;
+            qm_post_delayed_action(&set_blink_action, delay_set_blink, NULL, 0);
         break;
 
         case QM_IOT_EVENT_LOCAL_CONN:

@@ -51,6 +51,9 @@ static bool     var_awss = false;
 static int8_t   var_ota_status = 0; // 0 - process, 1 - success, 2 - failure
 static int8_t   var_ota_percent = 0;
 
+static bool     var_recog_page_leave = 0; // 从识别页离开
+static uint32_t var_screen_operation_tick = 0;
+
 char *get_var_city(void) {
     return var_city;
 }
@@ -241,4 +244,21 @@ int8_t get_var_ota_percent(void) {
 
 void set_var_ota_percent(int8_t value) {
     var_ota_percent = value;
+}
+
+bool get_var_recog_page_leave(void) {
+    return var_recog_page_leave;
+}
+
+void set_var_recog_page_leave(bool value) {
+    var_recog_page_leave = value;
+    var_screen_operation_tick = qm_now_ms();
+}
+
+uint32_t get_var_screen_operation_tick(void) {
+    return var_screen_operation_tick;
+}
+
+void set_var_screen_operation_tick(void) {
+    var_screen_operation_tick = qm_now_ms();
 }
