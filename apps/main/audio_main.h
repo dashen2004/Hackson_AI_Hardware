@@ -13,9 +13,15 @@ extern "C" {
 #include "qm.h"
 #include "qm_spec_api.h"
 
-#define CONFIG_NETWORK_URL       "ws://1.94.128.55:29096/voicePlatform/api/ws"
+// #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:8000/xiaozhi/v1/" //老服务
+
+#define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:8000/xiaojiang/v1/"    //正式服
+// #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:28000/xiaojiang/v1/"  //测试服
+
+
 #define CONFIG_NETWORK_DELAY_MS         (1500)
 
+#define CONFIG_DISABLE_SR_FUNC          (0)
 #define CONFIG_SUPPORT_AEC              (1)
 
 #define CONFIG_XJIANG_VERSION           (9)
@@ -24,16 +30,42 @@ extern "C" {
 
 #define  CONFIG_AUDIO_LIGHT_HW_VERSION  "LIGHT.0059.G.101_FW_WB74_0.0.9_0.0.9"
 
+#define CONFIG_SUPPORT_ONLINE_OPEN_WAV   (1)
+#define CONFIG_SUPPORT_ONLINE_CLOSE_WAV  (0)
+
+#define CONFIG_AUDIO_BOARD_USER_BUTTON              (0)
+#define CONFIG_AUDIO_BOARD_USER_STATUS_LED          (0)
+
+#define CONFIG_AUDIO_BOARD_SUPPORT_BUTTON_SWITCH    (0)
 
 //语音事件
 #define CONFIG_AUDIO_WAKEUPT_TIMEOUT         (60 * 1000)
+// #define CONFIG_AUDIO_WAKEUPT_TIMEOUT         (20 * 60 * 1000)
+
+#define CONFIG_AUDIO_CONFIG_IND_TIMEOUT      (3 * 60 * 1000)  //配网提示间隔
+
+#define CONFIG_AUDIO_CONN_ERROR_TIMEOUT      (2 * 60 * 1000)  //联网错误超时
+
+#define CONFIG_AUDIO_CONN_SWITCH_TIMEOUT     (10  * 1000)  //切换模式超时
 
 #define CONFIG_AUDIO_MAIN_EVENT_ID           (0xFF00)
 
-#define CONFIG_AUDIO_SUB_EVENT_CEART_WS      (0x0001)
-#define CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID     (0x0002)
-#define CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID    (0x0003)
-#define CONFIG_AUDIO_SUB_EVENT_CONTROL_ID    (0x0004)
+#define CONFIG_AUDIO_SUB_EVENT_CONFIG           (0x0001)   //配网模式
+#define CONFIG_AUDIO_SUB_EVENT_CONFIG_TIMEOUT   (0x0002)   //配网超时
+#define CONFIG_AUDIO_SUB_EVENT_CEART_WS         (0x0003)   //创建Websocket
+#define CONFIG_AUDIO_SUB_EVENT_CONN_WS          (0x0004)   //连接Websocket成功
+#define CONFIG_AUDIO_SUB_EVENT_NET_ERROR        (0x0005)   //网络异常断开2分钟
+#define CONFIG_AUDIO_USB_EVENT_CONNING_LOCAL    (0x0006)   // 连接路由器
+
+#define CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID            (0x0106)
+#define CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID           (0x0107)
+#define CONFIG_AUDIO_SUB_EVENT_CONTROL_ID           (0x0108)
+#define CONFIG_AUDIO_SUB_EVENT_SWITCH_MODE_ID       (0x0109)
+#define CONFIG_AUDIO_SUB_EVENT_SWITCH_COMPLETE_ID   (0x010A)
+
+#define CONFIG_AUDIO_SUB_EVENT_OTA_START            (0x010B)
+#define CONFIG_AUDIO_SUB_EVENT_OTA_SUCCESS          (0x010C)
+#define CONFIG_AUDIO_SUB_EVENT_OTA_FAILED           (0x010D)
 
 #define CONFIG_AUDIO_ID_LIGHT_WAKEUP         (1)
 #define CONFIG_AUDIO_ID_LIGHT_NETCONFIG      (2)

@@ -311,3 +311,17 @@ qm_audio_vc_cfg_t *get_default_audio_vc_config(void)
     return NULL;
 #endif
 }
+
+qm_err_t short_ich_to_och(int16_t *i_buf, int chunksize, int i_ch, int o_ch)
+{
+    if(i_ch == o_ch){
+        return QM_EOK;
+    }
+
+    for (int  i = 0; i < chunksize; i++) {
+        i_buf[i * o_ch + 1] =i_buf[i * i_ch + 0];
+        i_buf[i * o_ch + 0] =i_buf[i * i_ch + 3];
+    }
+    
+    return QM_EOK;
+}

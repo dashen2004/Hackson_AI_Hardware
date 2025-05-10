@@ -14,7 +14,7 @@ extern "C" {
 #define AUDIO_REC_DEF_TASK_PRIO (10)       /*!< Priority of recoder task */
 #define AUDIO_REC_DEF_TASK_CORE (1)        /*!< Pinned to core */
 
-#define AUDIO_REC_FEED_TASK_SZ   (8 * 1024) /*!< Stack size of recorder task */
+#define AUDIO_REC_FEED_TASK_SZ   (10 * 1024) /*!< Stack size of recorder task */
 #define AUDIO_REC_FEED_TASK_PRIO (5)       /*!< Priority of recoder task */
 #define AUDIO_REC_FEED_TASK_CORE (0)        /*!< Pinned to core */
 

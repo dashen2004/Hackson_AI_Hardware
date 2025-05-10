@@ -12,10 +12,8 @@
 
 #include "esp_websocket_client.h"
 
-#include "audio_error.h"
 #include "audio_mem.h"
 #include "audio_thread.h"
-
 
 #ifndef CONFIG_QM_AUDIO_WS_MAX_SIZE     
 #define CONFIG_QM_AUDIO_WS_MAX_SIZE                   (32)
@@ -39,11 +37,11 @@
 #define STATE_PARAMS            "state"
 #define MODE_PARAMS             "mode"
 #define TEXT_PARAMS             "text"
+#define TYPE_PARAMS             "type"
 #define REASON_PARAMS            "reason"
 #define VERSION_PARAMS           "version"
 #define EMOTION_PARAMS           "emotion"
 #define ICON_PARAMS              "icon"
-#define COMMAND_PARAMS           "command"
 #define PARAMS_PARAMS           "params"
 #define URI_PARAMS              "uri"
 #define SIZE_PARAMS             "size"
@@ -54,15 +52,25 @@
 #define STT_PARAMS              "stt"
 #define TTS_PARAMS              "tts"
 #define LLM_PARAMS              "llm"
-#define CMD_PARAMS              "cmd"
+#define SET_PARAMS              "set"
 #define LISTEN_PARAMS           "listen"
 #define ABORT_PARAMS            "abort"
 #define OTA_VER_PARAMS           "otaVersion"
 #define OTA_UPGRADE_PARAMS       "otaUpgrade"
+#define OPENINGREMARKS_PARAMS    "openingRemarks"
+#define CLOSINGREMARKS_PARAMS    "closingRemarks"
+
+#define CHAT_PARAMS         "chat"
+#define OPENING_PARAMS      "opening"
+#define CLOSING_PARAMS      "closing"
+
+#define SIID_PARAMS    "sid"
+#define PIID_PARAMS    "pid"
+#define VALUE_PARAMS   "value"
 
 typedef struct{
     uint8_t binary;
-    int buff_len;
+    int offset;
     int payload_len;
     uint8_t *payload;
 }qm_audio_ws_frame_t;
@@ -98,12 +106,18 @@ typedef struct {
 
     esp_websocket_client_handle_t client;
 
+    int connect;
 }qm_ai_audio_ctx_t;
 
 typedef struct{
     char *method;
     void (*recv_handler)(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
 }qm_ai_audio_params_table_t;
+
+typedef struct{
+    char *str_type;
+    qm_audio_ws_tts_type_t int_type;
+}qm_ai_audio_tts_type_table_t;
 
 static char *cjson_str_get(cJSON *cjson, char *key);
 static int cjson_int_get(cJSON *cjson, char *key, int *data);
@@ -112,8 +126,15 @@ static void hello_reply_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
 static void stt_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
 static void tts_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
 static void llm_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
-static void cmd_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
+static void set_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
 static void ota_upgrade_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
+
+static qm_ai_audio_tts_type_table_t g_tts_type_table[] = 
+{
+    {CHAT_PARAMS,       QM_AUDIO_WS_TTS_TYPE_CHAT},
+    {OPENING_PARAMS,    QM_AUDIO_WS_TTS_TYPE_OPENING},
+    {CLOSING_PARAMS,    QM_AUDIO_WS_TTS_TYPE_CLOSING},
+};
 
 static qm_ai_audio_params_table_t g_param_table[] = 
 {
@@ -121,9 +142,10 @@ static qm_ai_audio_params_table_t g_param_table[] =
     {STT_PARAMS,            stt_recv_handler},
     {TTS_PARAMS,            tts_recv_handler},
     {LLM_PARAMS,            llm_recv_handler},
-    {CMD_PARAMS,            cmd_recv_handler},
+    {SET_PARAMS,            set_recv_handler},
     {OTA_UPGRADE_PARAMS,    ota_upgrade_recv_handler},
 };
+
 
 static void log_error_if_nonzero(const char *message, int error_code)
 {
@@ -158,7 +180,6 @@ static void cjson_recv_handler(qm_ai_audio_ctx_t *auido_ctx, uint8_t *data, int 
     cJSON_Delete(root);
 }
 
-
 static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
 {   
     qm_audio_ws_recv_evt_t recv = {0};
@@ -178,17 +199,22 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                 audio_dev->event_cb(&recv, audio_dev->user_data);
             }
 
+            audio_dev->connect = QM_TRUE;
+
         break;
 
         case QM_AUDIO_EVENT_TYPE_WS_DISCONNECT:
         
             QM_LOGI(LOG_TAG, "QM_AUDIO_EVENT_TYPE_WS_DISCONNECT");
 
-            recv.recv_type = QM_AUDIO_WS_RECV_TYPE_DISCONNECT;
-            if(audio_dev->event_cb){
-                audio_dev->event_cb(&recv, audio_dev->user_data);
+            if(audio_dev->connect){
+                recv.recv_type = QM_AUDIO_WS_RECV_TYPE_DISCONNECT;
+                if(audio_dev->event_cb){
+                    audio_dev->event_cb(&recv, audio_dev->user_data);
+                }
             }
-            esp_websocket_client_stop(audio_dev->client);
+            audio_dev->connect = QM_FALSE;
+
         break;
 
         case QM_AUDIO_EVENT_TYPE_WS_SEND_HELLO:
@@ -213,15 +239,20 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         break;
     }
 } 
+
 static void websocket_audio_recv(qm_ai_audio_ctx_t *audio_dev, uint8_t opcode, uint8_t *payload, int payload_len, int total_size, int offset)
 {
+    int next_malloc = 0;
+    uint8_t *temp = NULL;
     static qm_audio_ws_frame_t audio_recv = {0};
-    if(!offset){
+
+    if(audio_recv.payload == NULL){
         audio_recv.payload = (uint8_t *)qm_calloc(1, total_size);
         if(audio_recv.payload == NULL){
             return ;
         }
-        audio_recv.buff_len = 0;
+
+        audio_recv.offset = 0;
         audio_recv.payload_len = total_size;
     }
 
@@ -229,20 +260,26 @@ static void websocket_audio_recv(qm_ai_audio_ctx_t *audio_dev, uint8_t opcode, u
         return ;
     }
 
-    memcpy(audio_recv.payload + offset, payload, payload_len);
-    audio_recv.buff_len += payload_len;
+    memcpy(audio_recv.payload + audio_recv.offset, payload, payload_len);
+    audio_recv.offset += payload_len;
 
-    if(audio_recv.buff_len < audio_recv.payload_len){
+    if(audio_recv.offset < audio_recv.payload_len){
         return ;
     }
-    
+
     if(opcode == 0x02){
         qm_queue_send(&audio_dev->binary_queue, &audio_recv, sizeof(qm_audio_ws_frame_t));
+
     }else if(opcode == 0x01) {
+
         qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_MSG_RECV, &audio_recv, sizeof(qm_audio_ws_frame_t));
+
+        
     }else{
         qm_free(audio_recv.payload);
     }
+
+    audio_recv.payload = NULL;
 }
 
 static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
@@ -271,8 +308,8 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         }
         break;
     case WEBSOCKET_EVENT_DATA:
-        // QM_LOGI(LOG_TAG,"WEBSOCKET_EVENT_DATA, opcode=0x%02X Total payload length=%d, data_len=%d, offset=%d", data->op_code, data->payload_len, data->data_len, data->payload_offset);
         if(data->op_code == 0x01 || data->op_code == 0x02){
+            // QM_LOGI(LOG_TAG, "Received opcode=%d size=%d, total:%d", data->op_code, data->data_len, data->payload_len);
             websocket_audio_recv(audio_dev, data->op_code ,(uint8_t *)data->data_ptr, data->data_len, data->payload_len, data->payload_offset);
         }
 
@@ -288,7 +325,6 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         break;
     case WEBSOCKET_EVENT_FINISH:
         QM_LOGI(LOG_TAG, "WEBSOCKET_EVENT_FINISH");
-        esp_websocket_client_start(audio_dev->client);
         qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_DISCONNECT, NULL, 0);
         break;
     }
@@ -383,7 +419,7 @@ qm_audio_ws_handle_t qm_audio_ws_create(qm_audio_ws_cfg_t *cfg)
     qm_snprintf(temp_data, CONFIG_QM_AUDIO_WS_MAX_SIZE, "%d", QM_AUDIO_WS_VERSION);
     esp_websocket_client_append_header(audio_ctx->client, VERSION_PARAMS, temp_data);
 
-    if(audio_ctx->did > 0){
+    if(audio_ctx->did >= 0){
         memset(temp_data, 0, CONFIG_QM_AUDIO_WS_MAX_SIZE);
         qm_snprintf(temp_data, CONFIG_QM_AUDIO_WS_MAX_SIZE, "%d", audio_ctx->did);
         esp_websocket_client_append_header(audio_ctx->client, DID_PARAMS, temp_data);
@@ -391,13 +427,18 @@ qm_audio_ws_handle_t qm_audio_ws_create(qm_audio_ws_cfg_t *cfg)
 #if CONFIG_QM_AUDIO_WS_SEND_TASK_SUPPORT   
     qm_task_new(&audio_ctx->send_task, "ws_send", audio_send_process_task, audio_ctx, cfg->task_size, cfg->task_prio);
 #endif
-    audio_thread_create(NULL, "ws_binary",
+
+#if 0
+    qm_task_new(&audio_ctx->binary_task, "ws_binary", audio_data_process_task, audio_ctx, cfg->task_size, cfg->task_prio);
+#else
+    audio_thread_create(NULL, "sr_fetch",
         audio_data_process_task,
         (void *)audio_ctx,
         cfg->task_size,
         cfg->task_prio,
         true,
-        cfg->pinned_core);
+        true);
+#endif
     esp_websocket_register_events(audio_ctx->client, WEBSOCKET_EVENT_ANY, websocket_event_handler, (void *)audio_ctx->client);
     
     qm_event_register(QM_AUDIO_EVENT_ID, qm_audio_event_handler, audio_ctx);
@@ -431,6 +472,20 @@ qm_err_t qm_audio_ws_start(qm_audio_ws_handle_t handle)
     }
 
     esp_websocket_client_start(audio_ctx->client);
+
+    return QM_EOK;
+}
+
+qm_err_t qm_audio_ws_stop(qm_audio_ws_handle_t handle)
+{
+    qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
+    if(audio_ctx == NULL){
+        return -QM_EINVAL;
+    }
+
+    audio_ctx->connect = QM_FALSE;
+    
+    esp_websocket_client_stop(audio_ctx->client);
 
     return QM_EOK;
 }
@@ -578,6 +633,88 @@ __exit:
     return QM_EOK;
 }
 
+qm_err_t qm_audio_ws_opening_remarks(qm_audio_ws_handle_t handle, uint32_t timeout)
+{
+    char *buff = NULL;
+    cJSON *parent = NULL;
+    qm_err_t ret = QM_EOK;
+
+    qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
+    if(audio_ctx == NULL){
+        return -QM_EINVAL;
+    }
+
+    parent = cJSON_CreateObject();
+    if(parent == NULL){
+        return -QM_ENOMEM;
+    }
+
+    cJSON_AddStringToObject(parent, METHOD_PARAMS, OPENINGREMARKS_PARAMS);
+    cJSON_AddStringToObject(parent, ID_PARAMS, audio_ctx->id);
+
+    buff = cJSON_PrintUnformatted(parent);
+    if(buff == NULL){
+        ret = -QM_ERROR;
+        goto __exit;
+    }   
+
+    esp_websocket_client_send_text(audio_ctx->client, buff, strlen(buff), timeout / portTICK_PERIOD_MS);
+__exit:
+
+    if(parent){
+        cJSON_Delete(parent);
+        parent = NULL;
+    }
+
+    if(buff){
+        cJSON_free(buff);
+    }
+
+
+    return QM_EOK;    
+}
+
+qm_err_t qm_audio_ws_closing_remarks(qm_audio_ws_handle_t handle, uint32_t timeout)
+{
+    char *buff = NULL;
+    cJSON *parent = NULL;
+    qm_err_t ret = QM_EOK;
+
+    qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
+    if(audio_ctx == NULL){
+        return -QM_EINVAL;
+    }
+
+    parent = cJSON_CreateObject();
+    if(parent == NULL){
+        return -QM_ENOMEM;
+    }
+
+    cJSON_AddStringToObject(parent, METHOD_PARAMS, CLOSINGREMARKS_PARAMS);
+    cJSON_AddStringToObject(parent, ID_PARAMS, audio_ctx->id);
+
+    buff = cJSON_PrintUnformatted(parent);
+    if(buff == NULL){
+        ret = -QM_ERROR;
+        goto __exit;
+    }   
+
+    esp_websocket_client_send_text(audio_ctx->client, buff, strlen(buff), timeout / portTICK_PERIOD_MS);
+__exit:
+
+    if(parent){
+        cJSON_Delete(parent);
+        parent = NULL;
+    }
+
+    if(buff){
+        cJSON_free(buff);
+    }
+
+
+    return QM_EOK;    
+}
+
 qm_err_t qm_audio_ws_ota_version(qm_audio_ws_handle_t handle, char *version, uint32_t timeout)
 {
     char *buff = NULL;
@@ -719,6 +856,7 @@ static void stt_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
 
 static void tts_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
 {
+    char *tts_type = NULL; 
     qm_audio_ws_recv_evt_t recv = {0};
     qm_audio_ws_recv_tts_t *tts = &recv.data.tts;
     if(audio_ctx == NULL || root == NULL){
@@ -728,10 +866,27 @@ static void tts_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
     recv.recv_type = QM_AUDIO_WS_RECV_TYPE_TTS;
 
     cjson_int_get(root, STATE_PARAMS, (int *)&tts->state);
+
+    tts_type = cjson_str_get(root, TYPE_PARAMS);
+    if(tts_type){
+
+        QM_LOGD(LOG_TAG, "tts_type:%s", tts_type);
+
+        for (int i = 0; i < QM_ARRAY_SIZE(g_tts_type_table); i++)
+        {
+            if(!strncmp(g_tts_type_table[i].str_type, tts_type, strlen(tts_type))){
+                tts->tts_type = g_tts_type_table[i].int_type;
+                break;
+            }
+        }
+
+    }
+
     tts->text = cjson_str_get(root, TEXT_PARAMS);
     if(tts->text){
         QM_LOGD(LOG_TAG, "tts:%s", tts->text);
     }
+
     if(audio_ctx->event_cb){
         audio_ctx->event_cb(&recv, audio_ctx->user_data);
     }
@@ -762,21 +917,100 @@ static void llm_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
     }
 }
 
-static void cmd_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
+static int qm_spec_json_data_value_pack(qm_spec_property_t *property, cJSON *object)
 {
+
+    QM_RETURN_ON_FALSE(object, -QM_EINVAL, LOG_TAG, "object inval");
+    QM_RETURN_ON_FALSE(property, -QM_EINVAL, LOG_TAG, "property inval");
+
+    switch ((object->type & 0xFF))
+    {
+        case cJSON_False:
+            qm_spec_property_pack_bool(property, QM_FALSE);
+        break;
+        
+        case cJSON_True:
+            qm_spec_property_pack_bool(property, QM_TRUE);
+        break;
+
+        case cJSON_Number:
+            qm_spec_property_pack_number(property, object->valueint);
+        break;
+
+        case cJSON_String:
+            qm_spec_property_pack_string(property, object->valuestring, strlen(object->valuestring));
+        break;
+
+        default:
+
+        break;
+    }
+    return QM_EOK;
+}
+
+static void set_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
+{
+    int temp = 0;
+    qm_spec_property_t *property = NULL;
+    cJSON *params_object = NULL;
+    cJSON *sub_object = NULL;
+    cJSON *value_object = NULL;
+
     qm_audio_ws_recv_evt_t recv = {0};
-    qm_audio_ws_recv_cmd_t *cmd = &recv.data.cmd;
+    qm_audio_ws_recv_set_t *set = &recv.data.set;
+    
     if(audio_ctx == NULL || root == NULL){
         return ;
     }
     
-    recv.recv_type = QM_AUDIO_WS_RECV_TYPE_CMD;
+    recv.recv_type = QM_AUDIO_WS_RECV_TYPE_SET;
 
-    cjson_int_get(root, COMMAND_PARAMS, &cmd->command);
-  
+    params_object = cJSON_GetObjectItem(root, PARAMS_PARAMS);
+    if(params_object == NULL){
+        return ;
+    }
+
+    set->property_operation = qm_spec_property_operation_creat();
+    if(set->property_operation == NULL){
+        return ;
+    }
+
+    for (int i = 0; i < cJSON_GetArraySize(params_object); i++)
+    {
+        sub_object = cJSON_GetArrayItem(params_object, i);
+        if(sub_object->type != cJSON_Object){
+            QM_LOGW(LOG_TAG, "set unpack type no object!!");
+            break;
+        }
+
+        property = qm_spec_property_creat();
+        if(property == NULL){
+            QM_LOGW(LOG_TAG, "set unpack property_element no mem");
+            break;  
+        }
+
+        cjson_int_get(sub_object, SIID_PARAMS, &temp);
+        property->siid = temp;
+
+        cjson_int_get(sub_object, PIID_PARAMS, &temp);
+        property->piid = temp;
+
+        value_object = cJSON_GetObjectItem(sub_object, VALUE_PARAMS);
+        if(value_object == NULL){
+            QM_LOGW(LOG_TAG, "set value unpack error!");
+            break;
+        }
+
+        qm_spec_json_data_value_pack(property, value_object);
+        qm_spec_property_add(set->property_operation, property);
+    }
+    
     if(audio_ctx->event_cb){
         audio_ctx->event_cb(&recv, audio_ctx->user_data);
     }
+
+    qm_spec_property_operation_delete(set->property_operation);
+    set->property_operation = NULL;
 }
 
 static void ota_upgrade_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)

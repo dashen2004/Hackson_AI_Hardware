@@ -9,8 +9,16 @@
 
 #define TAG  "player_hal"
 
+#include "es8311.h"
+
 static esp_err_t audio_mute_function(AUDIO_PLAYER_MUTE_SETTING setting)
 {
+    if(setting == AUDIO_PLAYER_MUTE){
+        es8311_set_voice_mute(true);
+    }else{
+        es8311_set_voice_mute(false);
+    }
+
     return ESP_OK;
 }
 
@@ -78,6 +86,7 @@ static qm_err_t audio_player_dev_init(qm_player_dev_t *player)
                                      .write_fn = bsp_i2s_write,
                                      .clk_set_fn = audio_codec_set_fs,
                                      .priority = 12,
+                                     .coreID = 1,
                                    };
 
     ESP_ERROR_CHECK(audio_player_new(config));

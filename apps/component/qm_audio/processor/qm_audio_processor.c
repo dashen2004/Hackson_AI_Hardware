@@ -314,7 +314,7 @@
      audio_rec_cfg_t cfg = AUDIO_RECORDER_DEFAULT_CFG();
      cfg.read = (qm_audio_data_read_t)&input_cb_for_afe;
      cfg.event_cb = params->cb;
-     cfg.wakeup_time = 120000;
+     cfg.wakeup_time = 15 * 60 * 1000;
      
      if(recorder_vc_cfg){
         cfg.vc_handle = qm_audio_vc_create(recorder_vc_cfg, &cfg.vc_iface);

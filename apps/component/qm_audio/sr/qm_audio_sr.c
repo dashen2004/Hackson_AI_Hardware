@@ -140,8 +140,6 @@ static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_
             vad_state = afe_result->vad_state;
             QM_LOGD(TAG, "vad state:%d", afe_result->vad_state);
             
-            multinet->clean(recorder_sr->mn_handle);
-
             if (afe_result->vad_state == VAD_SPEECH) {
                 detect_flag = 1;
 
@@ -164,8 +162,8 @@ static qm_err_t recorder_mn_detect(recorder_sr_t *recorder_sr, afe_fetch_result_
                 }
 
             }else{
-    
                 detect_flag = 0;
+                multinet->clean(recorder_sr->mn_handle);
             }
         }
     }

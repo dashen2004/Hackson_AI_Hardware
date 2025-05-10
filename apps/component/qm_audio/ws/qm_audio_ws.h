@@ -2,6 +2,7 @@
 #define _QM_AUDIO_WS_H_
 
 #include "qm.h"
+#include "qm_spec_api.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,14 +30,13 @@ typedef enum {
     QM_AUDIO_WS_RECV_TYPE_STT,              /*!< 服务端回复客户端上行语音的识别结果 */
     QM_AUDIO_WS_RECV_TYPE_LLM,              /*!< 服务端发送大模型识别的感情信息 */
     QM_AUDIO_WS_RECV_TYPE_TTS,              /*!< 服务端端下发回复音频的状态及字幕信息 */
-    QM_AUDIO_WS_RECV_TYPE_CMD,              /*!< 服务端下发设备控制命令 */
+    QM_AUDIO_WS_RECV_TYPE_SET,              /*!< 服务端下发设备控制命令 */
     QM_AUDIO_WS_RECV_TYPE_OTA_UPGRADE,      /*!< 服务端下发设备ota升级命令*/
 
     QM_AUDIO_WS_RECV_TYPE_CONNECT,          /*!< 已连接服务器*/
     QM_AUDIO_WS_RECV_TYPE_DISCONNECT,       /*!< 未连接服务器*/
 
 } qm_audio_ws_recv_type_t;
-
 
 typedef enum {
     QM_AUDIO_WS_FMT_TYPE_OPUS = 1,
@@ -61,6 +61,12 @@ typedef enum {
 typedef enum {
     QM_AUDIO_WS_ABORT_CODE_DETECT_WAKEUP = 1,
 } qm_audio_ws_abort_code_t;    
+
+typedef enum {
+    QM_AUDIO_WS_TTS_TYPE_CHAT = 0,
+    QM_AUDIO_WS_TTS_TYPE_OPENING,
+    QM_AUDIO_WS_TTS_TYPE_CLOSING,
+} qm_audio_ws_tts_type_t;
 
 typedef enum {
     QM_AUDIO_WS_TTS_STATE_START = 1,
@@ -104,15 +110,14 @@ typedef struct{
 
 typedef struct{
 
+    qm_audio_ws_tts_type_t tts_type;
     qm_audio_ws_tts_state_t state;
     char *text;
 } qm_audio_ws_recv_tts_t;  
 
 typedef struct{
-
-    int command;
-
-} qm_audio_ws_recv_cmd_t;  
+    qm_spec_property_operation_t  *property_operation;
+} qm_audio_ws_recv_set_t;  
 
 typedef struct{
     int size;
@@ -134,7 +139,7 @@ typedef struct {
         qm_audio_ws_recv_stt_t          stt;
         qm_audio_ws_recv_llm_t          llm;
         qm_audio_ws_recv_tts_t          tts;
-        qm_audio_ws_recv_cmd_t          cmd;
+        qm_audio_ws_recv_set_t          set;
         qm_audio_ws_recv_ota_upgrade_t  ota_upgrade;
 
     }data;
@@ -210,6 +215,16 @@ qm_err_t qm_audio_ws_start(qm_audio_ws_handle_t handle);
  * @return ESP_OK
  *         ESP_FAIL
  */
+qm_err_t qm_audio_ws_stop(qm_audio_ws_handle_t handle);
+
+/**
+ * @brief 
+ *
+ * @param handle Audio websocket handle
+ *
+ * @return ESP_OK
+ *         ESP_FAIL
+ */
 qm_err_t qm_audio_ws_hello(qm_audio_ws_handle_t handle, uint32_t timeout);
 
 /**
@@ -231,6 +246,26 @@ qm_err_t qm_audio_ws_listen(qm_audio_ws_handle_t handle, qm_audio_ws_listen_para
  *         ESP_FAIL
  */
 qm_err_t qm_audio_ws_abort(qm_audio_ws_handle_t handle, qm_audio_ws_abort_code_t code, uint32_t timeout);
+
+/**
+ * @brief 请求播放欢开场白，平台会终止当前回复进程，播放设备当前智能体角色的“开场白”
+ *
+ * @param handle Audio websocket handle
+ *
+ * @return ESP_OK
+ *         ESP_FAIL
+ */
+qm_err_t qm_audio_ws_opening_remarks(qm_audio_ws_handle_t handle, uint32_t timeout);
+
+/**
+ * @brief 请求播放告别词，平台会终止当前回复进程，播放设备当前智能体角色的“告别词”
+ *
+ * @param handle Audio websocket handle
+ *
+ * @return ESP_OK
+ *         ESP_FAIL
+ */
+qm_err_t qm_audio_ws_closing_remarks(qm_audio_ws_handle_t handle, uint32_t timeout);
 
 /**
  * @brief 

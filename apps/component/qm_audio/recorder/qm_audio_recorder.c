@@ -50,6 +50,7 @@
 #include "qm_audio_vc_iface.h"
 #include "qm_audio_subproc_iface.h"
 #include "qm_audio_board_def.h"
+#include "qm_audio_stream.h"
 
 #define DEFAULT_READ_BUFFER_SIZE (2048)
 #define DEFAULT_CMD_Q_LEN        (3)

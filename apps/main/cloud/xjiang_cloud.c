@@ -16,8 +16,8 @@
 #include "audio_thread.h"
 #include "audio_mem.h"
 
+#include "qm_wifi.h"
 #include "vars.h"
-
 #include "bsp_light.h"
 
 #define LOG_TAG "APP"
@@ -32,6 +32,7 @@ static qm_work_t set_blink_action = { 0 };
 
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv);
 static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv);
+static void handle_sta_rssi(char *pwbuf, int blen, int argc, char **argv);
 
 bool_t get_connect(void) {
     return connect;
@@ -47,6 +48,12 @@ static struct qm_cli_command resetinfo_key = {
     .name = "reset",
     .help = "cloud reset",
     .function = handle_resetinfo
+};
+
+static struct qm_cli_command sta_rssi_key = {
+    .name = "sta_rssi",
+    .help = "get sta rssi",
+    .function = handle_sta_rssi
 };
 
 
@@ -87,7 +94,22 @@ static void delay_set_blink(void *argv) {
     wifi_set_blink();
 }
 
-static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void *userdata) {
+static void handle_sta_rssi(char *pwbuf, int blen, int argc, char **argv)
+{
+    int8_t rssi = 0;
+
+    if(!connect){
+        qm_cli_printf("WARING:device not connect wifi!!!");
+        return ;
+    }
+
+    qm_wifi_sta_get_rssi(&rssi);
+
+    qm_cli_printf("wifi rssi:%d!!!", (int)rssi);
+}
+
+static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void *userdata)
+{
     static qm_iot_event_type_t last_type;
     if(handle == NULL || event == NULL){
         return ;
@@ -96,8 +118,24 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
     switch (event->type)
     {
         case QM_IOT_EVENT_CONFIG_TIMEOUT:
+            QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CONFIG_TIMEOUT");
+            connect = QM_FALSE;
             qm_post_delayed_action(&set_disconnected_action, delay_set_disconnected, NULL, 0);
-            break;
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG_TIMEOUT, NULL, 0);
+            
+        break;
+
+        case QM_IOT_EVENT_CONFIG:
+            QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CONFIG");
+            connect = QM_FALSE;
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG, NULL, 0);
+        break;
+
+        case QM_IOT_EVENT_CONNING_LOCAL: { // 连接路由器
+            QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CONNING_LOCAL");
+            connect = QM_FALSE;
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_USB_EVENT_CONNING_LOCAL, NULL, 0);
+        }
 
         case QM_IOT_EVENT_CLOUD_CONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_CONN");
@@ -248,6 +286,7 @@ int xjiang_cloud_init(void)
   
     qm_cli_register_command(&meminfo_key);
     qm_cli_register_command(&resetinfo_key);
+    qm_cli_register_command(&sta_rssi_key);
 
     iot_handle = qm_iot_init();
     if(iot_handle == NULL){
