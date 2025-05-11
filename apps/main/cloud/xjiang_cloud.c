@@ -135,7 +135,8 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CONNING_LOCAL");
             connect = QM_FALSE;
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_USB_EVENT_CONNING_LOCAL, NULL, 0);
-        }
+        } 
+        break;
 
         case QM_IOT_EVENT_CLOUD_CONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_CONN");
