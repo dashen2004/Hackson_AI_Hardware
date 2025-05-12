@@ -1,1 +1,0 @@
-.. include:: ../en/english-chinese-glossary.rst

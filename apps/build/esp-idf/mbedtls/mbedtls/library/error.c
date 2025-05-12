@@ -1,1 +1,0 @@
-/home/huanglei/work/esp32/qm_audio/esp32_combo/esp-idf/components/mbedtls/mbedtls/library/error.c

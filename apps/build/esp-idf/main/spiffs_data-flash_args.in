@@ -1,2 +1,0 @@
---flash_mode dio --flash_freq 80m --flash_size detect
-0xba9000 spiffs_data.bin

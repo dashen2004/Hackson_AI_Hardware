@@ -1,7 +1,0 @@
---flash_mode dio --flash_freq 80m --flash_size detect
-0x0 bootloader/bootloader.bin
-0x20000 volc_rtc.bin
-0x8000 partition_table/partition-table.bin
-0x16000 ota_data_initial.bin
-0xba9000 spiffs_data.bin
-0x43d000 srmodels/srmodels.bin

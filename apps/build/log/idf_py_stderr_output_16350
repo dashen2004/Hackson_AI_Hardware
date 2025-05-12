@@ -1,2 +1,0 @@
-Command: ninja all
-warning: RTC_TOKEN (defined at /home/huanglei/work/esp32/qm_audio/esp32_combo/apps/main/Kconfig.projbuild:74) defined without a type
