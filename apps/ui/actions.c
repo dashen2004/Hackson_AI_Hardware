@@ -90,6 +90,7 @@ static void wifi_blink_timer_handler(qm_timer_t *timer,  void *arg) {
 }
 
 void wifi_set_disconnected(void) {
+    printf("wifi set disconnected\n");
     if (qm_timer_is_valid(&wifi_blink_timer)) {
         qm_timer_stop(&wifi_blink_timer);
         qm_timer_free(&wifi_blink_timer);
@@ -104,9 +105,11 @@ void wifi_set_disconnected(void) {
 }
 
 void wifi_set_connected(void) {
+    printf("wifi set connected\n");
     if (qm_timer_is_valid(&wifi_blink_timer)) {
         qm_timer_stop(&wifi_blink_timer);
         qm_timer_free(&wifi_blink_timer);
+
     }
     lvgl_port_lock(0);
     lv_obj_add_flag(objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
@@ -118,6 +121,7 @@ void wifi_set_connected(void) {
 }
 
 void wifi_set_blink(void) {
+    printf("wifi set blink\n");
     if (!qm_timer_is_valid(&wifi_blink_timer)) {
         qm_timer_new  (&wifi_blink_timer, wifi_blink_timer_handler, NULL, 500, 1);
         qm_timer_start(&wifi_blink_timer);
@@ -297,20 +301,29 @@ void action_network_config_cancel_click(lv_event_t * e) {
 //     xjiang_cloud_reset();
 // }
 
+static uint8_t win_flag = 0;
+
 void action_network_config_submit_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
-        
-        lv_obj_add_flag  (objects.container_netconfig_prepare, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag  (objects.container_netconfig_process, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag  (objects.container_netconfig_success, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(objects.container_netconfig_reboot,  LV_OBJ_FLAG_HIDDEN);
-        loadScreenEx(SCREEN_ID_PAGE_NETCONFIG);
-        set_var_awss_value(true, true);
+        if (win_flag == 1) {
+            set_var_mute_value(false, true);    // 静音: 默认false
+            set_var_volume_value(70, true);     // 音量: 默认70
+            set_var_scr_tmo_value(0, true);     // 熄屏时间: 默认0(30S)
+            set_var_language_value(0, false);   // 语言: 默认0(中文)
+            xjiang_cloud_reset();
+        } else {
+            lv_obj_add_flag  (objects.container_netconfig_prepare, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag  (objects.container_netconfig_process, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag  (objects.container_netconfig_success, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(objects.container_netconfig_reboot,  LV_OBJ_FLAG_HIDDEN);
+            loadScreenEx(SCREEN_ID_PAGE_NETCONFIG);
+            set_var_awss_value(true, true);
 
-        if (!qm_timer_is_valid(&netconfig_reboot_timer)) {
-            netconfig_reboot_countdown = 3;
-            qm_timer_new  (&netconfig_reboot_timer, netconfig_reboot_timer_handler, NULL, 1000, 1);
-            qm_timer_start(&netconfig_reboot_timer);
+            if (!qm_timer_is_valid(&netconfig_reboot_timer)) {
+                netconfig_reboot_countdown = 3;
+                qm_timer_new  (&netconfig_reboot_timer, netconfig_reboot_timer_handler, NULL, 1000, 1);
+                qm_timer_start(&netconfig_reboot_timer);
+            }
         }
         
         // qm_post_delayed_action(&cloud_reset_delayed_action, cloud_reset_delayed_action_handler, NULL, 3000);
@@ -320,6 +333,18 @@ void action_network_config_submit_click(lv_event_t * e) {
 
 static void goto_wifi_page(void) {
     if (lv_obj_has_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN)) {
+        char *s = "点击确定后，设备将进入\n重新配网状态";
+        lv_label_set_text(objects.text_network_config_infomation, s);
+        win_flag = 0;
+        lv_obj_clear_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void goto_factory_reset_page(void) {
+    if (lv_obj_has_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN)) {
+        char *s = "点击确定\n设备将恢复出厂设置";
+        lv_label_set_text(objects.text_network_config_infomation, s);
+        win_flag = 1;
         lv_obj_clear_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN);
     }
 }
@@ -327,6 +352,13 @@ static void goto_wifi_page(void) {
 // ******** 关于页面 ******** //
 static void goto_about_page(void) {
     loadScreenEx(SCREEN_ID_PAGE_SETUP_ABOUT);
+}
+
+// 恢复出厂设置
+void action_factory_reset_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
+        goto_factory_reset_page();
+    }
 }
 
 // ******** 语音识别页面 ******** //
@@ -502,53 +534,69 @@ void goto_ota_failure_page(void) {
     }
 }
 
-// ******** 总体手势 ******** //
-void action_gesture_handler(lv_event_t * e) {
-    lv_indev_wait_release(lv_indev_get_act()); // 避免与CLICKED冲突
-
+void action_back_click(lv_event_t * e) {
     lv_obj_t *currentPage = lv_scr_act();
-    lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
     if (bsp_lcd_bl_brightness_percent_get() != 0) {
-        if (currentPage == objects.page_main) {
-            if (dir == LV_DIR_LEFT) {
-                goto_recog_page();
-            } else if (dir == LV_DIR_RIGHT) {
-                goto_brightness_page();
-            } else if (dir == LV_DIR_TOP) {
-                goto_menu_page();
-            } else if (dir == LV_DIR_BOTTOM) {
-                goto_setup_page();
-            }
-        }
-        else if (currentPage == objects.page_brightness) {
-            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
-                goto_main_page();
-            }
-        }
-        else if (currentPage == objects.page_mode || currentPage == objects.page_brightness || currentPage == objects.page_setup) {
-            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
-                goto_main_page();
-            }
-        }
-        else if (currentPage == objects.page_recog) {
-            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
-                set_var_recog_page_leave(1);
-                goto_main_page();
-            }
+        if (currentPage == objects.page_brightness || currentPage == objects.page_mode || currentPage == objects.page_setup || currentPage == objects.page_recog) {
+            goto_main_page();
         }
         else if (currentPage == objects.page_setup_volume || currentPage == objects.page_setup_screen || currentPage == objects.page_setup_language || currentPage == objects.page_setup_about) {
-            if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
-                goto_setup_page();
-            }
+            goto_setup_page();
         }
     }
 }
 
+// // ******** 总体手势 ******** //
+// void action_gesture_handler(lv_event_t * e) {
+//     lv_indev_wait_release(lv_indev_get_act()); // 避免与CLICKED冲突
+
+//     lv_obj_t *currentPage = lv_scr_act();
+//     lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+//     if (bsp_lcd_bl_brightness_percent_get() != 0) {
+//         if (currentPage == objects.page_main) {
+//             if (dir == LV_DIR_LEFT) {
+//                 goto_recog_page();
+//             } else if (dir == LV_DIR_RIGHT) {
+//                 goto_brightness_page();
+//             } else if (dir == LV_DIR_TOP) {
+//                 goto_menu_page();
+//             } else if (dir == LV_DIR_BOTTOM) {
+//                 goto_setup_page();
+//             }
+//         }
+//         else if (currentPage == objects.page_brightness) {
+//             if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+//                 goto_main_page();
+//             }
+//         }
+//         else if (currentPage == objects.page_mode || currentPage == objects.page_brightness || currentPage == objects.page_setup) {
+//             if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+//                 goto_main_page();
+//             }
+//         }
+//         else if (currentPage == objects.page_recog) {
+//             if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+//                 set_var_recog_page_leave(1);
+//                 goto_main_page();
+//             }
+//         }
+//         else if (currentPage == objects.page_setup_volume || currentPage == objects.page_setup_screen || currentPage == objects.page_setup_language || currentPage == objects.page_setup_about) {
+//             if (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT) {
+//                 goto_setup_page();
+//             }
+//         }
+//     }
+// }
+
 // ******** 总体事件(来用亮屏) ******** //
 void event_all_handler(lv_event_t * e) {
     lv_event_code_t event = lv_event_get_code(e);
+    int current_brightness_percent = bsp_lcd_bl_brightness_percent_get();
     if (event <= LV_EVENT_HOVER_LEAVE) { // Input device events
         turnoff_timer_reset(0);
+    }
+    if (event == LV_EVENT_CLICKED && current_brightness_percent && lv_scr_act() == objects.page_main) {
+        goto_menu_page();
     }
 }
 

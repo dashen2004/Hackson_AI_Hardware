@@ -68,6 +68,7 @@ typedef struct _objects_t {
     lv_obj_t *text_setup_language;
     lv_obj_t *text_setup_about;
     lv_obj_t *text_setup_wifi;
+    lv_obj_t *text_setup_factoryreset;
     lv_obj_t *container_mask;
     lv_obj_t *submit_win;
     lv_obj_t *text_network_config_infomation;
