@@ -184,15 +184,16 @@ void action_page_brightness_event_cb(lv_event_t * e) {
 
     lv_event_code_t event = lv_event_get_code(e);
     lv_obj_t *obj = (lv_obj_t *)lv_event_get_target(e);
-    if (event == LV_EVENT_GESTURE) {
-        lv_indev_wait_release(lv_indev_get_act()); 
-        if (obj == objects.page_brightness) {
-            lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-            if (bsp_lcd_bl_brightness_percent_get() != 0 && (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT)) {
-                goto_main_page();
-            }
-        }
-    } else if (event == LV_EVENT_CLICKED) { 
+    // if (event == LV_EVENT_GESTURE) {
+    //     lv_indev_wait_release(lv_indev_get_act()); 
+    //     if (obj == objects.page_brightness) {
+    //         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+    //         if (bsp_lcd_bl_brightness_percent_get() != 0 && (dir == LV_DIR_LEFT || dir == LV_DIR_RIGHT)) {
+    //             goto_main_page();
+    //         }
+    //     }
+    // } else 
+    if (event == LV_EVENT_CLICKED) { 
         if (obj == objects.image_brightness_light_onoff) {
             if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
                 set_var_brightness_onoff(bsp_light_store_get()->on_off ? false : true);

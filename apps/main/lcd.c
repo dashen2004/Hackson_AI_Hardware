@@ -466,7 +466,7 @@ static int        turnoff_timeout_tbl[4] = { 30000, 60000, 300000, 2147483647 };
 
 static int8_t get_emotion_idx(char *s) {
     for (uint8_t i = 0; i < EMOTION_NUM; i++) {
-        if (strcmp(emotions[i], s) == 0) {
+        if (strncmp(emotions[i], s, strlen(emotions[i])) == 0) {
             return i;
         }
     }
@@ -478,6 +478,7 @@ static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_dat
         case QM_AUDIO_WS_RECV_TYPE_LLM: {
             turnoff_timer_reset(1);
             int8_t idx = get_emotion_idx(event->data.llm.emotion);
+            printf("QM_AUDIO_WS_RECV_TYPE_LLM: %s##, %d\n", event->data.llm.emotion, idx);
             if (idx >= 0 && idx < 21) {
                 set_var_emotion_id(idx);
             }
