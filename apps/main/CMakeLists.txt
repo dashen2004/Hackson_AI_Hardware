@@ -1,5 +1,5 @@
 set(UI_DIR ../ui) 
-file(GLOB_RECURSE UI_SRCS ${UI_DIR}/*.c)
+file(GLOB UI_SRCS ${UI_DIR}/*.c)
 
 set(COMPONENT_SRCS 
 

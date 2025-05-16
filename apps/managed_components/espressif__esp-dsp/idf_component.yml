@@ -12,7 +12,7 @@ files:
 issues: https://github.com/espressif/esp-dsp/issues
 repository: git://github.com/espressif/esp-dsp.git
 repository_info:
-  commit_sha: 3a8bade3e4f702770cc8e9ff22329c803acea51b
+  commit_sha: 375e2fe396ec415d3c247ef9cd55e4b6548398a0
   path: .
 url: https://github.com/espressif/esp-dsp
-version: 1.6.0
+version: 1.6.2
