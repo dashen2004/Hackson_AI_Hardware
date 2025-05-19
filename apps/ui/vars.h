@@ -72,6 +72,9 @@ void set_var_recog_page_leave(bool value);
 uint32_t get_var_screen_operation_tick(void);
 void set_var_screen_operation_tick(void);
 
+char *get_var_ip_addr(void);
+void set_var_ip_addr(char *ip_addr);
+
 #ifdef __cplusplus
 }
 #endif

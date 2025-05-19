@@ -14,6 +14,7 @@
 //#include "esp_flash.h"
 //#include "esp_system.h"
 #include "esp_log.h"
+#include <esp_mac.h>
 
 #include "driver/ledc.h"
 #include "driver/i2c_master.h"
@@ -30,6 +31,7 @@
 #include "qm.h"
 #include "qm_kv.h"
 
+#include "audio_main.h"
 #include "lcd.h"
 
 #define LOG_TAG "app"
@@ -552,6 +554,19 @@ static void lcd_task(void *arg) {
 
     lvgl_port_lock(0); // 锁定lvgl接口 
     ui_init();
+    // MAC地址
+    char mac[6], s_mac[16];
+    esp_read_mac((uint8_t *)mac, ESP_MAC_WIFI_STA);
+    sprintf(s_mac, "%02X%02X%02X%02X%02X%02X", mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
+    lv_label_set_text(objects.text_about_mac_addr_value, s_mac);
+    // 硬件版本
+    char hw_ver[16];
+    sprintf(hw_ver, "v%d.%d.%d", CONFIG_HARDWARE_VERSION / 100, (CONFIG_HARDWARE_VERSION % 100) / 10, CONFIG_HARDWARE_VERSION % 10);
+    lv_label_set_text(objects.text_about_hw_ver_value, hw_ver);
+    // 软件版本
+    char sw_ver[16];
+    sprintf(sw_ver, "v%d.%d.%d", CONFIG_XJIANG_VERSION / 100, (CONFIG_XJIANG_VERSION % 100) / 10, CONFIG_XJIANG_VERSION % 10);
+    lv_label_set_text(objects.text_about_sw_ver_value, sw_ver);
     lvgl_port_unlock(); // 解锁lvgl接口
 
     vTaskDelay(500);

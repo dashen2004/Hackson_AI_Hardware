@@ -54,6 +54,8 @@ static int8_t   var_ota_percent = 0;
 static bool     var_recog_page_leave = 0; // 从识别页离开
 static uint32_t var_screen_operation_tick = 0;
 
+static char     var_ip_addr[32];
+
 char *get_var_city(void) {
     return var_city;
 }
@@ -261,4 +263,12 @@ uint32_t get_var_screen_operation_tick(void) {
 
 void set_var_screen_operation_tick(void) {
     var_screen_operation_tick = qm_now_ms();
+}
+
+char *get_var_ip_addr(void) {
+    return var_ip_addr;
+}
+
+void set_var_ip_addr(char *ip_addr) {
+    strcpy(var_ip_addr, ip_addr);
 }

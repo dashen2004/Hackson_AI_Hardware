@@ -1871,7 +1871,11 @@ void create_screen_page_setup_about() {
 }
 
 void tick_screen_page_setup_about() {
-
+    char *new_val = get_var_ip_addr();
+    char *cur_val = lv_label_get_text(objects.text_about_ip_addr_value);
+    if (strcmp(new_val, cur_val)) {
+        lv_label_set_text(objects.text_about_ip_addr_value, new_val);
+    }
 }
 
 void create_screen_page_netconfig() {

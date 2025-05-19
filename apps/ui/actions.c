@@ -538,7 +538,11 @@ void goto_ota_failure_page(void) {
 void action_back_click(lv_event_t * e) {
     lv_obj_t *currentPage = lv_scr_act();
     if (bsp_lcd_bl_brightness_percent_get() != 0) {
-        if (currentPage == objects.page_brightness || currentPage == objects.page_mode || currentPage == objects.page_setup || currentPage == objects.page_recog) {
+        if (currentPage == objects.page_brightness || currentPage == objects.page_mode || currentPage == objects.page_setup/* || currentPage == objects.page_recog*/) {
+            goto_main_page();
+        }
+        else if (currentPage == objects.page_recog) {
+            set_var_recog_page_leave(1);
             goto_main_page();
         }
         else if (currentPage == objects.page_setup_volume || currentPage == objects.page_setup_screen || currentPage == objects.page_setup_language || currentPage == objects.page_setup_about) {

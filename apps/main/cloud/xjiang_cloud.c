@@ -20,6 +20,9 @@
 #include "vars.h"
 #include "bsp_light.h"
 
+#include "esp_netif.h"
+#include "esp_netif_types.h"
+
 #define LOG_TAG "APP"
 
 static void *iot_handle = NULL;
@@ -121,22 +124,22 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CONFIG_TIMEOUT");
             connect = QM_FALSE;
             qm_post_delayed_action(&set_disconnected_action, delay_set_disconnected, NULL, 0);
-            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG_TIMEOUT, NULL, 0);
-            
-        break;
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG_TIMEOUT, NULL, 0);    
+            break;
 
         case QM_IOT_EVENT_CONFIG:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CONFIG");
             connect = QM_FALSE;
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG, NULL, 0);
-        break;
+            break;
 
         case QM_IOT_EVENT_CONNING_LOCAL: { // 连接路由器
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CONNING_LOCAL");
             connect = QM_FALSE;
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_USB_EVENT_CONNING_LOCAL, NULL, 0);
+            break;
         } 
-        break;
+        
 
         case QM_IOT_EVENT_CLOUD_CONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_CONN");
@@ -150,28 +153,34 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
                 qm_timer_start(&weather_request_timer);
             }
             qm_post_delayed_action(&set_connected_action, delay_set_connected, NULL, 0);
-        break;
+            break;
 
         case QM_IOT_EVENT_CLOUD_DISCONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_DISCONN");
             connect = QM_FALSE;
             qm_post_delayed_action(&set_blink_action, delay_set_blink, NULL, 0);
-        break;
+            break;
 
         case QM_IOT_EVENT_LOCAL_CONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_LOCAL_CONN");
+            esp_netif_ip_info_t ip_info;
+            int ret = esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"), &ip_info);
+            char s_ip[32];
+            sprintf(s_ip, "%d.%d.%d.%d", IP2STR(&(ip_info.ip)));
+            set_var_ip_addr(s_ip);
             connect = QM_FALSE;
-        break;
+            break;
 
         case QM_IOT_EVENT_LOCAL_DISCONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_LOCAL_DISCONN");
+            set_var_ip_addr("-");
             connect = QM_FALSE;
-        break;
+            break;
 
         case QM_IOT_EVENT_RESET:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_RESET");
             connect = QM_FALSE;
-        break;
+            break;
 
         case QM_IOT_EVENT_WEATHER_NOTIFY:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_WEATHER_NOTIFY");
@@ -192,7 +201,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             set_var_weather_id(event->data.weather_notify.weather_type);
             set_var_temperature(event->data.weather_notify.temp);
             qm_cancel_delayed_action(&weather_request_timeout_action);
-        break;
+            break;
 
         case QM_IOT_EVENT_OTA_START:
             set_var_ota_status(0, true);
