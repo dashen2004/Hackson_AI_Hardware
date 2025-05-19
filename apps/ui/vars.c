@@ -9,6 +9,7 @@
 #include "es8311.h"
 #include "qm_kv.h"
 #include "audio_light.h"
+#include "bsp_audio.h"
 
 // static char var_mode_nightlamp_title[33] = "小夜灯";
 // static char var_mode_read_title[33] = "阅读";
