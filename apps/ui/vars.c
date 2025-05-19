@@ -89,6 +89,7 @@ void set_var_brightness_onoff(bool value) {
     if (bsp_light_store_get()->on_off != value) {
         bsp_light_bri_on_off(value);
         audio_light_snapshot_report();
+        bsp_light_store_update();
     }
 }
 
@@ -101,6 +102,7 @@ int32_t get_var_brightness_top() {
 void set_var_brightness_top(int32_t value) {
     bsp_light_bri_up_set(value);
     audio_light_snapshot_report();
+    bsp_light_store_update();
 }
 
 int32_t get_var_brightness_bottom() {
@@ -112,6 +114,7 @@ int32_t get_var_brightness_bottom() {
 void set_var_brightness_bottom(int32_t value) {
     bsp_light_bri_down_set(value);
     audio_light_snapshot_report();
+    bsp_light_store_update();
 }
 
 int8_t get_var_light_mode(void) {
@@ -121,6 +124,7 @@ int8_t get_var_light_mode(void) {
 void set_var_light_mode(int8_t value, bool flag) {
     bsp_light_mode(value);
     audio_light_snapshot_report();
+    bsp_light_store_update();
 }
 
 bool get_var_mute_value(void) {
