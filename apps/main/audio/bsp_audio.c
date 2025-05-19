@@ -264,15 +264,14 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                     .data_cb  = qm_audio_ws_data_cb,
                 };
                 
-                
+            
                 qm_iot_audio_uri_get(bsp_audio_handle.audio_uri, &len);
-                if(bsp_audio_handle.audio_uri[0] == '\0')
+                if(bsp_audio_handle.audio_uri[0] != '\0')
                 {
-                    QM_LOGE("AUDIO", "dy audio uri NULL");
-                    break;
+                    params.uri = bsp_audio_handle.audio_uri;
+                    QM_LOGD("AUDIO", "dy audio uri:%s", params.uri);
                 }
-                params.uri = bsp_audio_handle.audio_uri;
-                QM_LOGD("AUDIO", "dy audio uri:%s", params.uri);
+                
                 bsp_audio_handle.ai_handle = qm_audio_ws_create(&params);
                 if(bsp_audio_handle.ai_handle == NULL){
                     break;
