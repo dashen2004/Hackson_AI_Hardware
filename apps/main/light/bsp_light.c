@@ -86,6 +86,7 @@ static qm_err_t light_set_lightness_blink(bsp_light_info_t *light_info, int ligh
  
     QM_LOGD(LOG_TAG,"[blink]:%d,(%d,%d)d\n", light_info->alg_id, lightness_new, lightness_algo);
         
+    light_info->lightness = lightness_new;
     qm_light_driver_blink(light_info->handle, 0, lightness_new, LIGHT_BLINK_INTERVAL, LIGHT_BLINK_BEGIN_DUTY, LIGHT_BLINK_COUNT);
 
     return QM_EOK;
