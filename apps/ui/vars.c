@@ -125,14 +125,14 @@ void set_var_light_mode(int8_t value, bool flag) {
 bool get_var_mute_value(void) {
     int mute = 0;
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    es8311_get_voice_mute(&mute);
+    mute = bsp_audio_get_voice_mute();
 #endif
     return ( mute != 0 );
 }
 
 void set_var_mute_value(bool value, bool flag) {
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    es8311_set_voice_mute(value);
+    bsp_audio_set_voice_mute(value);
     if (flag) {
         qm_kv_set(MUTE_KEY_NAME, &value, sizeof(bool), 1);
     }

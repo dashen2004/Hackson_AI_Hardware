@@ -30,10 +30,11 @@
 #include "qm_iot_config.h"
 
 #include "qm_audio_ws.h"
-
 #include "qm_cli.h"
 #include "qm_kv.h"
+
 #include "qm_gpio.h"
+#include "qm_utils_timer.h"
 #include "es8311.h"
 
 static const char* TAG = "volc_rtc";
@@ -50,6 +51,8 @@ static const char* TAG = "volc_rtc";
 
 struct bsp_audio_handle_t {
     
+    int mute;
+
     int ws_connect;
     int rec_type;
 
@@ -72,6 +75,10 @@ struct bsp_audio_handle_t {
     qm_work_t  ind_timer;
 
     qm_work_t  reconn_timer;
+
+#if CONFIG_SUPPORT_ONLINE_OPEN_WAV
+    int open_or_close;
+#endif
 
     char audio_uri[CONFIG_QM_AUDIO_URL_MAX_SIZE + 1];
 
@@ -128,7 +135,7 @@ static void wakeup_timeout_handle(void *arg)
     if(bsp_audio_handle.ws_connect){
         listen.state = QM_AUDIO_WS_LISTEN_STATE_STOP;
         bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_END;
-        qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, QM_WAIT_FOREVER);
+        qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
     }
 
     qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_FALSE);
@@ -158,10 +165,16 @@ static void ind_timeout_handle(void *arg)
         break;
         
         case CONFIG_AUDIO_SUB_EVENT_NET_ERROR:
-        
+            
+            bsp_audio_handle.ws_connect = QM_FALSE;
+            
+            xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
+            
+            qm_cancel_delayed_action(&bsp_audio_handle.ind_timer);
+
             player_pipeline_stop(bsp_audio_handle.player_pipeline);
             qm_player_play_file(bsp_audio_handle.player_handle, CONN_ERROR_WAV);
-            qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONFIG_IND_TIMEOUT);
+            qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONN_ERROR_TIMEOUT);
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_CONN_WS:
@@ -180,7 +193,7 @@ static void ind_timeout_handle(void *arg)
             
             listen.state = QM_AUDIO_WS_LISTEN_STATE_START;
             bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_START;
-            qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, QM_WAIT_FOREVER);
+            qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
 
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID, &bsp_audio_handle.command_str[0], 0);
         #endif
@@ -203,12 +216,8 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
     int event_type = input_event->sub_event;
     bsp_audio_cmd_table_t *cmd_table = NULL;
 
-#if CONFIG_SUPPORT_ONLINE_OPEN_WAV
-    static int open_or_close = QM_FALSE;
-#endif
-
     switch(input_event->sub_event){
-        
+        case CONFIG_AUDIO_USB_EVENT_CONNING_LOCAL:
         case CONFIG_AUDIO_SUB_EVENT_CONFIG:
         case CONFIG_AUDIO_SUB_EVENT_CONN_WS:
         case CONFIG_AUDIO_SUB_EVENT_SWITCH_MODE_ID:
@@ -218,7 +227,9 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_NET_ERROR:
-
+            bsp_audio_handle.ws_connect = QM_FALSE;
+            bsp_audio_handle.open_or_close = QM_FALSE;
+            
             qm_cancel_delayed_action(&bsp_audio_handle.ind_timer);
             qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)event_type, CONFIG_AUDIO_CONN_ERROR_TIMEOUT);
         
@@ -235,7 +246,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         
                     .uri = CONFIG_NETWORK_URL,
                     .buff_size = 10 * 1024,
-                    .task_prio = 20,
+                    .task_prio = 10,
                     .task_size = 4 * 1024,
             
                     .pid = qm_iot_pid_get(),
@@ -252,12 +263,24 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                     .event_cb = qm_audio_ws_recv_event,
                     .data_cb  = qm_audio_ws_data_cb,
                 };
+                
+                
+                qm_iot_audio_uri_get(bsp_audio_handle.audio_uri, &len);
+                if(bsp_audio_handle.audio_uri[0] == '\0')
+                {
+                    QM_LOGE("AUDIO", "dy audio uri NULL");
+                    break;
+                }
+                params.uri = bsp_audio_handle.audio_uri;
+                QM_LOGD("AUDIO", "dy audio uri:%s", params.uri);
                 bsp_audio_handle.ai_handle = qm_audio_ws_create(&params);
                 if(bsp_audio_handle.ai_handle == NULL){
                     break;
                 }
             }
 
+            bsp_audio_handle.ws_connect = QM_FALSE;
+            
             qm_audio_ws_start(bsp_audio_handle.ai_handle);
         }
 
@@ -267,37 +290,35 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
 
         #if CONFIG_SUPPORT_ONLINE_CLOSE_WAV
-            if(!open_or_close){
+            if(!bsp_audio_handle.open_or_close){
                 break;
             }
 
-            if(bsp_audio_handle.ws_connect){
-                open_or_close = QM_FALSE;
-                qm_audio_ws_closing_remarks(bsp_audio_handle.ai_handle, QM_WAIT_FOREVER);    
-            }
-        #else
-            if(!bsp_audio_handle.ws_connect){
-                qm_player_play_file(bsp_audio_handle.player_handle, WAKEUP_TIEMOUT_PLAYER_PATH);
-            }
+
+                bsp_audio_handle.open_or_close = QM_FALSE;
+                qm_audio_ws_closing_remarks(bsp_audio_handle.ai_handle, CONFIG_AUDIO_WS_TIMEOUT);    
         #endif
 
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID: 
             
-            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
 
         #if CONFIG_SUPPORT_ONLINE_OPEN_WAV
             
-            if(open_or_close){
+            if(bsp_audio_handle.open_or_close){
+                xEventGroupSetBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
                 break;
             }
 
+            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+
             if(bsp_audio_handle.ws_connect){
-                open_or_close = QM_TRUE;
-                qm_audio_ws_opening_remarks(bsp_audio_handle.ai_handle, QM_WAIT_FOREVER);    
+                bsp_audio_handle.open_or_close = QM_TRUE;
+                qm_audio_ws_opening_remarks(bsp_audio_handle.ai_handle, CONFIG_AUDIO_WS_TIMEOUT);    
             }
-        #else
+        // #else
+        #endif
 
             cmd_table = (bsp_audio_cmd_table_t *)input_event->value;
             if(cmd_table){
@@ -309,7 +330,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             }
             xEventGroupSetBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
 
-        #endif
+        // #endif
 
             qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
         break;
@@ -359,7 +380,7 @@ static qm_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
                 }
 
                 bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_START;
-                qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, QM_WAIT_FOREVER);
+                qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
                 
                 qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
             }
@@ -425,7 +446,10 @@ static void qm_audio_ws_tts_chat_handler(qm_audio_ws_recv_evt_t *event)
     #if CONFIG_AUDIO_BOARD_USER_BUTTON    
         adc_ind_type = false;
     #endif
-        es8311_set_voice_mute(false);
+        
+        if(!bsp_audio_handle.mute){
+            es8311_set_voice_mute(false);
+        }
         
         player_pipeline_run(bsp_audio_handle.player_pipeline);
             
@@ -434,8 +458,6 @@ static void qm_audio_ws_tts_chat_handler(qm_audio_ws_recv_evt_t *event)
         adc_ind_type = true;
     #endif
     }
-        
-    qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
 }
 
 static void qm_audio_ws_tts_opening_handler(qm_audio_ws_recv_evt_t *event)
@@ -447,7 +469,9 @@ static void qm_audio_ws_tts_opening_handler(qm_audio_ws_recv_evt_t *event)
     #if CONFIG_AUDIO_BOARD_USER_BUTTON    
         adc_ind_type = false;
     #endif
-        es8311_set_voice_mute(false);
+        if(!bsp_audio_handle.mute){
+            es8311_set_voice_mute(false);
+        }
         
         player_pipeline_run(bsp_audio_handle.player_pipeline);
                 
@@ -470,7 +494,10 @@ static void qm_audio_ws_tts_closing_handler(qm_audio_ws_recv_evt_t *event)
     #if CONFIG_AUDIO_BOARD_USER_BUTTON    
         adc_ind_type = false;
     #endif
-        es8311_set_voice_mute(false);
+
+        if(!bsp_audio_handle.mute){
+            es8311_set_voice_mute(false);
+        }
         
         player_pipeline_run(bsp_audio_handle.player_pipeline);
                 
@@ -491,21 +518,30 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
 
     uint32_t next_backoff = 0; 
 
-    qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+    
     
     switch (event->recv_type)
     {
         case QM_AUDIO_WS_RECV_TYPE_CONNECT:
 
+            qm_cancel_delayed_action(&bsp_audio_handle.reconn_timer);
+
         break;
+
         case QM_AUDIO_WS_RECV_TYPE_HELLO_REPLY:
+            
+            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
 
             bsp_audio_handle.ws_connect = QM_TRUE;
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONN_WS, NULL, 0);
+
+            qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
         break;
 
         case QM_AUDIO_WS_RECV_TYPE_STT:
-            
+
+            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+        
             if(bsp_audio_handle.event_cb){
                 bsp_audio_handle.event_cb(event, bsp_audio_handle.user_data);
             }
@@ -514,6 +550,9 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
         break;
 
         case QM_AUDIO_WS_RECV_TYPE_LLM:
+            
+            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+
             if(bsp_audio_handle.event_cb){
                 bsp_audio_handle.event_cb(event, bsp_audio_handle.user_data);
             }
@@ -522,6 +561,8 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
         break;
 
         case QM_AUDIO_WS_RECV_TYPE_TTS:
+
+            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
 
             switch (event->data.tts.tts_type)
             {
@@ -541,11 +582,12 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
                 default:
                 break;
             }
-
+            
             if(bsp_audio_handle.event_cb){
                 bsp_audio_handle.event_cb(event, bsp_audio_handle.user_data);
             }
-        
+
+            qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
         break;
 
         case QM_AUDIO_WS_RECV_TYPE_DISCONNECT:
@@ -599,7 +641,7 @@ static void voice_read_task(void *args)
 
         int read_len = qm_audio_recorder_data_read(bsp_audio_handle.recorder_engine, voice_data, voice_data_read_sz, portMAX_DELAY);
         if (read_len == voice_data_read_sz && (bits & JOIN_EVENT_BIT)) {
-            qm_audio_ws_data_send(bsp_audio_handle.ai_handle, voice_data, read_len, QM_WAIT_FOREVER);   
+            qm_audio_ws_data_send(bsp_audio_handle.ai_handle, voice_data, read_len, CONFIG_AUDIO_WS_TIMEOUT);   
         }
 
     }
@@ -665,9 +707,26 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
 #ifdef POWER_ON_WAV
     qm_player_play_file(bsp_audio_handle.player_handle, POWER_ON_WAV);
 #endif
-
     bsp_audio_handle.join_event = xEventGroupCreate();
-    audio_thread_create(NULL, "voice_read_task", voice_read_task, (void *)NULL, 4 * 1024, 5, true, 0);
+    audio_thread_create(NULL, "voice_read_task", voice_read_task, (void *)NULL, 4 * 1024, 5, true, 1);
 
     return QM_EOK;
+}
+
+qm_err_t bsp_audio_set_voice_mute(bool_t enable)
+{
+    bsp_audio_handle.mute = enable;
+    if(enable){
+        es8311_set_voice_mute(true);
+    }else{
+        es8311_set_voice_mute(false);
+    }
+
+    return QM_EOK;
+}
+
+bool_t bsp_audio_get_voice_mute(void)
+{
+
+    return bsp_audio_handle.mute;
 }

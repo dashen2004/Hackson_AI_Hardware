@@ -5,14 +5,21 @@
 #include "qm_player.h"
 #include "qm_player_dev.h"
 
+#include "bsp_audio.h"
 #include "qm_audio_stream.h"
 
 #define TAG  "player_hal"
+
 
 #include "es8311.h"
 
 static esp_err_t audio_mute_function(AUDIO_PLAYER_MUTE_SETTING setting)
 {
+    bool_t mute_flag = bsp_audio_get_voice_mute();
+    if(mute_flag){
+        return QM_EOK;
+    }
+
     if(setting == AUDIO_PLAYER_MUTE){
         es8311_set_voice_mute(true);
     }else{

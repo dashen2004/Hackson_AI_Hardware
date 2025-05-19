@@ -13,6 +13,8 @@ extern "C" {
 #include "qm.h"
 #include "qm_spec_api.h"
 
+#define CONFIG_AUDIO_WS_TIMEOUT     (5 * 1000)
+
 // #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:8000/xiaozhi/v1/" //老服务
 
 #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:8000/xiaojiang/v1/"    //正式服
@@ -41,7 +43,6 @@ extern "C" {
 
 //语音事件
 #define CONFIG_AUDIO_WAKEUPT_TIMEOUT         (60 * 1000)
-// #define CONFIG_AUDIO_WAKEUPT_TIMEOUT         (20 * 60 * 1000)
 
 #define CONFIG_AUDIO_CONFIG_IND_TIMEOUT      (3 * 60 * 1000)  //配网提示间隔
 
@@ -55,8 +56,11 @@ extern "C" {
 #define CONFIG_AUDIO_SUB_EVENT_CONFIG_TIMEOUT   (0x0002)   //配网超时
 #define CONFIG_AUDIO_SUB_EVENT_CEART_WS         (0x0003)   //创建Websocket
 #define CONFIG_AUDIO_SUB_EVENT_CONN_WS          (0x0004)   //连接Websocket成功
-#define CONFIG_AUDIO_SUB_EVENT_NET_ERROR        (0x0005)   //网络异常断开2分钟
-#define CONFIG_AUDIO_USB_EVENT_CONNING_LOCAL    (0x0006)   // 连接路由器
+#define CONFIG_AUDIO_SUB_EVENT_NET_ERROR        (0x0005)   //网络异常断开
+#define CONFIG_AUDIO_USB_EVENT_CONNING_LOCAL    (0x0006)   //连接路由器
+#define CONFIG_AUDIO_USB_EVENT_CLOUD_DISCONN    (0x0007)   //连接路由器断开
+#define CONFIG_AUDIO_USB_EVENT_LOCAL_DISCONN    (0x0008)   //连接路由器断开
+#define CONFIG_AUDIO_USB_EVENT_LOCAL_CONN       (0x0009)   //连接
 
 #define CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID            (0x0106)
 #define CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID           (0x0107)
