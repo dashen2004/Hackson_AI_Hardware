@@ -461,6 +461,8 @@ static void qm_audio_ws_tts_chat_handler(qm_audio_ws_recv_evt_t *event)
 
 static void qm_audio_ws_tts_opening_handler(qm_audio_ws_recv_evt_t *event)
 {
+    static int need_mute = 0;
+
 #if CONFIG_SUPPORT_ONLINE_OPEN_WAV
     if(event->data.tts.state == QM_AUDIO_WS_TTS_STATE_START){
 
@@ -469,7 +471,9 @@ static void qm_audio_ws_tts_opening_handler(qm_audio_ws_recv_evt_t *event)
         adc_ind_type = false;
     #endif
         if(!bsp_audio_handle.mute){
-            es8311_set_voice_mute(false);
+            need_mute = 1;
+            bsp_audio_set_voice_mute(false);
+            bsp_audio_handle.mute = 1;
         }
         
         player_pipeline_run(bsp_audio_handle.player_pipeline);
@@ -478,6 +482,12 @@ static void qm_audio_ws_tts_opening_handler(qm_audio_ws_recv_evt_t *event)
     #if CONFIG_AUDIO_BOARD_USER_BUTTON
         adc_ind_type = true;
     #endif
+        if(need_mute){
+            need_mute = 0;
+            bsp_audio_set_voice_mute(false);
+            bsp_audio_handle.mute = 0;
+        }
+
         xEventGroupSetBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
     }
 #endif
@@ -485,6 +495,8 @@ static void qm_audio_ws_tts_opening_handler(qm_audio_ws_recv_evt_t *event)
 
 static void qm_audio_ws_tts_closing_handler(qm_audio_ws_recv_evt_t *event)
 {
+    static int need_mute = 0;
+
 #if CONFIG_SUPPORT_ONLINE_CLOSE_WAV
     if(event->data.tts.state == QM_AUDIO_WS_TTS_STATE_START){
 
@@ -495,7 +507,9 @@ static void qm_audio_ws_tts_closing_handler(qm_audio_ws_recv_evt_t *event)
     #endif
 
         if(!bsp_audio_handle.mute){
-            es8311_set_voice_mute(false);
+            need_mute = 1;
+            bsp_audio_set_voice_mute(false);
+            bsp_audio_handle.mute = 1;
         }
         
         player_pipeline_run(bsp_audio_handle.player_pipeline);
@@ -505,6 +519,12 @@ static void qm_audio_ws_tts_closing_handler(qm_audio_ws_recv_evt_t *event)
     #if CONFIG_AUDIO_BOARD_USER_BUTTON
         adc_ind_type = true;
     #endif
+
+        if(need_mute){
+            need_mute = 0;
+            bsp_audio_set_voice_mute(false);
+            bsp_audio_handle.mute = 0;
+        }
 
         qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID, NULL, 0);
 
