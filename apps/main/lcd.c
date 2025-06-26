@@ -131,7 +131,7 @@ void bsp_lcd_bl_init(void) {
     bsp_lcd_bl_off(); // bsp_lcd_bl_on();
 }
 
-void bsp_lcd_tp_init(void)
+esp_err_t bsp_lcd_tp_init(void)
 {
     i2c_master_bus_handle_t bus_handle;
 
@@ -165,7 +165,7 @@ void bsp_lcd_tp_init(void)
         .interrupt_callback = NULL,
     };
 
-    esp_err_t err = esp_lcd_touch_new_i2c_cst816s(io_handle, &tp_cfg, &tp_handle);
+    return esp_lcd_touch_new_i2c_cst816s(io_handle, &tp_cfg, &tp_handle);
 }
 
 static const st77916_lcd_init_cmd_t lcd_init_cmds[] = {
@@ -546,8 +546,17 @@ static void lcd_task(void *arg) {
     // Use settings defined above to initialize and mount SPIFFS filesystem.
     // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
-
-    bsp_lcd_tp_init();
+    if(ret != ESP_OK) {
+        ESP_LOGW(LOG_TAG, "esp_vfs_spiffs_register init failed");
+        vTaskDelete(NULL);
+        return;
+    }
+    ret = bsp_lcd_tp_init();
+    if(ret != ESP_OK) {
+        ESP_LOGW(LOG_TAG, "bsp_lcd_tp_init init failed");
+        vTaskDelete(NULL);
+        return;
+    }
     bsp_lcd_init();
     bsp_lcd_bl_init(); 
     app_lvgl();
