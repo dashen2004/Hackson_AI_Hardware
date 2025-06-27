@@ -17,6 +17,8 @@ set(COMPONENT_SRCS
     "./player/qm_player_dev.c"
     "./player/qm_player.c"
 
+    "./prodtst/audio_prodtst.c"
+
     "../component/qm_audio/ws/qm_audio_ws.c"
     "../component/qm_audio/encoder/qm_audio_encoder.c"
     "../component/qm_audio/sr/qm_audio_sr.c"
@@ -25,7 +27,7 @@ set(COMPONENT_SRCS
     "../component/qm_audio/processor/qm_audio_processor.c"
 
     "../component/qm_audio/board/dual_mic/board_pins_config.c"
-    "../component/qm_audio/board/dual_mic/qm_audio_board.c"
+    "../component/qm_audio/board/dual_mic/qm_audio_board.c" 
     "../component/qm_audio/board/dual_mic/qm_audio_stream.c"   
 
     # "../component/qm_audio/board/single_mic/board_pins_config.c"
@@ -102,6 +104,13 @@ set(COMPONENT_SRCS
 	"$ENV{ADF_PATH}/qumi/components/wifi_manager/src/qm_wifi_dev.c"
 	"$ENV{ADF_PATH}/qumi/components/wifi_manager/src/qm_wifi_mgnt.c"
 
+    "$ENV{ADF_PATH}/qumi/components/qm_at/src/qm_at_server.c"
+    "$ENV{ADF_PATH}/qumi/components/qm_at/src/qm_at_base_cmd.c"
+    "$ENV{ADF_PATH}/qumi/components/qm_at/src/qm_at_client.c"
+    "$ENV{ADF_PATH}/qumi/components/qm_at/src/qm_at_utils.c"
+
+    "$ENV{ADF_PATH}/qumi/components/xjiang_serial/serial_protocol.c"
+    "$ENV{ADF_PATH}/qumi/components/xjiang_serial/serial_platform.c"
 
     "$ENV{ADF_PATH}/qumi/utility/uuid/qm_utils_uuid.c"
     "$ENV{ADF_PATH}/qumi/utility/list/qm_utils_list.c"
@@ -148,6 +157,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./qm_config"
 
     "./player"
+    "./prodtst"
 
     "../component/qm_light/driver"
     "../component/qm_light/config"

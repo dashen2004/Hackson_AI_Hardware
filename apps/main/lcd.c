@@ -65,6 +65,8 @@ static esp_lcd_panel_handle_t panel_handle = NULL;
 static lv_disp_t *lvgl_disp = NULL;
 static lv_indev_t *lvgl_touch_indev = NULL;
 
+uint8_t lv_port_init_flag = 0;
+
 IRAM_ATTR static bool notify_refresh_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
     BaseType_t need_yield = pdFALSE;
@@ -505,9 +507,7 @@ void turnoff_timer_reset(uint8_t flag) { // 0 - screen operation, 1 - audio rece
     } else {
         if (get_var_recog_page_leave() == 0 || qm_now_ms() - get_var_screen_operation_tick() >= 10 * 1000) {
             if (get_current_screen() != SCREEN_ID_PAGE_RECOG) {
-                lvgl_port_lock(0);
-                goto_recog_page();
-                lvgl_port_unlock();
+                goto_recog_page();                
             }
         }
     }
@@ -526,9 +526,7 @@ static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) {
         bsp_lcd_bl_off();
         if (!bl_brightness_percent) {
             extern void goto_main_page(void);
-            lvgl_port_lock(0);
             goto_main_page();
-            lvgl_port_unlock();
         }
     }
 }
@@ -560,6 +558,7 @@ static void lcd_task(void *arg) {
     bsp_lcd_init();
     bsp_lcd_bl_init(); 
     app_lvgl();
+    lv_port_init_flag = 1;
 
     lvgl_port_lock(0); // 锁定lvgl接口 
     ui_init();

@@ -8,6 +8,7 @@
 #include "audio_cloud.h"
 #include "audio_light.h"
 #include "audio_beacon.h"
+#include "audio_prodtst.h"
 
 #include "lcd.h"
 
@@ -50,6 +51,9 @@ void qm_application_start(void)
     set_var_volume_value(volume, false);
 #endif
 
+    if(audio_prodtst_init() == 1) {
+        return;
+    }
 #if (CONFIG_LCD_DISABLE_CLOUD == 0)
         xjiang_cloud_init();
 #endif

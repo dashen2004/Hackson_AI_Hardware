@@ -47,8 +47,12 @@ static bool hit_test(lv_event_t * e) {
 // ******** 首页 ******** //
 static qm_timer_t wifi_blink_timer = { 0 };
 static uint8_t    wifi_level_s = 0;
+extern uint8_t lv_port_init_flag;
 
 static void wifi_blink_timer_handler(qm_timer_t *timer,  void *arg) {
+    if(lv_port_init_flag == 0) {
+        return;
+    }
     lvgl_port_lock(0);
     switch (wifi_level_s) {
         case 0: {
@@ -95,6 +99,9 @@ void wifi_set_disconnected(void) {
         qm_timer_stop(&wifi_blink_timer);
         qm_timer_free(&wifi_blink_timer);
     }
+    if(lv_port_init_flag == 0) {
+        return;
+    }
     lvgl_port_lock(0);
     lv_obj_add_flag(objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
@@ -109,7 +116,9 @@ void wifi_set_connected(void) {
     if (qm_timer_is_valid(&wifi_blink_timer)) {
         qm_timer_stop(&wifi_blink_timer);
         qm_timer_free(&wifi_blink_timer);
-
+    }
+    if(lv_port_init_flag == 0) {
+        return;
     }
     lvgl_port_lock(0);
     lv_obj_add_flag(objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
@@ -127,6 +136,9 @@ void wifi_set_blink(void) {
         qm_timer_start(&wifi_blink_timer);
     }
     wifi_level_s = 1;
+    if(lv_port_init_flag == 0) {
+        return;
+    }
     lvgl_port_lock(0);
     lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_connected.bin");
     lv_img_set_src(objects.image_wifi_level_s_1, "/lvgl/images/wifi_level_s_1.bin");
@@ -141,7 +153,12 @@ void wifi_set_blink(void) {
 }
 
 void goto_main_page(void) {
+    if(lv_port_init_flag == 0) {
+        return;
+    }
+    lvgl_port_lock(0);
     loadScreenEx(SCREEN_ID_PAGE_MAIN);
+    lvgl_port_unlock();
 }
 
 // ******** 菜单页面 ******** //
@@ -279,6 +296,9 @@ static void netconfig_reboot_timer_handler(qm_timer_t *timer,  void *arg) {
     if (--netconfig_reboot_countdown >= 0) {
         char s[32];
         sprintf(s, "%d秒后重启设备", netconfig_reboot_countdown);
+        if(lv_port_init_flag == 0) {
+            return;
+        }
         lvgl_port_lock(0);
         lv_label_set_text(objects.text_netconfig_reboot_title, s);
         lvgl_port_unlock();
@@ -364,8 +384,13 @@ void action_factory_reset_click(lv_event_t * e) {
 
 // ******** 语音识别页面 ******** //
 void goto_recog_page(void) {
+    if(lv_port_init_flag == 0) {
+        return;
+    }
+    lvgl_port_lock(0);
     set_var_recog_page_leave(0);
     loadScreenEx(SCREEN_ID_PAGE_RECOG);
+    lvgl_port_unlock();
 }
 
 // ******** 配网页面 ******** //
@@ -382,9 +407,7 @@ static void netconfig_process_timer_handler(qm_timer_t *timer,  void *arg) {
     if (netconfig_success == 0) {
         if (qm_now_ms() - netconfig_start_tick >= 3 * 60 * 1000) {
             if (get_current_screen() == SCREEN_ID_PAGE_NETCONFIG) {
-                lvgl_port_lock(0); 
                 goto_main_page(); 
-                lvgl_port_unlock();
             }
             qm_timer_stop(timer); 
             qm_timer_free(timer);
@@ -392,14 +415,17 @@ static void netconfig_process_timer_handler(qm_timer_t *timer,  void *arg) {
         }
         if (get_connect()) {
             last_screen = (get_current_screen() == SCREEN_ID_PAGE_NETCONFIG ? SCREEN_ID_PAGE_MAIN : get_current_screen());
-            lvgl_port_lock(0);
             goto_netconfig_success_page();
-            lvgl_port_unlock();
             netconfig_success = 1;
             qm_timer_change(timer, 3000);
             return;
         }
-
+        if(lv_port_init_flag == 0) {
+            if (++wifi_level > 3) {
+                wifi_level = 0;
+            }
+            return;
+        }
         lvgl_port_lock(0);
         switch (wifi_level) {
             case 0: {
@@ -439,6 +465,9 @@ static void netconfig_process_timer_handler(qm_timer_t *timer,  void *arg) {
             wifi_level = 0;
         }
     } else {
+        if(lv_port_init_flag == 0) {
+            return;
+        }
         lvgl_port_lock(0);
         loadScreenEx(last_screen); // goto_main_page();
         lvgl_port_unlock();
@@ -469,6 +498,9 @@ static void netconfig_success_timer_handler(qm_timer_t *timer,  void *arg) {
     if (--netconfig_success_countdown >= 0) {
         char s[32];
         sprintf(s, "%d秒后返回主页", netconfig_success_countdown);
+        if(lv_port_init_flag == 0) {
+            return;
+        }
         lvgl_port_lock(0);
         lv_label_set_text(objects.text_netconfig_success_countdown, s);
         lvgl_port_unlock();
@@ -479,6 +511,10 @@ static void netconfig_success_timer_handler(qm_timer_t *timer,  void *arg) {
 }
 
 void goto_netconfig_success_page(void) {
+    if(lv_port_init_flag == 0) {
+        return;
+    }
+    lvgl_port_lock(0);
     lv_obj_add_flag  (objects.container_netconfig_prepare, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag  (objects.container_netconfig_process, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag  (objects.container_netconfig_reboot,  LV_OBJ_FLAG_HIDDEN);
@@ -493,6 +529,7 @@ void goto_netconfig_success_page(void) {
     if (get_current_screen() != SCREEN_ID_PAGE_NETCONFIG) {
         loadScreenEx(SCREEN_ID_PAGE_NETCONFIG);
     }
+    lvgl_port_unlock();
 }
 
 // ******** ota页面 ******** //
@@ -503,6 +540,9 @@ static void ota_success_timer_handler(qm_timer_t *timer,  void *arg) {
     if (--ota_success_countdown >= 0) {
         char s[32];
         sprintf(s, "%d秒后重启", ota_success_countdown);
+        if(lv_port_init_flag == 0) {
+            return;
+        }
         lvgl_port_lock(0);
         lv_label_set_text(objects.text_ota_subtitle, s);
         lvgl_port_unlock();

@@ -229,9 +229,13 @@ int8_t get_var_ota_status(void) {
 extern void goto_ota_process_page(void);
 extern void goto_ota_success_page(void);
 extern void goto_ota_failure_page(void);
-
+extern uint8_t lv_port_init_flag;
 void set_var_ota_status(int8_t value, bool need_lock) {
     var_ota_status = value;
+    if(lv_port_init_flag == 0) {
+        return;
+    }
+    
     if (need_lock) {
         lvgl_port_lock(0);
     }

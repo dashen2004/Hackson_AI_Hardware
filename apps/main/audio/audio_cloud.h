@@ -16,6 +16,7 @@ extern "C" {
 #define NETCONFIG_WAV                   ("/spiffs/1.wav")
 #define CONN_CLOUD_WAV                  ("/spiffs/2.wav")
 #define CONN_ERROR_WAV                  ("/spiffs/3.wav")
+#define XJIANG_TEST_WAV                 ("/spiffs/4.wav")
 
 #if 0
 #define MODE_SWITCH_WAV                 ("/spiffs/7.wav")

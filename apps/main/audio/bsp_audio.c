@@ -36,6 +36,7 @@
 #include "qm_gpio.h"
 #include "qm_utils_timer.h"
 #include "es8311.h"
+#include "audio_prodtst.h"
 
 static const char* TAG = "volc_rtc";
 
@@ -106,6 +107,21 @@ static struct qm_cli_command audio_key = {
     .help = "audio set/get <mode 1:auto 2:manual 3:realtime>",
     .function = handle_audio_info
 };
+
+void qm_bsp_offline_voice_play(uint8_t index) {
+    player_pipeline_stop(bsp_audio_handle.player_pipeline);
+    switch (index) {
+    case 1:
+        qm_player_play_file(bsp_audio_handle.player_handle, XJIANG_TEST_WAV);
+        break;
+    default:
+        break;
+    }
+}
+
+uint8_t qm_bsp_voice_is_idle(void) {
+    return qm_player_is_idle(bsp_audio_handle.player_handle);
+}
 
 static void handle_audio_info(char *pwbuf, int blen, int argc, char **argv)
 {
@@ -702,8 +718,11 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
             sr_cmd[i].prob = command_str[i].prob;
         }
     }
-    
-    engine_params.cb = rec_engine_cb;
+    if(prodtst_config_get() == 1) {
+        engine_params.cb = prodtst_rec_engine_cb;
+    } else {
+        engine_params.cb = rec_engine_cb;
+    }
     engine_params.command_str = sr_cmd;
     engine_params.command_num = command_num;
 
