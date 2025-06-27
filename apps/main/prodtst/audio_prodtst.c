@@ -22,6 +22,7 @@
 #include "serial_platform.h"
 
 #include "audio_prodtst.h"
+#include "audio_main.h"
 
 static qm_at_result_t at_set_fac_mode(void *channel, const char *args);
 static qm_at_result_t at_get_fw_name(void *channel);
@@ -121,10 +122,7 @@ static qm_at_result_t at_set_fac_mode(void *channel, const char *args)
 
 static qm_at_result_t at_get_fw_name(void *channel)
 {
-    char firmware_name[100] = {0};
-    sprintf(firmware_name, "%s_%s_%s", XJIANG_FIRMWARE_VERSION_HEAD, \
-                        XJIANG_FIRMWARE_VERSION_XJIANG, XJIANG_FIRMWARE_VERSION);
-	qm_at_server_printfln(channel, "+FW_NAME:\"%s\"", firmware_name);
+	qm_at_server_printfln(channel, "+FW_NAME:\"%s\"", CONFIG_AUDIO_LIGHT_HW_VERSION);
 	return QM_AT_RESULT_OK;
 }
 
