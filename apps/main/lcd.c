@@ -482,7 +482,7 @@ static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_dat
         case QM_AUDIO_WS_RECV_TYPE_LLM: {
             turnoff_timer_reset(1);
             int8_t idx = get_emotion_idx(event->data.llm.emotion);
-            printf("QM_AUDIO_WS_RECV_TYPE_LLM: %s##, %d\n", event->data.llm.emotion, idx);
+            QM_LOGD("lcd","QM_AUDIO_WS_RECV_TYPE_LLM: %s##, %d\n", event->data.llm.emotion, idx);
             if (idx >= 0 && idx < 21) {
                 set_var_emotion_id(idx);
             }

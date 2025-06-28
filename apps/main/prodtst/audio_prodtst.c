@@ -25,6 +25,7 @@
 #include "audio_main.h"
 
 static qm_at_result_t at_set_fac_mode(void *channel, const char *args);
+static qm_at_result_t at_get_mem_free(void *channel);
 static qm_at_result_t at_get_fw_name(void *channel);
 static qm_at_result_t at_get_ble_mac(void *channel);
 static qm_at_result_t at_set_io_wr(void *channel, const char *args);
@@ -54,9 +55,10 @@ typedef struct prodtst_voice_scan {
 } prodtst_voice_scan_t;
 
 
-static uint8_t prodtst_hub_map[] = {9, 10};
+static uint8_t prodtst_hub_map[] = {10, 9};
 static qm_at_cmd_t at_fac_cmd[] = {
     {"AT+FAC", NULL, NULL, NULL, at_set_fac_mode, NULL},
+    {"AT+MEM", NULL, NULL, at_get_mem_free, NULL, NULL},
 };
 static qm_at_cmd_t at_cmd[] = {   
     {"AT+FAC", NULL, NULL, NULL, at_set_fac_mode, NULL},
@@ -72,11 +74,11 @@ static qm_uart_dev_t at_uart = {
         .baud_rate = 115200,
         .data_bits = QM_UART_DATA_8_BITS,
         .parity    = QM_UART_PARITY_NONE,
-        .pins.tx_pin = 36,
-        .pins.rx_pin = 37,
+        .pins.tx_pin = 43,
+        .pins.rx_pin = 44,
         .stop_bits = QM_UART_STOP_BITS_1 ,
     },
-    .port = 2,
+    .port = 0,
 };
 
 static prodtst_wifi_scan_t g_ws;
@@ -99,6 +101,12 @@ int prodtst_config_get(void)
     int size = 4;
     qm_kv_get(FLASH_SECTOR_KEY, &type, &size);
     return type;
+}
+
+static qm_at_result_t at_get_mem_free(void *channel) 
+{
+	qm_at_server_printfln(channel, "+MEM:%ld", qm_free_mem_get());
+	return QM_AT_RESULT_OK;
 }
 
 static qm_at_result_t at_set_fac_mode(void *channel, const char *args)
@@ -165,7 +173,7 @@ static qm_at_result_t at_set_io_wr(void *channel, const char *args)
         if(io != 1 && io != 2) {
             return QM_AT_RESULT_FAILE;
         }
-        gpio_dev.port = prodtst_hub_map[io];
+        gpio_dev.port = prodtst_hub_map[(io-1)];
         qm_gpio_deinit(&gpio_dev);
         qm_gpio_init(&gpio_dev);
         qm_gpio_set_level(&gpio_dev, value);
@@ -182,7 +190,7 @@ qm_err_t prodtst_rec_engine_cb(audio_rec_evt_t *event, void *user_data)
         }
         qm_timer_stop(&g_vcs.timer);
         qm_timer_free(&g_vcs.timer);
-        qm_at_server_printfln(g_channel, "+VOICE_SCAN:\"%d,3\"", g_vcs.channel);
+        qm_at_server_printfln(g_channel, "+VOICE_SCAN:%d,3", g_vcs.channel);
         qm_at_server_printfln(g_channel, "OK");
         g_vcs.result = 0;
         break;

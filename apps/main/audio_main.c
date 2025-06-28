@@ -3,6 +3,7 @@
 #include "qm_kv.h"
 
 #include "xjiang_cloud.h"
+#include "esp_log.h"
 
 #include "audio_main.h"
 #include "audio_cloud.h"
@@ -13,8 +14,11 @@
 #include "lcd.h"
 
 void qm_application_start(void)
-{    
-
+{
+    if(prodtst_config_get() == 1) {
+        esp_log_set_level_master(ESP_LOG_NONE);
+        qm_set_log_level(QM_LL_NONE);
+    }
     QM_LOGD("1", "Ver:%s", CONFIG_AUDIO_LIGHT_HW_VERSION);
 
     bool mute = false, awss = false;

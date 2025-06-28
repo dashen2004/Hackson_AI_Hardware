@@ -94,7 +94,7 @@ static void wifi_blink_timer_handler(qm_timer_t *timer,  void *arg) {
 }
 
 void wifi_set_disconnected(void) {
-    printf("wifi set disconnected\n");
+    QM_LOGD("wifi","wifi set disconnected\n");
     if (qm_timer_is_valid(&wifi_blink_timer)) {
         qm_timer_stop(&wifi_blink_timer);
         qm_timer_free(&wifi_blink_timer);
@@ -112,7 +112,7 @@ void wifi_set_disconnected(void) {
 }
 
 void wifi_set_connected(void) {
-    printf("wifi set connected\n");
+    QM_LOGD("wifi","wifi set connected\n");
     if (qm_timer_is_valid(&wifi_blink_timer)) {
         qm_timer_stop(&wifi_blink_timer);
         qm_timer_free(&wifi_blink_timer);
@@ -130,7 +130,7 @@ void wifi_set_connected(void) {
 }
 
 void wifi_set_blink(void) {
-    printf("wifi set blink\n");
+    QM_LOGD("wifi","wifi set blink\n");
     if (!qm_timer_is_valid(&wifi_blink_timer)) {
         qm_timer_new  (&wifi_blink_timer, wifi_blink_timer_handler, NULL, 500, 1);
         qm_timer_start(&wifi_blink_timer);
