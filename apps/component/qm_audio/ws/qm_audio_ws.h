@@ -15,7 +15,19 @@ extern "C" {
 #endif
 
 #ifndef CONFIG_QM_AUDIO_WS_QUEUE_NUM     
-#define CONFIG_QM_AUDIO_WS_QUEUE_NUM                      (100)
+#define CONFIG_QM_AUDIO_WS_QUEUE_NUM                      (200)
+#endif
+
+#ifndef CONFIG_QM_AUDIO_WS_TIMEOUT_MS    
+#define CONFIG_QM_AUDIO_WS_TIMEOUT_MS                     (1000)
+#endif
+
+#ifndef CONFIG_QM_AUDIO_WS_QUEUE_DELAY_MS     
+#define CONFIG_QM_AUDIO_WS_QUEUE_DELAY_MS                  (60)
+#endif
+
+#ifndef CONFIG_QM_AUDIO_WS_QUEUE_TIMEOUT_COUNT     
+#define CONFIG_QM_AUDIO_WS_QUEUE_TIMEOUT_COUNT             (3)
 #endif
 
 #ifndef CONFIG_QM_AUDIO_WS_SEND_TASK_SUPPORT     
@@ -36,6 +48,7 @@ typedef enum {
     QM_AUDIO_WS_RECV_TYPE_CONNECT,          /*!< 已连接服务器*/
     QM_AUDIO_WS_RECV_TYPE_DISCONNECT,       /*!< 未连接服务器*/
 
+    QM_AUDIO_WS_RECV_TYPE_ABORT,            /*!< 平台判断在线唤醒词中止时下发，请求设备终止播放*/
 } qm_audio_ws_recv_type_t;
 
 typedef enum {
@@ -60,6 +73,8 @@ typedef enum {
 
 typedef enum {
     QM_AUDIO_WS_ABORT_CODE_DETECT_WAKEUP = 1,
+    QM_AUDIO_WS_ABORT_CODE_DETECT_VAD,
+
 } qm_audio_ws_abort_code_t;    
 
 typedef enum {
@@ -74,6 +89,18 @@ typedef enum {
     QM_AUDIO_WS_TTS_STATE_SENTENCE_START,
     QM_AUDIO_WS_TTS_STATE_SENTENCE_STOP,
 } qm_audio_ws_tts_state_t;    
+
+typedef enum {
+    QM_AUDIO_WS_PLAYER_STATE_STOP  = 0,
+    QM_AUDIO_WS_PLAYER_STATE_START = 1,
+    QM_AUDIO_WS_PLAYER_STATE_DATA,
+} qm_audio_ws_player_state_t; 
+
+typedef struct{
+    int cmd; //1:开始播放, 2: 暂停播放, 3: 停止播放,  4: 上一首, 5：下一首
+    int mode;//1:列表循环, 2: 单曲循环, 3：随机播放
+    int times;//循环次数
+} qm_audio_ws_music_param_t; 
 
 typedef struct{
 
@@ -126,6 +153,10 @@ typedef struct{
     char *version;
 } qm_audio_ws_recv_ota_upgrade_t; 
 
+typedef struct{
+    int reason;
+} qm_audio_ws_recv_abort_t; 
+
 /**
  * @brief Recorder event
  */
@@ -141,7 +172,7 @@ typedef struct {
         qm_audio_ws_recv_tts_t          tts;
         qm_audio_ws_recv_set_t          set;
         qm_audio_ws_recv_ota_upgrade_t  ota_upgrade;
-
+        qm_audio_ws_recv_abort_t        abort;
     }data;
     
 } qm_audio_ws_recv_evt_t;
@@ -160,6 +191,11 @@ typedef struct {
     
     char                          *uri;
 
+    int                            port;
+    char                          *host;
+    char                          *path;
+    
+
     int                           buff_size;
 
     int                           pinned_core;      /*!< Audio recorder task pinned to core */
@@ -170,6 +206,8 @@ typedef struct {
     qm_audio_ws_recv_event_cb_t   event_cb;         /*!< Event callback function, event type as audio_rec_evt_t shown above*/
     void                        *user_data;         /*!< Pointer to user data (optional) */
 
+    char                         *sn;
+    char                         *ver;              /*!< OTA: 1.0.1 */
     int                           pid;              /*!< 产品pid */
     int                           did;              /*!< 设备did 可选, -1则无效*/
     uint32_t                      connect_timeout;  /*!< 连接服务端超时时间，默认为10s, 单位为秒*/
@@ -180,6 +218,15 @@ typedef struct {
     uint16_t                      channel;           /*!< 音频声道数*/
     uint16_t                      frame_duration_ms; /*!< 音频片段长度，单位ms，默认值60*/
 
+    uint8_t                       flow_ctrl_enbale;        /*!< 流控使能*/
+
+    uint8_t                       min_len;        /*!< */
+    uint8_t                       max_len;        /*!< */
+    uint8_t                       normal_len;     /*!< */
+
+    uint8_t                       min_speed;        /*!< */
+    uint8_t                       max_speed;        /*!< */
+    
 } qm_audio_ws_cfg_t;
 
 /**
@@ -225,7 +272,28 @@ qm_err_t qm_audio_ws_stop(qm_audio_ws_handle_t handle);
  * @return ESP_OK
  *         ESP_FAIL
  */
+qm_err_t qm_audio_ws_clean(qm_audio_ws_handle_t handle);
+
+/**
+ * @brief 
+ *
+ * @param handle Audio websocket handle
+ *
+ * @return ESP_OK
+ *         ESP_FAIL
+ */
 qm_err_t qm_audio_ws_hello(qm_audio_ws_handle_t handle, uint32_t timeout);
+
+
+/**
+ * @brief 
+ *
+ * @param handle Audio websocket handle
+ *
+ * @return ESP_OK
+ *         ESP_FAIL
+ */
+qm_err_t qm_audio_ws_music(qm_audio_ws_handle_t handle, qm_audio_ws_music_param_t *params, uint32_t timeout);
 
 /**
  * @brief 
@@ -266,16 +334,6 @@ qm_err_t qm_audio_ws_opening_remarks(qm_audio_ws_handle_t handle, uint32_t timeo
  *         ESP_FAIL
  */
 qm_err_t qm_audio_ws_closing_remarks(qm_audio_ws_handle_t handle, uint32_t timeout);
-
-/**
- * @brief 
- *
- * @param handle Audio websocket handle
- *
- * @return ESP_OK
- *         ESP_FAIL
- */
-qm_err_t qm_audio_ws_ota_version(qm_audio_ws_handle_t handle, char *version, uint32_t timeout);
 
 /**
  * @brief 

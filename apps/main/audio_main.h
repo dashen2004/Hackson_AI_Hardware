@@ -21,6 +21,11 @@ extern "C" {
 // #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:28000/xiaojiang/v1/"  //测试服
 
 
+#define CONFIG_AUDIO_FMT_RATE          (16000)
+#define CONFIG_AUDIO_FMT_BITS          (16)
+#define CONFIG_AUDIO_FMT_CHANNEL       (1)
+#define CONFIG_AUDIO_FMT_DURATION_MS   (60)
+
 #define CONFIG_NETWORK_DELAY_MS         (1500)
 
 #define CONFIG_DISABLE_SR_FUNC          (0)

@@ -16,5 +16,6 @@ dependencies:
   #   public: true
   espressif/esp_lcd_st77916: ^1.0.1
   espressif/esp_lcd_touch_cst816s: ^1.0.6
-  lvgl/lvgl: ^9.2.2
+  lvgl/lvgl: 9.2.2
   espressif/esp_lvgl_port: ^2.6.0
+  78/esp-opus: ^1.0.5

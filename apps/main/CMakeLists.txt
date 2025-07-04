@@ -12,7 +12,9 @@ set(COMPONENT_SRCS
     "./cloud/xjiang_cloud.c"
     # "./beacon/audio_beacon.c"
     "./audio/bsp_audio.c"
+    "./audio/bsp_audio_opus.c"
     "./audio/audio_cloud.c"
+
 
     "./player/qm_player_dev.c"
     "./player/qm_player.c"
@@ -40,7 +42,7 @@ set(COMPONENT_SRCS
 
     "$ENV{ADF_PATH}/qumi/kernel/init/qm_init.c"
 
-    "$ENV{ADF_PATH}/qumi/components/ble_remoter/src/ble_remoter.c"
+    # "$ENV{ADF_PATH}/qumi/components/ble_remoter/src/ble_remoter.c"
     "$ENV{ADF_PATH}/qumi/components/backoff/src/backoff_algorithm.c"
     "$ENV{ADF_PATH}/qumi/components/mqtt/iot_mqtt_client.c"
     "$ENV{ADF_PATH}/qumi/components/mqtt/MQTTPacket/MQTTConnectClient.c"
@@ -82,13 +84,13 @@ set(COMPONENT_SRCS
 
     "$ENV{ADF_PATH}/qumi/components/qm_time/src/qm_time.c"
     "$ENV{ADF_PATH}/qumi/components/epochtime/src/qm_epochtime.c"
-    "$ENV{ADF_PATH}/qumi/components/adc_button/adc_button.c"
+    # "$ENV{ADF_PATH}/qumi/components/adc_button/adc_button.c"
     "$ENV{ADF_PATH}/qumi/components/ntpdate/src/ntpdate.c"
 
     "$ENV{ADF_PATH}/qumi/components/qm_work/qm_eventqueue.c"
     "$ENV{ADF_PATH}/qumi/components/qm_work/qm_work.c"
     "$ENV{ADF_PATH}/qumi/components/qm_work/qm_workqueue.c"
-    "$ENV{ADF_PATH}/qumi/components/cli/qm_cli.c"
+    # "$ENV{ADF_PATH}/qumi/components/cli/qm_cli.c"
     "$ENV{ADF_PATH}/qumi/components/qm_time/src/qm_time.c"
 	"$ENV{ADF_PATH}/qumi/components/qm_spec/src/qm_spec_api.c"
 	"$ENV{ADF_PATH}/qumi/components/qm_spec/src/qm_spec_core.c"
@@ -96,7 +98,7 @@ set(COMPONENT_SRCS
 	"$ENV{ADF_PATH}/qumi/components/qm_ble/api/qm_ble_export.c"
 	"$ENV{ADF_PATH}/qumi/components/qm_ble/core/qm_ble_auth.c"
 	"$ENV{ADF_PATH}/qumi/components/qm_ble/core/qm_ble_core.c"
-	"$ENV{ADF_PATH}/qumi/components/qm_ble/core/qm_ble_ota.c"
+	# "$ENV{ADF_PATH}/qumi/components/qm_ble/core/qm_ble_ota.c"
 	"$ENV{ADF_PATH}/qumi/components/qm_ble/core/qm_ble_service.c"
 	"$ENV{ADF_PATH}/qumi/components/qm_ble/core/qm_ble_transport.c"
 	"$ENV{ADF_PATH}/qumi/components/qm_ble/core/qm_ble_utils.c"
@@ -109,8 +111,8 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/components/qm_at/src/qm_at_client.c"
     "$ENV{ADF_PATH}/qumi/components/qm_at/src/qm_at_utils.c"
 
-    "$ENV{ADF_PATH}/qumi/components/xjiang_serial/serial_protocol.c"
-    "$ENV{ADF_PATH}/qumi/components/xjiang_serial/serial_platform.c"
+    # "$ENV{ADF_PATH}/qumi/components/xjiang_serial/serial_protocol.c"
+    # "$ENV{ADF_PATH}/qumi/components/xjiang_serial/serial_platform.c"
 
     "$ENV{ADF_PATH}/qumi/utility/uuid/qm_utils_uuid.c"
     "$ENV{ADF_PATH}/qumi/utility/list/qm_utils_list.c"
@@ -131,7 +133,7 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qmos/qm_main.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qm_ble/qm_ble_hal_ble.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qm_ble/qm_ble_hal_os.c"
-    "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qm_ble/qm_ble_hal_ota.c"
+    # "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qm_ble/qm_ble_hal_ota.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qm_ble/qm_ble_hal_sec.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/hal/wifi/qm_wifi.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/hal/soc/qm_uart.c"

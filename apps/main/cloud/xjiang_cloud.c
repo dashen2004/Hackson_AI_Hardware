@@ -294,9 +294,9 @@ int xjiang_cloud_init(void)
     uint32_t pid = CONFIG_XJIANG_CLOUD_PID;
     uint32_t version = CONFIG_XJIANG_VERSION;
   
-    qm_cli_register_command(&meminfo_key);
-    qm_cli_register_command(&resetinfo_key);
-    qm_cli_register_command(&sta_rssi_key);
+    // qm_cli_register_command(&meminfo_key);
+    // qm_cli_register_command(&resetinfo_key);
+    // qm_cli_register_command(&sta_rssi_key);
 
     iot_handle = qm_iot_init();
     if(iot_handle == NULL){
