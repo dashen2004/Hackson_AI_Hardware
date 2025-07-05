@@ -98,7 +98,7 @@ qm_audio_stream_handle_t create_record_i2s_stream(void)
 {
     audio_hal_codec_i2s_iface_t i2s_iface = {0};
     es7210_mic_select(ES7210_INPUT_MIC1 | ES7210_INPUT_MIC2 | ES7210_INPUT_MIC3 | ES7210_INPUT_MIC4);
-    es7210_adc_set_gain(ES7210_INPUT_MIC1 |ES7210_INPUT_MIC2, GAIN_34_5DB);
+    es7210_adc_set_gain(ES7210_INPUT_MIC1 |ES7210_INPUT_MIC2, GAIN_37_5DB);
     es7210_adc_set_gain(ES7210_INPUT_MIC3, GAIN_0DB);
     es7210_adc_set_gain(ES7210_INPUT_MIC4, GAIN_0DB);
 
@@ -292,7 +292,7 @@ qm_audio_vc_cfg_t *get_default_audio_vc_config(void)
 
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->memory_alloc_mode = AFE_MEMORY_ALLOC_MORE_PSRAM;
 
-    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_init = false;
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_init = true;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_mode = VAD_MODE_2;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_min_noise_ms = 100;
 
@@ -305,6 +305,7 @@ qm_audio_vc_cfg_t *get_default_audio_vc_config(void)
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_core = 1;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_priority = 5;
 
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_linear_gain = 10.0;
 
     return &recorder_vc_cfg;
 #else

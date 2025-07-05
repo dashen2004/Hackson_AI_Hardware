@@ -364,7 +364,7 @@ void bsp_lcd_init(void) {
                                                                 EXAMPLE_PIN_NUM_LCD_DATA1,
                                                                 EXAMPLE_PIN_NUM_LCD_DATA2,
                                                                 EXAMPLE_PIN_NUM_LCD_DATA3,
-                                                                EXAMPLE_LCD_H_RES * 10 * sizeof(uint16_t));
+                                                                0);
     ESP_ERROR_CHECK(spi_bus_initialize(EXAMPLE_LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
     ESP_LOGI(LOG_TAG, "Install panel IO");
