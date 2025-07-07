@@ -38,6 +38,7 @@
 #include "qm_utils_timer.h"
 #include "es8311.h"
 #include "audio_prodtst.h"
+#include "xjiang_cloud.h"
 
 static const char* TAG = "volc_rtc";
 
@@ -356,7 +357,9 @@ static qm_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
     qm_audio_ws_listen_param_t listen = {
         .mode = audio_cfg.mode
     };
-
+    if(get_ota_status_flag() != 0) {
+        return ESP_OK;
+    }
     switch (event->type)
     {
         case AUDIO_REC_WAKEUP_START:
@@ -544,7 +547,9 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
 
     uint32_t next_backoff = 0; 
 
-    
+    if(get_ota_status_flag() != 0) {
+        return;
+    }
     
     switch (event->recv_type)
     {
@@ -752,6 +757,13 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
 
     audio_thread_create(NULL, "voice_read_task", voice_read_task, (void *)NULL, 30 * 1024, 5, true, 1);
 
+    return QM_EOK;
+}
+
+qm_err_t bsp_audio_ota_set_voice_mute(void)
+{
+    xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
+    bsp_audio_set_voice_mute(true);
     return QM_EOK;
 }
 

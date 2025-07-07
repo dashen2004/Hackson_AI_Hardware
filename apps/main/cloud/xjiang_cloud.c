@@ -15,6 +15,7 @@
 #include "audio_sys.h"
 #include "audio_thread.h"
 #include "audio_mem.h"
+#include "bsp_audio.h"
 
 #include "qm_wifi.h"
 #include "vars.h"
@@ -32,6 +33,7 @@ static qm_work_t weather_request_timeout_action = { 0 };
 static qm_work_t set_disconnected_action = { 0 };
 static qm_work_t set_connected_action = { 0 };
 static qm_work_t set_blink_action = { 0 };
+static uint8_t ota_status_flag = 0;
 
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv);
 static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv);
@@ -39,6 +41,10 @@ static void handle_sta_rssi(char *pwbuf, int blen, int argc, char **argv);
 
 bool_t get_connect(void) {
     return connect;
+}
+
+uint8_t get_ota_status_flag(void) {
+    return ota_status_flag;
 }
 
 static struct qm_cli_command meminfo_key = {
@@ -205,19 +211,24 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
 
         case QM_IOT_EVENT_OTA_START:
             set_var_ota_status(0, true);
+            bsp_audio_ota_set_voice_mute();
+            ota_status_flag = 1;
             break;
 
         case QM_IOT_EVENT_OTA_PROGRESS_UPADTE:
             set_var_ota_status(0, true);
             set_var_ota_percent(event->data.ota_progress_update.progress_details);
+            ota_status_flag = 2;
             break;
 
         case QM_IOT_EVENT_OTA_SUCCESS:
             set_var_ota_status(1, true);
+            ota_status_flag = 0;
             break;
 
         case QM_IOT_EVENT_OTA_FAILED:
             set_var_ota_status(2, true); 
+            ota_status_flag = 0;
             break;
 
         default:

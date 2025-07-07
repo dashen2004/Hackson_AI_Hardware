@@ -32,6 +32,7 @@
 #include "qm_kv.h"
 
 #include "audio_main.h"
+#include "xjiang_cloud.h"
 #include "lcd.h"
 
 #define LOG_TAG "app"
@@ -478,6 +479,9 @@ static int8_t get_emotion_idx(char *s) {
 }
 
 static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_data) {
+    if(get_ota_status_flag() != 0) {
+        return;
+    }
     switch (event->recv_type) {
         case QM_AUDIO_WS_RECV_TYPE_LLM: {
             turnoff_timer_reset(1);

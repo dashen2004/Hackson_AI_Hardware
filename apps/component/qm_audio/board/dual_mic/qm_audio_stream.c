@@ -83,6 +83,7 @@ qm_audio_stream_handle_t create_record_encoder_stream(void)
 #endif
 }
 
+
 qm_audio_stream_handle_t create_record_raw_stream(void)
 {
     qm_audio_stream_handle_t raw_stream = NULL;
@@ -98,7 +99,7 @@ qm_audio_stream_handle_t create_record_i2s_stream(void)
 {
     audio_hal_codec_i2s_iface_t i2s_iface = {0};
     es7210_mic_select(ES7210_INPUT_MIC1 | ES7210_INPUT_MIC2 | ES7210_INPUT_MIC3 | ES7210_INPUT_MIC4);
-    es7210_adc_set_gain(ES7210_INPUT_MIC1 |ES7210_INPUT_MIC2, GAIN_37_5DB);
+    es7210_adc_set_gain(ES7210_INPUT_MIC1 |ES7210_INPUT_MIC2, GAIN_34_5DB);
     es7210_adc_set_gain(ES7210_INPUT_MIC3, GAIN_0DB);
     es7210_adc_set_gain(ES7210_INPUT_MIC4, GAIN_0DB);
 
@@ -305,7 +306,7 @@ qm_audio_vc_cfg_t *get_default_audio_vc_config(void)
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_core = 1;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_priority = 5;
 
-    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_linear_gain = 10.0;
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_linear_gain = 5.0;
 
     return &recorder_vc_cfg;
 #else
