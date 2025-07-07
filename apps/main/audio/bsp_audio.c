@@ -156,7 +156,7 @@ void qm_audio_ws_data_cb(void *data, int len, void *user_data)
         raw_stream_write(player_pipeline_get_raw_write(bsp_audio_handle.player_pipeline), pcm_data, pcm_size);
     // }
 
-    qm_msleep(50);
+    qm_msleep(20);
 }
 
 

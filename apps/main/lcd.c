@@ -395,7 +395,8 @@ void bsp_lcd_init(void) {
 
 void app_lvgl(void)
 {
-    const lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    lvgl_cfg.task_affinity = 0;
     lvgl_port_init(&lvgl_cfg);
 
     /* Add LCD screen */
@@ -536,7 +537,7 @@ static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) {
 }
 
 extern void wifi_set_blink(void);
-
+extern bool_t get_connect(void);
 static void lcd_task(void *arg) {
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/lvgl",
@@ -590,8 +591,9 @@ static void lcd_task(void *arg) {
     qm_timer_start(&turnoff_timer);
 
     bsp_audio_resgiter(audio_ws_recv_event_cb, NULL);
-
-    wifi_set_blink();
+    if(get_connect() == QM_FALSE) {
+        wifi_set_blink();
+    }
 
     while (1) {
         lvgl_port_lock(0); // 锁定lvgl接口，以保护UI更新过程。 
@@ -602,5 +604,5 @@ static void lcd_task(void *arg) {
 }
 
 void lcd_init(void) {
-    audio_thread_create(NULL, "lcd_task", lcd_task, NULL, 8 * 1024, 4, true, 1);
+    audio_thread_create(NULL, "lcd_task", lcd_task, NULL, 8 * 1024, 4, true, 0);
 }

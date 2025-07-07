@@ -18,7 +18,9 @@
 #include "esp_netif_sntp.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-
+// #include "audio_sys.h"
+// #include "audio_thread.h"
+// #include "audio_mem.h"
 
 #include "qm.h"
 
