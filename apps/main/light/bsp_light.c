@@ -466,6 +466,96 @@ qm_err_t bsp_light_bri_down(void)
     return QM_EOK;
 }
 
+//亮度挡位+
+qm_err_t bsp_light_bri_gear_up(void)
+{
+    bsp_light_store_t *store = bsp_light_store_get();
+    switch (store->sel)
+    {
+        case BSP_LIGHT_SEL_DUAL:
+            store->up_bri += LIGHT_AUDIO_BRI_UNIT;
+            store->down_bri += LIGHT_AUDIO_BRI_UNIT;
+        break;
+
+        case BSP_LIGHT_SEL_DOWN:
+            store->down_bri += LIGHT_AUDIO_BRI_UNIT;
+        break;
+
+        case BSP_LIGHT_SEL_UP:
+            store->up_bri += LIGHT_AUDIO_BRI_UNIT;
+        break;
+    
+        default:
+            break;
+    }
+
+    if(store->up_bri >= CONFIG_BSP_LIGHT_MAX_LIGHTNESS){
+        store->up_bri = CONFIG_BSP_LIGHT_MAX_LIGHTNESS;
+    }
+
+    if(store->down_bri >= CONFIG_BSP_LIGHT_MAX_LIGHTNESS){
+        store->down_bri = CONFIG_BSP_LIGHT_MAX_LIGHTNESS;
+    }
+
+    store->on_off = QM_TRUE;
+    store->mode = BSP_LIGHT_MODE_NONE;
+    light_total_lightness_update();
+
+    light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+    light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX], store->down_bri, CONFIG_BSP_LIGHT_FADE_TIME);    
+
+    return QM_EOK;
+}
+
+//亮度挡位-
+qm_err_t bsp_light_bri_gear_down(void)
+{
+    bsp_light_store_t *store = bsp_light_store_get();
+    int up_bri_gear = store->up_bri / LIGHT_AUDIO_BRI_UNIT;
+    int down_bri_gear = store->down_bri / LIGHT_AUDIO_BRI_UNIT;
+    switch (store->sel)
+    {
+        case BSP_LIGHT_SEL_DUAL:
+            if(up_bri_gear == 0) {
+                store->up_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
+            } else {
+                store->up_bri = (up_bri_gear - 1) * LIGHT_AUDIO_BRI_UNIT;
+            }
+            if(down_bri_gear == 0) {
+                store->down_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
+            } else {
+                store->down_bri = (down_bri_gear - 1) * LIGHT_AUDIO_BRI_UNIT;
+            }
+        break;
+
+        case BSP_LIGHT_SEL_DOWN:
+            if(down_bri_gear == 0) {
+                store->down_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
+            } else {
+                store->down_bri = (down_bri_gear - 1) * LIGHT_AUDIO_BRI_UNIT;
+            }
+        break;
+
+        case BSP_LIGHT_SEL_UP:
+            if(up_bri_gear == 0) {
+                store->up_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
+            } else {
+                store->up_bri = (up_bri_gear - 1) * LIGHT_AUDIO_BRI_UNIT;
+            }
+        break;
+    
+        default:
+            break;
+    }
+    store->on_off = QM_TRUE;
+    store->mode = BSP_LIGHT_MODE_NONE;
+    light_total_lightness_update();
+
+    light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+    light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX], store->down_bri, CONFIG_BSP_LIGHT_FADE_TIME);    
+
+    return QM_EOK;
+}
 
 //亮度渐变
 qm_err_t bsp_light_bri_grad(bsp_light_bri_grad_t grad)
@@ -476,11 +566,11 @@ qm_err_t bsp_light_bri_grad(bsp_light_bri_grad_t grad)
     switch (grad)
     {
         case BSP_LIGHT_BRI_GRAD_UP:
-            bsp_light_bri_up();
+            bsp_light_bri_gear_up();
         break;
 
         case BSP_LIGHT_BRI_GRAD_DOWN:
-            bsp_light_bri_down();
+            bsp_light_bri_gear_down();
         break;
 
         default:

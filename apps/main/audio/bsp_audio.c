@@ -184,7 +184,7 @@ static void wakeup_timeout_handle(void *arg)
 
     qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_FALSE);
     qm_audio_recorder_enable_sr_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
-#if !CONFIG_SUPPORT_ONLINE_CLOSE_WAV
+#if CONFIG_SUPPORT_ONLINE_CLOSE_WAV
     qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID, NULL, 0);
 #endif
 }
@@ -324,7 +324,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             }
 
             qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
-
+            
             if(bsp_audio_handle.ws_connect){
                 bsp_audio_handle.open_or_close = QM_TRUE;
                 qm_audio_ws_opening_remarks(bsp_audio_handle.ai_handle, CONFIG_AUDIO_WS_TIMEOUT);    

@@ -4,9 +4,12 @@
 #     basedir=$(dirname "$0")
 #     export ADF_PATH=$(cd "${basedir}"; pwd)
 # fi
+script_path=$(realpath "${BASH_SOURCE[0]}")
+export ADF_PATH=""
+export IDF_PATH=""
 
-export PATH=$(pwd):$PATH
-export ADF_PATH=$(pwd)
+export PATH=$(dirname $script_path):$PATH
+export ADF_PATH=$(dirname $script_path)
 
 if [ -z "$IDF_PATH" ]; then
     export IDF_PATH=$ADF_PATH/esp-idf

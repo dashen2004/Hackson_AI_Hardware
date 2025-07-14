@@ -1,6 +1,7 @@
 
 #include "qm.h"
 #include "qm_work.h"
+#include "vars.h"
 
 #include "audio_main.h"
 #include "audio_light.h"
@@ -26,6 +27,9 @@ static qm_err_t ratio_aciton(qm_spec_property_t *property);
 static qm_err_t grad_aciton(qm_spec_property_t *property);
 static qm_err_t delay_off_aciton(qm_spec_property_t *property);
 static qm_err_t reset_aciton(qm_spec_property_t *property);
+static qm_err_t volume_set_action(qm_spec_property_t *property);
+static qm_err_t volume_mute_action(qm_spec_property_t *property);
+static qm_err_t volume_cmd_action(qm_spec_property_t *property);
 
 static qm_err_t onoff_report(qm_spec_property_t *property);
 static qm_err_t bri_report(qm_spec_property_t *property);
@@ -36,6 +40,89 @@ static qm_err_t ratio_report(qm_spec_property_t *property);
 static qm_err_t grad_report(qm_spec_property_t *property);
 static qm_err_t delay_off_report(qm_spec_property_t *property);
 static qm_err_t reset_report(qm_spec_property_t *property);
+static qm_err_t volume_set_report(qm_spec_property_t *property);
+static qm_err_t volume_mute_report(qm_spec_property_t *property);
+static qm_err_t volume_cmd_report(qm_spec_property_t *property);
+
+
+extern int audio_stream_EGV_set(uint8_t type);
+extern int audio_stream_EGV_get(void);
+extern int audio_stream_ALG_set(float type);
+extern float audio_stream_ALG_get(void);
+static qm_err_t EGV_aciton(qm_spec_property_t *property)
+{
+    char data[10] = {0};
+    int len = 0;
+    int value = 0;
+    if(property == NULL) {
+        return QM_ERROR;
+    }
+
+    qm_spec_property_unpack_string(property, data, &len);
+    if(sscanf(data, "%d", &value) != 1) {
+        return QM_ERROR;
+    }
+
+    audio_stream_EGV_set(value);
+    return QM_EOK;
+}
+
+static qm_err_t EGV_report(qm_spec_property_t *property)
+{
+    qm_spec_property_t *property_pre = NULL;
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return QM_ERROR;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_EGV_SIID, CONFIG_AUDIO_EGV_PIID);
+    char data[10] = {0};
+    sprintf(data, "%d", audio_stream_EGV_get());
+    qm_spec_property_pack_string(property_pre, data, strlen(data));
+    qm_spec_property_add(property_operation, property_pre);
+    return xjiang_cloud_multi_report(property_operation);
+}
+
+static qm_err_t ALG_aciton(qm_spec_property_t *property)
+{
+    char data[10] = {0};
+    int len = 0;
+    float value = 0;
+    if(property == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, data, &len);
+    if(sscanf(data, "%1f", &value) != 1) {
+        return QM_ERROR;
+    }
+
+    audio_stream_ALG_set(value);
+    return QM_EOK;
+}
+
+static qm_err_t ALG_report(qm_spec_property_t *property)
+{
+    qm_spec_property_t *property_pre = NULL;
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return QM_ERROR;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_EGV_SIID, CONFIG_AUDIO_EGV_PIID);
+    char data[10] = {0};
+    sprintf(data, "%1f", audio_stream_ALG_get());
+    qm_spec_property_pack_string(property_pre, data, strlen(data));
+    qm_spec_property_add(property_operation, property_pre);
+    return xjiang_cloud_multi_report(property_operation);
+}
 
 static audio_light_table_t g_light_table[] =
 {
@@ -48,6 +135,11 @@ static audio_light_table_t g_light_table[] =
     {CONFIG_AUDIO_LIGHT_GRAD_SIID,      CONFIG_AUDIO_LIGHT_GRAD_PIID,       grad_aciton,  grad_report},
     {CONFIG_AUDIO_LIGHT_DELAY_OFF_SIID, CONFIG_AUDIO_LIGHT_DELAY_OFF_PIID,  delay_off_aciton,  delay_off_report},
     {CONFIG_AUDIO_LIGHT_RESET_SIID,     CONFIG_AUDIO_LIGHT_RESET_PIID,      reset_aciton,  reset_report},
+    {CONFIG_AUDIO_VOLUME_SIID,          CONFIG_AUDIO_VOLUME_PIID,           volume_set_action,  volume_set_report},
+    {CONFIG_AUDIO_VOLUME_SIID,          CONFIG_AUDIO_VOLUME_CMD_PIID,       volume_cmd_action,  volume_cmd_report},
+    {CONFIG_AUDIO_VOLUME_SIID,          CONFIG_AUDIO_VOLUME_MUTE_PIID,      volume_mute_action,  volume_mute_report},
+    {CONFIG_AUDIO_EGV_SIID,     CONFIG_AUDIO_EGV_PIID,      EGV_aciton,  EGV_report},
+    {CONFIG_AUDIO_ALG_SIID,     CONFIG_AUDIO_ALG_PIID,      ALG_aciton,  ALG_report},
 };
 
 qm_err_t audio_light_init(void)
@@ -74,7 +166,6 @@ static void audio_light_add(void *operation, uint8_t siid, uint16_t piid, int ty
         case QM_SPEC_PROPERTY_FORMAT_NUMBER:
             qm_spec_property_pack_number(property_pre, value);
             break;
-        
         default:
             break;
     }
@@ -333,4 +424,130 @@ static qm_err_t reset_aciton(qm_spec_property_t *property)
 static qm_err_t reset_report(qm_spec_property_t *property)
 {
     return QM_EOK;
+}
+
+static qm_err_t volume_set_action(qm_spec_property_t *property)
+{
+    int number = 0;
+
+    qm_spec_property_unpack_number(property, &number);
+
+    set_var_volume_value(number, true);
+    return QM_EOK;
+}
+
+static qm_err_t volume_set_report(qm_spec_property_t *property)
+{
+    qm_spec_property_t *property_pre = NULL;
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return QM_ERROR;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_VOLUME_SIID, CONFIG_AUDIO_VOLUME_PIID);
+    qm_spec_property_pack_number(property_pre, get_var_volume_value());
+    qm_spec_property_add(property_operation, property_pre);
+    return xjiang_cloud_multi_report(property_operation);
+}
+
+static qm_err_t volume_mute_action(qm_spec_property_t *property)
+{
+    int number = 0;
+
+    qm_spec_property_unpack_number(property, &number);
+    
+    switch (number)
+    {
+        case 1: //开启静音模式
+            set_var_mute_value(true, true);
+        break;
+
+        case 2: //关闭静音模式
+            set_var_mute_value(false, true);
+        break;        
+    
+        default:
+        break;
+    }
+    return QM_EOK;
+}
+
+static qm_err_t volume_mute_report(qm_spec_property_t *property)
+{
+    qm_spec_property_t *property_pre = NULL;
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return QM_ERROR;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_VOLUME_SIID, CONFIG_AUDIO_VOLUME_MUTE_PIID);
+    if(get_var_mute_value() == 1) {
+        qm_spec_property_pack_number(property_pre, 1);
+    } else {
+        qm_spec_property_pack_number(property_pre, 2);
+    }
+    qm_spec_property_add(property_operation, property_pre);
+    return xjiang_cloud_multi_report(property_operation);
+}
+
+static qm_err_t volume_cmd_action(qm_spec_property_t *property)
+{
+    int number = 0;
+    int get = get_var_volume_value();
+    qm_spec_property_unpack_number(property, &number);
+    switch (number)
+    {
+        case 1: //音量增大
+            get += CONFIG_AUDIP_VOLUME_DETLA;
+            if(get >= CONFIG_AUDIP_MAX_VOLUME){
+                get = CONFIG_AUDIP_MAX_VOLUME;
+            }
+        break;
+
+        case 2: //音量减小
+            get -= CONFIG_AUDIP_VOLUME_DETLA;
+            if(get <= CONFIG_AUDIP_MIN_VOLUME){
+                get = CONFIG_AUDIP_MIN_VOLUME;
+            }
+        break;        
+    
+        case 3: //最大音量
+            get = CONFIG_AUDIP_MAX_VOLUME;
+        break;    
+
+        case 4: //最小音量
+            get = CONFIG_AUDIP_MIN_VOLUME;
+        break;  
+
+        default:
+        break;
+    }
+    set_var_volume_value(get, true);
+    return QM_EOK;
+}
+
+static qm_err_t volume_cmd_report(qm_spec_property_t *property)
+{
+    qm_spec_property_t *property_pre = NULL;
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return QM_ERROR;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_VOLUME_SIID, CONFIG_AUDIO_VOLUME_PIID);
+    qm_spec_property_pack_number(property_pre, get_var_volume_value());
+    qm_spec_property_add(property_operation, property_pre);
+    return xjiang_cloud_multi_report(property_operation);
 }

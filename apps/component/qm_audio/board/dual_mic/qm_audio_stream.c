@@ -21,6 +21,7 @@
 #include "g711_decoder.h"
 #endif
 
+#include "qm_kv.h"
 #include "qm_audio_sr.h"
 #include "qm_audio_vc.h"
 #include "qm_audio_stream.h"
@@ -82,7 +83,50 @@ qm_audio_stream_handle_t create_record_encoder_stream(void)
     return NULL;
 #endif
 }
+#define FLASH_EGV_KEY                                     "egv_flg"
+#define FLASH_ALG_KEY                                     "alg_flg"
 
+int audio_stream_EGV_set(uint8_t type) {
+    int flag = type;
+    if(type < 0 && type > GAIN_37_5DB) {
+        return GAIN_34_5DB;
+    }
+    qm_kv_set(FLASH_EGV_KEY, &flag, 4, 1);
+    return 0;
+}
+
+int audio_stream_EGV_get(void) {
+    int type = 0;
+    int size = 4;
+    if(qm_kv_get(FLASH_EGV_KEY, &type, &size) == QM_EOK) {
+        if(type < 0 && type > GAIN_37_5DB) {
+            return GAIN_34_5DB;
+        }
+        return type;
+    }
+    return GAIN_34_5DB;
+}
+
+int audio_stream_ALG_set(float type) {
+    int flag = (int)(type * 10);
+     if(type < 0 && type > 10) {
+        return 1;
+    }
+    qm_kv_set(FLASH_ALG_KEY, &flag, 4, 1);
+    return 0;
+}
+
+float audio_stream_ALG_get(void) {
+    int type = 0;
+    int size = 4;
+    if(qm_kv_get(FLASH_ALG_KEY, &type, &size) == QM_EOK) {
+        if(type < 0 && type > 10) {
+            return 5.0;
+        }
+        return ((float)type) / 10;
+    }
+    return 5.0;
+}
 
 qm_audio_stream_handle_t create_record_raw_stream(void)
 {
@@ -99,6 +143,7 @@ qm_audio_stream_handle_t create_record_i2s_stream(void)
 {
     audio_hal_codec_i2s_iface_t i2s_iface = {0};
     es7210_mic_select(ES7210_INPUT_MIC1 | ES7210_INPUT_MIC2 | ES7210_INPUT_MIC3 | ES7210_INPUT_MIC4);
+    // es7210_adc_set_gain(ES7210_INPUT_MIC1 |ES7210_INPUT_MIC2, (es7210_gain_value_t)audio_stream_EGV_get());
     es7210_adc_set_gain(ES7210_INPUT_MIC1 |ES7210_INPUT_MIC2, GAIN_34_5DB);
     es7210_adc_set_gain(ES7210_INPUT_MIC3, GAIN_0DB);
     es7210_adc_set_gain(ES7210_INPUT_MIC4, GAIN_0DB);
@@ -301,11 +346,12 @@ qm_audio_vc_cfg_t *get_default_audio_vc_config(void)
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->ns_model_name = ns_model_name;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_ns_mode = AFE_NS_MODE_NET;
 
-    // ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_ringbuf_size = 100;
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_ringbuf_size = 100;
 
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_core = 1;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_perferred_priority = 5;
 
+    // ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_linear_gain = audio_stream_ALG_get();
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->afe_linear_gain = 5.0;
 
     return &recorder_vc_cfg;

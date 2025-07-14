@@ -35,7 +35,8 @@ extern "C" {
 #define LIGHT_TOTAL_LIGHTNESS_UNIT(X)    (X / 100)
 
 //灯光亮度单元
-#define LIGHT_BRI_UNIT      (LIGHT_LIGHTNESS_UNIT(5))
+#define LIGHT_BRI_UNIT            (LIGHT_LIGHTNESS_UNIT(5))
+#define LIGHT_AUDIO_BRI_UNIT      (LIGHT_LIGHTNESS_UNIT(20))
 
 #define LIGHT_TOTAL_LIGHTNESS(X,Y)      (((X * 75) + (Y * 25)) / 100)
 #define LIGHT_UP_LIGHTNESS(X)           ((X * 100))

@@ -14,6 +14,7 @@
 
 #include "bsp_light.h"
 #include "audio_light.h"
+#include "audio_main.h"
 
 #include "lcd.h"
 
@@ -328,7 +329,7 @@ void action_network_config_submit_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         if (win_flag == 1) {
             set_var_mute_value(false, true);    // 静音: 默认false
-            set_var_volume_value(70, true);     // 音量: 默认70
+            set_var_volume_value(CONFIG_AUDIP_VOLUME_DEFULT, true);     // 音量: 默认80
             set_var_scr_tmo_value(0, true);     // 熄屏时间: 默认0(30S)
             set_var_language_value(0, false);   // 语言: 默认0(中文)
             xjiang_cloud_reset();
