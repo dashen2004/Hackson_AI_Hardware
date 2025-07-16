@@ -7,6 +7,7 @@
 #include "audio_light.h"
 
 #include "bsp_light.h"
+#include "bsp_audio.h"
 
 #include "xjiang_cloud.h"
 
@@ -30,6 +31,7 @@ static qm_err_t reset_aciton(qm_spec_property_t *property);
 static qm_err_t volume_set_action(qm_spec_property_t *property);
 static qm_err_t volume_mute_action(qm_spec_property_t *property);
 static qm_err_t volume_cmd_action(qm_spec_property_t *property);
+static qm_err_t chat_state_action(qm_spec_property_t *property);
 
 static qm_err_t onoff_report(qm_spec_property_t *property);
 static qm_err_t bri_report(qm_spec_property_t *property);
@@ -43,7 +45,7 @@ static qm_err_t reset_report(qm_spec_property_t *property);
 static qm_err_t volume_set_report(qm_spec_property_t *property);
 static qm_err_t volume_mute_report(qm_spec_property_t *property);
 static qm_err_t volume_cmd_report(qm_spec_property_t *property);
-
+static qm_err_t chat_state_report(qm_spec_property_t *property);
 
 extern int audio_stream_EGV_set(uint8_t type);
 extern int audio_stream_EGV_get(void);
@@ -138,6 +140,7 @@ static audio_light_table_t g_light_table[] =
     {CONFIG_AUDIO_VOLUME_SIID,          CONFIG_AUDIO_VOLUME_PIID,           volume_set_action,  volume_set_report},
     {CONFIG_AUDIO_VOLUME_SIID,          CONFIG_AUDIO_VOLUME_CMD_PIID,       volume_cmd_action,  volume_cmd_report},
     {CONFIG_AUDIO_VOLUME_SIID,          CONFIG_AUDIO_VOLUME_MUTE_PIID,      volume_mute_action,  volume_mute_report},
+    {CONFIG_AUDIO_EXIT_CHAT_SIID,       CONFIG_AUDIO_CHAT_STATE_PIID,       chat_state_action,  chat_state_report},
     {CONFIG_AUDIO_EGV_SIID,     CONFIG_AUDIO_EGV_PIID,      EGV_aciton,  EGV_report},
     {CONFIG_AUDIO_ALG_SIID,     CONFIG_AUDIO_ALG_PIID,      ALG_aciton,  ALG_report},
 };
@@ -551,3 +554,17 @@ static qm_err_t volume_cmd_report(qm_spec_property_t *property)
     qm_spec_property_add(property_operation, property_pre);
     return xjiang_cloud_multi_report(property_operation);
 }
+
+static qm_err_t chat_state_action(qm_spec_property_t *property)
+{
+    int number = 0;
+    qm_spec_property_unpack_number(property, &number);
+    wakeup_timerout_immediately_trigger(number);
+    return QM_EOK;
+}
+
+static qm_err_t chat_state_report(qm_spec_property_t *property)
+{
+    return QM_EOK;
+}
+

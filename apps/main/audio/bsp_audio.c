@@ -127,6 +127,20 @@ void qm_bsp_offline_voice_play(uint8_t index) {
     }
 }
 
+void wakeup_timerout_immediately_trigger(uint8_t action) 
+{
+    switch (action) {
+    case 1:
+        break;
+    case 2:
+        qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+        qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, 0);
+        break;
+    default:
+        break;
+    }
+}
+
 uint8_t qm_bsp_voice_is_idle(void) {
     return qm_player_is_idle(bsp_audio_handle.player_handle);
 }

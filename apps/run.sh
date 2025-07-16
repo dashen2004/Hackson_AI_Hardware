@@ -18,6 +18,9 @@ SRMODELS_PATH="build/srmodels/srmodels.bin"
 SPIFFS_DATA_PATH="build/spiffs_data.bin"
 LVGL_PATH="build/lvgl.bin"
 
+VOLC_RTC_MAP_PATH="build/volc_rtc.map"
+
+
 COMBINE_OUTPUT_FILE="LIGHT.0059.G.101_FW_WB74_$current_datetime.bin"
 
 idf_build() {
@@ -31,12 +34,13 @@ idf.py build
 }
 
 wsl_file_to_windwos() {
-if [ -d "$ESP_TOOL_PATH" ]; then
 echo
 echo "文件路径$ESP_TOOL_WIN_PATH"
-else
-mkdir -p $ESP_TOOL_PATH
+if [ -d "$ESP_TOOL_PATH" ]; then
+rm -r $ESP_TOOL_PATH
 fi
+
+mkdir -p $ESP_TOOL_PATH
 
 cp $BOOTLOADER_PATH $ESP_TOOL_PATH
 cp $PARTITION_TABLE_PATH $ESP_TOOL_PATH
@@ -46,6 +50,7 @@ cp $VOLC_RTC_PATH $ESP_TOOL_PATH
 cp $SRMODELS_PATH $ESP_TOOL_PATH
 cp $SPIFFS_DATA_PATH $ESP_TOOL_PATH
 cp $LVGL_PATH $ESP_TOOL_PATH
+cp $VOLC_RTC_MAP_PATH $ESP_TOOL_PATH
 
 echo
 echo "copy $BOOTLOADER_PATH           to $ESP_TOOL_WIN_PATH"
@@ -56,6 +61,7 @@ echo "copy $VOLC_RTC_PATH             to $ESP_TOOL_WIN_PATH"
 echo "copy $SRMODELS_PATH             to $ESP_TOOL_WIN_PATH"
 echo "copy $SPIFFS_DATA_PATH          to $ESP_TOOL_WIN_PATH"
 echo "copy $LVGL_PATH                 to $ESP_TOOL_WIN_PATH"
+echo "copy $VOLC_RTC_MAP_PATH         to $ESP_TOOL_WIN_PATH"
 }
 
 esp_merge_bin() {

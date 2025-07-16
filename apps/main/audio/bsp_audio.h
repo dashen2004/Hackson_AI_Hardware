@@ -37,6 +37,7 @@ qm_err_t bsp_audio_resgiter(qm_audio_ws_recv_event_cb_t event_cb, void *user_dat
 
 qm_err_t bsp_audio_ota_set_voice_mute(void);
 
+void wakeup_timerout_immediately_trigger(uint8_t action);
 #ifdef __cplusplus
 }
 #endif
