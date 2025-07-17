@@ -2302,13 +2302,6 @@ void create_screen_page_recog() {
 
 void tick_screen_page_recog() {
     {
-        char *new_val = get_var_subtitles();
-        char *cur_val = lv_textarea_get_text(objects.text_recog_subtitles);
-        if (lv_strcmp(new_val, cur_val) != 0) {
-            lv_textarea_set_text(objects.text_recog_subtitles, new_val);
-        }
-    }
-    {
         static int8_t emotion_id_last = -1;
         int8_t new_val = get_var_emotion_id();
         if (new_val != emotion_id_last) {

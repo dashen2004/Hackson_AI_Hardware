@@ -494,8 +494,8 @@ static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_dat
             break;
         }
         case QM_AUDIO_WS_RECV_TYPE_TTS: {
-            turnoff_timer_reset(1);
             set_var_subtitles(event->data.tts.text);
+            turnoff_timer_reset(1);
             break;
         }
         default: {
@@ -510,10 +510,10 @@ void turnoff_timer_reset(uint8_t flag) { // 0 - screen operation, 1 - audio rece
     if (flag == 0) {
         set_var_screen_operation_tick();
     } else {
-        if (get_var_recog_page_leave() == 0 || qm_now_ms() - get_var_screen_operation_tick() >= 10 * 1000) {
-            if (get_current_screen() != SCREEN_ID_PAGE_RECOG) {
-                goto_recog_page();                
-            }
+        if (get_current_screen() == SCREEN_ID_PAGE_MAIN || (
+            get_current_screen() != SCREEN_ID_PAGE_RECOG && qm_now_ms() - get_var_screen_operation_tick() >= 5 * 1000)
+        ) {
+            goto_recog_page();
         }
     }
     set_var_turnoff_value(qm_now_ms());

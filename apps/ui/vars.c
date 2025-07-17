@@ -10,6 +10,7 @@
 #include "qm_kv.h"
 #include "audio_light.h"
 #include "bsp_audio.h"
+#include "esp_lvgl_port.h"
 
 // static char var_mode_nightlamp_title[33] = "小夜灯";
 // static char var_mode_read_title[33] = "阅读";
@@ -167,6 +168,7 @@ int32_t get_var_scr_tmo_value(void) {
 
 void set_var_scr_tmo_value(int32_t value, bool flag) {
     var_scr_tmo = value;
+    set_var_turnoff_value(qm_now_ms());
     if (flag) {
         qm_kv_set(SCR_TMO_KEY_NAME, &var_scr_tmo, sizeof(int32_t), 1);
     }
@@ -206,9 +208,17 @@ char *get_var_subtitles() {
     return var_subtitles;
 }
 
+extern objects_t objects;
+extern uint8_t lv_port_init_flag;
 void set_var_subtitles(const char *value) {
+    if(lv_port_init_flag == 0) {
+        return;
+    }
     if (value != NULL) {
-        lv_strcpy(var_subtitles, value);
+        // lv_strcpy(var_subtitles, value);
+        lvgl_port_lock(0);
+        lv_textarea_set_text(objects.text_recog_subtitles, value);
+        lvgl_port_unlock();
     }
 }
 
@@ -224,7 +234,6 @@ int8_t get_var_ota_status(void) {
     return var_ota_status;
 }
 
-#include "esp_lvgl_port.h"
 
 extern void goto_ota_process_page(void);
 extern void goto_ota_success_page(void);

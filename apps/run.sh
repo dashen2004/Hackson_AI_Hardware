@@ -90,17 +90,7 @@ cmd.exe /C "esptool --chip $CHIP_TYPE -b 1152000 -p $1 write-flash --flash-mode 
 }
 
 check_cmd() {
-if cmd.exe /c "where python" > /dev/null 2>&1; then
-echo "Python exists"
-else
-echo "exit"
-fi
 
-if cmd.exe /c "where esptool" > /dev/null 2>&1; then
-echo "esptool exist"
-else
-cmd.exe /c "pip install esptool -i https://pypi.tuna.tsinghua.edu.cn/simple"
-fi
 if [ -z "$1" ]; then
     return
 fi
@@ -124,6 +114,19 @@ fi
 idf_build
 
 wsl_file_to_windwos
+
+if cmd.exe /c "where python" > /dev/null 2>&1; then
+echo "Python exists"
+else
+echo "please install python"
+return
+fi
+
+if cmd.exe /c "where esptool" > /dev/null 2>&1; then
+echo "esptool exist"
+else
+cmd.exe /c "pip install esptool"
+fi
 
 esp_merge_bin
 

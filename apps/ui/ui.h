@@ -18,6 +18,7 @@ extern "C" {
 #endif
 
 enum ScreensEnum get_current_screen(void);
+void screen_wakeup_timeout_exit(void);
 
 void ui_init();
 void ui_tick();

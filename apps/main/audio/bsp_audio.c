@@ -39,6 +39,7 @@
 #include "es8311.h"
 #include "audio_prodtst.h"
 #include "xjiang_cloud.h"
+#include "ui.h"
 
 static const char* TAG = "volc_rtc";
 
@@ -238,7 +239,11 @@ void qm_audio_ws_data_cb(void *data, int len, int len_offset, int play_status, v
 
         case QM_AUDIO_WS_PLAYER_STATE_STOP:
             QM_LOGD("1", "QM_AUDIO_WS_PLAYER_STATE_STOP");
-            qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
+            if(bsp_audio_handle.open_or_close){
+                qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
+            } else {
+                screen_wakeup_timeout_exit();
+            }
         break;
 
         default:
@@ -253,7 +258,7 @@ static void wakeup_timeout_handle(void *arg)
     qm_audio_ws_listen_param_t listen = {
         .mode = audio_cfg.mode
     };
-
+    QM_LOGD("1","wakeup_timeout_handle");
     if(bsp_audio_handle.ws_connect){
         listen.state = QM_AUDIO_WS_LISTEN_STATE_STOP;
         bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_END;
@@ -383,8 +388,6 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             if(!bsp_audio_handle.open_or_close){
                 break;
             }
-
-
                 bsp_audio_handle.open_or_close = QM_FALSE;
                 qm_audio_ws_closing_remarks(bsp_audio_handle.ai_handle, CONFIG_AUDIO_WS_TIMEOUT);    
         #endif
@@ -614,7 +617,6 @@ static void qm_audio_ws_tts_closing_handler(qm_audio_ws_recv_evt_t *event)
             bsp_audio_set_voice_mute(false);
             bsp_audio_handle.mute = 0;
         }
-
         qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID, NULL, 0);
 
     }

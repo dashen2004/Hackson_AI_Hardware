@@ -43,13 +43,21 @@ enum ScreensEnum get_current_screen(void) {
     return currentScreen + 1;
 }
 
+extern void goto_main_page(void);
+void screen_wakeup_timeout_exit(void)
+{
+    if(get_current_screen() == SCREEN_ID_PAGE_RECOG) {
+        set_var_recog_page_leave(0);
+        goto_main_page();
+    }
+}
+
 void ui_init() {
     create_screens();
     if (get_var_awss_value()) {
         extern void goto_netconfig_process_page(void);
         goto_netconfig_process_page();
     } else {
-        extern void goto_main_page(void);
         goto_main_page();
     }
 }

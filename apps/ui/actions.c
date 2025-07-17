@@ -171,24 +171,28 @@ static void goto_menu_page(void) {
 void action_nightlamp_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->mode != BSP_LIGHT_MODE_NIGHT) {
         set_var_light_mode(BSP_LIGHT_MODE_NIGHT, true);
+        turnoff_timer_reset(0);
     }
 }
 
 void action_read_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->mode != BSP_LIGHT_MODE_READ) {
         set_var_light_mode(BSP_LIGHT_MODE_READ, true);
+        turnoff_timer_reset(0);
     }
 }
 
 void action_idle_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->mode != BSP_LIGHT_MODE_IDLE) {
         set_var_light_mode(BSP_LIGHT_MODE_IDLE, true);
+        turnoff_timer_reset(0);
     }
 }
 
 void action_sleep_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->mode != BSP_LIGHT_MODE_SLEEP) {
         set_var_light_mode(BSP_LIGHT_MODE_SLEEP, true);
+        turnoff_timer_reset(0);
     }
 }
 
