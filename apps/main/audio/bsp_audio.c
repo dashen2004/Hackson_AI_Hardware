@@ -74,7 +74,7 @@ struct bsp_audio_handle_t {
     void *user_data;
 
     qm_work_t  wakeup_timer;
-
+    
     qm_work_t  ind_timer;
 
     qm_work_t  reconn_timer;
@@ -180,13 +180,13 @@ void qm_audio_ws_data_cb(void *data, int len, int len_offset, int play_status, v
     recv.recv_type = QM_AUDIO_WS_RECV_TYPE_TTS;
     recv.data.tts.state = QM_AUDIO_WS_TTS_STATE_SENTENCE_START;
 
-    qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
-
-
     switch (play_status)
     {
         case QM_AUDIO_WS_PLAYER_STATE_START:
             QM_LOGD("1", "QM_AUDIO_WS_PLAYER_STATE_START");
+
+            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+
             qm_mutex_lock(&bsp_audio_handle.text_lock, QM_WAIT_FOREVER);
             node = qm_list_lpop(&bsp_audio_handle.text_list);
             qm_mutex_unlock(&bsp_audio_handle.text_lock);
@@ -238,14 +238,13 @@ void qm_audio_ws_data_cb(void *data, int len, int len_offset, int play_status, v
 
         case QM_AUDIO_WS_PLAYER_STATE_STOP:
             QM_LOGD("1", "QM_AUDIO_WS_PLAYER_STATE_STOP");
-
+            qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
         break;
 
         default:
         break;
     }
 
-    qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
 
 }
 
@@ -706,7 +705,7 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
                         }
                         qm_list_node_destroy(node);
                     }
-                    qm_mutex_unlock(&audio_ctx->text_lock);
+                    qm_mutex_unlock(&bsp_audio_handle.text_lock);
                 break;
 
                 case QM_AUDIO_WS_TTS_STATE_SENTENCE_START:
