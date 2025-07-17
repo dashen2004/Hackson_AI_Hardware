@@ -26,6 +26,14 @@ extern "C" {
 #define CONFIG_AUDIO_FMT_CHANNEL       (1)
 #define CONFIG_AUDIO_FMT_DURATION_MS   (60)
 
+#define CONFIG_AUDIO_FMT_FLOW_CTRL_ENABLE   (1) //
+#define CONFIG_AUDIO_FMT_MIN_LEN       (30) //
+#define CONFIG_AUDIO_FMT_MAX_LEN       (80) //
+
+#define CONFIG_AUDIO_FMT_MIN_SPEED       (20) //ms
+#define CONFIG_AUDIO_FMT_MAX_SPEED       (80) //ms
+
+
 #define CONFIG_NETWORK_DELAY_MS         (1500)
 
 #define CONFIG_DISABLE_SR_FUNC          (0)

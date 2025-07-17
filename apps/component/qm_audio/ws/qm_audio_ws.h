@@ -49,6 +49,9 @@ typedef enum {
     QM_AUDIO_WS_RECV_TYPE_DISCONNECT,       /*!< 未连接服务器*/
 
     QM_AUDIO_WS_RECV_TYPE_ABORT,            /*!< 平台判断在线唤醒词中止时下发，请求设备终止播放*/
+
+    QM_AUDIO_WS_RECV_TYPE_BIND,            /*!< 平台判断在线唤醒词中止时下发，请求设备终止播放*/
+
 } qm_audio_ws_recv_type_t;
 
 typedef enum {
@@ -136,7 +139,7 @@ typedef struct{
 } qm_audio_ws_recv_llm_t;  
 
 typedef struct{
-
+    int duration_ms;
     qm_audio_ws_tts_type_t tts_type;
     qm_audio_ws_tts_state_t state;
     char *text;
@@ -157,6 +160,10 @@ typedef struct{
     int reason;
 } qm_audio_ws_recv_abort_t; 
 
+typedef struct{
+    int state;  //1:建立绑定, 2:取消绑定
+} qm_audio_ws_recv_bind_t; 
+
 /**
  * @brief Recorder event
  */
@@ -173,6 +180,7 @@ typedef struct {
         qm_audio_ws_recv_set_t          set;
         qm_audio_ws_recv_ota_upgrade_t  ota_upgrade;
         qm_audio_ws_recv_abort_t        abort;
+        qm_audio_ws_recv_bind_t         bind;
     }data;
     
 } qm_audio_ws_recv_evt_t;
@@ -182,7 +190,7 @@ typedef struct {
  */
 typedef void (*qm_audio_ws_recv_event_cb_t)(qm_audio_ws_recv_evt_t *event, void *user_data);
 
-typedef void (*qm_audio_ws_data_cb_t)(void *data, int len, void *user_data);
+typedef void (*qm_audio_ws_data_cb_t)(void *data, int len, int len_offset, int play_status, void *user_data);
 
 /**
  * @brief Audio recorder configuration
@@ -273,6 +281,19 @@ qm_err_t qm_audio_ws_stop(qm_audio_ws_handle_t handle);
  *         ESP_FAIL
  */
 qm_err_t qm_audio_ws_clean(qm_audio_ws_handle_t handle);
+
+
+/**
+ * @brief 
+ *
+ * @param handle  Audio websocket handle
+ * @param speed_ms  
+ * @param timeout 
+ *
+ * @return Length of data actually read
+ *         ESP_ERR_INVALID_ARG
+ */
+qm_err_t qm_audio_ws_flow_ctrl(qm_audio_ws_handle_t handle, int speed_ms, uint32_t timeout);
 
 /**
  * @brief 

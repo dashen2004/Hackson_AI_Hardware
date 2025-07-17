@@ -1,16 +1,15 @@
 
 #include "qm.h"
 #include "qm_audio_ws.h"
+#include "qm_audio_ws_iface.h"
 #include "qm_audio_common.h"
 
-#include "qm_ble_gap.h"
 #include "qm_utils_list.h"
 #include "qm_work.h"
 #include "qm_event.h"
 
 #include "cJSON.h"
 
-#include "esp_websocket_client.h"
 
 #include "audio_mem.h"
 #include "audio_thread.h"
@@ -51,6 +50,8 @@
 #define CMD_PARAMS              "cmd"
 #define TIMES_PARAMS            "times"
 #define SPEED_PARAMS            "speed"
+#define AUDIODURATION_PARAMS    "audioDuration"
+
 
 
 #define HELLO_PARAMS            "hello"
@@ -61,6 +62,7 @@
 #define SET_PARAMS              "set"
 #define LISTEN_PARAMS           "listen"
 #define ABORT_PARAMS            "abort"
+#define BIND_PARAMS             "bind"
 #define OTA_VER_PARAMS           "otaVersion"
 #define OTA_UPGRADE_PARAMS       "otaUpgrade"
 #define OPENINGREMARKS_PARAMS    "openingRemarks"
@@ -85,11 +87,16 @@ typedef struct{
     uint8_t *payload;
 }qm_audio_ws_frame_t;
 
+typedef struct{
+    int duration;
+    char *payload;
+}qm_audio_ws_tts_frame_t;
+
 typedef struct {
     
     // char url[CONFIG_QM_AUDIO_WS_MAX_SIZE];
 
-    char sn[CONFIG_QM_AUDIO_WS_MAX_SIZE];
+    char *sn;
     char id[37];
 
     qm_task_t                     binary_task;
@@ -105,6 +112,9 @@ typedef struct {
     qm_task_t                     send_task;
     qm_queue_t                    send_queue;
 #endif
+               
+    int                           len_offset;
+    int                           play_status;
     qm_audio_ws_data_cb_t         data_cb; 
     qm_audio_ws_recv_event_cb_t   event_cb;
     void                        *user_data;         /*!< Pointer to user data (optional) */
@@ -122,9 +132,22 @@ typedef struct {
     
     qm_mutex_t audio_lock;
 
-    esp_websocket_client_handle_t client;
+    void *client;
 
     int connect;
+
+    int                           post_count;
+
+    uint8_t                       flow_ctrl_enbale;        /*!< 流控使能*/
+
+    uint8_t                       min_len;        /*!< */
+    uint8_t                       max_len;        /*!< */
+
+    uint8_t                       min_speed;        /*!< */
+    uint8_t                       max_speed;        /*!< */
+
+    uint8_t                       last_speed;
+
 }qm_ai_audio_ctx_t;
 
 typedef struct{
@@ -147,6 +170,8 @@ static void llm_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
 static void set_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
 static void ota_upgrade_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
 static void abort_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
+static void bind_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root);
+
 
 static qm_ai_audio_tts_type_table_t g_tts_type_table[] = 
 {
@@ -164,15 +189,8 @@ static qm_ai_audio_params_table_t g_param_table[] =
     {SET_PARAMS,            set_recv_handler},
     {OTA_UPGRADE_PARAMS,    ota_upgrade_recv_handler},
     {ABORT_PARAMS,          abort_recv_handler},
+    {BIND_PARAMS,           bind_recv_handler},
 };
-
-
-static void log_error_if_nonzero(const char *message, int error_code)
-{
-    if (error_code != 0) {
-        QM_LOGE(LOG_TAG, "Last error %s: 0x%x", message, error_code);
-    }
-}
 
 static void cjson_recv_handler(qm_ai_audio_ctx_t *auido_ctx, uint8_t *data, int len)
 {
@@ -207,6 +225,11 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
     qm_ai_audio_ctx_t *audio_dev = (qm_ai_audio_ctx_t *)arg;
 
     switch(input_event->sub_event){
+
+        case QM_AUDIO_EVENT_TYPE_WS_FLOW_CTRL:
+            QM_LOGI(LOG_TAG, "QM_AUDIO_EVENT_TYPE_WS_FLOW_CTRL");
+            qm_audio_ws_flow_ctrl((qm_audio_ws_handle_t)audio_dev, audio_dev->last_speed, CONFIG_QM_AUDIO_WS_TIMEOUT_MS);
+        break;
 
         case QM_AUDIO_EVENT_TYPE_WS_CONNECT:
         
@@ -301,7 +324,9 @@ static void websocket_audio_recv(qm_ai_audio_ctx_t *audio_dev, uint8_t opcode, u
         qm_list_rpush(&audio_dev->binary_list, node);
         qm_mutex_unlock(&audio_dev->binary_lock);
 
-        qm_sem_signal(&audio_dev->binary_sem);
+        if(audio_dev->post_count){
+            qm_sem_signal(&audio_dev->binary_sem);
+        }
         
     }else if(opcode == 0x01) {
 
@@ -315,53 +340,46 @@ static void websocket_audio_recv(qm_ai_audio_ctx_t *audio_dev, uint8_t opcode, u
     audio_recv.payload = NULL;
 }
 
-static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+#if 1
+static void websocket_event_handler(void *handle, qm_audio_ws_event_id_t event_id, qm_audio_ws_event_data_t *event_data, void *user_ctx)
 {
-    esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
-    qm_ai_audio_ctx_t *audio_dev = (qm_ai_audio_ctx_t *)data->user_context;
+    qm_ai_audio_ctx_t *audio_dev = (qm_ai_audio_ctx_t *)user_ctx;
 
     switch (event_id) {
-    case WEBSOCKET_EVENT_BEGIN:
-        QM_LOGI(LOG_TAG, "WEBSOCKET_EVENT_BEGIN");
-        break;
-    case WEBSOCKET_EVENT_CONNECTED:
-        QM_LOGI(LOG_TAG, "WEBSOCKET_EVENT_CONNECTED");
-        qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_CONNECT, NULL, 0);
-        break;
-        
-    case WEBSOCKET_EVENT_DISCONNECTED:
-        QM_LOGI(LOG_TAG, "WEBSOCKET_EVENT_DISCONNECTED");
-        qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_DISCONNECT, NULL, 0);
+        case QM_AUDIO_WS_EVENT_BEGIN:
+            QM_LOGI(LOG_TAG, "QM_AUDIO_WS_EVENT_BEGIN");
+            break;
+        case QM_AUDIO_WS_EVENT_CONNECTED:
+            QM_LOGI(LOG_TAG, "QM_AUDIO_WS_EVENT_CONNECTED");
+            qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_CONNECT, NULL, 0);
+            break;
+            
+        case QM_AUDIO_WS_EVENT_DISCONNECTED:
+            QM_LOGI(LOG_TAG, "QM_AUDIO_WS_EVENT_DISCONNECTED");
+            qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_DISCONNECT, NULL, 0);
+            break;
+        case QM_AUDIO_WS_EVENT_DATA:
 
-        log_error_if_nonzero("HTTP status code",  data->error_handle.esp_ws_handshake_status_code);
-        if (data->error_handle.error_type == WEBSOCKET_ERROR_TYPE_TCP_TRANSPORT) {
-            log_error_if_nonzero("reported from esp-tls", data->error_handle.esp_tls_last_esp_err);
-            log_error_if_nonzero("reported from tls stack", data->error_handle.esp_tls_stack_err);
-            log_error_if_nonzero("captured as transport's socket errno",  data->error_handle.esp_transport_sock_errno);
-        }
-        break;
-    case WEBSOCKET_EVENT_DATA:
-        if(data->op_code == 0x01 || data->op_code == 0x02){
-            // QM_LOGI(LOG_TAG, "Received opcode=%d size=%d, total:%d", data->op_code, data->data_len, data->payload_len);
-            websocket_audio_recv(audio_dev, data->op_code ,(uint8_t *)data->data_ptr, data->data_len, data->payload_len, data->payload_offset);
-        }
+            if(event_data->op_code == 0x01 || event_data->op_code == 0x02){
+                websocket_audio_recv(audio_dev, event_data->op_code ,(uint8_t *)event_data->data_ptr, event_data->data_len, event_data->payload_len, event_data->payload_offset);
+            }
 
-        break;
-    case WEBSOCKET_EVENT_ERROR:
-        QM_LOGI(LOG_TAG, "WEBSOCKET_EVENT_ERROR");
-        log_error_if_nonzero("HTTP status code",  data->error_handle.esp_ws_handshake_status_code);
-        if (data->error_handle.error_type == WEBSOCKET_ERROR_TYPE_TCP_TRANSPORT) {
-            log_error_if_nonzero("reported from esp-tls", data->error_handle.esp_tls_last_esp_err);
-            log_error_if_nonzero("reported from tls stack", data->error_handle.esp_tls_stack_err);
-            log_error_if_nonzero("captured as transport's socket errno",  data->error_handle.esp_transport_sock_errno);
-        }
-        break;
-    case WEBSOCKET_EVENT_FINISH:
-        QM_LOGI(LOG_TAG, "WEBSOCKET_EVENT_FINISH");
-        qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_DISCONNECT, NULL, 0);
-        break;
+            break;
+        case QM_AUDIO_WS_EVENT_ERROR:
+            QM_LOGI(LOG_TAG, "QM_AUDIO_WS_EVENT_ERROR");
+            break;
+
+        case QM_AUDIO_WS_EVENT_CLOSED:
+        case QM_AUDIO_WS_EVENT_FINISH:
+            QM_LOGI(LOG_TAG, "QM_AUDIO_WS_EVENT_FINISH");
+            qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_DISCONNECT, NULL, 0);
+            break;
+
+        default:
+            break;
     }
 }
+#endif
 
 static void audio_data_process_task(void *args)
 {
@@ -370,11 +388,8 @@ static void audio_data_process_task(void *args)
     #endif
 
     int list_len = 0;
-    int len_offset = 0;
-    int play_status = 0;
     int speed = 0;
     int timeout_count = 0;
-    uint32_t timeout = QM_WAIT_FOREVER;
     qm_list_node_t *node = NULL;
     qm_audio_ws_frame_t *ws_node = NULL;
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)args;
@@ -384,18 +399,42 @@ static void audio_data_process_task(void *args)
         qm_queue_recv(&audio_ctx->binary_queue, &frame, &size, timeout);
     #endif
 
-        qm_sem_wait(&audio_ctx->binary_sem, timeout);
+        qm_sem_wait(&audio_ctx->binary_sem, QM_WAIT_FOREVER);
+
+        if(!audio_ctx->post_count){
+            continue;
+        }
 
         qm_mutex_lock(&audio_ctx->binary_lock, QM_WAIT_FOREVER);
         node = qm_list_lpop(&audio_ctx->binary_list);
         qm_mutex_unlock(&audio_ctx->binary_lock);
 
         if(node == NULL){
+
+            audio_ctx->len_offset = 0;
+
+            if(audio_ctx->play_status){
+                audio_ctx->play_status = QM_AUDIO_WS_PLAYER_STATE_STOP;
+                if(audio_ctx->data_cb){
+                    audio_ctx->data_cb(NULL, 0, 0, QM_AUDIO_WS_PLAYER_STATE_STOP,audio_ctx->user_data);
+                }
+            }
+   
             continue;
         }
 
         ws_node = (qm_audio_ws_frame_t *)qm_list_node_val_get(node);
+
         if (ws_node->payload == NULL) {
+
+            audio_ctx->len_offset = 0;
+            if(audio_ctx->play_status){
+                audio_ctx->play_status = QM_AUDIO_WS_PLAYER_STATE_STOP;
+                if(audio_ctx->data_cb){
+                    audio_ctx->data_cb(NULL, 0, 0, QM_AUDIO_WS_PLAYER_STATE_STOP,audio_ctx->user_data);
+                }
+            }
+
             continue;
         }
 
@@ -407,10 +446,19 @@ static void audio_data_process_task(void *args)
         }
     #endif
 
-        len_offset++;
+    
+        audio_ctx->post_count--;
+        audio_ctx->len_offset++;
 
+        if(audio_ctx->play_status == QM_AUDIO_WS_PLAYER_STATE_STOP){
+            audio_ctx->play_status = QM_AUDIO_WS_PLAYER_STATE_START;
+            if(audio_ctx->data_cb){
+                audio_ctx->data_cb(NULL, 0, 0, QM_AUDIO_WS_PLAYER_STATE_START,audio_ctx->user_data);
+            }
+        }
+        
         if(audio_ctx->data_cb){
-            audio_ctx->data_cb(ws_node->payload, ws_node->payload_len, audio_ctx->user_data);
+            audio_ctx->data_cb(ws_node->payload, ws_node->payload_len, audio_ctx->len_offset, QM_AUDIO_WS_PLAYER_STATE_DATA, audio_ctx->user_data);
         }
 
         qm_free(ws_node->payload);
@@ -421,8 +469,37 @@ static void audio_data_process_task(void *args)
         qm_mutex_unlock(&audio_ctx->binary_lock);
 
 
-        if(list_len){
+        if(list_len && audio_ctx->post_count){
             qm_sem_signal(&audio_ctx->binary_sem);
+        }else{
+
+            audio_ctx->len_offset = 0;
+
+            if(audio_ctx->play_status){
+                audio_ctx->play_status = QM_AUDIO_WS_PLAYER_STATE_STOP;
+                if(audio_ctx->data_cb){
+                    audio_ctx->data_cb(NULL, 0, 0, QM_AUDIO_WS_PLAYER_STATE_STOP,audio_ctx->user_data);
+                }
+            }
+   
+        }
+
+        if(!audio_ctx->flow_ctrl_enbale){
+            continue;
+        }
+
+        if(list_len < audio_ctx->min_len){
+            speed = audio_ctx->min_speed;
+        }
+        
+        if (list_len > audio_ctx->max_len){
+            speed = audio_ctx->max_speed;
+        }
+        
+        if(audio_ctx->last_speed != speed){
+            QM_LOGW(LOG_TAG, "list_len(%d)!!", list_len);
+            audio_ctx->last_speed = speed;
+            qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_FLOW_CTRL, NULL, 0);
         }
     }
 }
@@ -446,17 +523,22 @@ static void audio_send_process_task(void *args)
 
 qm_audio_ws_handle_t qm_audio_ws_create(qm_audio_ws_cfg_t *cfg)
 {
-    uint8_t mac[6] = {0};
     qm_err_t ret = QM_EOK;
+    qm_audio_ws_iface_cfg_t websocket_cfg = {0};
     char temp_data[CONFIG_QM_AUDIO_WS_MAX_SIZE] = {0};
-    esp_websocket_client_config_t websocket_cfg = {0};
     
+    if(!g_audio_ws_iface.init || 
+        !g_audio_ws_iface.set_monitor ||
+        !g_audio_ws_iface.append_header){
+        return NULL;
+    }
+
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)qm_calloc(1, sizeof(qm_ai_audio_ctx_t));
     if(audio_ctx == NULL){
         return NULL;
     }
     
-    // audio_ctx->sn = cfg->sn;
+    audio_ctx->sn = cfg->sn;
     audio_ctx->data_cb = cfg->data_cb;
     audio_ctx->event_cb = cfg->event_cb;
     audio_ctx->user_data = cfg->user_data;
@@ -468,6 +550,14 @@ qm_audio_ws_handle_t qm_audio_ws_create(qm_audio_ws_cfg_t *cfg)
     audio_ctx->bits = cfg->bits;
     audio_ctx->channel = cfg->channel;
     audio_ctx->frame_duration_ms = cfg->frame_duration_ms;
+
+    audio_ctx->flow_ctrl_enbale = cfg->flow_ctrl_enbale;
+    audio_ctx->max_len = cfg->max_len;
+    audio_ctx->min_len = cfg->min_len;
+    audio_ctx->min_speed = cfg->min_speed;
+    audio_ctx->max_speed = cfg->max_speed;
+    
+    audio_ctx->last_speed = cfg->min_speed;
 
 #if CONFIG_QM_AUDIO_WS_SEND_TASK_SUPPORT
     ret = qm_queue_new(&audio_ctx->send_queue, CONFIG_QM_AUDIO_WS_QUEUE_NUM, sizeof(qm_audio_ws_frame_t));
@@ -483,8 +573,6 @@ qm_audio_ws_handle_t qm_audio_ws_create(qm_audio_ws_cfg_t *cfg)
         goto __err;
     }
 #endif
-    qm_ble_gap_get_local_addr(mac);
-    qm_snprintf(audio_ctx->sn, CONFIG_QM_AUDIO_WS_MAX_SIZE, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     qm_sem_new(&audio_ctx->binary_sem, 0);
     qm_mutex_new(&audio_ctx->binary_lock);
@@ -493,32 +581,27 @@ qm_audio_ws_handle_t qm_audio_ws_create(qm_audio_ws_cfg_t *cfg)
     websocket_cfg.task_prio = cfg->task_prio;
     websocket_cfg.task_stack = cfg->task_size;
     websocket_cfg.uri = cfg->uri;
-    websocket_cfg.skip_cert_common_name_check = true;
     websocket_cfg.user_context = audio_ctx;
    
-    audio_ctx->client = esp_websocket_client_init(&websocket_cfg);
+    audio_ctx->client = g_audio_ws_iface.init(&websocket_cfg);
 
-    esp_websocket_client_append_header(audio_ctx->client, SN_PARAMS, audio_ctx->sn);
+    g_audio_ws_iface.append_header(audio_ctx->client, SN_PARAMS, audio_ctx->sn);
 
     qm_snprintf(temp_data, CONFIG_QM_AUDIO_WS_MAX_SIZE, "%d", audio_ctx->pid);
-    esp_websocket_client_append_header(audio_ctx->client, PID_PARAMS, temp_data);
-
-    memset(temp_data, 0, CONFIG_QM_AUDIO_WS_MAX_SIZE);
-    qm_snprintf(temp_data, CONFIG_QM_AUDIO_WS_MAX_SIZE, "%d", QM_AUDIO_WS_VERSION);
-    esp_websocket_client_append_header(audio_ctx->client, VERSION_PARAMS, temp_data);
+    g_audio_ws_iface.append_header(audio_ctx->client, PID_PARAMS, temp_data);
 
     if(audio_ctx->did >= 0){
         memset(temp_data, 0, CONFIG_QM_AUDIO_WS_MAX_SIZE);
         qm_snprintf(temp_data, CONFIG_QM_AUDIO_WS_MAX_SIZE, "%d", audio_ctx->did);
-        esp_websocket_client_append_header(audio_ctx->client, DID_PARAMS, temp_data);
+        g_audio_ws_iface.append_header(audio_ctx->client, DID_PARAMS, temp_data);
     }
 
     memset(temp_data, 0, CONFIG_QM_AUDIO_WS_MAX_SIZE);
     qm_snprintf(temp_data, CONFIG_QM_AUDIO_WS_MAX_SIZE, "%d", QM_AUDIO_WS_VERSION);
-    esp_websocket_client_append_header(audio_ctx->client, PROTOCOL_VERSION_PARAMS, temp_data);
+    g_audio_ws_iface.append_header(audio_ctx->client, PROTOCOL_VERSION_PARAMS, temp_data);
 
     if(cfg->ver){
-        esp_websocket_client_append_header(audio_ctx->client, OTA_VERSION_PARAMS, cfg->ver);
+        g_audio_ws_iface.append_header(audio_ctx->client, OTA_VERSION_PARAMS, cfg->ver);
     }
 
 #if CONFIG_QM_AUDIO_WS_SEND_TASK_SUPPORT   
@@ -536,8 +619,9 @@ qm_audio_ws_handle_t qm_audio_ws_create(qm_audio_ws_cfg_t *cfg)
         true,
         true);
 #endif
-    esp_websocket_register_events(audio_ctx->client, WEBSOCKET_EVENT_ANY, websocket_event_handler, (void *)audio_ctx->client);
-    
+
+    g_audio_ws_iface.set_monitor(audio_ctx->client, websocket_event_handler);
+
     qm_event_register(QM_AUDIO_EVENT_ID, qm_audio_event_handler, audio_ctx);
 
     
@@ -570,11 +654,14 @@ qm_err_t qm_audio_ws_clean(qm_audio_ws_handle_t handle)
     qm_list_node_t *node = NULL;
     qm_audio_ws_frame_t *ws_node = NULL;
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
-    if(audio_ctx == NULL){
+    if(audio_ctx == NULL || !g_audio_ws_iface.start){
         return -QM_EINVAL;
     }
 
     qm_mutex_lock(&audio_ctx->binary_lock, QM_WAIT_FOREVER);
+    audio_ctx->len_offset = 0;
+    audio_ctx->post_count = 0;
+    audio_ctx->play_status = QM_AUDIO_WS_PLAYER_STATE_STOP;
     while (1)
     {
         node = qm_list_lpop(&audio_ctx->binary_list);
@@ -595,11 +682,11 @@ qm_err_t qm_audio_ws_clean(qm_audio_ws_handle_t handle)
 qm_err_t qm_audio_ws_start(qm_audio_ws_handle_t handle)
 {
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
-    if(audio_ctx == NULL){
+    if(audio_ctx == NULL || !g_audio_ws_iface.start){
         return -QM_EINVAL;
     }
 
-    esp_websocket_client_start(audio_ctx->client);
+    g_audio_ws_iface.start(audio_ctx->client);
 
     return QM_EOK;
 }
@@ -607,17 +694,61 @@ qm_err_t qm_audio_ws_start(qm_audio_ws_handle_t handle)
 qm_err_t qm_audio_ws_stop(qm_audio_ws_handle_t handle)
 {
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
-    if(audio_ctx == NULL){
+    if(audio_ctx == NULL || !g_audio_ws_iface.stop){
         return -QM_EINVAL;
     }
 
     audio_ctx->connect = QM_FALSE;
     
-    esp_websocket_client_stop(audio_ctx->client);
+    g_audio_ws_iface.stop(audio_ctx->client);
 
     return QM_EOK;
 }
 
+qm_err_t qm_audio_ws_flow_ctrl(qm_audio_ws_handle_t handle, int speed_ms, uint32_t timeout)
+{
+    qm_err_t ret = QM_EOK;
+    char *buff = NULL;
+    cJSON *parent = NULL;
+
+    qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle; 
+    if(audio_ctx == NULL || !g_audio_ws_iface.send_text){
+        return -QM_EINVAL;
+    }
+
+    parent = cJSON_CreateObject();
+    if(parent == NULL){
+        ret = -QM_ENOMEM;
+        goto __exit;
+    }
+
+    cJSON_AddStringToObject(parent, METHOD_PARAMS, FLOW_CTRL_PARAMS);
+
+    cJSON_AddStringToObject(parent, ID_PARAMS, audio_ctx->id);
+    cJSON_AddNumberToObject(parent, SPEED_PARAMS, speed_ms);
+
+    buff = cJSON_PrintUnformatted(parent);
+    if(buff == NULL){
+        ret = -QM_ENOMEM;
+        goto __exit;
+    }
+
+    QM_LOGD(LOG_TAG, "send msg:%s",buff);
+    g_audio_ws_iface.send_text(audio_ctx->client, buff, strlen(buff), timeout);
+    
+__exit:
+
+    if(parent){
+        cJSON_Delete(parent);
+        parent = NULL;
+    }
+
+    if(buff){
+        cJSON_free(buff);
+    }
+
+    return ret;
+}
 
 qm_err_t qm_audio_ws_music(qm_audio_ws_handle_t handle, qm_audio_ws_music_param_t *params, uint32_t timeout)
 {
@@ -625,8 +756,8 @@ qm_err_t qm_audio_ws_music(qm_audio_ws_handle_t handle, qm_audio_ws_music_param_
     char *buff = NULL;
     cJSON *parent = NULL;
 
-    qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
-    if(audio_ctx == NULL || params == NULL){
+    qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle; 
+    if(audio_ctx == NULL || !g_audio_ws_iface.send_text){
         return -QM_EINVAL;
     }
 
@@ -649,8 +780,8 @@ qm_err_t qm_audio_ws_music(qm_audio_ws_handle_t handle, qm_audio_ws_music_param_
     }
 
     QM_LOGD(LOG_TAG, "send msg:%s",buff);
-    esp_websocket_client_send_text(audio_ctx->client, buff, strlen(buff), timeout / portTICK_PERIOD_MS);
-
+    g_audio_ws_iface.send_text(audio_ctx->client, buff, strlen(buff), timeout);
+    
 __exit:
 
     if(parent){
@@ -673,7 +804,7 @@ qm_err_t qm_audio_ws_hello(qm_audio_ws_handle_t handle, uint32_t timeout)
     cJSON *parent = NULL;
 
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;  // NOLINT  // NOLINT
-    if(audio_ctx == NULL){
+    if(audio_ctx == NULL || !g_audio_ws_iface.send_text){
         return -QM_EINVAL;
     }
 
@@ -694,7 +825,7 @@ qm_err_t qm_audio_ws_hello(qm_audio_ws_handle_t handle, uint32_t timeout)
     cJSON_AddNumberToObject(child, BIT_PARAMS, (int32_t)audio_ctx->bits);
     cJSON_AddNumberToObject(child, CHANNEL_PARAMS, (int32_t)audio_ctx->channel);
     cJSON_AddNumberToObject(child, FRAME_DUR_PARAMS, (int32_t)audio_ctx->frame_duration_ms);
-    // cJSON_AddNumberToObject(child, FLOW_CTRL_PARAMS, (int32_t)audio_ctx->flow_ctrl_enbale);
+    cJSON_AddNumberToObject(child, FLOW_CTRL_PARAMS, (int32_t)audio_ctx->flow_ctrl_enbale);
 
     buff = cJSON_PrintUnformatted(parent);
     if(buff == NULL){
@@ -703,8 +834,7 @@ qm_err_t qm_audio_ws_hello(qm_audio_ws_handle_t handle, uint32_t timeout)
     }
 
     QM_LOGD(LOG_TAG, "send msg:%s",buff);
-    esp_websocket_client_send_text(audio_ctx->client, buff, strlen(buff), timeout / portTICK_PERIOD_MS);
-
+    g_audio_ws_iface.send_text(audio_ctx->client, buff, strlen(buff), timeout);
 __exit:
 
     if(parent){
@@ -726,7 +856,7 @@ qm_err_t qm_audio_ws_listen(qm_audio_ws_handle_t handle, qm_audio_ws_listen_para
     qm_err_t ret = QM_EOK;
 
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
-    if(audio_ctx == NULL || params == NULL){
+    if(audio_ctx == NULL || params == NULL || !g_audio_ws_iface.send_text){
         return -QM_EINVAL;
     }
 
@@ -753,7 +883,7 @@ qm_err_t qm_audio_ws_listen(qm_audio_ws_handle_t handle, qm_audio_ws_listen_para
     }   
 
     QM_LOGD("1", "send:%s", buff);
-    esp_websocket_client_send_text(audio_ctx->client, buff, strlen(buff), timeout / portTICK_PERIOD_MS);
+    g_audio_ws_iface.send_text(audio_ctx->client, buff, strlen(buff), timeout);
 
 __exit:
 
@@ -775,7 +905,7 @@ qm_err_t qm_audio_ws_abort(qm_audio_ws_handle_t handle, qm_audio_ws_abort_code_t
     cJSON *parent = NULL;
 
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
-    if(audio_ctx == NULL){
+    if(audio_ctx == NULL || !g_audio_ws_iface.send_text){
         return -QM_EINVAL;
     }
 
@@ -792,8 +922,10 @@ qm_err_t qm_audio_ws_abort(qm_audio_ws_handle_t handle, qm_audio_ws_abort_code_t
     if(buff == NULL){
         goto __exit;
     }   
+
     QM_LOGD("1", "send:%s", buff);
-    esp_websocket_client_send_text(audio_ctx->client, buff, strlen(buff), timeout / portTICK_PERIOD_MS);
+    g_audio_ws_iface.send_text(audio_ctx->client, buff, strlen(buff), timeout);
+
 __exit:
 
     if(parent){
@@ -814,7 +946,7 @@ qm_err_t qm_audio_ws_opening_remarks(qm_audio_ws_handle_t handle, uint32_t timeo
     cJSON *parent = NULL;
 
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
-    if(audio_ctx == NULL){
+    if(audio_ctx == NULL || !g_audio_ws_iface.send_text){
         return -QM_EINVAL;
     }
 
@@ -831,7 +963,7 @@ qm_err_t qm_audio_ws_opening_remarks(qm_audio_ws_handle_t handle, uint32_t timeo
         goto __exit;
     }   
     QM_LOGD("1", "send:%s", buff);
-    esp_websocket_client_send_text(audio_ctx->client, buff, strlen(buff), timeout / portTICK_PERIOD_MS);
+    g_audio_ws_iface.send_text(audio_ctx->client, buff, strlen(buff), timeout);
 __exit:
 
     if(parent){
@@ -852,7 +984,7 @@ qm_err_t qm_audio_ws_closing_remarks(qm_audio_ws_handle_t handle, uint32_t timeo
     char *buff = NULL;
     cJSON *parent = NULL;
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
-    if(audio_ctx == NULL){
+    if(audio_ctx == NULL || !g_audio_ws_iface.send_text){
         return -QM_EINVAL;
     }
 
@@ -869,7 +1001,7 @@ qm_err_t qm_audio_ws_closing_remarks(qm_audio_ws_handle_t handle, uint32_t timeo
         goto __exit;
     }   
     QM_LOGD("1", "send:%s", buff);
-    esp_websocket_client_send_text(audio_ctx->client, buff, strlen(buff), timeout / portTICK_PERIOD_MS);
+    g_audio_ws_iface.send_text(audio_ctx->client, buff, strlen(buff), timeout);
 __exit:
 
     if(parent){
@@ -882,16 +1014,18 @@ __exit:
     }
 
 
-    return QM_EOK;
+    return QM_EOK;    
 }
 
 int qm_audio_ws_data_send(qm_audio_ws_handle_t handle, void *buffer, int length, uint32_t timeout)
 {
     qm_ai_audio_ctx_t *audio_ctx = (qm_ai_audio_ctx_t *)handle;
-    if(audio_ctx == NULL){
+    if(audio_ctx == NULL || !g_audio_ws_iface.send_bin){
         return -QM_EINVAL;
     }
-    return esp_websocket_client_send_bin(audio_ctx->client, buffer, length, timeout / portTICK_PERIOD_MS);
+   
+    g_audio_ws_iface.send_bin(audio_ctx->client, buffer, length, timeout);
+    return QM_EOK;
 }
 
 qm_err_t qm_audio_ws_destroy(qm_audio_ws_handle_t handle)
@@ -953,6 +1087,9 @@ static void hello_reply_recv_handler(qm_ai_audio_ctx_t *auido_ctx, cJSON *root)
         cjson_int_get(params_object, FRAME_DUR_PARAMS, &hello_reply->frame_duration_ms);
     }
 
+    auido_ctx->last_speed = auido_ctx->min_speed;
+    qm_audio_ws_flow_ctrl((qm_audio_ws_handle_t)auido_ctx, auido_ctx->last_speed, CONFIG_QM_AUDIO_WS_TIMEOUT_MS);
+
     if(auido_ctx->event_cb){
         auido_ctx->event_cb(&recv, auido_ctx->user_data);
     }
@@ -982,6 +1119,8 @@ static void stt_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
 static void tts_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
 {
     int state = 0;
+    int dur_ms = 0;
+    int last_dur_ms = 0;
     char *tts_type = NULL; 
     qm_audio_ws_recv_evt_t recv = {0};
     qm_audio_ws_recv_tts_t *tts = &recv.data.tts;
@@ -1012,6 +1151,27 @@ static void tts_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
     tts->text = cjson_str_get(root, TEXT_PARAMS);
     if(tts->text){
         QM_LOGD(LOG_TAG, "tts:%s", tts->text);
+    }
+
+    switch (tts->state)
+    {
+
+        case QM_AUDIO_WS_TTS_STATE_START:
+            qm_audio_ws_clean(audio_ctx);
+        break;
+       
+        case QM_AUDIO_WS_TTS_STATE_SENTENCE_START:
+            cjson_int_get(root, AUDIODURATION_PARAMS, &last_dur_ms);
+            if(last_dur_ms){
+                dur_ms = last_dur_ms / audio_ctx->frame_duration_ms;
+                audio_ctx->post_count += dur_ms;
+                QM_LOGD(LOG_TAG, "audio duration_ms:%d->%d [%d]", last_dur_ms, dur_ms, audio_ctx->post_count);
+            }
+            tts->duration_ms =last_dur_ms;
+        break;
+
+        default:
+            break;
     }
 
     if(audio_ctx->event_cb){
@@ -1156,6 +1316,8 @@ static void ota_upgrade_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
         return ;
     }
 
+    qm_audio_ws_clean(audio_ctx);
+
     cjson_int_get(params_object, SIZE_PARAMS, &ota_upgrade->size);
     ota_upgrade->version = cjson_str_get(params_object,  VERSION_PARAMS);
     ota_upgrade->uri = cjson_str_get(params_object,  URI_PARAMS);
@@ -1166,7 +1328,6 @@ static void ota_upgrade_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
     }
 }
 
-
 static void abort_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
 {
     cJSON *params_object = NULL;
@@ -1176,10 +1337,31 @@ static void abort_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
         return ;
     }
     
+    qm_audio_ws_clean(audio_ctx);
+
     recv.recv_type = QM_AUDIO_WS_RECV_TYPE_ABORT;
 
-
     cjson_int_get(root, REASON_PARAMS, &abort->reason);
+
+    
+    if(audio_ctx->event_cb){
+        audio_ctx->event_cb(&recv, audio_ctx->user_data);
+    }
+}
+
+static void bind_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
+{
+    cJSON *params_object = NULL;
+    qm_audio_ws_recv_evt_t recv = {0};
+    qm_audio_ws_recv_bind_t *bind = &recv.data.bind;
+    if(audio_ctx == NULL || root == NULL){
+        return ;
+    }
+    
+    recv.recv_type = QM_AUDIO_WS_RECV_TYPE_BIND;
+
+
+    cjson_int_get(root, STATE_PARAMS, &bind->state);
 
     if(audio_ctx->event_cb){
         audio_ctx->event_cb(&recv, audio_ctx->user_data);

@@ -21,6 +21,7 @@ set(COMPONENT_SRCS
 
     "./prodtst/audio_prodtst.c"
 
+    "../component/qm_audio/ws/port/qm_audio_ws_port_lws.c"
     "../component/qm_audio/ws/qm_audio_ws.c"
     "../component/qm_audio/encoder/qm_audio_encoder.c"
     "../component/qm_audio/sr/qm_audio_sr.c"
