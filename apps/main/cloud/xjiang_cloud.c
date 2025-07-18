@@ -83,6 +83,7 @@ static void weather_request_timeout_action_handler(void *arg) {
 }
 
 static void weather_request_timer_handler(qm_timer_t *timer,  void *arg) {
+    qm_cancel_delayed_action(&weather_request_timeout_action);
     qm_iot_set_weahter_request(iot_handle);
     qm_post_delayed_action(&weather_request_timeout_action, weather_request_timeout_action_handler, NULL, 30 * 1000); // 30秒超时
 }
@@ -152,6 +153,8 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             connect = QM_TRUE;
             audio_light_snapshot_report();
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CEART_WS, NULL, 0);
+
+            qm_cancel_delayed_action(&weather_request_timeout_action);
             qm_iot_set_weahter_request(iot_handle);
             qm_post_delayed_action(&weather_request_timeout_action, weather_request_timeout_action_handler, NULL, 30 * 1000); // 30秒超时
             if (!qm_timer_is_valid(&weather_request_timer)) {
