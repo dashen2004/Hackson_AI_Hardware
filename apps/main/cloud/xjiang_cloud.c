@@ -163,7 +163,10 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             }
             qm_post_delayed_action(&set_connected_action, delay_set_connected, NULL, 0);
             break;
-
+        case QM_IOT_EVENT_BIND_NOTIFY:
+            QM_LOGD(LOG_TAG, "QM_IOT_EVENT_BIND_NOTIFY");
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CEART_WS, NULL, 0);
+            break;
         case QM_IOT_EVENT_CLOUD_DISCONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_DISCONN");
             connect = QM_FALSE;
