@@ -97,6 +97,7 @@ struct bsp_audio_handle_t {
 
     qm_list_t text_list;
     qm_mutex_t text_lock;
+    uint8_t wakeup_timeout;
 };
 
 typedef struct 
@@ -127,12 +128,17 @@ static struct qm_cli_command audio_key = {
     .function = handle_audio_info
 };
 
+uint8_t get_wakeup_timeout_flag(void) {
+    return bsp_audio_handle.wakeup_timeout;
+}
+
 static void bsp_post_ws_hello_handle(void *arg){
     qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_SEND_HELLO, NULL, 0);
 }
 
 static void bsp_wakeup_time_refresh(void) {
     QM_LOGI(TAG, "bsp_wakeup_time_refresh");
+    bsp_audio_handle.wakeup_timeout = 0;
     qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
     qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
 }
@@ -276,7 +282,7 @@ static void wakeup_timeout_handle(void *arg)
         bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_END;
         qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
     }
-
+    bsp_audio_handle.wakeup_timeout = 1;
     qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_FALSE);
     qm_audio_recorder_enable_sr_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
 #if CONFIG_SUPPORT_ONLINE_CLOSE_WAV
@@ -843,6 +849,7 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
     }
     engine_params.command_str = sr_cmd;
     engine_params.command_num = command_num;
+    bsp_audio_handle.wakeup_timeout = 1;
 
     bsp_audio_handle.recorder_engine = audio_record_engine_init(bsp_audio_handle.record_pipeline, &engine_params);
 
@@ -901,14 +908,14 @@ bool_t bsp_audio_get_voice_mute(void)
 static void bsp_audio_ws_create_and_start(void)
 {
     uint32_t len = CONFIG_QM_AUDIO_URL_MAX_SIZE;
+    qm_iot_audio_uri_get(bsp_audio_handle.audio_uri, &len);
     uint32_t uri_len = 128;
-    char uri[128] = {0};
-    qm_iot_audio_uri_get(uri, &uri_len);
-    QM_LOGD("1", "audio uri:%s", uri);
+    QM_LOGD("1", "audio uri:%s", bsp_audio_handle.audio_uri);
 
     qm_audio_ws_cfg_t params = {
 
-        .uri = uri,
+        // .uri = bsp_audio_handle.audio_uri,
+        .uri = CONFIG_NETWORK_URL,
         .buff_size = 10 * 1024,
         .task_prio = 10,
         .task_size = 20 * 1024,
@@ -935,11 +942,8 @@ static void bsp_audio_ws_create_and_start(void)
 
     if(bsp_audio_handle.ai_handle == NULL){
 
-        qm_iot_audio_uri_get(bsp_audio_handle.audio_uri, &len);
         if(bsp_audio_handle.audio_uri[0] == '\0'){
             QM_LOGW("AUDIO", "dy audio uri NULL");
-        }else{
-            params.uri = bsp_audio_handle.audio_uri;
         }
 
         bsp_audio_handle.ai_handle = qm_audio_ws_create(&params);

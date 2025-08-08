@@ -563,8 +563,22 @@ static qm_err_t chat_state_action(qm_spec_property_t *property)
     return QM_EOK;
 }
 
+extern uint8_t get_wakeup_timeout_flag(void);
 static qm_err_t chat_state_report(qm_spec_property_t *property)
-{
-    return QM_EOK;
+{   
+    qm_spec_property_t *property_pre = NULL;
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return QM_ERROR;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_EXIT_CHAT_SIID, CONFIG_AUDIO_CHAT_STATE_PIID);
+    qm_spec_property_pack_number(property_pre, get_wakeup_timeout_flag() + 1);
+    qm_spec_property_add(property_operation, property_pre);
+    return xjiang_cloud_multi_report(property_operation);
 }
 
