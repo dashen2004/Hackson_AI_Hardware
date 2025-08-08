@@ -15,9 +15,9 @@ extern "C" {
 
 #define CONFIG_AUDIO_WS_TIMEOUT     (5 * 1000)
 
-// #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:8000/xiaozhi/v1/" //老服务
+// #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:8000/xiaozhi/v1/"     //老服务
 
-#define CONFIG_NETWORK_URL          "ws://voice.ljyd.cn/voice/xiaojiang/v1/"    //正式服
+#define CONFIG_NETWORK_URL          "ws://voice.ljyd.cn/voice/xiaojiang/v1/"                  //正式服
 // #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:28000/xiaojiang/v1/"  //测试服
 
 
@@ -40,11 +40,11 @@ extern "C" {
 #define CONFIG_SUPPORT_AEC              (1)
 
 #define CONFIG_HARDWARE_VERSION         (21)
-#define CONFIG_XJIANG_VERSION           (25)
+#define CONFIG_XJIANG_VERSION           (26)
 #define CONFIG_XJIANG_CLOUD_PID         (10290)
 #define CONFIG_XJIANG_CLOUD_SECERT      "91B47743DC334240947B79CB80253852"
 
-#define  CONFIG_AUDIO_LIGHT_HW_VERSION  "LIGHT.0059.G.101_FW_WB74_0.2.5_0.2.5"
+#define  CONFIG_AUDIO_LIGHT_HW_VERSION  "LIGHT.0059.G.101_FW_WB74_0.2.6_0.2.6"
 
 #define CONFIG_SUPPORT_ONLINE_OPEN_WAV   (1)
 #define CONFIG_SUPPORT_ONLINE_CLOSE_WAV  (1)

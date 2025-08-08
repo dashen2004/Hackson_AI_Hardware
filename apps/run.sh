@@ -33,6 +33,16 @@ fi
 idf.py build
 }
 
+idf_menuconfig() {
+if type idf.py >/dev/null 2>&1; then
+echo "idf.py exist"
+else
+. ./../export.sh
+fi
+
+idf.py menuconfig
+}
+
 wsl_file_to_windwos() {
 echo
 echo "文件路径$ESP_TOOL_WIN_PATH"
@@ -65,6 +75,19 @@ echo "copy $VOLC_RTC_MAP_PATH         to $ESP_TOOL_WIN_PATH"
 }
 
 esp_merge_bin() {
+if cmd.exe /c "where python" > /dev/null 2>&1; then
+echo "Python exists"
+else
+echo "please install python"
+return
+fi
+
+if cmd.exe /c "where esptool" > /dev/null 2>&1; then
+echo "esptool exist"
+else
+cmd.exe /c "pip install esptool"
+fi
+
 cmd.exe /C "esptool --chip $CHIP_TYPE merge-bin \
 -o $ESP_TOOL_WIN_PATH$COMBINE_OUTPUT_FILE \
 --flash-mode dio \
@@ -80,54 +103,63 @@ cmd.exe /C "esptool --chip $CHIP_TYPE merge-bin \
 }
 
 esp_factory_flash() {
+echo "esp_factory_flash port: $PORT"
 cmd.exe /C "esptool --chip $CHIP_TYPE -b 1152000 -p $1 write-flash --flash-mode dio --flash-size detect --flash-freq 80m \
 0x0 $ESP_TOOL_WIN_PATH$COMBINE_OUTPUT_FILE"
 }
 
 esp_app_flash() {
+echo "esp_app_flash port: $PORT"
 cmd.exe /C "esptool --chip $CHIP_TYPE -b 1152000 -p $1 write-flash --flash-mode dio --flash-size detect --flash-freq 80m \
 0x20000 $ESP_TOOL_WIN_PATH"volc_rtc.bin""
 }
 
 check_cmd() {
-
 if [ -z "$1" ]; then
+    idf_build
+    wsl_file_to_windwos
+    esp_merge_bin
     return
 fi
 PORT="com3"
 if [ -n "$2" ]; then
     PORT=$2
 fi
-echo "port: $PORT"
-if [ "$1" = "flash" ]; then
+case $1 in
+"build"|"-b")
+    idf_build
+    ;; 
+"flash"|"-f")
+    idf_build
+    wsl_file_to_windwos
+    esp_merge_bin
     esp_factory_flash "$PORT"
-elif [ "$1" = "app_flash" ]; then
+    ;;
+"app_flash"|"-af")
+    idf_build
+    wsl_file_to_windwos
+    esp_merge_bin
     esp_app_flash "$PORT"
-elif [ "$1" = "auto_name" ]; then
-    echo auto_name
-elif [ "$1" = "help" ]; then
-    echo 
-fi
+    ;;
+"menuconfig"|"-mc")
+    idf_menuconfig
+    ;;
+"help"|"-h")
+    echo "Usage: . ./run.sh [cmd] [param]"
+    echo "cmd:"
+    echo "    (default)                 build project, cp file to windows, merge bin to factory firmware"
+    echo "    build, -b                 build project"
+    echo "    flash, -f                 flash factory firmware"
+    echo "    app_flash, -af            flash app firmware"
+    echo "    menuconfig, -mc           idf menuconfig"
+    echo "    help, -h                  show cmd"
+    echo "param:"
+    echo "    flash or app_flash can select port, defult use com3"
+    ;;
+*)
+    echo "Usage: . ./run.sh help"
+    ;;
+esac
 }
-
-
-idf_build
-
-wsl_file_to_windwos
-
-if cmd.exe /c "where python" > /dev/null 2>&1; then
-echo "Python exists"
-else
-echo "please install python"
-return
-fi
-
-if cmd.exe /c "where esptool" > /dev/null 2>&1; then
-echo "esptool exist"
-else
-cmd.exe /c "pip install esptool"
-fi
-
-esp_merge_bin
 
 check_cmd $1 $2
