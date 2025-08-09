@@ -98,6 +98,7 @@ struct bsp_audio_handle_t {
     qm_list_t text_list;
     qm_mutex_t text_lock;
     uint8_t wakeup_timeout;
+    uint8_t network_ind_flag;
 };
 
 typedef struct 
@@ -424,6 +425,11 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                 bsp_audio_handle.open_or_close = QM_TRUE;
                 qm_audio_ws_opening_remarks(bsp_audio_handle.ai_handle, CONFIG_AUDIO_WS_TIMEOUT);    
                 QM_LOGI(TAG, "qm_audio_ws_opening_remarks");
+            } else {
+                if(bsp_audio_handle.network_ind_flag == 0) {
+                    bsp_audio_handle.network_ind_flag = 1;
+                    qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG, NULL, 0);
+                }
             }
 
         #else
