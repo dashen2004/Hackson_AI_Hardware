@@ -745,6 +745,8 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
 
         case QM_AUDIO_WS_RECV_TYPE_DISCONNECT:
             
+            qm_audio_ws_stop(bsp_audio_handle.ai_handle);
+            
             qm_cancel_delayed_action(&bsp_audio_handle.reconn_timer);
 
             bsp_audio_handle.ws_connect = QM_FALSE;

@@ -114,6 +114,7 @@ static void* ws_init(qm_audio_ws_iface_cfg_t *cfg)
     websocket_cfg.uri = cfg->uri;
     websocket_cfg.skip_cert_common_name_check = true;
     websocket_cfg.user_context = &g_ws_port_handle;
+    websocket_cfg.disable_auto_reconnect = QM_TRUE;
 
     g_ws_port_handle.user_context = cfg->user_context;
     g_ws_port_handle.client = esp_websocket_client_init(&websocket_cfg);
