@@ -148,6 +148,7 @@ typedef struct {
 
     uint8_t                       last_speed;
 
+    qm_audio_ws_frame_t           audio_recv ;
 }qm_ai_audio_ctx_t;
 
 typedef struct{
@@ -287,26 +288,26 @@ static void websocket_audio_recv(qm_ai_audio_ctx_t *audio_dev, uint8_t opcode, u
 {
     qm_list_node_t *node = NULL;
     qm_audio_ws_frame_t *ws_node = NULL;
-    static qm_audio_ws_frame_t audio_recv = {0};
 
-    if(audio_recv.payload == NULL){
-        audio_recv.payload = (uint8_t *)qm_calloc(1, total_size);
-        if(audio_recv.payload == NULL){
+
+    if(audio_dev->audio_recv.payload == NULL){
+        audio_dev->audio_recv.payload = (uint8_t *)qm_calloc(1, total_size);
+        if(audio_dev->audio_recv.payload == NULL){
             return ;
         }
 
-        audio_recv.offset = 0;
-        audio_recv.payload_len = total_size;
+        audio_dev->audio_recv.offset = 0;
+        audio_dev->audio_recv.payload_len = total_size;
     }
 
-    if(audio_recv.payload == NULL){
+    if(audio_dev->audio_recv.payload == NULL){
         return ;
     }
 
-    memcpy(audio_recv.payload + audio_recv.offset, payload, payload_len);
-    audio_recv.offset += payload_len;
+    memcpy(audio_dev->audio_recv.payload + audio_dev->audio_recv.offset, payload, payload_len);
+    audio_dev->audio_recv.offset += payload_len;
 
-    if(audio_recv.offset < audio_recv.payload_len){
+    if(audio_dev->audio_recv.offset < audio_dev->audio_recv.payload_len){
         return ;
     }
 
@@ -318,7 +319,7 @@ static void websocket_audio_recv(qm_ai_audio_ctx_t *audio_dev, uint8_t opcode, u
         }
         ws_node = (qm_audio_ws_frame_t *)qm_list_node_val_get(node);
 
-        memcpy(ws_node, &audio_recv, sizeof(qm_audio_ws_frame_t));
+        memcpy(ws_node, &audio_dev->audio_recv, sizeof(qm_audio_ws_frame_t));
 
         qm_mutex_lock(&audio_dev->binary_lock, QM_WAIT_FOREVER);
         qm_list_rpush(&audio_dev->binary_list, node);
@@ -330,14 +331,14 @@ static void websocket_audio_recv(qm_ai_audio_ctx_t *audio_dev, uint8_t opcode, u
         
     }else if(opcode == 0x01) {
 
-        qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_MSG_RECV, &audio_recv, sizeof(qm_audio_ws_frame_t));
+        qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_MSG_RECV, &audio_dev->audio_recv, sizeof(qm_audio_ws_frame_t));
 
         
     }else{
-        qm_free(audio_recv.payload);
+        qm_free(audio_dev->audio_recv.payload);
     }
 
-    audio_recv.payload = NULL;
+    audio_dev->audio_recv.payload = NULL;
 }
 
 #if 1
@@ -356,9 +357,19 @@ static void websocket_event_handler(void *handle, qm_audio_ws_event_id_t event_i
             
         case QM_AUDIO_WS_EVENT_DISCONNECTED:
             QM_LOGI(LOG_TAG, "QM_AUDIO_WS_EVENT_DISCONNECTED");
+
+            if(audio_dev->audio_recv.payload){
+                qm_free(audio_dev->audio_recv.payload);
+                audio_dev->audio_recv.payload = NULL;
+            }
+
+            audio_dev->audio_recv.offset = 0;
+            audio_dev->audio_recv.payload_len = 0;
+
             qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_DISCONNECT, NULL, 0);
             break;
         case QM_AUDIO_WS_EVENT_DATA:
+
 
             if(event_data->op_code == 0x01 || event_data->op_code == 0x02){
                 websocket_audio_recv(audio_dev, event_data->op_code ,(uint8_t *)event_data->data_ptr, event_data->data_len, event_data->payload_len, event_data->payload_offset);
