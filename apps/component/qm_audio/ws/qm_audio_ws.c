@@ -304,6 +304,14 @@ static void websocket_audio_recv(qm_ai_audio_ctx_t *audio_dev, uint8_t opcode, u
         return ;
     }
 
+    if(payload_len + audio_dev->audio_recv.offset > audio_dev->audio_recv.payload_len){
+        qm_free(audio_dev->audio_recv.payload);
+        audio_dev->audio_recv.payload = NULL;
+        audio_dev->audio_recv.offset = 0;
+        audio_dev->audio_recv.payload_len = 0;
+        return ;
+    }
+
     memcpy(audio_dev->audio_recv.payload + audio_dev->audio_recv.offset, payload, payload_len);
     audio_dev->audio_recv.offset += payload_len;
 

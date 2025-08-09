@@ -179,6 +179,7 @@ int32_t get_var_language_value() {
 }
 
 void set_var_language_value(int32_t value, bool flag) {
+    set_var_turnoff_value(qm_now_ms());
     var_language = value;
     if (flag) {
         qm_kv_set(LANG_KEY_NAME, &var_language, sizeof(int32_t), 1);

@@ -160,11 +160,13 @@ void goto_main_page(void) {
     lvgl_port_lock(0);
     loadScreenEx(SCREEN_ID_PAGE_MAIN);
     lvgl_port_unlock();
+    set_var_turnoff_value(qm_now_ms());
 }
 
 // ******** 菜单页面 ******** //
 static void goto_menu_page(void) {
     loadScreenEx(SCREEN_ID_PAGE_MENU);
+    set_var_turnoff_value(qm_now_ms());
 }
 
 // ******** 灯光模式页面 ******** //
@@ -197,6 +199,7 @@ void action_sleep_click(lv_event_t * e) {
 }
 
 static void goto_mode_page(void) {
+    set_var_turnoff_value(qm_now_ms());
     loadScreenEx(SCREEN_ID_PAGE_MODE);
 }
 
@@ -226,11 +229,13 @@ void action_page_brightness_event_cb(lv_event_t * e) {
 
 static void goto_brightness_page(void) {
     // 先获取led状态和亮度
+    set_var_turnoff_value(qm_now_ms());
     loadScreenEx(SCREEN_ID_PAGE_BRIGHTNESS);
 } 
 
 // ******** 设置页面 ******** //
 static void goto_setup_page(void) {
+    set_var_turnoff_value(qm_now_ms());
     loadScreenEx(SCREEN_ID_PAGE_SETUP);
 }
 
@@ -238,10 +243,12 @@ static void goto_setup_page(void) {
 void action_volume_mute_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         set_var_mute_value(get_var_mute_value() ? false : true, true);
+        set_var_turnoff_value(qm_now_ms());
     }
 }
 
 static void goto_volume_page(void) {
+    set_var_turnoff_value(qm_now_ms());
     loadScreenEx(SCREEN_ID_PAGE_SETUP_VOLUME);
 }
 
@@ -280,12 +287,14 @@ void action_screen_never_click(lv_event_t * e) {
 }
 
 static void goto_screen_page(void) {
+    set_var_turnoff_value(qm_now_ms());
     loadScreenEx(SCREEN_ID_PAGE_SETUP_SCREEN);
 }
 
 // ******** 语言设置页面 ******** //
 
 static void goto_language_page(void) {
+    set_var_turnoff_value(qm_now_ms());
     loadScreenEx(SCREEN_ID_PAGE_SETUP_LANGUAGE);
 }
 
@@ -358,6 +367,7 @@ void action_network_config_submit_click(lv_event_t * e) {
 }
 
 static void goto_wifi_page(void) {
+    set_var_turnoff_value(qm_now_ms());
     if (lv_obj_has_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN)) {
         char *s = "点击确定后，设备将进入\n重新配网状态";
         lv_label_set_text(objects.text_network_config_infomation, s);
@@ -367,6 +377,7 @@ static void goto_wifi_page(void) {
 }
 
 static void goto_factory_reset_page(void) {
+    set_var_turnoff_value(qm_now_ms());
     if (lv_obj_has_flag(objects.container_mask, LV_OBJ_FLAG_HIDDEN)) {
         char *s = "点击确定\n设备将恢复出厂设置";
         lv_label_set_text(objects.text_network_config_infomation, s);
@@ -378,12 +389,14 @@ static void goto_factory_reset_page(void) {
 // ******** 关于页面 ******** //
 static void goto_about_page(void) {
     loadScreenEx(SCREEN_ID_PAGE_SETUP_ABOUT);
+    set_var_turnoff_value(qm_now_ms());
 }
 
 // 恢复出厂设置
 void action_factory_reset_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_factory_reset_page();
+        set_var_turnoff_value(qm_now_ms());
     }
 }
 
