@@ -53,6 +53,7 @@ static const char* TAG = "volc_rtc";
 #define JOIN_EVENT_BIT           (1 << 0)
 
 #define BACKOFF_BASE_TIME_MS    (10 * 1000)
+#define BACKOFF_MIN_TIME_MS    (2 * 1000)
 
 struct bsp_audio_handle_t {
     
@@ -745,18 +746,22 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
 
         case QM_AUDIO_WS_RECV_TYPE_DISCONNECT:
             
-            qm_audio_ws_stop(bsp_audio_handle.ai_handle);
             
             qm_cancel_delayed_action(&bsp_audio_handle.reconn_timer);
 
             bsp_audio_handle.ws_connect = QM_FALSE;
             xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
             
+
+            // qm_audio_ws_stop(bsp_audio_handle.ai_handle);
+
             qm_srandom((uint32_t)qm_now_ms());
 
             next_backoff += qm_random_get(BACKOFF_BASE_TIME_MS);
             if(next_backoff > BACKOFF_BASE_TIME_MS){
-                next_backoff = qm_random_get(BACKOFF_BASE_TIME_MS);
+                next_backoff = BACKOFF_BASE_TIME_MS;
+            } else if(next_backoff < BACKOFF_MIN_TIME_MS){
+                next_backoff = BACKOFF_MIN_TIME_MS;
             }
 
             QM_LOGW(TAG, "WS DISCONN - RECONNECT_NEXT:%d", next_backoff);
@@ -800,13 +805,13 @@ static void voice_read_task(void *args)
         }
 
         int read_len = qm_audio_recorder_data_read(bsp_audio_handle.recorder_engine, voice_data, voice_data_read_sz, portMAX_DELAY);
-        if (read_len == voice_data_read_sz && (bits & JOIN_EVENT_BIT)) {
+        if (read_len == voice_data_read_sz && (bits & JOIN_EVENT_BIT) && bsp_audio_handle.ws_connect) {
             send_size = bsp_audio_opus_encode_data(bsp_audio_handle.opus_handle, voice_data, encoder_data);
             if(send_size){
                 // qm_audio_ws_data_cb(encoder_data, send_size, voice_data); 
                 // QM_LOGD("1","audio raw_len:%d, enc_len:%d", voice_data_read_sz, send_size);
                 // QM_HEX_LOGD("1","audio ", encoder_data, send_size);
-                qm_audio_ws_data_send(bsp_audio_handle.ai_handle, encoder_data, send_size, QM_WAIT_FOREVER);   
+                qm_audio_ws_data_send(bsp_audio_handle.ai_handle, encoder_data, send_size, BACKOFF_BASE_TIME_MS);   
             }
         }
 
@@ -959,6 +964,7 @@ static void bsp_audio_ws_create_and_start(void)
         }
         qm_audio_ws_start(bsp_audio_handle.ai_handle);
     } else {
+        qm_audio_ws_stop(bsp_audio_handle.ai_handle);
         qm_audio_ws_start(bsp_audio_handle.ai_handle);
         if(bsp_audio_handle.ws_connect == QM_FALSE) {
             qm_cancel_delayed_action(&bsp_audio_handle.post_hello);

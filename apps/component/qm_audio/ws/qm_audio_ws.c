@@ -251,12 +251,12 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         
             QM_LOGI(LOG_TAG, "QM_AUDIO_EVENT_TYPE_WS_DISCONNECT");
 
-            if(audio_dev->connect){
+            // if(audio_dev->connect){
                 recv.recv_type = QM_AUDIO_WS_RECV_TYPE_DISCONNECT;
                 if(audio_dev->event_cb){
                     audio_dev->event_cb(&recv, audio_dev->user_data);
                 }
-            }
+            // }
             audio_dev->connect = QM_FALSE;
 
         break;
@@ -389,8 +389,10 @@ static void websocket_event_handler(void *handle, qm_audio_ws_event_id_t event_i
             break;
 
         case QM_AUDIO_WS_EVENT_CLOSED:
+#if 0
         case QM_AUDIO_WS_EVENT_FINISH:
-            QM_LOGI(LOG_TAG, "QM_AUDIO_WS_EVENT_FINISH");
+#endif
+            QM_LOGI(LOG_TAG, "QM_AUDIO_WS_EVENT_CLOSED");
             qm_event_post(QM_AUDIO_EVENT_ID, QM_AUDIO_EVENT_TYPE_WS_DISCONNECT, NULL, 0);
             break;
 
