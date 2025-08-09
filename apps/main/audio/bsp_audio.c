@@ -161,8 +161,8 @@ void wakeup_timerout_immediately_trigger(uint8_t action)
     case 1:
         break;
     case 2:
-        qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
-        qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, 0);
+        bsp_audio_handle.open_or_close = QM_FALSE;
+        qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID, NULL, 0);
         break;
     default:
         break;
