@@ -375,6 +375,9 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             bsp_audio_handle.ws_connect = QM_FALSE;
             bsp_audio_handle.open_or_close = QM_FALSE;
             
+            qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_FALSE);
+            qm_audio_recorder_enable_sr_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
+            
             qm_cancel_delayed_action(&bsp_audio_handle.ind_timer);
             qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)event_type, CONFIG_AUDIO_CONN_ERROR_TIMEOUT);
         
