@@ -753,7 +753,7 @@ static void qm_audio_ws_recv_event(qm_audio_ws_recv_evt_t *event, void *user_dat
             xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
             
 
-            // qm_audio_ws_stop(bsp_audio_handle.ai_handle);
+            qm_audio_ws_stop(bsp_audio_handle.ai_handle);
 
             qm_srandom((uint32_t)qm_now_ms());
 
