@@ -326,6 +326,7 @@ static void ind_timeout_handle(void *arg)
                 qm_player_play_file(bsp_audio_handle.player_handle, CONN_CLOUD_WAV);
             #endif
             }
+            bsp_audio_handle.network_ind_flag = 1;
 
             net_state  = CONFIG_AUDIO_SUB_EVENT_CONN_WS;
 
