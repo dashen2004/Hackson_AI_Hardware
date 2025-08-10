@@ -511,42 +511,63 @@ qm_err_t bsp_light_bri_gear_up(void)
 qm_err_t bsp_light_bri_gear_down(void)
 {
     bsp_light_store_t *store = bsp_light_store_get();
-    int up_bri_gear = store->up_bri / LIGHT_AUDIO_BRI_UNIT;
-    int down_bri_gear = store->down_bri / LIGHT_AUDIO_BRI_UNIT;
     switch (store->sel)
     {
         case BSP_LIGHT_SEL_DUAL:
-            if(up_bri_gear == 0) {
+
+            if(store->up_bri > LIGHT_AUDIO_BRI_UNIT){
+                store->up_bri -= LIGHT_AUDIO_BRI_UNIT;
+            }else{
                 store->up_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
-            } else {
-                store->up_bri = (up_bri_gear - 1) * LIGHT_AUDIO_BRI_UNIT;
             }
-            if(down_bri_gear == 0) {
+
+
+            if(store->down_bri > LIGHT_AUDIO_BRI_UNIT){
+                store->down_bri -= LIGHT_AUDIO_BRI_UNIT;
+            }else{
                 store->down_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
-            } else {
-                store->down_bri = (down_bri_gear - 1) * LIGHT_AUDIO_BRI_UNIT;
+            }
+
+            if(store->up_bri <= CONFIG_BSP_LIGHT_MIN_LIGHTNESS){
+                store->up_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
+            }
+        
+            if(store->down_bri <= CONFIG_BSP_LIGHT_MIN_LIGHTNESS){
+                store->down_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
             }
         break;
 
         case BSP_LIGHT_SEL_DOWN:
-            if(down_bri_gear == 0) {
+
+            if(store->down_bri > LIGHT_AUDIO_BRI_UNIT){
+                store->down_bri -= LIGHT_AUDIO_BRI_UNIT;
+            }else{
                 store->down_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
-            } else {
-                store->down_bri = (down_bri_gear - 1) * LIGHT_AUDIO_BRI_UNIT;
+            }
+        
+            if(store->down_bri <= CONFIG_BSP_LIGHT_MIN_LIGHTNESS){
+                store->down_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
             }
         break;
 
         case BSP_LIGHT_SEL_UP:
-            if(up_bri_gear == 0) {
+            if(store->up_bri > LIGHT_AUDIO_BRI_UNIT){
+                store->up_bri -= LIGHT_AUDIO_BRI_UNIT;
+            }else{
                 store->up_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
-            } else {
-                store->up_bri = (up_bri_gear - 1) * LIGHT_AUDIO_BRI_UNIT;
             }
+
+            if(store->up_bri <= CONFIG_BSP_LIGHT_MIN_LIGHTNESS){
+                store->up_bri = CONFIG_BSP_LIGHT_MIN_LIGHTNESS;
+            }
+    
         break;
     
         default:
             break;
     }
+    
+    
     store->on_off = QM_TRUE;
     store->mode = BSP_LIGHT_MODE_NONE;
     light_total_lightness_update();
