@@ -89,12 +89,10 @@ void bsp_lcd_bl_set(int brightness_percent) {
     bl_brightness_percent = brightness_percent;
     if(brightness_percent == 0) {
         ESP_LOGI(LOG_TAG, "Turning off LCD backlight");
-        esp_lcd_panel_disp_on_off(panel_handle, false);
+        ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, false);
         return;
-    } else {
-        esp_lcd_panel_disp_on_off(panel_handle, true);
     }
-    ESP_LOGI(LOG_TAG, "Setting LCD backlight: %d%%", brightness_percent);
+    ESP_LOGI(LOG_TAG, "Setting LCD backlight: %d", brightness_percent);
     uint32_t duty_cycle = (1023 * brightness_percent) / 100; // LEDC resolution set to 10bits, thus: 100% = 1023
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, duty_cycle);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
