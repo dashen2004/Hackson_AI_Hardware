@@ -912,21 +912,13 @@ qm_err_t bsp_audio_set_voice_mute(bool_t enable)
 
 bool_t bsp_audio_get_voice_mute(void)
 {
-
     return bsp_audio_handle.mute;
 }
-
 
 static void bsp_audio_ws_create_and_start(void)
 {
     uint32_t len = CONFIG_QM_AUDIO_URL_MAX_SIZE;
-    qm_iot_audio_uri_get(bsp_audio_handle.audio_uri, &len);
-    uint32_t uri_len = 128;
-    QM_LOGD("1", "audio uri:%s", bsp_audio_handle.audio_uri);
-
     qm_audio_ws_cfg_t params = {
-
-        // .uri = bsp_audio_handle.audio_uri,
         .uri = CONFIG_NETWORK_URL,
         .buff_size = 10 * 1024,
         .task_prio = 10,
@@ -954,8 +946,11 @@ static void bsp_audio_ws_create_and_start(void)
 
     if(bsp_audio_handle.ai_handle == NULL){
 
+        qm_iot_audio_uri_get(bsp_audio_handle.audio_uri, &len);
         if(bsp_audio_handle.audio_uri[0] == '\0'){
             QM_LOGW("AUDIO", "dy audio uri NULL");
+        }else{
+            params.uri = bsp_audio_handle.audio_uri;
         }
 
         bsp_audio_handle.ai_handle = qm_audio_ws_create(&params);
