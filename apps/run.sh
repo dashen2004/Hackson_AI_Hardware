@@ -4,7 +4,7 @@ echo $current_datetime
 
 CHIP_TYPE="esp32s3"
 
-ESP_TOOL_PATH="//mnt/d/work/$CHIP_TYPE/bin/"
+ESP_TOOL_PATH="//mnt/d/work/firmware/$CHIP_TYPE/bin/"
 
 ESP_TOOL_WIN_PATH=$(wslpath -w "$ESP_TOOL_PATH")
 ESP_TOOL_WIN_PATH=$(wslpath -w "$ESP_TOOL_PATH" | sed 's/\\/\//g')
