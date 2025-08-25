@@ -7,6 +7,8 @@
 
 #include "bsp_light.h"
 
+#include "audio_main.h"
+
 #define LOG_TAG "BSP_LIGHT"
 
 typedef struct  {
@@ -126,6 +128,7 @@ qm_err_t bsp_light_store_update(void)
 qm_err_t bsp_light_init(void)
 {
     qm_err_t ret = QM_EOK;
+    int crash_reset = 0;
     int store_len = 0;
 
     qm_light_alg_table_init();
@@ -153,7 +156,12 @@ qm_err_t bsp_light_init(void)
     if(g_light_store.is_reset){
         bsp_light_blink();
     }else{
-        bsp_light_bri_on_off(QM_TRUE);
+        crash_reset = qm_is_crash_reset();
+        if(!crash_reset){
+            bsp_light_bri_on_off(QM_TRUE);
+        }else{
+            bsp_light_bri_on_off(g_light_store.on_off);
+        }
     }
 
     g_light_store.is_reset = QM_FALSE;

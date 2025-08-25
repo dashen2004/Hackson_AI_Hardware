@@ -12,6 +12,8 @@
 #include "bsp_audio.h"
 #include "esp_lvgl_port.h"
 
+#include "qm_utils_timer.h"
+
 // static char var_mode_nightlamp_title[33] = "小夜灯";
 // static char var_mode_read_title[33] = "阅读";
 // static char var_mode_relaxation_title[33] = "休闲";
@@ -38,14 +40,14 @@
 // static char var_setup_about_sw_ver_value[33] = "v1.0.8";
 // static char var_setup_about_device_info_value[33] = "--";
 
-static char var_city[64] = "宁波";
-static int8_t var_weather_id = 0;
+static char var_city[64] = {0};
+static int8_t var_weather_id = -1;
 static int8_t var_temperature = 25;
 
 static char var_subtitles[512] = { 0 };
 
 static int32_t  var_scr_tmo = 0;
-static uint32_t var_turnoff = 0;
+static qm_utils_time_t var_turnoff = {0};
 static int32_t  var_language = 0;
 // static int8_t   last_emotion = 0;
 static int8_t   var_emotion_id = 0;
@@ -54,7 +56,7 @@ static int8_t   var_ota_status = 0; // 0 - process, 1 - success, 2 - failure
 static int8_t   var_ota_percent = 0;
 
 static bool     var_recog_page_leave = 0; // 从识别页离开
-static uint32_t var_screen_operation_tick = 0;
+static qm_utils_time_t var_screen_operation_tick = {0};
 
 static char     var_ip_addr[32];
 
@@ -168,7 +170,8 @@ int32_t get_var_scr_tmo_value(void) {
 
 void set_var_scr_tmo_value(int32_t value, bool flag) {
     var_scr_tmo = value;
-    set_var_turnoff_value(qm_now_ms());
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
     if (flag) {
         qm_kv_set(SCR_TMO_KEY_NAME, &var_scr_tmo, sizeof(int32_t), 1);
     }
@@ -179,19 +182,22 @@ int32_t get_var_language_value() {
 }
 
 void set_var_language_value(int32_t value, bool flag) {
-    set_var_turnoff_value(qm_now_ms());
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
     var_language = value;
     if (flag) {
         qm_kv_set(LANG_KEY_NAME, &var_language, sizeof(int32_t), 1);
     }
 }
 
+
 uint32_t get_var_turnoff_value(void) {
-    return var_turnoff;
+    return qm_utils_time_is_expired(&var_turnoff);
 }
 
 void set_var_turnoff_value(uint32_t value) {
-    var_turnoff = value;
+    // var_turnoff = value;
+    qm_utils_time_countdown_ms(&var_turnoff, value);
 }
 
 bool get_var_awss_value(void) {
@@ -273,15 +279,15 @@ bool get_var_recog_page_leave(void) {
 
 void set_var_recog_page_leave(bool value) {
     var_recog_page_leave = value;
-    var_screen_operation_tick = qm_now_ms();
+    qm_utils_time_countdown_ms(&var_screen_operation_tick, 5 * 1000);
 }
 
 uint32_t get_var_screen_operation_tick(void) {
-    return var_screen_operation_tick;
+    return qm_utils_time_is_expired(&var_turnoff);
 }
 
 void set_var_screen_operation_tick(void) {
-    var_screen_operation_tick = qm_now_ms();
+    qm_utils_time_countdown_ms(&var_screen_operation_tick, 5 * 1000);
 }
 
 char *get_var_ip_addr(void) {

@@ -74,6 +74,7 @@ static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv)
 
 static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv)
 {
+    qm_set_reset_flag();
     qm_iot_reset(iot_handle);
 }
 
@@ -228,6 +229,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             break;
 
         case QM_IOT_EVENT_OTA_SUCCESS:
+            qm_set_reset_flag();
             set_var_ota_status(1, true);
             ota_status_flag = 0;
             break;
@@ -300,6 +302,7 @@ qm_err_t xjiang_cloud_report(qm_spec_property_t *property)
 
 int xjiang_cloud_reset(void)
 {
+    qm_set_reset_flag();
     bsp_light_reset();
     qm_iot_reset(iot_handle);
     bsp_light_store_update();

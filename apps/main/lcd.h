@@ -23,4 +23,6 @@ void bsp_lcd_bl_on(void);
 void turnoff_timer_reset(uint8_t flag);
 void lcd_init(void);
 
+uint32_t bsp_lcd_get_turnoff_timeout(void);
+
 #endif /* __LCD_H__ */

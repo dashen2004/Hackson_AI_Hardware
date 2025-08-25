@@ -431,30 +431,12 @@ static void audio_data_process_task(void *args)
         qm_mutex_unlock(&audio_ctx->binary_lock);
 
         if(node == NULL){
-
-            audio_ctx->len_offset = 0;
-
-            if(audio_ctx->play_status){
-                audio_ctx->play_status = QM_AUDIO_WS_PLAYER_STATE_STOP;
-                if(audio_ctx->data_cb){
-                    audio_ctx->data_cb(NULL, 0, 0, QM_AUDIO_WS_PLAYER_STATE_STOP,audio_ctx->user_data);
-                }
-            }
-   
             continue;
         }
 
         ws_node = (qm_audio_ws_frame_t *)qm_list_node_val_get(node);
 
         if (ws_node->payload == NULL) {
-
-            audio_ctx->len_offset = 0;
-            if(audio_ctx->play_status){
-                audio_ctx->play_status = QM_AUDIO_WS_PLAYER_STATE_STOP;
-                if(audio_ctx->data_cb){
-                    audio_ctx->data_cb(NULL, 0, 0, QM_AUDIO_WS_PLAYER_STATE_STOP,audio_ctx->user_data);
-                }
-            }
 
             continue;
         }
@@ -467,9 +449,10 @@ static void audio_data_process_task(void *args)
         }
     #endif
 
-    
+        qm_mutex_lock(&audio_ctx->binary_lock, QM_WAIT_FOREVER);
         audio_ctx->post_count--;
         audio_ctx->len_offset++;
+        qm_mutex_unlock(&audio_ctx->binary_lock);
 
         if(audio_ctx->play_status == QM_AUDIO_WS_PLAYER_STATE_STOP){
             audio_ctx->play_status = QM_AUDIO_WS_PLAYER_STATE_START;
@@ -490,20 +473,17 @@ static void audio_data_process_task(void *args)
         qm_mutex_unlock(&audio_ctx->binary_lock);
 
 
-        if(list_len && audio_ctx->post_count){
-            qm_sem_signal(&audio_ctx->binary_sem);
-        }else{
-
+        if(!audio_ctx->post_count){
             audio_ctx->len_offset = 0;
-
             if(audio_ctx->play_status){
                 audio_ctx->play_status = QM_AUDIO_WS_PLAYER_STATE_STOP;
                 if(audio_ctx->data_cb){
                     audio_ctx->data_cb(NULL, 0, 0, QM_AUDIO_WS_PLAYER_STATE_STOP,audio_ctx->user_data);
                 }
             }
-   
         }
+
+        qm_sem_signal(&audio_ctx->binary_sem);
 
         if(!audio_ctx->flow_ctrl_enbale){
             continue;
@@ -1185,7 +1165,11 @@ static void tts_recv_handler(qm_ai_audio_ctx_t *audio_ctx, cJSON *root)
             cjson_int_get(root, AUDIODURATION_PARAMS, &last_dur_ms);
             if(last_dur_ms){
                 dur_ms = last_dur_ms / audio_ctx->frame_duration_ms;
+
+                qm_mutex_lock(&audio_ctx->binary_lock, QM_WAIT_FOREVER);
                 audio_ctx->post_count += dur_ms;
+                qm_mutex_unlock(&audio_ctx->binary_lock);
+
                 QM_LOGD(LOG_TAG, "audio duration_ms:%d->%d [%d]", last_dur_ms, dur_ms, audio_ctx->post_count);
             }
             tts->duration_ms =last_dur_ms;

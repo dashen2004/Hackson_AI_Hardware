@@ -30,6 +30,7 @@
 
 #include "qm.h"
 #include "qm_kv.h"
+#include "qm_utils_timer.h"
 
 #include "audio_main.h"
 #include "xjiang_cloud.h"
@@ -475,6 +476,15 @@ static char emotions[EMOTION_NUM][16] = {
 static qm_timer_t turnoff_timer = { 0 };
 static int        turnoff_timeout_tbl[4] = { 30000, 60000, 300000, 2147483647 }; // 30秒, 1分, 5分, 永不 //  { 15000, 30000, 45000, 60000 };
 
+uint32_t bsp_lcd_get_turnoff_timeout(void)
+{
+    int scr_tmo = get_var_scr_tmo_value(); // 0 - 30秒, 1 - 1分, 2 - 5分, 3 - Never
+    if (scr_tmo < 0 || scr_tmo > 3) {
+        scr_tmo = 0;
+    }
+    return turnoff_timeout_tbl[scr_tmo];
+}
+
 static int8_t get_emotion_idx(char *s) {
     for (uint8_t i = 0; i < EMOTION_NUM; i++) {
         if (strncmp(emotions[i], s, strlen(emotions[i])) == 0) {
@@ -512,27 +522,29 @@ static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_dat
 extern void goto_recog_page(void);
 
 void turnoff_timer_reset(uint8_t flag) { // 0 - screen operation, 1 - audio receive
+
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
     if (flag == 0) {
         set_var_screen_operation_tick();
     } else {
         if (get_current_screen() == SCREEN_ID_PAGE_MAIN || (
-            get_current_screen() != SCREEN_ID_PAGE_RECOG && qm_now_ms() - get_var_screen_operation_tick() >= 5 * 1000)
+            get_current_screen() != SCREEN_ID_PAGE_RECOG && get_var_screen_operation_tick())
         ) {
             goto_recog_page();
         }
     }
-    set_var_turnoff_value(qm_now_ms());
+    set_var_turnoff_value(timeout);
     bsp_lcd_bl_on();
 }
 
 static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) {
-    int scr_tmo = get_var_scr_tmo_value(); // 0 - 30秒, 1 - 1分, 2 - 5分, 3 - Never
-    if (scr_tmo < 0 || scr_tmo > 3) {
-        scr_tmo = 0;
-    }
+
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+
     if (get_current_screen() == SCREEN_ID_PAGE_OTA || get_current_screen() == SCREEN_ID_PAGE_NETCONFIG) {
-        set_var_turnoff_value(qm_now_ms());
-    } else if (qm_now_ms() - get_var_turnoff_value() >= turnoff_timeout_tbl[scr_tmo]) {
+        set_var_turnoff_value(timeout);
+    } 
+    else if (get_var_turnoff_value()) {
         bsp_lcd_bl_off();
         if (!bl_brightness_percent) {
             extern void goto_main_page(void);
@@ -591,7 +603,9 @@ static void lcd_task(void *arg) {
 
     bsp_lcd_bl_on();
 
-    set_var_turnoff_value(qm_now_ms());
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
+
     qm_timer_new  (&turnoff_timer, turnoff_timer_handler, NULL, 1000, 1);
     qm_timer_start(&turnoff_timer);
 

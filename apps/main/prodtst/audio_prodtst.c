@@ -32,6 +32,7 @@ static qm_at_result_t at_set_io_wr(void *channel, const char *args);
 static qm_at_result_t at_set_voice_scan(void *channel, const char *args);
 static qm_at_result_t at_set_voice(void *channel, const char *args);
 static qm_at_result_t at_set_rf_w(void *channel, const char *args);
+static qm_at_result_t at_set_harddefault(void *channel, const char *args);
 
 typedef struct prodtst_wifi_scan {
     qm_task_t task;
@@ -59,6 +60,7 @@ static uint8_t prodtst_hub_map[] = {10, 9};
 static qm_at_cmd_t at_fac_cmd[] = {
     {"AT+FAC", NULL, NULL, NULL, at_set_fac_mode, NULL},
     {"AT+MEM", NULL, NULL, at_get_mem_free, NULL, NULL},
+    {"AT+HF_TEST", NULL, NULL, NULL, at_set_harddefault, NULL},
 };
 static qm_at_cmd_t at_cmd[] = {   
     {"AT+FAC", NULL, NULL, NULL, at_set_fac_mode, NULL},
@@ -68,6 +70,8 @@ static qm_at_cmd_t at_cmd[] = {
 	{"AT+VOICE_SCAN", NULL, NULL, NULL, at_set_voice_scan, NULL},
 	{"AT+VOICE", NULL, NULL, NULL, at_set_voice, NULL},
 	{"AT+RF_W", NULL, NULL, NULL, at_set_rf_w, NULL},
+	{"AT+HF_TEST", NULL, NULL, NULL, at_set_harddefault, NULL},
+
 };
 static qm_uart_dev_t at_uart = {
     .config = {
@@ -106,6 +110,13 @@ int prodtst_config_get(void)
 static qm_at_result_t at_get_mem_free(void *channel) 
 {
 	qm_at_server_printfln(channel, "+MEM:%ld", qm_free_mem_get());
+	return QM_AT_RESULT_OK;
+}
+
+static qm_at_result_t at_set_harddefault(void *channel, const char *args)
+{
+	qm_at_server_printfln(channel, "+FREE 0xffffffff HANLDE");
+    qm_free((void *)0xffffffff);
 	return QM_AT_RESULT_OK;
 }
 

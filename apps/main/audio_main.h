@@ -40,11 +40,11 @@ extern "C" {
 #define CONFIG_SUPPORT_AEC              (1)
 
 #define CONFIG_HARDWARE_VERSION         (21)
-#define CONFIG_XJIANG_VERSION           (32)
+#define CONFIG_XJIANG_VERSION           (33)
 #define CONFIG_XJIANG_CLOUD_PID         (10290)
 #define CONFIG_XJIANG_CLOUD_SECERT      "91B47743DC334240947B79CB80253852"
 
-#define  CONFIG_AUDIO_LIGHT_HW_VERSION  "LIGHT.0059.G.101_FW_WB74_0.3.2_0.3.2"
+#define  CONFIG_AUDIO_LIGHT_HW_VERSION  "LIGHT.0059.G.101_FW_WB74_0.3.3_0.3.3"
 
 #define CONFIG_SUPPORT_ONLINE_OPEN_WAV   (1)
 #define CONFIG_SUPPORT_ONLINE_CLOSE_WAV  (1)
@@ -217,6 +217,10 @@ extern "C" {
 #define CONFIG_AUDIO_ALG_SIID       (8)
 #define CONFIG_AUDIO_ALG_PIID       (2)
 #define CONFIG_AUDIO_ALG_TYPE       (QM_SPEC_PROPERTY_FORMAT_STRING)
+
+
+int qm_is_crash_reset(void);
+int qm_set_reset_flag(void);
 
 #ifdef __cplusplus
 }

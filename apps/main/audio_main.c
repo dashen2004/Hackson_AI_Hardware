@@ -13,8 +13,42 @@
 
 #include "lcd.h"
 
+#include "esp_system.h"
+
+#define QM_RESET_TAG   "qm_reset"
+
+static int qm_reset_flag  = 0;
+
+int qm_is_crash_reset(void)
+{
+    bool ret = QM_FALSE;
+
+    esp_reset_reason_t reset_reason = esp_reset_reason();
+    QM_LOGI("1", "reset reason is %d", reset_reason);
+
+    if(reset_reason != ESP_RST_POWERON &&
+       qm_reset_flag == 1){
+        ret = QM_TRUE;
+    }
+
+    return ret;
+}
+
+int qm_set_reset_flag(void)
+{
+    qm_reset_flag = 2;
+    qm_kv_set(QM_RESET_TAG, &qm_reset_flag, sizeof(int), QM_TRUE);
+
+    return QM_EOK;
+}
+
+
 void qm_application_start(void)
 {
+    int flag = 0;
+    int len = sizeof(int);
+
+
     if(prodtst_config_get() == 1) {
         esp_log_set_level_master(ESP_LOG_NONE);
         qm_set_log_level(QM_LL_NONE);
@@ -23,6 +57,12 @@ void qm_application_start(void)
 
     bool mute = false, awss = false;
     int buffer_len = 0, volume = 0, scr_tmo = 0, lang = 0;
+
+    //
+    qm_kv_get(QM_RESET_TAG, &qm_reset_flag, &len);
+    flag = 1;
+    qm_kv_set(QM_RESET_TAG, &flag, sizeof(int), QM_TRUE);
+
     if (qm_kv_get(MUTE_KEY_NAME, &mute, &buffer_len)) {
         mute = false;
     }
