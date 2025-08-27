@@ -202,6 +202,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
 
         case QM_IOT_EVENT_RESET:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_RESET");
+            qm_set_reset_flag();
             connect = QM_FALSE;
             break;
 
