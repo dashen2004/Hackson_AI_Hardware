@@ -593,9 +593,8 @@ static void audio_player_dev_cb(qm_player_t handle, qm_player_event_type_t event
 
 static void qm_audio_ws_tts_chat_handler(qm_audio_ws_recv_evt_t *event)
 {
-    
+    bsp_wakeup_time_refresh();
     if(event->data.tts.state == QM_AUDIO_WS_TTS_STATE_START){
-        bsp_wakeup_time_refresh();
 
     #if CONFIG_AUDIO_BOARD_USER_BUTTON    
         adc_ind_type = false;
@@ -608,7 +607,6 @@ static void qm_audio_ws_tts_chat_handler(qm_audio_ws_recv_evt_t *event)
         player_pipeline_run(bsp_audio_handle.player_pipeline);
             
     }else if (event->data.tts.state == QM_AUDIO_WS_TTS_STATE_STOP){
-        bsp_wakeup_time_refresh();
     #if CONFIG_AUDIO_BOARD_USER_BUTTON
         adc_ind_type = true;
     #endif
@@ -619,8 +617,8 @@ static void qm_audio_ws_tts_opening_handler(qm_audio_ws_recv_evt_t *event)
 {
 
 #if CONFIG_SUPPORT_ONLINE_OPEN_WAV
+    bsp_wakeup_time_refresh();
     if(event->data.tts.state == QM_AUDIO_WS_TTS_STATE_START){
-        bsp_wakeup_time_refresh();
 
         xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
     #if CONFIG_AUDIO_BOARD_USER_BUTTON    
@@ -636,7 +634,6 @@ static void qm_audio_ws_tts_opening_handler(qm_audio_ws_recv_evt_t *event)
     #if CONFIG_AUDIO_BOARD_USER_BUTTON
         adc_ind_type = true;
     #endif
-        bsp_wakeup_time_refresh();
         xEventGroupSetBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
     }
 #endif
