@@ -26,6 +26,8 @@ static qm_err_t switch_aciton(qm_spec_property_t *property);
 static qm_err_t sel_aciton(qm_spec_property_t *property);
 static qm_err_t ratio_aciton(qm_spec_property_t *property);
 static qm_err_t grad_aciton(qm_spec_property_t *property);
+static qm_err_t uplight_aciton(qm_spec_property_t *property);
+static qm_err_t downlight_aciton(qm_spec_property_t *property);
 static qm_err_t delay_off_aciton(qm_spec_property_t *property);
 static qm_err_t reset_aciton(qm_spec_property_t *property);
 static qm_err_t volume_set_action(qm_spec_property_t *property);
@@ -40,6 +42,8 @@ static qm_err_t switch_report(qm_spec_property_t *property);
 static qm_err_t sel_report(qm_spec_property_t *property);
 static qm_err_t ratio_report(qm_spec_property_t *property);
 static qm_err_t grad_report(qm_spec_property_t *property);
+static qm_err_t uplight_report(qm_spec_property_t *property);
+static qm_err_t downlight_report(qm_spec_property_t *property);
 static qm_err_t delay_off_report(qm_spec_property_t *property);
 static qm_err_t reset_report(qm_spec_property_t *property);
 static qm_err_t volume_set_report(qm_spec_property_t *property);
@@ -135,6 +139,8 @@ static audio_light_table_t g_light_table[] =
     {CONFIG_AUDIO_LIGHT_SEL_SIID,       CONFIG_AUDIO_LIGHT_SEL_PIID,        sel_aciton,  sel_report},
     {CONFIG_AUDIO_LIGHT_RATIO_SIID,     CONFIG_AUDIO_LIGHT_RATIO_PIID,      ratio_aciton,  ratio_report},
     {CONFIG_AUDIO_LIGHT_GRAD_SIID,      CONFIG_AUDIO_LIGHT_GRAD_PIID,       grad_aciton,  grad_report},
+    {CONFIG_AUDIO_LIGHT_UPLIGHT_SIID,   CONFIG_AUDIO_LIGHT_UPLIGHT_PIID,    uplight_aciton,  uplight_report},
+    {CONFIG_AUDIO_LIGHT_DOWNLIGHT_SIID, CONFIG_AUDIO_LIGHT_DOWNLIGHT_PIID,  downlight_aciton,  downlight_report},
     {CONFIG_AUDIO_LIGHT_DELAY_OFF_SIID, CONFIG_AUDIO_LIGHT_DELAY_OFF_PIID,  delay_off_aciton,  delay_off_report},
     {CONFIG_AUDIO_LIGHT_RESET_SIID,     CONFIG_AUDIO_LIGHT_RESET_PIID,      reset_aciton,  reset_report},
     {CONFIG_AUDIO_VOLUME_SIID,          CONFIG_AUDIO_VOLUME_PIID,           volume_set_action,  volume_set_report},
@@ -392,6 +398,42 @@ static qm_err_t grad_aciton(qm_spec_property_t *property)
 }
 
 static qm_err_t grad_report(qm_spec_property_t *property)
+{
+    return audio_light_snapshot_report();
+}
+
+//上光
+static qm_err_t uplight_aciton(qm_spec_property_t *property)
+{   
+    int onoff = 0;
+    qm_spec_property_unpack_number(property, &onoff);
+
+    bsp_light_uplight_switch(onoff);
+
+    bsp_light_store_update();
+
+    return QM_EOK;
+}
+
+static qm_err_t uplight_report(qm_spec_property_t *property)
+{
+    return audio_light_snapshot_report();
+}
+
+//下光
+static qm_err_t downlight_aciton(qm_spec_property_t *property)
+{   
+    int onoff = 0;
+    qm_spec_property_unpack_number(property, &onoff);
+
+    bsp_light_downlight_switch(onoff);
+
+    bsp_light_store_update();
+
+    return QM_EOK;
+}
+
+static qm_err_t downlight_report(qm_spec_property_t *property)
 {
     return audio_light_snapshot_report();
 }

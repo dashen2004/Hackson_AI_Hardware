@@ -609,6 +609,111 @@ qm_err_t bsp_light_bri_grad(bsp_light_bri_grad_t grad)
     return QM_EOK;
 }
 
+//上光开关
+qm_err_t bsp_light_uplight_switch(bool_t on_off)
+{
+
+    bsp_light_store_t *store = bsp_light_store_get();
+    
+    switch (on_off)
+    {
+    case 0:
+        if(store->on_off == QM_FALSE) {
+            break;
+        }
+        switch (store->sel)
+        {
+        case BSP_LIGHT_SEL_DUAL:
+            bsp_light_select(BSP_LIGHT_SEL_DOWN);
+            break;
+        case BSP_LIGHT_SEL_UP:
+            bsp_light_bri_on_off(QM_FALSE);
+            break;
+        case BSP_LIGHT_SEL_DOWN:
+            break;
+        default:
+            break;
+        }
+        break;
+    case 1:
+        if(store->on_off == QM_FALSE) {
+            store->on_off = QM_TRUE;
+            bsp_light_select(BSP_LIGHT_SEL_UP);
+        } else {
+            switch (store->sel)
+            {
+            case BSP_LIGHT_SEL_DUAL:
+            case BSP_LIGHT_SEL_DOWN:
+                bsp_light_select(BSP_LIGHT_SEL_DUAL);
+                break;
+            case BSP_LIGHT_SEL_UP:
+                bsp_light_select(BSP_LIGHT_SEL_UP);
+                break;
+            default:
+                break;
+            }
+        }
+        break;
+    default:
+        break;
+    }
+
+    return QM_EOK;
+}
+
+//下光开关
+qm_err_t bsp_light_downlight_switch(bool_t on_off)
+{
+
+    bsp_light_store_t *store = bsp_light_store_get();
+
+    switch (on_off)
+    {
+    case 0:
+        if(store->on_off == QM_FALSE) {
+            break;
+        }
+        switch (store->sel)
+        {
+        case BSP_LIGHT_SEL_DUAL:
+            bsp_light_select(BSP_LIGHT_SEL_UP);
+            break;
+        case BSP_LIGHT_SEL_UP:
+            break;
+        case BSP_LIGHT_SEL_DOWN:
+            bsp_light_bri_on_off(QM_FALSE);
+            break;
+        default:
+            break;
+        }
+        break;
+    case 1:
+        if(store->on_off == QM_FALSE) {
+            store->on_off = QM_TRUE;
+            bsp_light_select(BSP_LIGHT_SEL_DOWN);
+        } else {
+            switch (store->sel)
+            {
+            case BSP_LIGHT_SEL_DUAL:
+            case BSP_LIGHT_SEL_UP:
+                bsp_light_select(BSP_LIGHT_SEL_DUAL);
+                break;
+            case BSP_LIGHT_SEL_DOWN:
+                bsp_light_select(BSP_LIGHT_SEL_DOWN);
+                break;
+            default:
+                break;
+            }
+        }
+        break;
+    default:
+        break;
+    }
+
+    bsp_light_select(store->sel);
+    return QM_EOK;
+}
+
 //上发光变亮
 qm_err_t bsp_light_warm_up(void)
 {

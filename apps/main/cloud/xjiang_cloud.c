@@ -11,6 +11,7 @@
 #include "qm_audio.h"
 #include "qm_work.h"
 #include "qm_event.h"
+#include "qm_iot_ota.h"
 
 #include "audio_sys.h"
 #include "audio_thread.h"
@@ -172,6 +173,10 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_DISCONN");
             connect = QM_FALSE;
             qm_post_delayed_action(&set_blink_action, delay_set_blink, NULL, 0);
+            if(ota_status_flag) {
+                ota_status_flag = 0;
+                set_var_ota_status(2, true);
+            }
             break;
 
         case QM_IOT_EVENT_LOCAL_CONN:
@@ -188,6 +193,11 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_LOCAL_DISCONN");
             set_var_ip_addr("-");
             connect = QM_FALSE;
+            qm_post_delayed_action(&set_blink_action, delay_set_blink, NULL, 0);
+            if(ota_status_flag) {
+                ota_status_flag = 0;
+                set_var_ota_status(2, true);
+            }
             break;
 
         case QM_IOT_EVENT_RESET:
@@ -217,6 +227,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             break;
 
         case QM_IOT_EVENT_OTA_START:
+            QM_LOGD(LOG_TAG, "QM_IOT_EVENT_OTA_START");
             set_var_ota_status(0, true);
             bsp_audio_ota_set_voice_mute();
             ota_status_flag = 1;
@@ -229,13 +240,15 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             break;
 
         case QM_IOT_EVENT_OTA_SUCCESS:
+            QM_LOGD(LOG_TAG, "QM_IOT_EVENT_OTA_SUCCESS");
             qm_set_reset_flag();
             set_var_ota_status(1, true);
             ota_status_flag = 0;
             break;
 
         case QM_IOT_EVENT_OTA_FAILED:
-            set_var_ota_status(2, true); 
+            QM_LOGD(LOG_TAG, "QM_IOT_EVENT_OTA_FAILED");
+            set_var_ota_status(2, true);
             ota_status_flag = 0;
             break;
 

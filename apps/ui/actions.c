@@ -603,8 +603,8 @@ void goto_ota_success_page(void) {
 }
 
 void goto_ota_failure_page(void) {
-    if (get_current_screen() != SCREEN_ID_PAGE_OTA) {
-        loadScreenEx(SCREEN_ID_PAGE_OTA);
+    if (get_current_screen() == SCREEN_ID_PAGE_OTA) {
+        loadScreenEx(SCREEN_ID_PAGE_MAIN);
     }
 }
 

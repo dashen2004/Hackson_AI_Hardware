@@ -156,6 +156,12 @@ qm_err_t bsp_light_bri_ratio(bsp_light_bri_ratio_t ratio);
 //亮度渐变
 qm_err_t bsp_light_bri_grad(bsp_light_bri_grad_t grad);
 
+//上光开关
+qm_err_t bsp_light_uplight_switch(bool_t on_off);
+
+//下光开关
+qm_err_t bsp_light_downlight_switch(bool_t on_off);
+
 //上发光变亮
 qm_err_t bsp_light_warm_up(void);
 
