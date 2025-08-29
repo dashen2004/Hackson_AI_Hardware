@@ -174,6 +174,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     
     "../component/qm_audio/board/dual_mic"
     # "../component/qm_audio/board/single_mic"
+    "../../components/agora_iot_sdk/include"
 
 
     "../component/qm_audio/sr"
