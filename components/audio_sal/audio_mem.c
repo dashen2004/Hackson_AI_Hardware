@@ -167,7 +167,7 @@
  void audio_mem_print(const char *tag, int line, const char *func)
  {
  #ifdef CONFIG_SPIRAM_BOOT_INIT
-     ESP_LOGI(tag, "Func:%s, Line:%d, MEM Total:%d Bytes, EXT:%d, Inter:%d Bytes, Dram:%d Bytes, Dram largest free:%zuBytes\r\n", func, line, (int)esp_get_free_heap_size(),
+     ESP_LOGI(tag, "Func:%s, Line:%d, MEM Total:%d Bytes, EXT:%d, Inter:%d Bytes, Dram:%d Bytes, Dram largest free:%uBytes\r\n", func, line, (int)esp_get_free_heap_size(),
      (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM), (int)heap_caps_get_free_size(MALLOC_CAP_INTERNAL), (int)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
  #else
      ESP_LOGI(tag, "Func:%s, Line:%d, MEM Total:%d Bytes\r\n", func, line, (int)esp_get_free_heap_size());

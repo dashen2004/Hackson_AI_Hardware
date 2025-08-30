@@ -11,7 +11,8 @@ set(COMPONENT_SRCS
     "./light/audio_light.c"
     "./cloud/xjiang_cloud.c"
     # "./beacon/audio_beacon.c"
-    "./audio/bsp_audio.c"
+    # "./audio/bsp_audio.c"
+    "./audio/bsp_audio_agora.c"
     "./audio/bsp_audio_opus.c"
     "./audio/audio_cloud.c"
 
