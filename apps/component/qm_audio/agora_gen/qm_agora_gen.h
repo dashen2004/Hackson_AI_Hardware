@@ -19,9 +19,11 @@ typedef struct
     uint32_t token_len;
 } qm_iot_agora_gen_handle_t;
 
+void *qm_iot_agora_gen_init(void);
+
 int32_t qm_iot_agora_gen_start(void *handle);
 
-int32_t qm_iot_agora_gen_free(void **handle);
+int32_t qm_iot_agora_gen_free(void *handle);
 
 int qm_iot_agora_uid_set(char *uid, uint32_t len);
 int32_t qm_iot_agora_uid_get(char *uid, uint32_t *len);

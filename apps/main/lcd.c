@@ -530,9 +530,7 @@ void turnoff_timer_reset(uint8_t flag) { // 0 - screen operation, 1 - audio rece
     if (flag == 0) {
         set_var_screen_operation_tick();
     } else {
-        if (get_current_screen() == SCREEN_ID_PAGE_MAIN || (
-            get_current_screen() != SCREEN_ID_PAGE_RECOG && get_var_screen_operation_tick())
-        ) {
+        if (get_current_screen() != SCREEN_ID_PAGE_RECOG && get_var_screen_operation_tick()) {
             goto_recog_page();
         }
     }
@@ -546,8 +544,7 @@ static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) {
 
     if (get_current_screen() == SCREEN_ID_PAGE_OTA || get_current_screen() == SCREEN_ID_PAGE_NETCONFIG) {
         set_var_turnoff_value(timeout);
-    } 
-    else if (get_var_turnoff_value()) {
+    } else if (get_var_turnoff_value()) {
         bsp_lcd_bl_off();
         if (!bl_brightness_percent) {
             extern void goto_main_page(void);
@@ -626,5 +623,5 @@ static void lcd_task(void *arg) {
 }
 
 void lcd_init(void) {
-    audio_thread_create(NULL, "lcd_task", lcd_task, NULL, 8 * 1024, 4, true, 0);
+    audio_thread_create(NULL, "lcd_task", lcd_task, NULL, 10 * 1024, 4, true, 0);
 }

@@ -75,9 +75,9 @@ int32_t qm_iot_agora_token_get(char *token, uint32_t *len)
     return qm_kv_get(TOKEN_KEY, token, (int *)len);
 }
 
-int32_t qm_iot_agora_gen_free(void **handle)
+int32_t qm_iot_agora_gen_free(void *handle)
 {
-    qm_iot_agora_gen_handle_t *agora_handle = (qm_iot_agora_gen_handle_t *)*handle;
+    qm_iot_agora_gen_handle_t *agora_handle = (qm_iot_agora_gen_handle_t *)handle;
     if(agora_handle == NULL) {
         return QM_ERROR;
     }
@@ -132,6 +132,8 @@ static int qm_iot_agora_gen_recv_handler(void *handle, char *buff, int len)
     int token_len = 0;
     qm_iot_agora_gen_handle_t *agora_handle = (qm_iot_agora_gen_handle_t *)handle;
 
+    qm_iot_agora_gen_free(agora_handle);
+    
     status = qm_json_get_value_by_name(buff, len, AGORA_STATUS_KEY, &status_len, &type);
     if(status == NULL){
         return -QM_EINVAL;
@@ -205,8 +207,20 @@ static int qm_iot_agora_gen_recv_handler(void *handle, char *buff, int len)
 
     return QM_EOK;
 __FREE:
-    qm_iot_agora_gen_free((void *)&agora_handle);
+    qm_iot_agora_gen_free(agora_handle);
     return -QM_ENOMEM;
+}
+
+void *qm_iot_agora_gen_init(void)
+{
+    qm_iot_agora_gen_handle_t *agora_handle = NULL;
+
+    agora_handle = (qm_iot_agora_gen_handle_t*)qm_malloc(sizeof(qm_iot_agora_gen_handle_t));
+    if (agora_handle == NULL) {
+        return NULL;
+    }
+    memset(agora_handle, 0, sizeof(qm_iot_agora_gen_handle_t));
+    return agora_handle;
 }
 
 int32_t qm_iot_agora_gen_start(void *handle)

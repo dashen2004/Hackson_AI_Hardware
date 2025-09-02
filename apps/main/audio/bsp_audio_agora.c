@@ -278,11 +278,11 @@ void qm_audio_ws_data_cb(void *data, int len, int len_offset, int play_status, v
         break;
 
         case QM_AUDIO_WS_PLAYER_STATE_STOP:
-           if(bsp_audio_handle.open_or_close){
-                // bsp_wakeup_time_refresh();
-            } else {
-                screen_wakeup_timeout_exit();
-            }
+            // if(bsp_audio_handle.open_or_close){
+            //     bsp_wakeup_time_refresh();
+            // } else {
+            //     screen_wakeup_timeout_exit();
+            // }
         break;
 
         default:
@@ -851,8 +851,13 @@ static void clear_message_cache(void)
 
 static void stream_msg_base64_decode(uint8_t *data, size_t len) 
 {
+    static qm_audio_ws_recv_evt_t recv = {0};
     uint8_t *decoded_msg = NULL;
     uint32_t decoded_len = 0;
+    cJSON *root = NULL; 
+    cJSON *object = NULL;
+    cJSON *text = NULL;
+    const char *obj_type = NULL;
     decoded_msg = (uint8_t *)qm_malloc(len);
     if (decoded_msg == NULL) {
         return;
@@ -863,25 +868,32 @@ static void stream_msg_base64_decode(uint8_t *data, size_t len)
         goto __FREE;
     }
     QM_LOGD("1", "stream message: %.*s", decoded_len, decoded_msg);
-    cJSON *json = cJSON_Parse((char*)decoded_msg);
-    if (json == NULL) {
+    root = cJSON_Parse((char*)decoded_msg);
+    if (root == NULL) {
         goto __FREE;
     }
-    cJSON *object = cJSON_GetObjectItem(json, "object");
+    object = cJSON_GetObjectItem(root, "object");
     if (object == NULL || cJSON_IsString(object) == false) {
         goto __FREE;
     }
-    const char *obj_type = cJSON_GetStringValue(object);
-    if (strcmp(obj_type, "assistant.transcription") != 0) {
+    text = cJSON_GetObjectItem(root, "text");
+    if (text == NULL && cJSON_IsString(text) == false) {
         goto __FREE;
     }
-    cJSON *text = cJSON_GetObjectItem(json, "text");
-    if (text && cJSON_IsString(text)) {
+    obj_type = cJSON_GetStringValue(object);
+    if (strcmp(obj_type, "assistant.transcription") == 0) {
+        recv.recv_type = QM_AUDIO_WS_RECV_TYPE_TTS;
+        recv.data.tts.text = cJSON_GetStringValue(text);
+        if(bsp_audio_handle.event_cb) {
+            bsp_audio_handle.event_cb(&recv, bsp_audio_handle.user_data);
+        }
         QM_LOGI("1", "Assistant says: %s", cJSON_GetStringValue(text));
+    } else if(strcmp(obj_type, "user.transcription") == 0) {
+        QM_LOGI("1", "User says: %s", cJSON_GetStringValue(text));
     }
-    cJSON_Delete(json);
-
+    
 __FREE:
+    cJSON_Delete(root);
     qm_free(decoded_msg);
     decoded_msg = NULL;
 }
@@ -1075,12 +1087,10 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
     qm_sem_new(&bsp_audio_handle.stream_sem, 0);
     qm_mutex_new(&bsp_audio_handle.stream_lock);
 
+    bsp_audio_handle.agora_handle = qm_iot_agora_gen_init();
     if(bsp_audio_handle.agora_handle == NULL) {
-        bsp_audio_handle.agora_handle = (qm_iot_agora_gen_handle_t *)qm_malloc(sizeof(qm_iot_agora_gen_handle_t));
-        if(bsp_audio_handle.agora_handle == NULL){
-            return QM_ENOMEM;
-        }
-        memset(bsp_audio_handle.agora_handle, 0, sizeof(qm_iot_agora_gen_handle_t));
+        QM_LOGE(TAG, "agora init fail");
+        return QM_ENOMEM;
     }
 
     audio_thread_create(NULL, "ws_binary", audio_data_process_task, &bsp_audio_handle, 20 * 1024, 5, true, 0);
@@ -1117,8 +1127,8 @@ bool_t bsp_audio_get_voice_mute(void)
 static void __on_join_channel_success(connection_id_t conn_id, uint32_t uid, int elapsed)
 {
 //   g_app.b_call_session_started = true;
-  agora_rtc_get_connection_info(conn_id, &g_conn_info);
-  printf("[conn-%lu] Join the channel %s successfully, uid %lu elapsed %d ms\n", conn_id, g_conn_info.channel_name, uid, elapsed);
+    agora_rtc_get_connection_info(conn_id, &g_conn_info);
+    printf("[conn-%lu] Join the channel %s successfully, uid %lu elapsed %d ms\n", conn_id, g_conn_info.channel_name, uid, elapsed);
 
     bsp_audio_handle.ws_connect = QM_TRUE;
     bsp_audio_handle.agora_init_flag = true;
@@ -1209,6 +1219,17 @@ static void __on_mixed_audio_data(connection_id_t conn_id, const void *data, siz
 static void __on_audio_data(connection_id_t conn_id, const uint32_t uid, uint16_t sent_ts, const void *data, size_t len,
                             const audio_frame_info_t *info_ptr)
 {
+    // if(uid == 100) {
+
+    // } else if(uid == 200) {
+
+    // }
+    if(uid == 200) {
+        return;
+    }
+    if(len == 0 || data == NULL) {
+        return;
+    }
     // QM_LOGD("1", "[conn-%u] on_audio_data, uid %u sent_ts %u data_type %d, len %d\n", conn_id, uid, sent_ts,
     //      info_ptr->data_type, len);
     qm_audio_frame_t *ws_node = NULL;
@@ -1286,6 +1307,7 @@ static void __on_stream_message(connection_id_t conn_id, uint32_t uid, int strea
 
     qm_sem_signal(&bsp_audio_handle.stream_sem);
 }
+
 static void app_init_event_handler(agora_rtc_event_handler_t *event_handler)
 {
   event_handler->on_join_channel_success = __on_join_channel_success;
@@ -1309,13 +1331,13 @@ static void app_init_event_handler(agora_rtc_event_handler_t *event_handler)
 static void bsp_audio_ws_create_and_start(void)
 {
     int rval;
+    uint8_t retry_count = 0;
     uint32_t uid = 0;
     if(bsp_audio_handle.agora_init_flag) {
         return;
     }
     
     if (qm_iot_agora_gen_start(bsp_audio_handle.agora_handle) != QM_EOK) {
-        qm_iot_agora_gen_free((void *)&bsp_audio_handle.agora_handle);
         return;
     }
 
@@ -1358,7 +1380,7 @@ static void bsp_audio_ws_create_and_start(void)
     * audio codec, as well as configure the PCM sample rate and number of channels
     */
 #if 0
-    channel_options.audio_codec_opt.audio_codec_type = AUDIO_CODEC_TYPE_OPUS;
+    channel_options.audio_codec_opt.audio_codec_type = AUDIO_CODEC_DISABLED;
     channel_options.audio_codec_opt.pcm_sample_rate  = CONFIG_AUDIO_FMT_RATE; 
     channel_options.audio_codec_opt.pcm_channel_num  = CONFIG_AUDIO_FMT_CHANNEL;
 #endif
