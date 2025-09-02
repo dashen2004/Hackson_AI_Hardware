@@ -84,8 +84,9 @@ void qm_application_start(void)
 
     lcd_init();
 
-    audio_light_init();
-
+    if(prodtst_config_get() == 0) {
+        audio_light_init();
+    }
     // audio_beacon_init();
 
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)

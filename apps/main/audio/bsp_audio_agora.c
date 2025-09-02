@@ -233,6 +233,17 @@ uint8_t qm_bsp_voice_is_idle(void) {
     return qm_player_is_idle(bsp_audio_handle.player_handle);
 }
 
+void bsp_audio_llm_emotion_set(char *emotion)
+{
+    qm_audio_ws_recv_evt_t recv = {0};
+
+    recv.recv_type = QM_AUDIO_WS_RECV_TYPE_LLM;
+    recv.data.llm.emotion = emotion;
+    if(bsp_audio_handle.event_cb) {
+        bsp_audio_handle.event_cb(&recv, bsp_audio_handle.user_data);
+    }
+}
+
 static void handle_audio_info(char *pwbuf, int blen, int argc, char **argv)
 {
     if(argc == 2){
@@ -851,6 +862,7 @@ static void stream_msg_base64_decode(uint8_t *data, size_t len)
     if(decoded_len == 0) {
         goto __FREE;
     }
+    QM_LOGD("1", "stream message: %.*s", decoded_len, decoded_msg);
     cJSON *json = cJSON_Parse((char*)decoded_msg);
     if (json == NULL) {
         goto __FREE;
@@ -1109,6 +1121,7 @@ static void __on_join_channel_success(connection_id_t conn_id, uint32_t uid, int
   printf("[conn-%lu] Join the channel %s successfully, uid %lu elapsed %d ms\n", conn_id, g_conn_info.channel_name, uid, elapsed);
 
     bsp_audio_handle.ws_connect = QM_TRUE;
+    bsp_audio_handle.agora_init_flag = true;
 
     qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONN_WS, NULL, 0);
 }
@@ -1122,8 +1135,8 @@ static void __on_connection_lost(connection_id_t conn_id)
 
 static void __on_rejoin_channel_success(connection_id_t conn_id, uint32_t uid, int elapsed_ms)
 {
-  bsp_audio_handle.agora_init_flag = true;
-  printf("[conn-%lu] Rejoin the channel successfully, uid %lu elapsed %d ms\n", conn_id, uid, elapsed_ms);
+    bsp_audio_handle.agora_init_flag = true;
+    printf("[conn-%lu] Rejoin the channel successfully, uid %lu elapsed %d ms\n", conn_id, uid, elapsed_ms);
 }
 
 static void __on_user_joined(connection_id_t conn_id, uint32_t uid, int elapsed_ms)

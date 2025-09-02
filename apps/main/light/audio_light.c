@@ -659,6 +659,7 @@ static qm_err_t voice_abort_report(qm_spec_property_t *property)
     return QM_EOK;
 }
 
+extern void bsp_audio_llm_emotion_set(char *emotion);
 static qm_err_t voice_emotion_action(qm_spec_property_t *property)
 {
     char data[64] = {0};
@@ -668,7 +669,7 @@ static qm_err_t voice_emotion_action(qm_spec_property_t *property)
     }
     
     qm_spec_property_unpack_string(property, data, &len);
-    printf("voice_emotion_action: %.*s\n", len, data);
+    bsp_audio_llm_emotion_set(data);
     return QM_EOK;
 }
 
