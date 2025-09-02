@@ -3,6 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "esp_log.h"
 #include "qm.h"
 #include "qm_kernel.h"
 #include "qm_errno.h"
@@ -20,9 +21,7 @@
 #include "serial_common.h"
 #include "serial_protocol.h"
 #include "serial_platform.h"
-#include "audio_sys.h"
-#include "audio_thread.h"
-#include "audio_mem.h"
+
 #include "audio_prodtst.h"
 #include "audio_main.h"
 
@@ -90,13 +89,18 @@ static qm_uart_dev_t at_uart = {
 static prodtst_wifi_scan_t g_ws;
 static prodtst_voice_scan_t g_vcs;
 static int g_prodtst_config_type = 0;
+static qm_work_t _timeout;
 static void *g_channel = NULL;
+
+static void _timeout_handle(void *arg)
+{
+    qm_reboot();
+}
 
 static int prodtst_config_set(int type)
 {
     int flag = type;
     qm_kv_set(FLASH_SECTOR_KEY, &flag, 4, 1);
-    qm_printf("prodtst_config_set = %d\r\n", flag);
     g_prodtst_config_type = flag;
     return 0;
 }
@@ -111,8 +115,7 @@ int prodtst_config_get(void)
 
 static qm_at_result_t at_get_mem_free(void *channel) 
 {
-    audio_sys_get_real_time_stats();
-    AUDIO_MEM_SHOW("+MEM");
+	qm_at_server_printfln(channel, "+MEM:%ld", qm_free_mem_get());
 	return QM_AT_RESULT_OK;
 }
 
@@ -130,15 +133,16 @@ static qm_at_result_t at_set_fac_mode(void *channel, const char *args)
     if(channel == NULL || args == NULL){
         return QM_AT_RESULT_FAILE;
     }
-
     args = args + 1;
     sscanf(args, "%d", &value);
     if(value != 0 && value != 1) {
         return QM_AT_RESULT_FAILE;
     }
+    esp_log_set_level_master(ESP_LOG_NONE);
+    qm_set_log_level(QM_LL_NONE);
     prodtst_config_set(value);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-    qm_reboot();
+    
+    qm_post_delayed_action(&_timeout, _timeout_handle, NULL, 500);
 	return QM_AT_RESULT_OK;
 }
 

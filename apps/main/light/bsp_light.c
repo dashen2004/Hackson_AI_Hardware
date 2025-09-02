@@ -994,3 +994,31 @@ qm_err_t bsp_light_blink(void)
 
     return QM_EOK;
 }
+
+extern qm_err_t voice_report(qm_spec_property_t *property);
+qm_err_t voice_corpus_request(uint8_t number)
+{
+    qm_spec_property_t *property_pre = NULL;
+
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return QM_ERROR;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_VOICE_CONTROL_SIID, CONFIG_AUDIO_VOICE_CORPUS_PIID);
+    qm_spec_property_pack_number(property_pre, number);
+    return voice_report(property_pre);
+}
+
+qm_err_t voice_abort_request(uint8_t number)
+{
+    qm_spec_property_t *property_pre = NULL;
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return QM_ERROR;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_VOICE_CONTROL_SIID, CONFIG_AUDIO_VOICE_ABORT_PIID);
+    qm_spec_property_pack_number(property_pre, number);
+    return voice_report(property_pre);
+}

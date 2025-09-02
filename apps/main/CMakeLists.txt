@@ -29,6 +29,7 @@ set(COMPONENT_SRCS
     "../component/qm_audio/vc/qm_audio_vc.c"
     "../component/qm_audio/recorder/qm_audio_recorder.c"
     "../component/qm_audio/processor/qm_audio_processor.c"
+    "../component/qm_audio/agora_gen/qm_agora_gen.c"
 
     "../component/qm_audio/board/dual_mic/board_pins_config.c"
     "../component/qm_audio/board/dual_mic/qm_audio_board.c" 
@@ -79,6 +80,7 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/core/qm_iot_core.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/mqtt/qm_iot_mqtt.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ntp/qm_iot_ntp.c"
+    "$ENV{ADF_PATH}/qumi/components/qm_cloud/voice/qm_iot_voice.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/shadow/qm_iot_shadow.c"
 
     "$ENV{ADF_PATH}/qumi/components/http/util_httpc.c"
@@ -172,6 +174,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_audio/ws"
     "../component/qm_audio/encoder"
     "../component/qm_audio/board"
+    "../component/qm_audio/agora_gen"
     
     "../component/qm_audio/board/dual_mic"
     # "../component/qm_audio/board/single_mic"
@@ -211,6 +214,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/mqtt"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ntp"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/shadow"
+    "$ENV{ADF_PATH}/qumi/components/qm_cloud/voice"
 
     "$ENV{ADF_PATH}/qumi/components/aupu/aupu_comm/include"
     "$ENV{ADF_PATH}/qumi/components/backoff/include"

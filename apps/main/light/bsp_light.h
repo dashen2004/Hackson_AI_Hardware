@@ -193,6 +193,11 @@ qm_err_t bsp_light_neuter(void);
 //自然光
 qm_err_t bsp_light_nature(void);
 
+
+qm_err_t voice_corpus_request(uint8_t number);
+
+qm_err_t voice_abort_request(uint8_t number);
+
 #ifdef __cplusplus
 }
 #endif

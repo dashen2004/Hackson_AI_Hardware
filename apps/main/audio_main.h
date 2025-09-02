@@ -20,6 +20,8 @@ extern "C" {
 #define CONFIG_NETWORK_URL          "ws://voice.ljyd.cn/voice/xiaojiang/v1/"                  //正式服
 // #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:28000/xiaojiang/v1/"  //测试服
 
+#define CONFIG_AUDIO_AGENT_UID         (100)
+#define CONFIG_AUDIO_PLAYER_UID        (200)
 
 #define CONFIG_AUDIO_FMT_RATE          (16000)
 #define CONFIG_AUDIO_FMT_BITS          (16)
@@ -217,6 +219,20 @@ extern "C" {
 //聊天状态
 #define CONFIG_AUDIO_CHAT_STATE_PIID        (1)
 #define CONFIG_AUDIO_CHAT_STATE_TYPE        (QM_SPEC_PROPERTY_FORMAT_NUMBER)
+
+//语音控制
+#define CONFIG_AUDIO_VOICE_CONTROL_SIID     (6)
+//语料请求
+#define CONFIG_AUDIO_VOICE_CORPUS_PIID      (1)
+#define CONFIG_AUDIO_VOICE_CORPUS_TYPE      (QM_SPEC_PROPERTY_FORMAT_NUMBER)
+
+//中止播放
+#define CONFIG_AUDIO_VOICE_ABORT_PIID       (2)
+#define CONFIG_AUDIO_VOICE_ABORT_TYPE       (QM_SPEC_PROPERTY_FORMAT_NUMBER)
+
+//大模型感情图标
+#define CONFIG_AUDIO_VOICE_EMOTION_PIID     (3)
+#define CONFIG_AUDIO_VOICE_EMOTION_TYPE     (QM_SPEC_PROPERTY_FORMAT_STRING)
 
 #define CONFIG_AUDIO_EGV_SIID       (8)
 #define CONFIG_AUDIO_EGV_PIID       (1)

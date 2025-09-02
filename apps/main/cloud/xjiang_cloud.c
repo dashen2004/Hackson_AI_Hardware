@@ -314,6 +314,39 @@ qm_err_t xjiang_cloud_report(qm_spec_property_t *property)
     return QM_EOK;
 }
 
+qm_err_t voice_report(qm_spec_property_t *property)
+{
+    static qm_spec_property_operation_t *property_operation = NULL;
+    qm_spec_property_t *property_pre = NULL;
+
+    if(connect == QM_FALSE){
+        return -QM_EIO;
+    }
+
+    if(property_operation == NULL){
+        property_operation = qm_spec_property_operation_creat();
+    }
+
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return -QM_ENOMEM;
+    }
+
+    qm_spec_property_copy(property_pre, property);
+
+    qm_spec_property_add(property_operation, property_pre);
+
+    if(property->next == NULL){
+        qm_iot_set_voice_request(iot_handle, property_operation);
+        property_operation = NULL;
+    }
+
+    return QM_EOK;
+}
 int xjiang_cloud_reset(void)
 {
     qm_set_reset_flag();

@@ -36,13 +36,15 @@
 #include "qm_utils_base64.h"
 
 #include "qm_gpio.h"
+#include "bsp_light.h"
 #include "qm_utils_timer.h"
 #include "es8311.h"
 #include "audio_prodtst.h"
 #include "xjiang_cloud.h"
 #include "ui.h"
 #include "agora_rtc_api.h"
-
+#include "qm_agora_gen.h"
+#include "qm_utils_string.h"
 
 #define KV_TAG "AUDIO_MODE"
 
@@ -54,7 +56,7 @@ static const char* TAG = "volc_rtc";
 /* Application ID */
 #define CONFIG_AGORA_APP_ID "9942a7948c3f4c4f8970d54ef6adfb24" // Please replace with your own APP ID
 
-#define DEFAULT_TOKEN "007eJxTYGjnTLR8KXbq25KSgqfJ7DYt1758bi+4OunveckrhZfz23oVGIxSU1NNLEwt0sxTLE1MDS0STQwtTFPNkywtksyNTZPM1U5vymgIZGQQX8vEyMgAgSA+G4OZoYGRkTEDAwAuhyCL"
+#define DEFAULT_TOKEN "007eJxTYLg7zUw2zP8Qrxt37s8Kv1KpjMPfMj0NX/gcvXi08OFKnqUKDEapqakmFqYWaeYpliamhhaJJoYWpqnmSZYWSebGpknmX4K2ZjQEMjKolEgxMEIhiM/GYGZoYGRkzMAAAFuAHjk="
 // #define DEFAULT_TOKEN NULL
 #define DEFAULT_CHANNEL_NAME "610223"
 #define DEFAULT_USER_ID 0 // sdk will automatically assign a random user id
@@ -130,6 +132,9 @@ struct bsp_audio_handle_t {
     qm_sem_t                      stream_sem;
     qm_list_t                     stream_list;
     qm_mutex_t                    stream_lock;
+    
+    qm_iot_agora_gen_handle_t   *agora_handle;
+    uint8_t agora_init_flag;
 };
 
 typedef struct{
@@ -250,20 +255,20 @@ void qm_audio_ws_data_cb(void *data, int len, int len_offset, int play_status, v
     switch (play_status)
     {
         case QM_AUDIO_WS_PLAYER_STATE_START:
-            bsp_wakeup_time_refresh();
+            // bsp_wakeup_time_refresh();
         break;
         
         case QM_AUDIO_WS_PLAYER_STATE_DATA:
-            if(bsp_audio_handle.tts_start){
+            // if(bsp_audio_handle.tts_start){
             
                 pcm_size = bsp_audio_opus_decode_data(bsp_audio_handle.opus_handle, data, len, pcm_data);
                 raw_stream_write(player_pipeline_get_raw_write(bsp_audio_handle.player_pipeline), pcm_data, pcm_size);
-            }
+            // }
         break;
 
         case QM_AUDIO_WS_PLAYER_STATE_STOP:
            if(bsp_audio_handle.open_or_close){
-                bsp_wakeup_time_refresh();
+                // bsp_wakeup_time_refresh();
             } else {
                 screen_wakeup_timeout_exit();
             }
@@ -284,7 +289,8 @@ static void wakeup_timeout_handle(void *arg)
     }
     QM_LOGI(TAG, "qm_audio_ws_closing_remarks");
     xEventGroupClearBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
-    qm_audio_ws_closing_remarks(bsp_audio_handle.ai_handle, CONFIG_AUDIO_WS_TIMEOUT);
+    voice_corpus_request(2);
+    // qm_audio_ws_closing_remarks(bsp_audio_handle.ai_handle, CONFIG_AUDIO_WS_TIMEOUT);
     bsp_audio_handle.open_or_close = QM_FALSE;
     qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
     qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID, NULL, 0);
@@ -354,7 +360,7 @@ static void ind_timeout_handle(void *arg)
                 }
 
                 bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_START;
-                qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
+                // qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
                 
                 qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
                 xEventGroupSetBits(bsp_audio_handle.join_event, JOIN_EVENT_BIT);
@@ -436,9 +442,9 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             };
             QM_LOGD("1","CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID");
             if(bsp_audio_handle.ws_connect){
-                listen.state = QM_AUDIO_WS_LISTEN_STATE_STOP;
                 bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_END;
-                qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
+                listen.state = QM_AUDIO_WS_LISTEN_STATE_STOP;
+                // qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
             }
             bsp_audio_handle.wakeup_timeout = 1;
             qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_FALSE);
@@ -460,8 +466,9 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             if(bsp_audio_handle.ws_connect){
                 bsp_audio_handle.open_or_close = QM_TRUE;
                 qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
-                qm_audio_ws_opening_remarks(bsp_audio_handle.ai_handle, CONFIG_AUDIO_WS_TIMEOUT);    
+                // qm_audio_ws_opening_remarks(bsp_audio_handle.ai_handle, CONFIG_AUDIO_WS_TIMEOUT);    
                 QM_LOGI(TAG, "qm_audio_ws_opening_remarks");
+                voice_corpus_request(1);
             } else {
                 if(bsp_audio_handle.network_ind_flag == 0) {
                     bsp_audio_handle.network_ind_flag = 1;
@@ -524,7 +531,7 @@ static qm_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
                 }
 
                 bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_START;
-                qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
+                // qm_audio_ws_listen(bsp_audio_handle.ai_handle, &listen, CONFIG_AUDIO_WS_TIMEOUT);
                 
                 qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
             
@@ -1056,6 +1063,14 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
     qm_sem_new(&bsp_audio_handle.stream_sem, 0);
     qm_mutex_new(&bsp_audio_handle.stream_lock);
 
+    if(bsp_audio_handle.agora_handle == NULL) {
+        bsp_audio_handle.agora_handle = (qm_iot_agora_gen_handle_t *)qm_malloc(sizeof(qm_iot_agora_gen_handle_t));
+        if(bsp_audio_handle.agora_handle == NULL){
+            return QM_ENOMEM;
+        }
+        memset(bsp_audio_handle.agora_handle, 0, sizeof(qm_iot_agora_gen_handle_t));
+    }
+
     audio_thread_create(NULL, "ws_binary", audio_data_process_task, &bsp_audio_handle, 20 * 1024, 5, true, 0);
     audio_thread_create(NULL, "voice_read_task", voice_read_task, (void *)NULL, 30 * 1024, 5, true, 1);
     qm_task_new(&bsp_audio_handle.stream_task, "stream_msg_task", stream_msg_task, &bsp_audio_handle, 10*1024, 5);
@@ -1095,23 +1110,19 @@ static void __on_join_channel_success(connection_id_t conn_id, uint32_t uid, int
 
     bsp_audio_handle.ws_connect = QM_TRUE;
 
-#if CONFIG_AUDIO_BOARD_USER_STATUS_LED
-    qm_gpio_set_level(&blue_io, QM_FALSE);
-    qm_gpio_set_level(&red_io, QM_TRUE);
-#endif
-
     qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONN_WS, NULL, 0);
 }
 
 static void __on_connection_lost(connection_id_t conn_id)
 {
-//   g_app.b_call_session_started = false;
-  printf("[conn-%lu] Lost connection from the channel\n", conn_id);
+    bsp_audio_handle.agora_init_flag = false;
+    qm_iot_agora_gen_free((void *)&bsp_audio_handle.agora_handle);
+    printf("[conn-%lu] Lost connection from the channel\n", conn_id);
 }
 
 static void __on_rejoin_channel_success(connection_id_t conn_id, uint32_t uid, int elapsed_ms)
 {
-//   g_app.b_call_session_started = true;
+  bsp_audio_handle.agora_init_flag = true;
   printf("[conn-%lu] Rejoin the channel successfully, uid %lu elapsed %d ms\n", conn_id, uid, elapsed_ms);
 }
 
@@ -1185,8 +1196,8 @@ static void __on_mixed_audio_data(connection_id_t conn_id, const void *data, siz
 static void __on_audio_data(connection_id_t conn_id, const uint32_t uid, uint16_t sent_ts, const void *data, size_t len,
                             const audio_frame_info_t *info_ptr)
 {
-//   QM_LOGD("1", "[conn-%u] on_audio_data, uid %u sent_ts %u data_type %d, len %d\n", conn_id, uid, sent_ts,
-//          info_ptr->data_type, len);
+    // QM_LOGD("1", "[conn-%u] on_audio_data, uid %u sent_ts %u data_type %d, len %d\n", conn_id, uid, sent_ts,
+    //      info_ptr->data_type, len);
     qm_audio_frame_t *ws_node = NULL;
     qm_list_node_t *node = qm_list_node_extra_new(sizeof(qm_audio_frame_t));
     if(node == NULL){
@@ -1284,7 +1295,18 @@ static void app_init_event_handler(agora_rtc_event_handler_t *event_handler)
 
 static void bsp_audio_ws_create_and_start(void)
 {
-   int rval;
+    int rval;
+    uint32_t uid = 0;
+    if(bsp_audio_handle.agora_init_flag) {
+        return;
+    }
+    
+    if (qm_iot_agora_gen_start(bsp_audio_handle.agora_handle) != QM_EOK) {
+        qm_iot_agora_gen_free((void *)&bsp_audio_handle.agora_handle);
+        return;
+    }
+
+    uid = int_str_to_num(bsp_audio_handle.agora_handle->uid, bsp_audio_handle.agora_handle->uid_len);
 
     agora_rtc_event_handler_t event_handler = { 0 };
     app_init_event_handler(&event_handler);
@@ -1297,7 +1319,7 @@ static void bsp_audio_ws_create_and_start(void)
     service_opt.license_value[0]     = '\0';
     service_opt.domain_limit         = false;
 
-    rval = agora_rtc_init(CONFIG_AGORA_APP_ID, &event_handler, &service_opt);
+    rval = agora_rtc_init(bsp_audio_handle.agora_handle->appId, &event_handler, &service_opt);
     if (rval < 0) {
         printf("Failed to initialize Agora sdk, license %p, reason: %s\n", service_opt.license_value, agora_rtc_err_2_str(rval));
         return ;
@@ -1333,9 +1355,9 @@ static void bsp_audio_ws_create_and_start(void)
 #endif
 
     channel_options.audio_codec_opt.pcm_duration  = CONFIG_AUDIO_FMT_DURATION_MS;
-    rval = agora_rtc_join_channel(g_conn_id, DEFAULT_CHANNEL_NAME, DEFAULT_USER_ID, DEFAULT_TOKEN, &channel_options);
+    rval = agora_rtc_join_channel(g_conn_id, bsp_audio_handle.agora_handle->channelName, uid, bsp_audio_handle.agora_handle->token, &channel_options);
     if (rval < 0) {
-        printf("Failed to join channel \"%s\", reason: %s\n", DEFAULT_CHANNEL_NAME, agora_rtc_err_2_str(rval));
+        printf("Failed to join channel \"%s\", reason: %s\n", bsp_audio_handle.agora_handle->channelName, agora_rtc_err_2_str(rval));
         return ;
     }
 }
