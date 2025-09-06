@@ -108,13 +108,23 @@ int bsp_lcd_bl_brightness_percent_get(void) {
 
 void bsp_lcd_bl_off(void) {
     if (bl_brightness_percent) {
+        if(lv_port_init_flag == 0) {
+            return;
+        }
+        lvgl_port_lock(0);
         bsp_lcd_bl_set(0);
+        lvgl_port_unlock(); 
     }
 }
 
 void bsp_lcd_bl_on(void) {
     if (!bl_brightness_percent) {
+        if(lv_port_init_flag == 0) {
+            return;
+        }
+        lvgl_port_lock(0);
         bsp_lcd_bl_set(100);
+        lvgl_port_unlock(); 
     }
 }
 

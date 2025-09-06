@@ -57,7 +57,7 @@ extern "C" {
 #define CONFIG_AUDIO_BOARD_SUPPORT_BUTTON_SWITCH    (0)
 
 //语音事件
-#define CONFIG_AUDIO_WAKEUPT_TIMEOUT         (10 * 1000)
+#define CONFIG_AUDIO_WAKEUPT_TIMEOUT         (60 * 1000)
 
 #define CONFIG_AUDIO_CONFIG_IND_TIMEOUT      (3 * 60 * 1000)  //配网提示间隔
 

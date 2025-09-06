@@ -29,7 +29,8 @@ set(COMPONENT_SRCS
     "../component/qm_audio/vc/qm_audio_vc.c"
     "../component/qm_audio/recorder/qm_audio_recorder.c"
     "../component/qm_audio/processor/qm_audio_processor.c"
-    "../component/qm_audio/agora_gen/qm_agora_gen.c"
+    "../component/qm_audio/agora/agora_gen/qm_agora_gen.c"
+    "../component/qm_audio/agora/agora_stream/qm_agora_stream.c"
 
     "../component/qm_audio/board/dual_mic/board_pins_config.c"
     "../component/qm_audio/board/dual_mic/qm_audio_board.c" 
@@ -174,7 +175,8 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_audio/ws"
     "../component/qm_audio/encoder"
     "../component/qm_audio/board"
-    "../component/qm_audio/agora_gen"
+    "../component/qm_audio/agora/agora_gen"
+    "../component/qm_audio/agora/agora_stream"
     
     "../component/qm_audio/board/dual_mic"
     # "../component/qm_audio/board/single_mic"

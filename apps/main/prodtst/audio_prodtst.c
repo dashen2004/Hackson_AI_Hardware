@@ -17,6 +17,9 @@
 #include "qm_work.h"
 #include "qm_event.h"
 #include "qm_ble_gap.h"
+#include "audio_sys.h"
+#include "audio_thread.h"
+#include "audio_mem.h"
 
 #include "serial_common.h"
 #include "serial_protocol.h"
@@ -115,7 +118,8 @@ int prodtst_config_get(void)
 
 static qm_at_result_t at_get_mem_free(void *channel) 
 {
-	qm_at_server_printfln(channel, "+MEM:%ld", qm_free_mem_get());
+	audio_sys_get_real_time_stats();
+    AUDIO_MEM_SHOW("+MEM");
 	return QM_AT_RESULT_OK;
 }
 
