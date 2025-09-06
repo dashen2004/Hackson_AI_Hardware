@@ -2,12 +2,6 @@
 #include "qm_work.h"
 #include "qm_event.h"
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "freertos/queue.h"
-#include "freertos/event_groups.h"
-
 #include "cJSON.h"
 #include "qm_spec_api.h"
 #include "qm_utils_list.h"
@@ -414,6 +408,7 @@ static void stream_msg_recv_task(void *args)
     qm_list_node_t *node = NULL;
     qm_audio_stream_t *msg_node = NULL;
     qm_agora_stream_handle_t *audio_ctx = (qm_agora_stream_handle_t *)args;
+    stream_message_cache_t *cache;
     while (1) {
         qm_sem_wait(&audio_ctx->stream_sem, QM_WAIT_FOREVER);
 
@@ -451,35 +446,36 @@ static void stream_msg_recv_task(void *args)
                 goto __FREE;
             }
         }
-        if(current_msg_cache[cache_index].count == 0) {
-            current_msg_cache[cache_index].packet_data = (qm_audio_stream_t **)qm_malloc(sizeof(qm_audio_stream_t *) * msg_node->total);
-            if(current_msg_cache[cache_index].packet_data == NULL) {
+        cache = &current_msg_cache[cache_index];
+        if(cache->count == 0) {
+            cache->packet_data = (qm_audio_stream_t **)qm_malloc(sizeof(qm_audio_stream_t *) * msg_node->total);
+            if(cache->packet_data == NULL) {
                 message_cache_clear(cache_index);
-                QM_LOGW(LOG_TAG, "current_msg_cache[cache_index].packet_data malloc failed1");
+                QM_LOGW(LOG_TAG, "cache->packet_data malloc failed1");
                 QM_LOGD(LOG_TAG, "index=%d, total=%d, payload=%.*s",
                                 msg_node->index, msg_node->total, 
                                 msg_node->payload_length, msg_node->payload);
                 goto __FREE;
             }
-            current_msg_cache[cache_index].total = msg_node->total;
-            memcpy(current_msg_cache[cache_index].msg_id, msg_node->msg_id, STREAM_MSG_ID_MAX_LEN);
-            memset(current_msg_cache[cache_index].packet_data, 0, sizeof(qm_audio_stream_t *) * current_msg_cache[cache_index].total);
+            cache->total = msg_node->total;
+            memcpy(cache->msg_id, msg_node->msg_id, STREAM_MSG_ID_MAX_LEN);
+            memset(cache->packet_data, 0, sizeof(qm_audio_stream_t *) * cache->total);
         }
-        if(current_msg_cache[cache_index].packet_data == NULL) {
+        if(cache->packet_data == NULL) {
             message_cache_clear(cache_index);
-            QM_LOGW(LOG_TAG, "current_msg_cache[cache_index].packet_data malloc failed2");
+            QM_LOGW(LOG_TAG, "cache->packet_data malloc failed2");
             QM_LOGD(LOG_TAG, "index=%d, total=%d, payload=%.*s",
                                 msg_node->index, msg_node->total, 
                                 msg_node->payload_length, msg_node->payload);
             goto __FREE;
         }
 
-        if(msg_node->index > current_msg_cache[cache_index].total) {
-            QM_LOGW(LOG_TAG, "msg_node->index:%d bigger current_msg_cache[cache_index].total:%d", msg_node->index, current_msg_cache[cache_index].total);
+        if(msg_node->index > cache->total) {
+            QM_LOGW(LOG_TAG, "msg_node->index:%d bigger cache->total:%d", msg_node->index, cache->total);
             goto __FREE;
         }
 
-        if(current_msg_cache[cache_index].packet_data[msg_node->index - 1] != NULL) {
+        if(cache->packet_data[msg_node->index - 1] != NULL) {
             QM_LOGW(LOG_TAG, "msg_node->index:%d repeat", msg_node->index);
             goto __FREE;
         }
@@ -504,20 +500,20 @@ static void stream_msg_recv_task(void *args)
         memset(msg_node_temp->payload, 0, msg_node_temp->payload_length + 1);
         memcpy(msg_node_temp->payload, msg_node->payload, msg_node->payload_length);
 
-        current_msg_cache[cache_index].count++;
-        current_msg_cache[cache_index].packet_data[msg_node_temp->index - 1] = msg_node_temp;
+        cache->count++;
+        cache->packet_data[msg_node_temp->index - 1] = msg_node_temp;
 
         // QM_LOGD(LOG_TAG, "[%d]msg_id[%d]:%s [%d][%d/%d]", 
-        //                 cache_index, current_msg_cache[cache_index].index, 
-        //                 current_msg_cache[cache_index].msg_id, current_msg_cache[cache_index].count, 
-        //                 msg_node->index, current_msg_cache[cache_index].total);
-        if(current_msg_cache[cache_index].count != current_msg_cache[cache_index].total) {
+        //                 cache_index, cache->index, 
+        //                 cache->msg_id, cache->count, 
+        //                 msg_node->index, cache->total);
+        if(cache->count != cache->total) {
             goto __FREE;
         }
         size_t total_length = 0;
-        for(int i = 0; i < current_msg_cache[cache_index].total; i++) {
-            if(current_msg_cache[cache_index].packet_data[i] != NULL) {
-                total_length += current_msg_cache[cache_index].packet_data[i]->payload_length;
+        for(int i = 0; i < cache->total; i++) {
+            if(cache->packet_data[i] != NULL) {
+                total_length += cache->packet_data[i]->payload_length;
             } else {
                 total_length = 0;
                 break;
@@ -528,12 +524,12 @@ static void stream_msg_recv_task(void *args)
             if(assembled) {
                 size_t offset = 0;
                 memset(assembled, 0, total_length + 1);
-                for(int i = 0; i < current_msg_cache[cache_index].total; i++) {
-                    if(current_msg_cache[cache_index].packet_data[i]) {
+                for(int i = 0; i < cache->total; i++) {
+                    if(cache->packet_data[i]) {
                         memcpy(assembled + offset, 
-                                current_msg_cache[cache_index].packet_data[i]->payload, 
-                                current_msg_cache[cache_index].packet_data[i]->payload_length);
-                        offset += current_msg_cache[cache_index].packet_data[i]->payload_length;
+                                cache->packet_data[i]->payload, 
+                                cache->packet_data[i]->payload_length);
+                        offset += cache->packet_data[i]->payload_length;
                     }
                 }
                 stream_msg_base64_decode(assembled, total_length);
@@ -545,8 +541,8 @@ static void stream_msg_recv_task(void *args)
             message_cache_printf(cache_index);
         }
         message_cache_clear(cache_index);
-
 __FREE:
+        cache = NULL;
         if(msg_node->payload) {
             qm_free(msg_node->payload);
             msg_node->payload = NULL;
@@ -623,7 +619,6 @@ void qm_agora_stream_register(qm_agora_stream_event_cb_t func, void *user_data)
     if (func == NULL) {
         return;
     }
-
     g_stream_handle.event_cb = func;
     g_stream_handle.user_data = user_data;
 }

@@ -226,10 +226,11 @@ void *qm_agora_gen_init(void)
 int32_t qm_agora_gen_start(void *handle)
 {
     int32_t ret = QM_EOK;
-    httpclient_t http = {0};              /* http client */
-    httpclient_data_t http_data = {0};    /* http client data */
     char url[128];
     uint32_t url_len = 0;
+    uint8_t repeat_count = 0;
+    httpclient_t http = {0};
+    httpclient_data_t http_data = {0};
     qm_agora_gen_handle_t *agora_handle = (qm_agora_gen_handle_t *)handle;
 
     char *buf = NULL;
@@ -253,15 +254,20 @@ int32_t qm_agora_gen_start(void *handle)
 
     http_data.response_buf = buf;
     http_data.response_buf_len = buf_len;
+
+__START:
     if (0 != http_client_common(&http, url, 80, NULL, HTTPCLIENT_GET, 3000, &http_data)){
         QM_LOGE(LOG_TAG ,"http client failed");
         ret = -QM_EIO;
         goto __FREE;
     }
     if(http.response_code != 200) {
-        QM_LOGE(LOG_TAG, "http response code: %d", http.response_code);
-        ret = -QM_EIO;
-        goto __FREE;
+        repeat_count++;
+        if(repeat_count == 3) {
+            ret = -QM_ERROR;
+            goto __FREE;
+        }
+        goto __START;
     }
     ret = qm_agora_gen_recv_handler(agora_handle, buf, http_data.response_content_len);
 
