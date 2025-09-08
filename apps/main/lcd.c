@@ -68,7 +68,7 @@ static lv_disp_t *lvgl_disp = NULL;
 static lv_indev_t *lvgl_touch_indev = NULL;
 
 uint8_t lv_port_init_flag = 0;
-
+#if 0
 IRAM_ATTR static bool notify_refresh_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
     BaseType_t need_yield = pdFALSE;
@@ -76,6 +76,7 @@ IRAM_ATTR static bool notify_refresh_ready(esp_lcd_panel_io_handle_t panel_io, e
     xSemaphoreGiveFromISR(refresh_finish, &need_yield);
     return (need_yield == pdTRUE);
 }
+#endif
 
 static int bl_brightness_percent = 0;
 

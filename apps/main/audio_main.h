@@ -115,6 +115,8 @@ extern "C" {
 #define CONFIG_AUDIO_ID_LIGHT_TIMER          (21)            //定时模式
 #define CONFIG_AUDIO_ID_LIGHT_RESET          (22)            //恢复出厂设置
 
+#define CONFIG_AUDIO_OPENING_REMARKS      (1) //开机提示音
+#define CONFIG_AUDIO_CLOSING_REMARKS      (2) //关机提示音
 
 //遥控器事件
 #define CONFIG_AUDIO_BEACON_HOLD_TIME           (2 * 100)

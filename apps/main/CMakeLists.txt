@@ -29,6 +29,7 @@ set(COMPONENT_SRCS
     "../component/qm_audio/vc/qm_audio_vc.c"
     "../component/qm_audio/recorder/qm_audio_recorder.c"
     "../component/qm_audio/processor/qm_audio_processor.c"
+    "../component/qm_audio/agora/agora/qm_agora.c"
     "../component/qm_audio/agora/agora_gen/qm_agora_gen.c"
     "../component/qm_audio/agora/agora_stream/qm_agora_stream.c"
 
@@ -175,6 +176,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_audio/ws"
     "../component/qm_audio/encoder"
     "../component/qm_audio/board"
+    "../component/qm_audio/agora/agora"
     "../component/qm_audio/agora/agora_gen"
     "../component/qm_audio/agora/agora_stream"
     

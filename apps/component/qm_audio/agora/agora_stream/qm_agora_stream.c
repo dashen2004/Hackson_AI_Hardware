@@ -165,6 +165,7 @@ static void message_cache_printf(uint32_t index)
 
 static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
 {
+    static int old_turn_id = -1;
     qm_err_t ret = QM_EOK;
     char *new_text = NULL;
     size_t new_text_size = 0;
@@ -173,10 +174,22 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     cJSON *word = NULL;
     cJSON *words = NULL;
     cJSON *turn_status = NULL;
+    cJSON *turn_id = NULL;
     qm_agora_stream_event_t event = {0};
 
     if(root == NULL) {
         return QM_EINVAL;
+    }
+
+    turn_id = cJSON_GetObjectItem(root, TURN_ID_TYPE);
+    if (cJSON_IsNumber(turn_id) == false) {
+        QM_LOGW(LOG_TAG, "assistant.transcription turn_id is NULL");
+        return QM_EINVAL;
+    }
+    if(old_turn_id != turn_id->valueint) {
+        word_info.last_utc_time = 0;
+        word_info.last_word_len = 0;
+        old_turn_id = turn_id->valueint;
     }
 
     text = cJSON_GetObjectItem(root, TEXT_TYPE);
@@ -235,6 +248,8 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
         if(new_text_used + word_len + 1 >= new_text_size) {
             ret = QM_EINVAL;
             QM_LOGW(LOG_TAG, "Buffer would overflow, stopping at %d bytes, total size=%d", new_text_used, new_text_size);
+            QM_LOGW(LOG_TAG, "text[%d/%d]:%s", word_info.word_len, word_info.last_word_len, cJSON_GetStringValue(text));
+            QM_LOGW(LOG_TAG, "word_str[%d]:%s", word_len, word_str);
             break;
         }
         memcpy(new_text + new_text_used, word_str, word_len);
@@ -287,6 +302,7 @@ static qm_err_t qm_stream_user_trans_handler(cJSON *root)
     }
     final = cJSON_GetObjectItem(root, FINAL_TYPE);
     if(cJSON_IsBool(final) == false) {
+        QM_LOGW(LOG_TAG, "user.transcription final is NULL");
         return QM_EINVAL;
     }
     if(cJSON_IsFalse(final)) {
@@ -354,6 +370,7 @@ static void stream_msg_recv_handler(uint8_t *decoded_msg, uint32_t decoded_len)
     
     root = cJSON_ParseWithLength((char*)decoded_msg, decoded_len);
     if (root == NULL) {
+        QM_LOGW(LOG_TAG, "root is NULL");
         goto __FREE;
     }
     object = cJSON_GetObjectItem(root, OBJECT_TYPE);
