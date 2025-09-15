@@ -384,7 +384,7 @@ static void stream_msg_recv_handler(uint8_t *decoded_msg, uint32_t decoded_len)
         if (strcmp(obj_type, cmd_table[i].text) == 0) {
             if(cmd_table[i].handler) {
                 if(cmd_table[i].handler(root) != QM_EOK) {
-                    QM_LOGE("LOG_TAG", "cmd_table[%d].handler failed: %.*s", i, decoded_len, decoded_msg);
+                    // QM_LOGE("LOG_TAG", "cmd_table[%d].handler failed: %.*s", i, decoded_len, decoded_msg);
                 }
             }
             goto __FREE;

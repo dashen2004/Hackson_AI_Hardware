@@ -43,6 +43,7 @@
 #include "xjiang_cloud.h"
 #include "ui.h"
 #include "agora_rtc_api.h"
+#include "qm_audio.h"
 #include "qm_agora.h"
 #include "qm_agora_gen.h"
 #include "qm_agora_stream.h"
@@ -78,7 +79,6 @@ struct bsp_audio_handle_t {
     EventGroupHandle_t         join_event;
     
     qm_player_t player_handle;
-    qm_audio_ws_handle_t ai_handle;
 
     qm_audio_ws_recv_event_cb_t event_cb;
     void *user_data;
@@ -94,18 +94,14 @@ struct bsp_audio_handle_t {
 #endif
 
     int mode;
-    int switch_mode_on;
 
     void *opus_handle;
     
     int tts_start;
-    qm_work_t post_hello;
 
-    qm_list_t text_list;
-    qm_mutex_t text_lock;
     uint8_t wakeup_timeout;
     uint8_t network_ind_flag;
-
+    int agora_agent_state;
 };
 
 typedef struct 
@@ -129,17 +125,33 @@ uint8_t get_wakeup_timeout_flag(void) {
     return bsp_audio_handle.wakeup_timeout;
 }
 
-static void bsp_wakeup_time_refresh(void) {
-    QM_LOGI(TAG, "bsp_wakeup_time_refresh");
-    bsp_audio_handle.wakeup_timeout = 0;
-    qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
-    qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
+uint8_t qm_bsp_voice_is_idle(void) {
+    return qm_player_is_idle(bsp_audio_handle.player_handle);
 }
 
-void qm_bsp_offline_voice_play(uint8_t index) {
+static void bsp_wakeup_time_refresh(void) {
+    // QM_LOGI(TAG, "bsp_wakeup_time_refresh");
+    // bsp_audio_handle.wakeup_timeout = 0;
+    // qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+    // qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT);
+}
+
+void qm_bsp_offline_voice_play(PCM_FILE_ID_t pcm_id) {
     player_pipeline_stop(bsp_audio_handle.player_pipeline);
-    switch (index) {
-    case 1:
+    switch (pcm_id) {
+    case PCM_DINGDING_ID:
+        qm_player_play_file(bsp_audio_handle.player_handle, DEAFALUT_REPLY_WAV);
+        break;
+    case PCM_NETCONFIG_ID:
+        qm_player_play_file(bsp_audio_handle.player_handle, NETCONFIG_WAV);
+        break;
+    case PCM_CONN_CLOUD_ID:
+        qm_player_play_file(bsp_audio_handle.player_handle, CONN_CLOUD_WAV);
+        break;
+    case PCM_CONN_ERROR_ID:
+        qm_player_play_file(bsp_audio_handle.player_handle, CONN_ERROR_WAV);
+        break;
+    case PCM_XJIANG_TEST_ID:
         qm_player_play_file(bsp_audio_handle.player_handle, XJIANG_TEST_WAV);
         break;
     default:
@@ -172,8 +184,20 @@ void wakeup_timerout_immediately_trigger(uint8_t action)
     }
 }
 
-uint8_t qm_bsp_voice_is_idle(void) {
-    return qm_player_is_idle(bsp_audio_handle.player_handle);
+static void wakeup_timeout_handle(void *arg)
+{
+#if CONFIG_SUPPORT_ONLINE_CLOSE_WAV
+    if(!bsp_audio_handle.open_or_close){
+        return;
+    }
+    QM_LOGI(TAG, "qm_audio_ws_closing_remarks");
+    bsp_audio_join_event_set(false);
+    qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CLOSING_REMARKS_ID, NULL, 0);
+    qm_agora_leave();
+    bsp_audio_handle.open_or_close = QM_FALSE;
+    qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
+    qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID, NULL, 0);
+#endif
 }
 
 void bsp_audio_llm_emotion_set(char *emotion)
@@ -187,15 +211,21 @@ void bsp_audio_llm_emotion_set(char *emotion)
     }
 }
 
-void qm_audio_data_recv_cb(void *data, int len, void *user_data)
+static int qm_adio_play_data(qm_audio_type_t type, uint8_t *data, int len)
 {
     int pcm_size = 0;
     static char pcm_data[1920] = {0};
     pcm_size = bsp_audio_opus_decode_data(bsp_audio_handle.opus_handle, data, len, pcm_data);
     raw_stream_write(player_pipeline_get_raw_write(bsp_audio_handle.player_pipeline), pcm_data, pcm_size);
+    return QM_EOK;
 }
 
-void qm_agora_event_cb(qm_agora_event_type_e event, void *user_data)
+static void qm_audio_data_recv_cb(void *data, int len, void *user_data)
+{
+    qm_audio_data_push(QM_AUDIO_TYPE_AGENT, data, len);
+}
+
+static void qm_agora_event_cb(qm_agora_event_type_e event, void *user_data)
 {
     switch (event) {
         case QM_AGORA_EVENT_TYPE_INIT_SUCCESS:
@@ -210,12 +240,16 @@ void qm_agora_event_cb(qm_agora_event_type_e event, void *user_data)
         case QM_AGORA_EVENT_TYPE_JOIN_CHANNEL:
             break;
         case QM_AGORA_EVENT_TYPE_LEAVE_CHANNEL:
+            qm_audio_stop();
             break;
         case QM_AGORA_EVENT_TYPE_AGENT_JOINED:
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_OPENING_REMARKS_ID, NULL, 0);
             break;
         case QM_AGORA_EVENT_TYPE_AGENT_LEAVE:
             break;
         case QM_AGORA_EVENT_TYPE_AUDIO_MUTE:
+            break;
+        case QM_AGORA_EVENT_TYPE_AUDIO_UNMUTE:
             break;
         case QM_AGORA_EVENT_TYPE_ERROR:
             break;
@@ -224,20 +258,10 @@ void qm_agora_event_cb(qm_agora_event_type_e event, void *user_data)
     }
 }
 
-static void wakeup_timeout_handle(void *arg)
+static int qm_audio_player_event_cb(qm_audio_event_t event, void *param)
 {
-#if CONFIG_SUPPORT_ONLINE_CLOSE_WAV
-    if(!bsp_audio_handle.open_or_close){
-        return;
-    }
-    QM_LOGI(TAG, "qm_audio_ws_closing_remarks");
-    bsp_audio_join_event_set(false);
-    voice_corpus_request(CONFIG_AUDIO_CLOSING_REMARKS);
-    qm_agora_leave();
-    bsp_audio_handle.open_or_close = QM_FALSE;
-    qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
-    qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID, NULL, 0);
-#endif
+    QM_LOGD(TAG, "%s:%d", __func__, event);
+    return QM_EOK;
 }
 
 static void ind_timeout_handle(void *arg)
@@ -249,39 +273,30 @@ static void ind_timeout_handle(void *arg)
 
     switch (ind_type)
     {
-
         case CONFIG_AUDIO_SUB_EVENT_CONFIG:
             if(!audio_reset){
-                player_pipeline_stop(bsp_audio_handle.player_pipeline);
-                qm_player_play_file(bsp_audio_handle.player_handle, NETCONFIG_WAV);
+                qm_bsp_offline_voice_play(PCM_NETCONFIG_ID);
             }
             qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONFIG_IND_TIMEOUT);
         break;
-        
         case CONFIG_AUDIO_SUB_EVENT_NET_ERROR:
             
             bsp_audio_handle.ws_connect = QM_FALSE;
 
             bsp_audio_join_event_set(false);
-            
-            qm_cancel_delayed_action(&bsp_audio_handle.ind_timer);
 
-            player_pipeline_stop(bsp_audio_handle.player_pipeline);
-            qm_player_play_file(bsp_audio_handle.player_handle, CONN_ERROR_WAV);
+            qm_bsp_offline_voice_play(PCM_CONN_ERROR_ID);
             qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONN_ERROR_TIMEOUT);
         break;
-
         case CONFIG_AUDIO_SUB_EVENT_CONN_WS:
 
             if(net_state == CONFIG_AUDIO_SUB_EVENT_NET_ERROR){
 
                 if(!audio_reset){
-                    player_pipeline_stop(bsp_audio_handle.player_pipeline);
                 #ifdef CONN_CLOUD_WAV
-                    qm_player_play_file(bsp_audio_handle.player_handle, CONN_CLOUD_WAV);
+                    qm_bsp_offline_voice_play(PCM_CONN_CLOUD_ID);
                 #endif
                 }
-
             }
 
             bsp_audio_handle.network_ind_flag = 1;
@@ -301,7 +316,6 @@ static void ind_timeout_handle(void *arg)
             net_state  = CONFIG_AUDIO_SUB_EVENT_CONN_WS;
 
         break;
-
         default:
             break;
     }
@@ -379,8 +393,6 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             if(bsp_audio_handle.ws_connect){
                 bsp_audio_handle.open_or_close = QM_TRUE;
                 qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
-                QM_LOGI(TAG, "qm_audio_ws_opening_remarks");
-                voice_corpus_request(CONFIG_AUDIO_OPENING_REMARKS);
                 qm_agora_join();
             } else {
                 if(bsp_audio_handle.network_ind_flag == 0) {
@@ -391,6 +403,14 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
 
         #else
         #endif
+        break;
+        case CONFIG_AUDIO_SUB_EVENT_OPENING_REMARKS_ID:
+            QM_LOGI(TAG, "opening_remarks");
+            voice_corpus_request(CONFIG_AUDIO_OPENING_REMARKS);
+        break;
+        case CONFIG_AUDIO_SUB_EVENT_CLOSING_REMARKS_ID:
+            QM_LOGI(TAG, "closing_remarks");
+            voice_corpus_request(CONFIG_AUDIO_CLOSING_REMARKS);
         break;
         default:
         break;
@@ -478,6 +498,30 @@ static void audio_player_dev_cb(qm_player_t handle, qm_player_event_type_t event
     }
 }
 
+static void qm_agora_set_agent_state(uint8_t state) 
+{
+    switch (state)
+    {
+    case 0:
+        // qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, NULL, CONFIG_AUDIO_WAKEUPT_TIMEOUT); 
+        break;
+    case 1:
+        qm_audio_play(QM_AUDIO_TYPE_AGENT);
+        break;
+    case 2:
+        // qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+        break;
+    default:
+        break;
+    }
+}
+
+static const char *agent_state_list[] = {
+    "silent",
+    "speaking",
+    "thinking",
+};
+
 static void qm_agora_stream_event_cb(qm_agora_stream_event_t *event, void *user_data)
 {
     switch (event->type)
@@ -490,6 +534,12 @@ static void qm_agora_stream_event_cb(qm_agora_stream_event_t *event, void *user_
         break;
     case QM_AGORA_STREAM_TYPE_AGENT_STATE:
         QM_LOGI("1", "agent state: %s", event->data.agent_state.state);
+        for(int i = 0; i < QM_ARRAY_SIZE(agent_state_list); i++) {
+            if(strcmp(event->data.agent_state.state, agent_state_list[i]) == 0) {
+                qm_agora_set_agent_state(i);
+                break;
+            }
+        }
         break;
     case QM_AGORA_STREAM_TYPE_INTERRUPT:
         QM_LOGI("1", "user interrupt %d", event->data.interrupt.turn_id);
@@ -595,14 +645,23 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
     qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_TRUE);    
 #endif
 
-#ifdef POWER_ON_WAV
-    qm_player_play_file(bsp_audio_handle.player_handle, POWER_ON_WAV);
-#endif
     bsp_audio_handle.join_event = xEventGroupCreate();
 
     bsp_audio_handle.opus_handle = bsp_audio_opus_encode_create(CONFIG_AUDIO_FMT_RATE, CONFIG_AUDIO_FMT_CHANNEL, CONFIG_AUDIO_FMT_DURATION_MS);
-    
-    qm_agora_cfg_t cfg = {
+
+    qm_audio_param_t audio_param = {
+        .duration_ms = 0,
+        .audio_init = NULL,
+        .audio_deinit = NULL,
+        .audio_play = qm_adio_play_data,
+        .audio_mute = NULL,
+        .audio_eventcb = qm_audio_player_event_cb,
+        .arg = NULL,
+    };
+
+    qm_audio_init(&audio_param);
+
+    qm_agora_cfg_t agora_cfg = {
         .audio_enable = true,
         .video_enable = false,
         .domain_limit = false,
@@ -613,7 +672,7 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
         .event_cb = qm_agora_event_cb,
     };
     
-    qm_agora_init(cfg);
+    qm_agora_init(agora_cfg);
     audio_thread_create(NULL, "voice_read_task", voice_read_task, (void *)NULL, 30 * 1024, 5, true, 1);
 
     return QM_EOK;

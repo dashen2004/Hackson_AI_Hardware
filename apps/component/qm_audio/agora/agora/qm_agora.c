@@ -8,7 +8,6 @@
 #include "qm_kv.h"
 #include "qm_utils_base64.h"
 
-#include "audio_thread.h"
 #include "agora_rtc_api.h"
 #include "qm_agora.h"
 #include "qm_agora_gen.h"
@@ -80,6 +79,7 @@ int qm_agora_send_data(const void *data, size_t len)
     return rval;
 }
 
+#if 0
 static void qm_agora_audio_process_task(void *args)
 {
     int list_len = 0;
@@ -118,6 +118,7 @@ static void qm_agora_audio_process_task(void *args)
         }
     }
 }
+#endif
 
 static void __on_join_channel_success(connection_id_t conn_id, uint32_t uid, int elapsed)
 {
@@ -253,6 +254,11 @@ static void __on_audio_data(connection_id_t conn_id, const uint32_t uid, uint16_
     }
     // QM_LOGD("1", "[conn-%u] on_audio_data, uid %u sent_ts %u data_type %d, len %d\n", conn_id, uid, sent_ts,
     //      info_ptr->data_type, len);
+    if(qm_agora_handle.audio_cb){
+        qm_agora_handle.audio_cb((void *)data, len, qm_agora_handle.user_data);
+    }
+#if 0
+
     qm_agora_frame_t *agora_node = NULL;
     qm_list_node_t *node = qm_list_node_extra_new(sizeof(qm_agora_frame_t));
     if(node == NULL){
@@ -276,7 +282,9 @@ static void __on_audio_data(connection_id_t conn_id, const uint32_t uid, uint16_
 
     qm_sem_signal(&qm_agora_handle.binary_sem);
 
+#endif
 }
+
 #endif //#ifdef CONFIG_ENABLE_AUDIO_MIXING
 
 static void app_init_event_handler(agora_rtc_event_handler_t *event_handler)
@@ -453,7 +461,8 @@ int qm_agora_init(qm_agora_cfg_t cfg)
         QM_LOGE(LOG_TAG, "agora init fail");
         return QM_ENOMEM;
     }
-    audio_thread_create(NULL, "qm_agora_audio_process_task", qm_agora_audio_process_task, &qm_agora_handle, 20 * 1024, 5, true, 0);
+
+    // audio_thread_create(NULL, "qm_agora_audio_process_task", qm_agora_audio_process_task, &qm_agora_handle, 20 * 1024, 5, true, 0);
 
     return QM_EOK;
 }

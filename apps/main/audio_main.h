@@ -92,6 +92,9 @@ extern "C" {
 #define CONFIG_AUDIO_SUB_EVENT_OTA_SUCCESS          (0x010C)
 #define CONFIG_AUDIO_SUB_EVENT_OTA_FAILED           (0x010D)
 
+#define CONFIG_AUDIO_SUB_EVENT_OPENING_REMARKS_ID     (0x0601)
+#define CONFIG_AUDIO_SUB_EVENT_CLOSING_REMARKS_ID     (0x0602)
+
 #define CONFIG_AUDIO_ID_LIGHT_WAKEUP         (1)
 #define CONFIG_AUDIO_ID_LIGHT_NETCONFIG      (2)
 #define CONFIG_AUDIO_ID_LIGHT_ON             (3)             //开灯/打开灯光

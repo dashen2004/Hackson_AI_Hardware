@@ -32,8 +32,10 @@
 #define CHANNELNAME_KEY         (CONFIG_QM_AGORA_GEN_KV_HEADER"channelName")
 #define TOKEN_KEY               (CONFIG_QM_AGORA_GEN_KV_HEADER"token")
 
-#define AGORA_GEN_BUFFER_MAX_LEN 4096
-
+#define AGORA_GEN_BUFFER_MAX_LEN    (4096)
+#define BACKOFF_BASE_TIME_MS        (1 * 1000)
+#define BACKOFF_RECV_TIMEOUT_MS     (10 * 1000)
+#define BACKOFF_RETRY_NUM           (50)
 
 int qm_agora_uid_set(char *uid, uint32_t len)
 {
@@ -228,10 +230,12 @@ int32_t qm_agora_gen_start(void *handle)
     int32_t ret = QM_EOK;
     char url[128];
     uint32_t url_len = 0;
-    uint8_t repeat_count = 0;
     httpclient_t http = {0};
     httpclient_data_t http_data = {0};
     qm_agora_gen_handle_t *agora_handle = (qm_agora_gen_handle_t *)handle;
+    backoff_algorithm_ctx_t backoff_ctx = {0};
+    backoff_algorithm_status_t status = BACKOFF_ALGORITHM_SUCCESS;
+    uint16_t next_backoff = 0; 
 
     char *buf = NULL;
     uint32_t buf_len = AGORA_GEN_BUFFER_MAX_LEN;
@@ -254,21 +258,29 @@ int32_t qm_agora_gen_start(void *handle)
 
     http_data.response_buf = buf;
     http_data.response_buf_len = buf_len;
+    backoff_algorithm_init(&backoff_ctx, BACKOFF_BASE_TIME_MS, BACKOFF_RECV_TIMEOUT_MS, BACKOFF_RETRY_NUM);
 
-__START:
-    if (0 != http_client_common(&http, url, 80, NULL, HTTPCLIENT_GET, 3000, &http_data)){
-        QM_LOGE(LOG_TAG ,"http client failed");
-        ret = -QM_EIO;
+    while (1) {
+        ret = http_client_common(&http, url, 80, NULL, HTTPCLIENT_GET, 3000, &http_data);
+        if(ret == QM_EOK && http.response_code == 200 && http_data.response_content_len){
+            break;
+        }
+
+        status = backoff_algorithm_get_next_delay(&backoff_ctx, &next_backoff);
+        if(status != BACKOFF_ALGORITHM_SUCCESS){
+            ret = -QM_ETIMEOUT;
+            break;
+        }
+
+        qm_msleep(next_backoff);
+    }
+    
+    http_client_close(&http);
+    
+    if(ret != QM_EOK){
         goto __FREE;
     }
-    if(http.response_code != 200) {
-        repeat_count++;
-        if(repeat_count == 3) {
-            ret = -QM_ERROR;
-            goto __FREE;
-        }
-        goto __START;
-    }
+
     ret = qm_agora_gen_recv_handler(agora_handle, buf, http_data.response_content_len);
 
 __FREE:
@@ -276,6 +288,5 @@ __FREE:
         qm_free(buf);
         buf = NULL;
     }
-    http_client_close(&http);
     return ret;
 }

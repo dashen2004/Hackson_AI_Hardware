@@ -26,6 +26,7 @@
 #include "serial_platform.h"
 
 #include "audio_prodtst.h"
+#include "audio_cloud.h"
 #include "audio_main.h"
 
 static qm_at_result_t at_set_fac_mode(void *channel, const char *args);
@@ -254,8 +255,6 @@ static qm_at_result_t at_set_voice_scan(void *channel, const char *args)
     return QM_AT_RESULT_NULL;
 }
 
-extern void qm_bsp_offline_voice_play(uint8_t index);
-extern uint8_t qm_bsp_voice_is_idle(void);
 static qm_at_result_t at_set_voice(void *channel, const char *args)
 {
     int voice_channel;
@@ -284,7 +283,7 @@ static qm_at_result_t at_set_voice(void *channel, const char *args)
         if(voice.interval) {
             vTaskDelay(voice.interval / portTICK_PERIOD_MS);
         }
-        qm_bsp_offline_voice_play((uint8_t)voice.id);
+        qm_bsp_offline_voice_play(PCM_XJIANG_TEST_ID);
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 	return QM_AT_RESULT_OK;

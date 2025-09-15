@@ -8,7 +8,6 @@
 
 #include "audio_main.h"
 #include "audio_light.h"
-#include "qm_audio.h"
 #include "qm_work.h"
 #include "qm_event.h"
 #include "qm_iot_ota.h"
