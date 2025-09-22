@@ -264,19 +264,55 @@ static void qm_iot_recv_handler(void *handle, const qm_iot_recv_t *recv, void *u
         return ;
     }
 
-    QM_LOGD(LOG_TAG, "app recv type %d siid %d piid %d!!!", recv->type, recv->siid, recv->piid);
+    switch (recv->type)
+    {
+        case QM_IOT_RECV_TYPE_SET:
+            QM_LOGD(LOG_TAG, "app recv set siid %d piid %d!!!", recv->siid, recv->piid);
+            audio_light_action_and_report(recv->data.set.property);
+        break;
+        case QM_IOT_RECV_TYPE_PROPERTY_SET:
+            QM_LOGD(LOG_TAG, "app recv prop set did %d siid %d piid %d!!!", recv->did, recv->siid, recv->piid);
+            audio_light_action_and_report(recv->data.set.property);
+        break;
 
-    audio_light_action_and_report(recv->data.set.property);
+        case QM_IOT_RECV_TYPE_PROPERTY_GET_RSP:
+            QM_LOGD(LOG_TAG, "app recv prop get did %d siid %d piid %d!!!", recv->did, recv->siid, recv->piid);
+        break;
+
+        case QM_IOT_RECV_TYPE_PROPERTY_GET_REQ:
+            QM_LOGD(LOG_TAG, "app recv prop get did %d siid %d piid %d!!!", recv->did, recv->siid, recv->piid);
+        break;
+
+        default:
+
+        break;
+    }
 }
 
-qm_err_t xjiang_cloud_multi_report(qm_spec_property_operation_t *operation)
+qm_err_t xjiang_cloud_multi_report(qm_iot_core_msg_type_t type, qm_spec_property_operation_t *operation)
 {
     if(connect == QM_FALSE){
         qm_spec_property_operation_delete(operation);
         return -QM_EIO;
     }
-
-    return qm_iot_report(iot_handle, operation);
+    switch (type)
+    {
+        case QM_IOT_CORE_MSG_TYPE_AWS_REPORT:
+            qm_iot_report(iot_handle, operation);
+        break;
+        case QM_IOT_CORE_MSG_TYPE_GET_REQ:
+            qm_iot_property_get_request(iot_handle, operation);
+        break;
+        case QM_IOT_CORE_MSG_TYPE_GET_RSP:
+            qm_iot_property_get_rsponse(iot_handle, operation);
+        break;
+        case QM_IOT_CORE_MSG_TYPE_REPORT:
+            qm_iot_property_report(iot_handle, operation);
+        break;
+        default:
+        break;
+    }
+    return QM_EOK;
 }
 
 qm_err_t xjiang_cloud_report(qm_spec_property_t *property)
@@ -313,39 +349,6 @@ qm_err_t xjiang_cloud_report(qm_spec_property_t *property)
     return QM_EOK;
 }
 
-qm_err_t voice_report(qm_spec_property_t *property)
-{
-    static qm_spec_property_operation_t *property_operation = NULL;
-    qm_spec_property_t *property_pre = NULL;
-
-    if(connect == QM_FALSE){
-        return -QM_EIO;
-    }
-
-    if(property_operation == NULL){
-        property_operation = qm_spec_property_operation_creat();
-    }
-
-    if(property_operation == NULL){
-        return -QM_ENOMEM;
-    }
-
-    property_pre = qm_spec_property_creat();
-    if(property_pre == NULL){
-        return -QM_ENOMEM;
-    }
-
-    qm_spec_property_copy(property_pre, property);
-
-    qm_spec_property_add(property_operation, property_pre);
-
-    if(property->next == NULL){
-        qm_iot_set_voice_request(iot_handle, property_operation);
-        property_operation = NULL;
-    }
-
-    return QM_EOK;
-}
 int xjiang_cloud_reset(void)
 {
     qm_set_reset_flag();

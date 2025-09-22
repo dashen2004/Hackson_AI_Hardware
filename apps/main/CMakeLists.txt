@@ -83,7 +83,6 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/core/qm_iot_core.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/mqtt/qm_iot_mqtt.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ntp/qm_iot_ntp.c"
-    "$ENV{ADF_PATH}/qumi/components/qm_cloud/voice/qm_iot_voice.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/shadow/qm_iot_shadow.c"
 
     "$ENV{ADF_PATH}/qumi/components/http/util_httpc.c"
@@ -219,7 +218,6 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/mqtt"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ntp"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/shadow"
-    "$ENV{ADF_PATH}/qumi/components/qm_cloud/voice"
 
     "$ENV{ADF_PATH}/qumi/components/aupu/aupu_comm/include"
     "$ENV{ADF_PATH}/qumi/components/backoff/include"

@@ -1,13 +1,11 @@
 #include "qm.h"
 #include "qm_work.h"
 #include "qm_kv.h"
-
 #include "qm_light_driver.h"
 #include "qm_light_alg.h"
-
 #include "bsp_light.h"
-
 #include "audio_main.h"
+#include "xjiang_cloud.h"
 
 #define LOG_TAG "BSP_LIGHT"
 
@@ -995,30 +993,61 @@ qm_err_t bsp_light_blink(void)
     return QM_EOK;
 }
 
-extern qm_err_t voice_report(qm_spec_property_t *property);
 qm_err_t voice_corpus_request(uint8_t number)
 {
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
     qm_spec_property_t *property_pre = NULL;
-
     property_pre = qm_spec_property_creat();
     if(property_pre == NULL){
-        return QM_ERROR;
+        return -QM_ENOMEM;
     }
 
     qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_VOICE_CONTROL_SIID, CONFIG_AUDIO_VOICE_CORPUS_PIID);
     qm_spec_property_pack_number(property_pre, number);
-    return voice_report(property_pre);
+    property_pre->did = qm_iot_did_get();
+
+    qm_spec_property_add(property_operation, property_pre);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_REPORT, property_operation);
 }
 
 qm_err_t voice_abort_request(uint8_t number)
 {
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
     qm_spec_property_t *property_pre = NULL;
     property_pre = qm_spec_property_creat();
     if(property_pre == NULL){
-        return QM_ERROR;
+        return -QM_ENOMEM;
     }
 
     qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_VOICE_CONTROL_SIID, CONFIG_AUDIO_VOICE_ABORT_PIID);
     qm_spec_property_pack_number(property_pre, number);
-    return voice_report(property_pre);
+    property_pre->did = qm_iot_did_get();
+
+    qm_spec_property_add(property_operation, property_pre);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_REPORT, property_operation);
+}
+
+qm_err_t voice_rtc_login_info_get(void)
+{
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+    qm_spec_property_t *property_pre = NULL;
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return -QM_ENOMEM;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_RTC_LOGIN_SIID, 0);
+    property_pre->did = qm_iot_did_get();
+
+    qm_spec_property_add(property_operation, property_pre);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_GET_REQ, property_operation);
 }

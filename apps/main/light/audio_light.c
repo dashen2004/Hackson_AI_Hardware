@@ -96,7 +96,7 @@ static qm_err_t EGV_report(qm_spec_property_t *property)
     sprintf(data, "%d", audio_stream_EGV_get());
     qm_spec_property_pack_string(property_pre, data, strlen(data));
     qm_spec_property_add(property_operation, property_pre);
-    return xjiang_cloud_multi_report(property_operation);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
 }
 
 static qm_err_t ALG_aciton(qm_spec_property_t *property)
@@ -133,7 +133,7 @@ static qm_err_t ALG_report(qm_spec_property_t *property)
     sprintf(data, "%1f", audio_stream_ALG_get());
     qm_spec_property_pack_string(property_pre, data, strlen(data));
     qm_spec_property_add(property_operation, property_pre);
-    return xjiang_cloud_multi_report(property_operation);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
 }
 
 static audio_light_table_t g_light_table[] =
@@ -213,7 +213,7 @@ qm_err_t audio_light_snapshot_report(void)
     audio_light_add(property_operation, 
         CONFIG_AUDIO_LIGHT_SEL_SIID, CONFIG_AUDIO_LIGHT_SEL_PIID, CONFIG_AUDIO_LIGHT_SEL_TYPE, (int)(store->sel));
 
-    return xjiang_cloud_multi_report(property_operation);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
 }
 
 qm_err_t audio_light_action(qm_spec_property_t *property)
@@ -505,7 +505,7 @@ static qm_err_t volume_set_report(qm_spec_property_t *property)
     qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_VOLUME_SIID, CONFIG_AUDIO_VOLUME_PIID);
     qm_spec_property_pack_number(property_pre, get_var_volume_value());
     qm_spec_property_add(property_operation, property_pre);
-    return xjiang_cloud_multi_report(property_operation);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
 }
 
 static qm_err_t volume_mute_action(qm_spec_property_t *property)
@@ -549,7 +549,7 @@ static qm_err_t volume_mute_report(qm_spec_property_t *property)
         qm_spec_property_pack_number(property_pre, 2);
     }
     qm_spec_property_add(property_operation, property_pre);
-    return xjiang_cloud_multi_report(property_operation);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
 }
 
 static qm_err_t volume_cmd_action(qm_spec_property_t *property)
@@ -603,7 +603,7 @@ static qm_err_t volume_cmd_report(qm_spec_property_t *property)
     qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_VOLUME_SIID, CONFIG_AUDIO_VOLUME_PIID);
     qm_spec_property_pack_number(property_pre, get_var_volume_value());
     qm_spec_property_add(property_operation, property_pre);
-    return xjiang_cloud_multi_report(property_operation);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
 }
 
 static qm_err_t chat_state_action(qm_spec_property_t *property)
@@ -630,7 +630,7 @@ static qm_err_t chat_state_report(qm_spec_property_t *property)
     qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_EXIT_CHAT_SIID, CONFIG_AUDIO_CHAT_STATE_PIID);
     qm_spec_property_pack_number(property_pre, get_wakeup_timeout_flag() + 1);
     qm_spec_property_add(property_operation, property_pre);
-    return xjiang_cloud_multi_report(property_operation);
+    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
 }
 
 static qm_err_t voice_corpus_action(qm_spec_property_t *property)
