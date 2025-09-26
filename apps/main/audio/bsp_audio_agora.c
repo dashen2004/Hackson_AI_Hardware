@@ -526,26 +526,22 @@ static void qm_agora_stream_event_cb(qm_agora_stream_event_t *event, void *user_
 {
     switch (event->type)
     {
-    case QM_AGORA_STREAM_TYPE_STT:
-        QM_LOGI("1", "User says: %s", event->data.stt.text);
-        break;
-    case QM_AGORA_STREAM_TYPE_TTS:
-        QM_LOGI("1", "Assistant says[%lu]: %.*s", event->data.tts.duration_ms, event->data.tts.text_len, event->data.tts.text);
-        break;
-    case QM_AGORA_STREAM_TYPE_AGENT_STATE:
-        QM_LOGI("1", "agent state: %s", event->data.agent_state.state);
-        for(int i = 0; i < QM_ARRAY_SIZE(agent_state_list); i++) {
-            if(strcmp(event->data.agent_state.state, agent_state_list[i]) == 0) {
-                qm_agora_set_agent_state(i);
-                break;
-            }
-        }
-        break;
-    case QM_AGORA_STREAM_TYPE_INTERRUPT:
-        QM_LOGI("1", "user interrupt %d", event->data.interrupt.turn_id);
-        break;
-    default:
-        break;
+        case QM_AGORA_STREAM_TYPE_STT:
+            QM_LOGI("1", "User says: %s", event->data.stt.text);
+            break;
+        case QM_AGORA_STREAM_TYPE_TTS:
+            QM_LOGI("1", "Assistant says[%lu]: %.*s", event->data.tts.duration_ms, event->data.tts.text_len, event->data.tts.text);
+            break;
+        case QM_AGORA_STREAM_TYPE_AGENT_STATE:
+            QM_LOGI("1", "agent state: %s", event->data.agent_state.text);
+            qm_agora_set_agent_state(event->data.agent_state.state);
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_FRESH_WAKETIME_ID, NULL, 0);
+            break;
+        case QM_AGORA_STREAM_TYPE_INTERRUPT:
+            QM_LOGI("1", "user interrupt %d", event->data.interrupt.turn_id);
+            break;
+        default:
+            break;
     }
 }
 

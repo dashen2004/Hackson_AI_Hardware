@@ -9,7 +9,7 @@
 #include "qm_kv.h"
 #include "qm_utils_base64.h"
 
-#include "agora_rtc_api.h"
+#include "qm_agora.h"
 #include "qm_agora_stream.h"
 #include "qm_utils_string.h"
 
@@ -20,6 +20,7 @@
 #define WORDS_TYPE              "words"
 #define WORD_TYPE               "word"
 #define START_MS_TYPE           "start_ms"
+#define DURATION_MS_TYPE        "duration_ms"
 #define TURN_STATUS_TYPE        "turn_status"
 #define FINAL_TYPE              "final"
 #define STATE_TYPE              "state"
@@ -40,7 +41,9 @@ typedef struct {
 typedef struct {
     uint32_t last_word_len;
     uint32_t word_len;
+#if CONFIG_AGORA_XJIANG_TTS == 0
     uint64_t last_utc_time;
+#endif
     uint64_t utc_time;
 } qm_agora_stream_word_t;
 
@@ -70,6 +73,12 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root);
 static qm_err_t qm_stream_user_trans_handler(cJSON *root);
 static qm_err_t qm_stream_message_state_handler(cJSON *root);
 static qm_err_t qm_stream_message_interrupt_handler(cJSON *root);
+
+static const char *agent_state_list[] = {
+    "silent",
+    "speaking",
+    "thinking",
+};
 
 static qm_agora_stream_handle_t g_stream_handle = {0};
 static stream_message_cache_t current_msg_cache[STREAM_MSG_CACHE_MAX_LEN] = {0};
@@ -169,7 +178,6 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     qm_err_t ret = QM_EOK;
     char *new_text = NULL;
     size_t new_text_size = 0;
-    size_t new_text_used = 0;
     cJSON *text = NULL;
     cJSON *word = NULL;
     cJSON *words = NULL;
@@ -187,7 +195,9 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
         return QM_EINVAL;
     }
     if(old_turn_id != turn_id->valueint) {
+#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = 0;
+#endif
         word_info.last_word_len = 0;
         old_turn_id = turn_id->valueint;
     }
@@ -198,68 +208,80 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
         QM_LOGW(LOG_TAG, "assistant.transcription text is NULL");
         goto __FREE;
     }
-    words = cJSON_GetObjectItem(root, WORDS_TYPE);
-    if (cJSON_IsArray(words) == false) {
-        ret = QM_EINVAL;
-        QM_LOGW(LOG_TAG, "assistant.transcription words is NULL, Assistant says: %s", cJSON_GetStringValue(text));
-        goto __FREE;
-    }
+    
     word_info.word_len = strlen(cJSON_GetStringValue(text));
     if(word_info.word_len == 0 || word_info.word_len < word_info.last_word_len) {
         ret = QM_EINVAL;
+#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = 0;
+#endif
         word_info.last_word_len = 0;
         QM_LOGW(LOG_TAG, "assistant.transcription word_len is zero, %d, %d", word_info.word_len, word_info.last_word_len);
         goto __FREE;
     }
-    new_text_size = word_info.word_len - word_info.last_word_len + 10;
-    new_text = (char *)qm_malloc(new_text_size);
+
+    new_text_size = word_info.word_len - word_info.last_word_len;
+    new_text = (char *)qm_malloc(new_text_size + 1);
     if(new_text == NULL) {
         ret = QM_EINVAL;
+#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = 0;
+#endif
         word_info.last_word_len = 0;
         QM_LOGW(LOG_TAG, "assistant.transcription word_info.word is NULL");
         goto __FREE;
     }
-    memset(new_text, 0, new_text_size);
-    new_text_used = 0;
-    cJSON_ArrayForEach(word, words) {
-        if(cJSON_IsObject(word) == false) {
-            QM_LOGW(LOG_TAG, "assistant.transcription word is NULL");
-            continue;
-        }
-        cJSON *word_text = NULL;
-        cJSON *start_ms = NULL;
-        word_text = cJSON_GetObjectItem(word, WORD_TYPE);
-        start_ms = cJSON_GetObjectItem(word, START_MS_TYPE);
-        if (cJSON_IsString(word_text) == false || cJSON_IsNumber(start_ms) == false) {
-            QM_LOGW(LOG_TAG, "assistant.transcription word_text|start_ms is NULL");
-            continue;
-        }
 
-        word_info.utc_time = (uint64_t)cJSON_GetNumberValue(start_ms);
-        if(word_info.last_utc_time >= word_info.utc_time) {
-            continue;
-        } else if(word_info.last_utc_time == 0) {
-            word_info.last_utc_time = word_info.utc_time;
+    memset(new_text, 0, new_text_size + 1);
+    memcpy(new_text, cJSON_GetStringValue(text) + word_info.last_word_len, new_text_size);
+    
+    words = cJSON_GetObjectItem(root, WORDS_TYPE);
+    word_info.utc_time = 0;
+    if (cJSON_IsArray(words) == true) {
+        cJSON_ArrayForEach(word, words) {
+            if(cJSON_IsObject(word) == false) {
+                QM_LOGW(LOG_TAG, "assistant.transcription word is NULL");
+                continue;
+            }
+#if CONFIG_AGORA_XJIANG_TTS
+            cJSON *duration_ms = NULL;
+            duration_ms = cJSON_GetObjectItem(word, DURATION_MS_TYPE);
+            if (cJSON_IsNumber(duration_ms) == false) {
+                QM_LOGW(LOG_TAG, "assistant.transcription duration_ms is NULL, %s", cJSON_Print(word));
+                continue;
+            }
+
+            word_info.utc_time += (uint64_t)cJSON_GetNumberValue(duration_ms);
+#else
+            cJSON *start_ms = NULL;
+            start_ms = cJSON_GetObjectItem(word, START_MS_TYPE);
+            if (cJSON_IsNumber(start_ms) == false) {
+                QM_LOGW(LOG_TAG, "assistant.transcription start_ms is NULL");
+                continue;
+            }
+
+            word_info.utc_time = (uint64_t)cJSON_GetNumberValue(start_ms);
+            if(word_info.last_utc_time >= word_info.utc_time) {
+                continue;
+            } else if(word_info.last_utc_time == 0) {
+                word_info.last_utc_time = word_info.utc_time;
+            }
+#endif
         }
-        const char *word_str = cJSON_GetStringValue(word_text);
-        size_t word_len = strlen(word_str);
-        if(new_text_used + word_len + 1 >= new_text_size) {
-            ret = QM_EINVAL;
-            QM_LOGW(LOG_TAG, "Buffer would overflow, stopping at %d bytes, total size=%d", new_text_used, new_text_size);
-            QM_LOGW(LOG_TAG, "text[%d/%d]:%s", word_info.word_len, word_info.last_word_len, cJSON_GetStringValue(text));
-            QM_LOGW(LOG_TAG, "word_str[%d]:%s", word_len, word_str);
-            break;
-        }
-        memcpy(new_text + new_text_used, word_str, word_len);
-        new_text_used += word_len;
+    } else {
+        ret = QM_EINVAL;
+        QM_LOGW(LOG_TAG, "assistant.transcription words is NULL");
     }
-    if(new_text_used != 0) {
+    
+    if(new_text_size != 0) {
         event.type = QM_AGORA_STREAM_TYPE_TTS;
+#if CONFIG_AGORA_XJIANG_TTS
+        event.data.tts.duration_ms = word_info.utc_time;
+#else
         event.data.tts.duration_ms = word_info.utc_time - word_info.last_utc_time;
+#endif
         event.data.tts.text = new_text;
-        event.data.tts.text_len = word_info.word_len - (word_info.last_word_len);
+        event.data.tts.text_len = new_text_size;
     
         if(g_stream_handle.event_cb) {
             g_stream_handle.event_cb(&event, g_stream_handle.user_data);
@@ -271,10 +293,14 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     turn_status = cJSON_GetObjectItem(root, TURN_STATUS_TYPE); 
     if (cJSON_IsNumber(turn_status) && turn_status->valueint == 1) {
         QM_LOGI("1", "Assistant says: %s", cJSON_GetStringValue(text));
+#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = 0;
+#endif
         word_info.last_word_len = 0;
     } else {
+#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = word_info.utc_time;
+#endif
         word_info.last_word_len = word_info.word_len;
     }
 __FREE:
@@ -305,9 +331,11 @@ static qm_err_t qm_stream_user_trans_handler(cJSON *root)
         QM_LOGW(LOG_TAG, "user.transcription final is NULL");
         return QM_EINVAL;
     }
+#if CONFIG_STREAM_USER_TRANS_NEED_FINAL
     if(cJSON_IsFalse(final)) {
         return QM_EOK;
     }
+#endif
     event.type = QM_AGORA_STREAM_TYPE_STT;
     event.data.stt.text = cJSON_GetStringValue(text);
     if(g_stream_handle.event_cb) {
@@ -318,20 +346,30 @@ static qm_err_t qm_stream_user_trans_handler(cJSON *root)
 
 static qm_err_t qm_stream_message_state_handler(cJSON *root)
 {
-    cJSON *text = NULL;
+    cJSON *state = NULL;
     qm_agora_stream_event_t event = {0};
 
     if(root == NULL) {
         return QM_EINVAL;
     }
 
-    text = cJSON_GetObjectItem(root, STATE_TYPE);
-    if (cJSON_IsString(text) == false) {
+    state = cJSON_GetObjectItem(root, STATE_TYPE);
+    if (cJSON_IsString(state) == false) {
         QM_LOGW(LOG_TAG, "message.state state is NULL");
         return QM_EINVAL;
     }
+    event.data.agent_state.text = cJSON_GetStringValue(state);
+    if(event.data.agent_state.text == NULL) {
+        QM_LOGW(LOG_TAG, "message.state state_str is NULL");
+        return QM_EINVAL;
+    }
     event.type = QM_AGORA_STREAM_TYPE_AGENT_STATE;
-    event.data.agent_state.state = cJSON_GetStringValue(text);
+    for(int i = 0; i < QM_ARRAY_SIZE(agent_state_list); i++) {
+        if(strcmp(event.data.agent_state.text, agent_state_list[i]) == 0) {
+            event.data.agent_state.state = i + 1;
+            break;
+        }
+    }
     if(g_stream_handle.event_cb) {
         g_stream_handle.event_cb(&event, g_stream_handle.user_data);
     }
@@ -346,7 +384,9 @@ static qm_err_t qm_stream_message_interrupt_handler(cJSON *root)
     if(root == NULL) {
         return QM_EINVAL;
     }
+#if CONFIG_AGORA_XJIANG_TTS == 0
     word_info.last_utc_time = 0;
+#endif
     word_info.last_word_len = 0;
 
     turn_id = cJSON_GetObjectItem(root, TURN_ID_TYPE);
@@ -384,7 +424,7 @@ static void stream_msg_recv_handler(uint8_t *decoded_msg, uint32_t decoded_len)
         if (strcmp(obj_type, cmd_table[i].text) == 0) {
             if(cmd_table[i].handler) {
                 if(cmd_table[i].handler(root) != QM_EOK) {
-                    // QM_LOGE("LOG_TAG", "cmd_table[%d].handler failed: %.*s", i, decoded_len, decoded_msg);
+                    QM_LOGE("LOG_TAG", "cmd_table[%d].handler failed: %.*s", i, decoded_len, decoded_msg);
                 }
             }
             goto __FREE;
@@ -469,7 +509,7 @@ static void stream_msg_recv_task(void *args)
             if(cache->packet_data == NULL) {
                 message_cache_clear(cache_index);
                 QM_LOGW(LOG_TAG, "cache->packet_data malloc failed1");
-                QM_LOGD(LOG_TAG, "index=%d, total=%d, payload=%.*s",
+                QM_LOGW(LOG_TAG, "index=%d, total=%d, payload=%.*s",
                                 msg_node->index, msg_node->total, 
                                 msg_node->payload_length, msg_node->payload);
                 goto __FREE;
@@ -481,7 +521,7 @@ static void stream_msg_recv_task(void *args)
         if(cache->packet_data == NULL) {
             message_cache_clear(cache_index);
             QM_LOGW(LOG_TAG, "cache->packet_data malloc failed2");
-            QM_LOGD(LOG_TAG, "index=%d, total=%d, payload=%.*s",
+            QM_LOGW(LOG_TAG, "index=%d, total=%d, payload=%.*s",
                                 msg_node->index, msg_node->total, 
                                 msg_node->payload_length, msg_node->payload);
             goto __FREE;
@@ -542,7 +582,7 @@ static void stream_msg_recv_task(void *args)
                 size_t offset = 0;
                 memset(assembled, 0, total_length + 1);
                 for(int i = 0; i < cache->total; i++) {
-                    if(cache->packet_data[i]) {
+                    if(cache->packet_data[i] && (offset + cache->packet_data[i]->payload_length) <= total_length) {
                         memcpy(assembled + offset, 
                                 cache->packet_data[i]->payload, 
                                 cache->packet_data[i]->payload_length);
@@ -597,6 +637,9 @@ static size_t get_packet_len(const char *data, size_t length)
 void __on_stream_message(connection_id_t conn_id, uint32_t uid, int stream_id, 
                                 const char* data, size_t length, uint64_t sent_ts)
 {
+    if(data == NULL || length == 0) {
+        return;
+    }
     qm_audio_stream_t *msg_node = NULL;
     qm_list_node_t *node = qm_list_node_extra_new(sizeof(qm_audio_stream_t));
     if(node == NULL){
@@ -606,9 +649,9 @@ void __on_stream_message(connection_id_t conn_id, uint32_t uid, int stream_id,
     msg_node = (qm_audio_stream_t *)qm_list_node_val_get(node);
 
     msg_node->payload_length = get_packet_len(data, length);
-    msg_node->payload = (uint8_t *)qm_calloc(1, msg_node->payload_length + 1);
-    if(msg_node->payload == NULL){
-        QM_LOGW(LOG_TAG, "Failed to allocate memory for payload");
+    msg_node->payload = (uint8_t *)qm_malloc(msg_node->payload_length + 1);
+    if(msg_node->payload == NULL || msg_node->payload_length == 0) {
+        QM_LOGW(LOG_TAG, "Failed to allocate memory for payload: %d:%d", length, msg_node->payload_length);
         qm_list_node_destroy(node);
         return;
     }

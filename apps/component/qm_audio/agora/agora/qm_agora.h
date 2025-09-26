@@ -8,6 +8,13 @@ extern "C" {
 #include "qm.h"
 #include "qm_agora_stream.h"
 
+#define CONFIG_ENABLE_AUDIO_MIXING                  0
+#define CONFIG_STATIC_AGORA_DATA                    0
+#define CONFIG_STREAM_MESSAGE_OPEN                  1
+#define CONFIG_STREAM_USER_TRANS_NEED_FINAL         1
+#define CONFIG_AGORA_GEN_USE_MQTT                   0
+#define CONFIG_AGORA_XJIANG_TTS                     1
+
 typedef enum {
     QM_AGORA_EVENT_TYPE_INIT_SUCCESS = 0,
     QM_AGORA_EVENT_TYPE_CONNECTED,
@@ -21,6 +28,12 @@ typedef enum {
     QM_AGORA_EVENT_TYPE_ERROR
 } qm_agora_event_type_e;
 
+typedef enum {
+    QM_AUDIO_AGORA_PLAYER_STATE_STOP  = 0,
+    QM_AUDIO_AGORA_PLAYER_STATE_DATA,
+    QM_AUDIO_AGORA_PLAYER_STATE_START,
+} qm_audio_agora_player_state_t; 
+
 typedef struct {
     qm_agora_event_type_e type;
 } qm_agora_event_t;
@@ -33,6 +46,7 @@ typedef struct {
     bool audio_enable;
     bool video_enable;
     bool domain_limit;
+    bool enable_audio_ai_qos;
     qm_agora_stream_event_cb_t stream_cb;
     qm_agora_audio_event_cb_t audio_cb;
     qm_agora_event_cb_t event_cb;

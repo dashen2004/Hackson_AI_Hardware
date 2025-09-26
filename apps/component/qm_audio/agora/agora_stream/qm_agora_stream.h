@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "qm.h"
+#include "agora_rtc_api.h"
 
 typedef enum {
     QM_AGORA_STREAM_TYPE_TTS = 0,
@@ -13,6 +14,14 @@ typedef enum {
     QM_AGORA_STREAM_TYPE_AGENT_STATE,
     QM_AGORA_STREAM_TYPE_INTERRUPT,
 } qm_agora_stream_recv_type_t;
+  
+typedef enum {
+    AGENT_STATE_NONE,
+    AGENT_STATE_SLITEN,
+    AGENT_STATE_SPEAKING,
+    AGENT_STATE_THINKING,
+    AGENT_STATE_MAX,
+} qm_agent_state_t;
 
 typedef struct {
     qm_agora_stream_recv_type_t type;
@@ -26,7 +35,8 @@ typedef struct {
             const char *text;
         } stt;
         struct {
-            const char *state;
+            qm_agent_state_t state;
+            const char *text;
         } agent_state;
         struct {
             int turn_id;

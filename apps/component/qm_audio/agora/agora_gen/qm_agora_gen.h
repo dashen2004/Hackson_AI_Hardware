@@ -7,8 +7,19 @@ extern "C" {
 
 #include "qm.h"
 
+typedef enum {
+    QM_AGORA_GEN_TYPE_NONE = 0,
+    QM_AGORA_GEN_TYPE_UID,
+    QM_AGORA_GEN_TYPE_APPID,
+    QM_AGORA_GEN_TYPE_CHANNAL_NAME,
+    QM_AGORA_GEN_TYPE_TOKEN,
+    QM_AGORA_GEN_TYPE_MAX,
+} qm_agora_gen_data_type_t;
+
 typedef struct
 {
+    bool exist_data;
+    qm_timer_t timer;
     char *uid;
     uint32_t uid_len;
     char *appId;
@@ -23,19 +34,9 @@ void *qm_agora_gen_init(void);
 
 int32_t qm_agora_gen_start(void *handle);
 
-int32_t qm_agora_gen_free(void *handle);
+char *qm_agora_gen_get_data(qm_agora_gen_data_type_t type);
 
-int qm_agora_uid_set(char *uid, uint32_t len);
-int32_t qm_agora_uid_get(char *uid, uint32_t *len);
-
-int qm_agora_appid_set(char *appid, uint32_t len);
-int32_t qm_agora_appid_get(char *appid, uint32_t *len);
-
-int qm_agora_channelName_set(char *channelName, uint32_t len);
-int32_t qm_agora_channelName_get(char *channelName, uint32_t *len);
-
-int qm_agora_token_set(char *token, uint32_t len);
-int32_t qm_agora_token_get(char *token, uint32_t *len);
+int32_t qm_agora_gen_set_data(qm_agora_gen_data_type_t type, char *data, int len);
 
 #if defined(__cplusplus)
 }
