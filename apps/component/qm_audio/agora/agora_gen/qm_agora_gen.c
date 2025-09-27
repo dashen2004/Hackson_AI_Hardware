@@ -306,10 +306,13 @@ int32_t qm_agora_gen_start(void *handle)
     }
 
     qm_iot_agora_uri_get(url, &url_len);
-    if(url[0] == '\0') {
+    if(url[0] == '\0' || url_len == 0) {
         QM_LOGW(LOG_TAG, "agora uri is NULL");
-        ret = -QM_EEMPTY;
-        goto __FREE;
+        
+        // tmp url, to be done
+        const char* tmp_url = "http://testsit.ljyd.cn/agora/generate/token";
+        url_len = strlen(tmp_url);
+        memcpy(url, tmp_url, url_len);
     }
 
     snprintf(url + url_len, sizeof(url) - url_len, AGORA_GEN_TOLKEN_FORMAT, qm_iot_did_get(), qm_iot_pid_get());

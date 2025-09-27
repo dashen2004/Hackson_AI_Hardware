@@ -34,6 +34,12 @@ typedef struct {
     qm_sem_t                      stream_sem;
     qm_list_t                     stream_list;
     qm_mutex_t                    stream_lock;
+
+    qm_work_t                     tts_work;
+    qm_list_t                     tts_list;
+    qm_mutex_t                    tts_lock;
+    bool                          tts_timer_is_running;
+
     qm_agora_stream_event_cb_t    event_cb;
     void*                         user_data;
 } qm_agora_stream_handle_t;
@@ -41,10 +47,9 @@ typedef struct {
 typedef struct {
     uint32_t last_word_len;
     uint32_t word_len;
-#if CONFIG_AGORA_XJIANG_TTS == 0
     uint64_t last_utc_time;
-#endif
     uint64_t utc_time;
+    uint64_t duration_ms;
 } qm_agora_stream_word_t;
 
 typedef struct{
@@ -73,6 +78,7 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root);
 static qm_err_t qm_stream_user_trans_handler(cJSON *root);
 static qm_err_t qm_stream_message_state_handler(cJSON *root);
 static qm_err_t qm_stream_message_interrupt_handler(cJSON *root);
+static void tts_timer_callback(void *arg);
 
 static const char *agent_state_list[] = {
     "silent",
@@ -172,6 +178,86 @@ static void message_cache_printf(uint32_t index)
     }
 }
 
+static void tts_timer_start(int ms)
+{
+    g_stream_handle.tts_timer_is_running = QM_TRUE;
+    qm_cancel_delayed_action(&g_stream_handle.tts_work);
+    qm_post_delayed_action(&g_stream_handle.tts_work, tts_timer_callback, NULL, ms);
+}
+
+static void tts_timer_callback(void *arg)
+{
+    qm_list_node_t *node = NULL;
+    qm_agora_stream_event_t *event = NULL;
+    qm_mutex_lock(&g_stream_handle.tts_lock, QM_WAIT_FOREVER);
+    node = qm_list_lpop(&g_stream_handle.tts_list);
+
+    if(node == NULL){
+        g_stream_handle.tts_timer_is_running = QM_FALSE;
+        qm_mutex_unlock(&g_stream_handle.tts_lock);
+        return;
+    }
+
+    event = (qm_agora_stream_event_t *)qm_list_node_val_get(node);
+
+    if(event == NULL) {
+        qm_mutex_unlock(&g_stream_handle.tts_lock);
+        QM_LOGW(LOG_TAG, "tts msg_node is null");
+        goto __FREE;
+    }
+
+    if (event->data.tts.text == NULL) {
+        qm_mutex_unlock(&g_stream_handle.tts_lock);
+        QM_LOGW(LOG_TAG, "tts msg_node payload is null");
+        goto __FREE;
+    }
+
+    tts_timer_start(event->data.tts.duration_ms);
+    qm_mutex_unlock(&g_stream_handle.tts_lock);
+    
+    if(g_stream_handle.event_cb) {
+        g_stream_handle.event_cb(event, g_stream_handle.user_data);
+    }
+
+__FREE:
+    if(event->data.tts.text) {
+        qm_free(event->data.tts.text);
+        event->data.tts.text = NULL;
+    }
+    if(node) {
+        qm_list_node_destroy(node);
+        node = NULL;
+    }
+}
+
+static void qm_stream_assistant_trans_insert(qm_agora_stream_event_t *event) 
+{
+    qm_agora_stream_event_t *msg_node = NULL;
+    qm_list_node_t *node = qm_list_node_extra_new(sizeof(qm_agora_stream_event_t));
+    if(node == NULL) {
+        QM_LOGW(LOG_TAG, "Failed to create list node");
+        return ;
+    }
+    msg_node = (qm_agora_stream_event_t *)qm_list_node_val_get(node);
+    msg_node->type = event->type;
+    msg_node->data.tts.text_len = event->data.tts.text_len;
+    msg_node->data.tts.duration_ms = event->data.tts.duration_ms;
+    msg_node->data.tts.text = (char *)qm_malloc(msg_node->data.tts.text_len + 1);
+    if(msg_node->data.tts.text == NULL || msg_node->data.tts.text_len == 0) {
+        QM_LOGW(LOG_TAG, "Failed to allocate memory for payload: %d", msg_node->data.tts.text_len);
+        qm_list_node_destroy(node);
+        return;
+    }
+    memset(msg_node->data.tts.text, 0, msg_node->data.tts.text_len + 1);
+    memcpy(msg_node->data.tts.text, event->data.tts.text, msg_node->data.tts.text_len);
+    qm_mutex_lock(&g_stream_handle.tts_lock, QM_WAIT_FOREVER);
+    qm_list_rpush(&g_stream_handle.tts_list, node);
+    if(g_stream_handle.tts_timer_is_running == QM_FALSE) {
+        tts_timer_start(0);
+    }
+    qm_mutex_unlock(&g_stream_handle.tts_lock);
+}
+
 static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
 {
     static int old_turn_id = -1;
@@ -179,8 +265,6 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     char *new_text = NULL;
     size_t new_text_size = 0;
     cJSON *text = NULL;
-    cJSON *word = NULL;
-    cJSON *words = NULL;
     cJSON *turn_status = NULL;
     cJSON *turn_id = NULL;
     qm_agora_stream_event_t event = {0};
@@ -195,9 +279,7 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
         return QM_EINVAL;
     }
     if(old_turn_id != turn_id->valueint) {
-#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = 0;
-#endif
         word_info.last_word_len = 0;
         old_turn_id = turn_id->valueint;
     }
@@ -212,9 +294,7 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     word_info.word_len = strlen(cJSON_GetStringValue(text));
     if(word_info.word_len == 0 || word_info.word_len < word_info.last_word_len) {
         ret = QM_EINVAL;
-#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = 0;
-#endif
         word_info.last_word_len = 0;
         QM_LOGW(LOG_TAG, "assistant.transcription word_len is zero, %d, %d", word_info.word_len, word_info.last_word_len);
         goto __FREE;
@@ -224,9 +304,7 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     new_text = (char *)qm_malloc(new_text_size + 1);
     if(new_text == NULL) {
         ret = QM_EINVAL;
-#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = 0;
-#endif
         word_info.last_word_len = 0;
         QM_LOGW(LOG_TAG, "assistant.transcription word_info.word is NULL");
         goto __FREE;
@@ -235,24 +313,33 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     memset(new_text, 0, new_text_size + 1);
     memcpy(new_text, cJSON_GetStringValue(text) + word_info.last_word_len, new_text_size);
     
+#if CONFIG_AGORA_XJIANG_TTS
+    cJSON *start_ms = NULL;
+    start_ms = cJSON_GetObjectItem(root, START_MS_TYPE);
+    if (cJSON_IsNumber(start_ms) == false) {
+        QM_LOGW(LOG_TAG, "assistant.transcription start_ms is NULL");
+        ret = QM_EINVAL;
+        word_info.last_utc_time = 0;
+        word_info.last_word_len = 0;
+        goto __FREE;
+    }
+    word_info.utc_time = (uint64_t)cJSON_GetNumberValue(start_ms);
+    if(word_info.last_utc_time == 0) {
+        word_info.duration_ms = 0;
+    } else {
+        word_info.duration_ms = word_info.utc_time - word_info.last_utc_time;
+    }
+    word_info.last_utc_time = word_info.utc_time;
+#else
+    cJSON *word = NULL;
+    cJSON *words = NULL;
     words = cJSON_GetObjectItem(root, WORDS_TYPE);
-    word_info.utc_time = 0;
     if (cJSON_IsArray(words) == true) {
         cJSON_ArrayForEach(word, words) {
             if(cJSON_IsObject(word) == false) {
                 QM_LOGW(LOG_TAG, "assistant.transcription word is NULL");
                 continue;
             }
-#if CONFIG_AGORA_XJIANG_TTS
-            cJSON *duration_ms = NULL;
-            duration_ms = cJSON_GetObjectItem(word, DURATION_MS_TYPE);
-            if (cJSON_IsNumber(duration_ms) == false) {
-                QM_LOGW(LOG_TAG, "assistant.transcription duration_ms is NULL, %s", cJSON_Print(word));
-                continue;
-            }
-
-            word_info.utc_time += (uint64_t)cJSON_GetNumberValue(duration_ms);
-#else
             cJSON *start_ms = NULL;
             start_ms = cJSON_GetObjectItem(word, START_MS_TYPE);
             if (cJSON_IsNumber(start_ms) == false) {
@@ -266,26 +353,24 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
             } else if(word_info.last_utc_time == 0) {
                 word_info.last_utc_time = word_info.utc_time;
             }
-#endif
         }
     } else {
         ret = QM_EINVAL;
         QM_LOGW(LOG_TAG, "assistant.transcription words is NULL");
     }
+#endif
     
     if(new_text_size != 0) {
         event.type = QM_AGORA_STREAM_TYPE_TTS;
 #if CONFIG_AGORA_XJIANG_TTS
-        event.data.tts.duration_ms = word_info.utc_time;
+        event.data.tts.duration_ms = word_info.duration_ms;
 #else
         event.data.tts.duration_ms = word_info.utc_time - word_info.last_utc_time;
 #endif
         event.data.tts.text = new_text;
         event.data.tts.text_len = new_text_size;
-    
-        if(g_stream_handle.event_cb) {
-            g_stream_handle.event_cb(&event, g_stream_handle.user_data);
-        }
+
+        qm_stream_assistant_trans_insert(&event);
     } else {
         QM_LOGW(LOG_TAG, "No new words found");
     }
@@ -293,14 +378,10 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     turn_status = cJSON_GetObjectItem(root, TURN_STATUS_TYPE); 
     if (cJSON_IsNumber(turn_status) && turn_status->valueint == 1) {
         QM_LOGI("1", "Assistant says: %s", cJSON_GetStringValue(text));
-#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = 0;
-#endif
         word_info.last_word_len = 0;
     } else {
-#if CONFIG_AGORA_XJIANG_TTS == 0
         word_info.last_utc_time = word_info.utc_time;
-#endif
         word_info.last_word_len = word_info.word_len;
     }
 __FREE:
@@ -384,9 +465,7 @@ static qm_err_t qm_stream_message_interrupt_handler(cJSON *root)
     if(root == NULL) {
         return QM_EINVAL;
     }
-#if CONFIG_AGORA_XJIANG_TTS == 0
     word_info.last_utc_time = 0;
-#endif
     word_info.last_word_len = 0;
 
     turn_id = cJSON_GetObjectItem(root, TURN_ID_TYPE);
@@ -413,6 +492,19 @@ static void stream_msg_recv_handler(uint8_t *decoded_msg, uint32_t decoded_len)
         QM_LOGW(LOG_TAG, "root is NULL");
         goto __FREE;
     }
+#if 0
+    char *data = cJSON_Print(root);
+    int len = strlen(data);
+    for(int i = 0; i < len;) {
+        if(len - i > 500) {
+            QM_LOGD(LOG_TAG, "%.*s", 500, data + i);
+            i += 500;
+        } else {
+            QM_LOGD(LOG_TAG, "%.*s", len - i, data + i);
+            break;
+        }
+    }
+#endif
     object = cJSON_GetObjectItem(root, OBJECT_TYPE);
     if (cJSON_IsString(object) == false) {
         QM_LOGW(LOG_TAG, "object is NULL");
@@ -686,6 +778,7 @@ void qm_agora_stream_register(qm_agora_stream_event_cb_t func, void *user_data)
 int32_t qm_agora_stream_init(void)
 {
     memset(&g_stream_handle, 0, sizeof(qm_agora_stream_handle_t));
+    qm_mutex_new(&g_stream_handle.tts_lock);
     qm_sem_new(&g_stream_handle.stream_sem, 0);
     qm_mutex_new(&g_stream_handle.stream_lock);
     qm_task_new(&g_stream_handle.stream_task, "stream_msg_recv_task", stream_msg_recv_task, &g_stream_handle, 10*1024, 5);

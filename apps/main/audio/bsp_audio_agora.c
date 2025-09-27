@@ -112,6 +112,8 @@ static bsp_audio_cfg_t audio_cfg = {
     .mode = QM_AUDIO_WS_LISTEN_MODE_REALTIME,
 };
 
+void bsp_audio_tts_text_set(qm_agora_stream_event_t *event);
+
 static struct bsp_audio_handle_t bsp_audio_handle = {0};
 
 uint8_t get_wakeup_timeout_flag(void) {
@@ -183,6 +185,7 @@ static void wakeup_timeout_handle(void *arg)
         case CONFIG_TIMEOUT_TYPE_CLOSED:
             QM_LOGI(TAG, "qm_audio_ws_closing_remarks - CLOSED");
             qm_agora_leave();
+            screen_wakeup_timeout_exit();
             bsp_audio_handle.open_or_close = QM_FALSE;
             qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
         break;
@@ -193,7 +196,8 @@ static void wakeup_timeout_handle(void *arg)
 #endif
 }
 
-static void bsp_wakeup_time_refresh(void) {
+static void bsp_wakeup_time_refresh(void) 
+{
     if (get_wakeup_timeout_flag() == QM_TRUE) {
         return;
     }
@@ -350,12 +354,22 @@ static void qm_agora_set_agent_state(uint8_t state)
             if (get_wakeup_timeout_flag() == QM_TRUE) {
                 qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
                 qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSED, CONFIG_AUDIO_CLOSING_DURATION);
+            } else {
+                qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_FRESH_WAKETIME_ID, NULL, 0);
             }
         break;
 
         case AGENT_STATE_SPEAKING:
-        case AGENT_STATE_THINKING:
+            if (get_wakeup_timeout_flag() != QM_TRUE) {
+                qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+                qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSING, CONFIG_AUDIO_ERR_TIMEOUT);
+            }
+            
             qm_audio_play(QM_AUDIO_TYPE_AGENT);
+        break;
+
+        case AGENT_STATE_THINKING:
+                qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_FRESH_WAKETIME_ID, NULL, 0);
         break;
             
         default:
@@ -372,13 +386,11 @@ static void qm_agora_stream_event_cb(qm_agora_stream_event_t *event, void *user_
             break;
         case QM_AGORA_STREAM_TYPE_TTS:
             QM_LOGI("1", "Assistant says[%lu]: %.*s", event->data.tts.duration_ms, event->data.tts.text_len, event->data.tts.text);
-            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
-            qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_REFRESH, event->data.tts.duration_ms);
+            bsp_audio_tts_text_set(event);
             break;
         case QM_AGORA_STREAM_TYPE_AGENT_STATE:
             QM_LOGI("1", "agent state: %s", event->data.agent_state.text);
             qm_agora_set_agent_state(event->data.agent_state.state);
-            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_FRESH_WAKETIME_ID, NULL, 0);
             break;
         case QM_AGORA_STREAM_TYPE_INTERRUPT:
             QM_LOGI("1", "user interrupt %d", event->data.interrupt.turn_id);
@@ -657,6 +669,7 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
     };
     
     qm_agora_init(agora_cfg);
+
     audio_thread_create(NULL, "voice_read_task", voice_read_task, (void *)NULL, 30 * 1024, 5, true, 1);
 
     return QM_EOK;
@@ -665,7 +678,6 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
 // for external call
 qm_err_t bsp_audio_resgiter(qm_audio_ws_recv_event_cb_t event_cb, void *user_data)
 {
-
     bsp_audio_handle.event_cb = event_cb;
     bsp_audio_handle.user_data = user_data;
 
@@ -679,6 +691,18 @@ void bsp_audio_llm_emotion_set(char *emotion)
     recv.recv_type = QM_AUDIO_WS_RECV_TYPE_LLM;
     recv.data.llm.emotion = emotion;
     if(bsp_audio_handle.event_cb) {
+        bsp_audio_handle.event_cb(&recv, bsp_audio_handle.user_data);
+    }
+}
+
+void bsp_audio_tts_text_set(qm_agora_stream_event_t *event)
+{
+    qm_audio_ws_recv_evt_t recv = {0};
+
+    recv.recv_type = QM_AUDIO_WS_RECV_TYPE_TTS;
+    recv.data.tts.text = event->data.tts.text;
+    recv.data.tts.duration_ms = event->data.tts.duration_ms;
+    if (bsp_audio_handle.event_cb) {
         bsp_audio_handle.event_cb(&recv, bsp_audio_handle.user_data);
     }
 }
