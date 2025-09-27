@@ -17,7 +17,7 @@ typedef enum {
   
 typedef enum {
     AGENT_STATE_NONE,
-    AGENT_STATE_SLITEN,
+    AGENT_STATE_SILENT,
     AGENT_STATE_SPEAKING,
     AGENT_STATE_THINKING,
     AGENT_STATE_MAX,

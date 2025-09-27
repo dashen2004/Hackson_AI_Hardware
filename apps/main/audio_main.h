@@ -57,7 +57,9 @@ extern "C" {
 #define CONFIG_AUDIO_BOARD_SUPPORT_BUTTON_SWITCH    (0)
 
 //语音事件
-#define CONFIG_AUDIO_WAKEUPT_TIMEOUT         (60 * 1000)
+#define CONFIG_AUDIO_WAKEUP_TIMEOUT         (10 * 1000)
+#define CONFIG_AUDIO_WAKEEND_TIMEOUT        (5 * 1000)
+#define CONFIG_AUDIO_CLOSING_DURATION       (1 * 1000)
 
 #define CONFIG_AUDIO_CONFIG_IND_TIMEOUT      (3 * 60 * 1000)  //配网提示间隔
 
@@ -83,7 +85,7 @@ extern "C" {
 #define CONFIG_AUDIO_USB_EVENT_LOCAL_CONN       (0x0009)   //连接
 
 #define CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID            (0x0106)
-#define CONFIG_AUDIO_SUB_EVENT_TIEMOUT_ID           (0x0107)
+#define CONFIG_AUDIO_SUB_EVENT_TIMEOUT_ID           (0x0107)
 #define CONFIG_AUDIO_SUB_EVENT_CONTROL_ID           (0x0108)
 #define CONFIG_AUDIO_SUB_EVENT_SWITCH_MODE_ID       (0x0109)
 #define CONFIG_AUDIO_SUB_EVENT_SWITCH_COMPLETE_ID   (0x010A)
@@ -125,6 +127,11 @@ extern "C" {
 
 #define CONFIG_AUDIO_OPENING_REMARKS      (1) //开机提示音
 #define CONFIG_AUDIO_CLOSING_REMARKS      (2) //关机提示音
+
+// 超时事件
+#define CONFIG_TIMEOUT_TYPE_CLOSING        (0x20)
+#define CONFIG_TIMEOUT_TYPE_CLOSED         (0x21)
+#define CONFIG_TIMEOUT_TYPE_REFRESH        (0x22)
 
 //遥控器事件
 #define CONFIG_AUDIO_BEACON_HOLD_TIME           (2 * 100)
