@@ -172,10 +172,6 @@ static void wakeup_timeout_handle(void *arg)
 #if CONFIG_SUPPORT_ONLINE_CLOSE_WAV
     switch (tmo_type)
     {
-        case CONFIG_TIMEOUT_TYPE_REFRESH:
-            qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSING, CONFIG_AUDIO_WAKEUP_TIMEOUT);
-        break;
-
         case CONFIG_TIMEOUT_TYPE_CLOSING:
             QM_LOGI(TAG, "qm_audio_ws_closing_remarks - CLOSING");
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIMEOUT_ID, NULL, 0);
@@ -196,15 +192,45 @@ static void wakeup_timeout_handle(void *arg)
 #endif
 }
 
-static void bsp_wakeup_time_refresh(void) 
+static void bsp_wakeup_time_refresh(void)
 {
     if (get_wakeup_timeout_flag() == QM_TRUE) {
         return;
     }
-    // QM_LOGI(TAG, "bsp_wakeup_time_refresh");
-    // set_wakeup_timeout_flag(QM_FALSE);
+    QM_LOGI(TAG, "bsp_wakeup_time_refresh");
     qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
     qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSING, CONFIG_AUDIO_WAKEUP_TIMEOUT);
+}
+
+static void bsp_wakeup_time_refresh_by_state(uint8_t state)
+{
+    switch (state)
+    {
+        case AGENT_STATE_SILENT:
+            if (get_wakeup_timeout_flag() == QM_TRUE) {
+                qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+                qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSED, CONFIG_AUDIO_CLOSING_DURATION);
+            } else {
+                qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+                qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSING, CONFIG_AUDIO_WAKEUP_TIMEOUT);
+            }
+        break;
+
+        case AGENT_STATE_SPEAKING:
+            if (get_wakeup_timeout_flag() != QM_TRUE) {
+                qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+                qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSING, CONFIG_AUDIO_ERR_TIMEOUT);
+            }
+        break;
+
+        case AGENT_STATE_THINKING:
+            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+            qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSING, CONFIG_AUDIO_WAKEUP_TIMEOUT);
+        break;
+            
+        default:
+            break;
+    }
 }
 
 // init recorder
@@ -348,28 +374,16 @@ static void qm_audio_data_recv_cb(void *data, int len, void *user_data)
 
 static void qm_agora_set_agent_state(uint8_t state) 
 {
+    bsp_wakeup_time_refresh_by_state(state);
+
     switch (state)
     {
         case AGENT_STATE_SILENT:
-            if (get_wakeup_timeout_flag() == QM_TRUE) {
-                qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
-                qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSED, CONFIG_AUDIO_CLOSING_DURATION);
-            } else {
-                qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_FRESH_WAKETIME_ID, NULL, 0);
-            }
         break;
 
         case AGENT_STATE_SPEAKING:
-            if (get_wakeup_timeout_flag() != QM_TRUE) {
-                qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
-                qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSING, CONFIG_AUDIO_ERR_TIMEOUT);
-            }
-            
-            qm_audio_play(QM_AUDIO_TYPE_AGENT);
-        break;
-
         case AGENT_STATE_THINKING:
-                qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_FRESH_WAKETIME_ID, NULL, 0);
+            qm_audio_play(QM_AUDIO_TYPE_AGENT);
         break;
             
         default:
