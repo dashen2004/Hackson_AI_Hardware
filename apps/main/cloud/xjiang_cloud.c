@@ -255,7 +255,6 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
         default:
             break;
     }
-
 }
 
 static void qm_iot_recv_handler(void *handle, const qm_iot_recv_t *recv, void *userdata)
@@ -270,13 +269,14 @@ static void qm_iot_recv_handler(void *handle, const qm_iot_recv_t *recv, void *u
             QM_LOGD(LOG_TAG, "app recv set siid %d piid %d!!!", recv->siid, recv->piid);
             audio_light_action_and_report(recv->data.set.property);
         break;
+        
         case QM_IOT_RECV_TYPE_PROPERTY_SET:
             QM_LOGD(LOG_TAG, "app recv prop set did %d siid %d piid %d!!!", recv->did, recv->siid, recv->piid);
-            audio_light_action_and_report(recv->data.set.property);
         break;
 
         case QM_IOT_RECV_TYPE_PROPERTY_GET_RSP:
             QM_LOGD(LOG_TAG, "app recv prop get did %d siid %d piid %d!!!", recv->did, recv->siid, recv->piid);
+            audio_light_action_and_report(recv->data.set.property);
         break;
 
         case QM_IOT_RECV_TYPE_PROPERTY_GET_REQ:

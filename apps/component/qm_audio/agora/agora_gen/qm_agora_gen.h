@@ -20,8 +20,7 @@ typedef struct
 {
     bool exist_data;
     qm_timer_t timer;
-    char *uid;
-    uint32_t uid_len;
+    int uid;
     char *appId;
     uint32_t appId_len;
     char *channelName;
@@ -34,9 +33,9 @@ void *qm_agora_gen_init(void);
 
 int32_t qm_agora_gen_start(void *handle);
 
-char *qm_agora_gen_get_data(qm_agora_gen_data_type_t type);
+void *qm_agora_gen_get_data(qm_agora_gen_data_type_t type);
 
-int32_t qm_agora_gen_set_data(qm_agora_gen_data_type_t type, char *data, int len);
+int32_t qm_agora_gen_set_data(qm_agora_gen_data_type_t type, void *data, int len);
 
 #if defined(__cplusplus)
 }

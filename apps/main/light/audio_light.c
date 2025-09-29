@@ -10,6 +10,7 @@
 #include "bsp_audio.h"
 
 #include "xjiang_cloud.h"
+#include "qm_agora_gen.h"
 
 typedef struct 
 {
@@ -37,6 +38,10 @@ static qm_err_t chat_state_action(qm_spec_property_t *property);
 static qm_err_t voice_corpus_action(qm_spec_property_t *property);
 static qm_err_t voice_abort_action(qm_spec_property_t *property);
 static qm_err_t voice_emotion_action(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_uid(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_appid(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_channel_name(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_token(qm_spec_property_t *property);
 
 static qm_err_t onoff_report(qm_spec_property_t *property);
 static qm_err_t bri_report(qm_spec_property_t *property);
@@ -56,6 +61,10 @@ static qm_err_t chat_state_report(qm_spec_property_t *property);
 static qm_err_t voice_corpus_report(qm_spec_property_t *property);
 static qm_err_t voice_abort_report(qm_spec_property_t *property);
 static qm_err_t voice_emotion_report(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_uid_report(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_appid_report(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_channel_name_report(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_token_report(qm_spec_property_t *property);
 
 extern int audio_stream_EGV_set(uint8_t type);
 extern int audio_stream_EGV_get(void);
@@ -158,6 +167,14 @@ static audio_light_table_t g_light_table[] =
     {CONFIG_AUDIO_VOICE_CONTROL_SIID,   CONFIG_AUDIO_VOICE_EMOTION_PIID,    voice_emotion_action,  voice_emotion_report},
     {CONFIG_AUDIO_EGV_SIID,     CONFIG_AUDIO_EGV_PIID,      EGV_aciton,  EGV_report},
     {CONFIG_AUDIO_ALG_SIID,     CONFIG_AUDIO_ALG_PIID,      ALG_aciton,  ALG_report},
+    //RTC登录信息UID
+    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_UID_PIID, rtc_login_info_uid, rtc_login_info_uid_report},
+    //RTC登录信息APPID
+    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_APPID_PIID, rtc_login_info_appid, rtc_login_info_appid_report},
+    //RTC登录信息channal name
+    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_CHANNAL_NAME_PIID, rtc_login_info_channel_name, rtc_login_info_channel_name_report},
+    //RTC登录信息token
+    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_TOKEN_PIID, rtc_login_info_token,rtc_login_info_token_report},
 };
 
 qm_err_t audio_light_init(void)
@@ -679,4 +696,102 @@ static qm_err_t voice_emotion_report(qm_spec_property_t *property)
     return QM_EOK;
 }
 
+static qm_err_t rtc_login_info_uid(qm_spec_property_t *property)
+{
+    int value = 0;
+    if(property == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_number(property, &value);
+    qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_UID, &value, 0);
+    return QM_EOK;
+}
 
+static qm_err_t rtc_login_info_uid_report(qm_spec_property_t *property)
+{
+    return QM_EOK;
+}
+
+static qm_err_t rtc_login_info_appid(qm_spec_property_t *property)
+{
+    char *data = NULL;
+    int len = 0;
+    if(property == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, NULL, &len);
+    if(len == 0) {
+        return QM_ERROR;
+    }
+    data = (char *)qm_malloc(len);
+    if(data == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, data, &len);
+    if(data == NULL) {
+        return QM_ERROR;
+    }
+    qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_APPID, data, len - 1);
+    return QM_EOK;
+}
+
+static qm_err_t rtc_login_info_appid_report(qm_spec_property_t *property)
+{
+    return QM_EOK;
+}
+
+static qm_err_t rtc_login_info_channel_name(qm_spec_property_t *property)
+{
+    char *data = NULL;
+    int len = 0;
+    if(property == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, NULL, &len);
+    if(len == 0) {
+        return QM_ERROR;
+    }
+    data = (char *)qm_malloc(len);
+    if(data == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, data, &len);
+    if(data == NULL) {
+        return QM_ERROR;
+    }
+    qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_CHANNAL_NAME, data, len - 1);
+    return QM_EOK;
+}
+
+static qm_err_t rtc_login_info_channel_name_report(qm_spec_property_t *property)
+{
+    return QM_EOK;
+}
+
+static qm_err_t rtc_login_info_token(qm_spec_property_t *property)
+{
+    char *data = NULL;
+    int len = 0;
+    if(property == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, NULL, &len);
+    if(len == 0) {
+        return QM_ERROR;
+    }
+    data = (char *)qm_malloc(len);
+    if(data == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, data, &len);
+    if(data == NULL) {
+        return QM_ERROR;
+    }
+    qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_TOKEN, data, len - 1);
+    return QM_EOK;
+}
+
+static qm_err_t rtc_login_info_token_report(qm_spec_property_t *property)
+{
+    return QM_EOK;
+}

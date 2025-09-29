@@ -12,7 +12,7 @@ extern "C" {
 #define CONFIG_STATIC_AGORA_DATA                    0
 #define CONFIG_STREAM_MESSAGE_OPEN                  1
 #define CONFIG_STREAM_USER_TRANS_NEED_FINAL         1
-#define CONFIG_AGORA_GEN_USE_MQTT                   0
+#define CONFIG_AGORA_GEN_USE_MQTT                   1
 #define CONFIG_AGORA_XJIANG_TTS                     1
 
 typedef enum {

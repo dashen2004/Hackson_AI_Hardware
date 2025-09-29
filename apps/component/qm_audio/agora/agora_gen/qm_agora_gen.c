@@ -14,6 +14,10 @@
 
 #define LOG_TAG "AGORA_GEN"
 
+#define BACKOFF_BASE_TIME_MS        (1 * 1000)
+#define BACKOFF_RECV_TIMEOUT_MS     (10 * 1000)
+#define BACKOFF_RETRY_NUM           (50)
+
 qm_agora_gen_handle_t *agora_gen_handle = NULL;
 
 static int32_t qm_agora_gen_free(void *handle)
@@ -27,10 +31,6 @@ static int32_t qm_agora_gen_free(void *handle)
         qm_free(agora_handle->appId);
         agora_handle->appId = NULL;
     }
-    if(agora_handle->uid) {
-        qm_free(agora_handle->uid);
-        agora_handle->uid = NULL;
-    }
     if(agora_handle->channelName) {
         qm_free(agora_handle->channelName);
         agora_handle->channelName = NULL;
@@ -42,25 +42,25 @@ static int32_t qm_agora_gen_free(void *handle)
     return QM_EOK;
 }
 
-char *qm_agora_gen_get_data(qm_agora_gen_data_type_t type) 
+void *qm_agora_gen_get_data(qm_agora_gen_data_type_t type) 
 {
-    char *data = NULL;
+    void *data = NULL;
     if(agora_gen_handle->exist_data == QM_FALSE) {
         return NULL;
     }
     switch (type)
     {
         case QM_AGORA_GEN_TYPE_UID:
-            data = agora_gen_handle->uid;
+            data = (void *)&agora_gen_handle->uid;
         break;
         case QM_AGORA_GEN_TYPE_APPID:
-            data = agora_gen_handle->appId;
+            data = (void *)agora_gen_handle->appId;
         break;
         case QM_AGORA_GEN_TYPE_CHANNAL_NAME:
-            data = agora_gen_handle->channelName;
+            data = (void *)agora_gen_handle->channelName;
         break;
         case QM_AGORA_GEN_TYPE_TOKEN:
-            data = agora_gen_handle->token;
+            data = (void *)agora_gen_handle->token;
         break;
         default:
         break;
@@ -68,7 +68,7 @@ char *qm_agora_gen_get_data(qm_agora_gen_data_type_t type)
     return data;
 }
 
-int32_t qm_agora_gen_set_data(qm_agora_gen_data_type_t type, char *data, int len)
+int32_t qm_agora_gen_set_data(qm_agora_gen_data_type_t type, void *data, int len)
 {
     if(agora_gen_handle->exist_data == QM_TRUE) {
         qm_agora_gen_free(agora_gen_handle);
@@ -76,23 +76,25 @@ int32_t qm_agora_gen_set_data(qm_agora_gen_data_type_t type, char *data, int len
     switch (type)
     {
         case QM_AGORA_GEN_TYPE_UID:
-            agora_gen_handle->uid = data;
-            agora_gen_handle->uid_len = len;
-            QM_LOGD(LOG_TAG, "uid:%.*s", agora_gen_handle->uid_len, agora_gen_handle->uid);
+            agora_gen_handle->uid = *(int *)data;
+            QM_LOGD(LOG_TAG, "uid:%d", agora_gen_handle->uid);
         break;
         case QM_AGORA_GEN_TYPE_APPID:
-            agora_gen_handle->appId = data;
+            agora_gen_handle->appId = (char *)data;
             agora_gen_handle->appId_len = len;
+            agora_gen_handle->appId[agora_gen_handle->appId_len] = '\0';
             QM_LOGD(LOG_TAG, "appId:%.*s", agora_gen_handle->appId_len, agora_gen_handle->appId);
         break;
         case QM_AGORA_GEN_TYPE_CHANNAL_NAME:
-            agora_gen_handle->channelName = data;
+            agora_gen_handle->channelName = (char *)data;
             agora_gen_handle->channelName_len = len;
+            agora_gen_handle->channelName[agora_gen_handle->channelName_len] = '\0';
             QM_LOGD(LOG_TAG, "channelName:%.*s", agora_gen_handle->channelName_len, agora_gen_handle->channelName);
         break;
         case QM_AGORA_GEN_TYPE_TOKEN:
-            agora_gen_handle->token = data;
+            agora_gen_handle->token = (char *)data;
             agora_gen_handle->token_len = len;
+            agora_gen_handle->token[agora_gen_handle->token_len] = '\0';
             QM_LOGD(LOG_TAG, "token:%.*s", agora_gen_handle->token_len, agora_gen_handle->token);
         break;
         default:
@@ -111,10 +113,44 @@ int32_t qm_agora_gen_set_data(qm_agora_gen_data_type_t type, char *data, int len
 
 extern qm_err_t voice_rtc_login_info_get(void);
 
+static int32_t qm_agora_gen_wait(void)
+{
+    int time_ms = 0;
+    while(time_ms < 500) {
+        if(agora_gen_handle->exist_data == QM_TRUE) {
+            return QM_EOK;
+        }
+        qm_msleep(10);
+        time_ms += 10;
+    }
+    return -QM_ETIMEOUT;
+}
+
 int32_t qm_agora_gen_start(void *handle)
 {
-    voice_rtc_login_info_get();
+    int32_t ret = QM_EOK;
+    backoff_algorithm_ctx_t backoff_ctx = {0};
+    backoff_algorithm_status_t status = BACKOFF_ALGORITHM_SUCCESS;
+    uint16_t next_backoff = 0;
+
+    qm_timer_stop(&agora_gen_handle->timer);
     qm_timer_start(&agora_gen_handle->timer);
+    
+    backoff_algorithm_init(&backoff_ctx, BACKOFF_BASE_TIME_MS, BACKOFF_RECV_TIMEOUT_MS, BACKOFF_RETRY_NUM);
+
+    while (1) {
+        voice_rtc_login_info_get();
+        if(qm_agora_gen_wait() == QM_EOK) {
+            break;
+        }
+
+        status = backoff_algorithm_get_next_delay(&backoff_ctx, &next_backoff);
+        if(status != BACKOFF_ALGORITHM_SUCCESS){
+            break;
+        }
+        qm_msleep(next_backoff);
+    }
+    return ret;
 }
 
 static void qm_agora_gen_ticks_timeout(qm_timer_t *timer, void *arg)
@@ -163,9 +199,6 @@ void *qm_agora_gen_init(void)
 #define TOKEN_KEY               (CONFIG_QM_AGORA_GEN_KV_HEADER"token")
 
 #define AGORA_GEN_BUFFER_MAX_LEN    (4096)
-#define BACKOFF_BASE_TIME_MS        (1 * 1000)
-#define BACKOFF_RECV_TIMEOUT_MS     (10 * 1000)
-#define BACKOFF_RETRY_NUM           (50)
 
 /*
 {
@@ -239,33 +272,21 @@ static int qm_agora_gen_recv_handler(void *handle, char *buff, int len)
         return -QM_EINVAL;
     }
     
-    agora_handle->uid = (char *)qm_malloc(uid_len+1);
+    agora_handle->uid = int_str_to_num(uid, uid_len);
     agora_handle->appId = (char *)qm_malloc(appId_len+1);
     agora_handle->channelName = (char *)qm_malloc(channelName_len+1);
     agora_handle->token = (char *)qm_malloc(token_len+1);
 
-    if(agora_handle->appId == NULL || agora_handle->uid == NULL || agora_handle->channelName == NULL || agora_handle->token == NULL){
+    if(agora_handle->appId == NULL || agora_handle->channelName == NULL || agora_handle->token == NULL){
         goto __FREE;
     }
-    
     memcpy(agora_handle->appId, appId, appId_len);
-    agora_handle->appId_len = appId_len;
-    agora_handle->appId[agora_handle->appId_len] = '\0';
-    memcpy(agora_handle->uid, uid, uid_len);
-    agora_handle->uid_len = uid_len;
-    agora_handle->uid[agora_handle->uid_len] = '\0';
     memcpy(agora_handle->channelName, channelName, channelName_len);
-    agora_handle->channelName_len = channelName_len;
-    agora_handle->channelName[agora_handle->channelName_len] = '\0';
     memcpy(agora_handle->token, token, token_len);
-    agora_handle->token_len = token_len;
-    agora_handle->token[agora_handle->token_len] = '\0';
-    agora_handle->exist_data = QM_TRUE;
-    QM_LOGD(LOG_TAG, "uid:%.*s", agora_handle->uid_len, agora_handle->uid);
-    QM_LOGD(LOG_TAG, "appId:%.*s", agora_handle->appId_len, agora_handle->appId);
-    QM_LOGD(LOG_TAG, "channelName:%.*s", agora_handle->channelName_len, agora_handle->channelName);
-    QM_LOGD(LOG_TAG, "token:%.*s", agora_handle->token_len, agora_handle->token);
-
+    qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_UID, &agora_handle->uid, 0);
+    qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_APPID, agora_handle->appId, appId_len);
+    qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_CHANNAL_NAME, agora_handle->channelName, channelName_len);
+    qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_TOKEN, agora_handle->token, token_len);
     return QM_EOK;
 __FREE:
     qm_agora_gen_free(agora_handle);
@@ -306,13 +327,10 @@ int32_t qm_agora_gen_start(void *handle)
     }
 
     qm_iot_agora_uri_get(url, &url_len);
-    if(url[0] == '\0' || url_len == 0) {
+    if(url[0] == '\0') {
         QM_LOGW(LOG_TAG, "agora uri is NULL");
-        
-        // tmp url, to be done
-        const char* tmp_url = "http://testsit.ljyd.cn/agora/generate/token";
-        url_len = strlen(tmp_url);
-        memcpy(url, tmp_url, url_len);
+        ret = -QM_EEMPTY;
+        goto __FREE;
     }
 
     snprintf(url + url_len, sizeof(url) - url_len, AGORA_GEN_TOLKEN_FORMAT, qm_iot_did_get(), qm_iot_pid_get());

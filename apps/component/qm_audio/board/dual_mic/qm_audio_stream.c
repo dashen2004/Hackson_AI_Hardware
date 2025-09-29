@@ -296,7 +296,7 @@ qm_audio_sr_cfg_t *get_default_audio_sr_config(void)
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->wakenet_init = false;
 #endif
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_init = true;
-    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_mode = AFE_MODE_LOW_COST;
+    ((afe_config_t* )recorder_sr_cfg.afe_cfg)->aec_mode = AEC_MODE_SR_LOW_COST;
 
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->memory_alloc_mode = AFE_MEMORY_ALLOC_MORE_PSRAM;
     ((afe_config_t* )recorder_sr_cfg.afe_cfg)->wakenet_mode = DET_MODE_90;
@@ -329,7 +329,7 @@ qm_audio_vc_cfg_t *get_default_audio_vc_config(void)
     srmodel_list_t *models = esp_srmodel_init("model");
     char* ns_model_name = esp_srmodel_filter(models, ESP_NSNET_PREFIX, NULL);
     
-    qm_audio_vc_cfg_t vc_cfg = DEFAULT_QM_AUDIO_VC_CFG(AUDIO_VC_INPUT_CH_FORMAT, AEC_MODE_VOIP_HIGH_PERF);
+    qm_audio_vc_cfg_t vc_cfg = DEFAULT_QM_AUDIO_VC_CFG(AUDIO_VC_INPUT_CH_FORMAT, AFE_MODE_HIGH_PERF);
  
     memcpy(&recorder_vc_cfg, &vc_cfg, sizeof(qm_audio_vc_cfg_t));
 
@@ -340,6 +340,7 @@ qm_audio_vc_cfg_t *get_default_audio_vc_config(void)
 
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_init = true;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_mode = VAD_MODE_2;
+    ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_min_speech_ms = 200;
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->vad_min_noise_ms = 100;
 
     ((afe_config_t* )recorder_vc_cfg.afe_cfg)->ns_init = true;

@@ -55,15 +55,17 @@ static qm_agora_handle_t qm_agora_handle = {0};
 
 int ag_printf(const char * fmt, ...)
 {
-    // va_list args;
-    // va_start(args, fmt);
+#if 0
+    va_list args;
+    va_start(args, fmt);
 
-    // char buffer[2048];
-    // vsnprintf(buffer, sizeof(buffer), fmt, args);
+    char buffer[2048];
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
 
-    // va_end(args);
+    va_end(args);
 
-    // QM_LOGD(LOG_TAG, "%s", buffer);
+    QM_LOGD(LOG_TAG, "%s", buffer);
+#endif
     return 0;
 }
 
@@ -237,7 +239,9 @@ static void app_init_event_handler(agora_rtc_event_handler_t *event_handler)
 int qm_agora_join(void)
 {
     int rval;
-    uint32_t uid = 0;
+    int uid = 0;
+    char *channelName = NULL;
+    char *token = NULL;
     rtc_channel_options_t channel_options = { 0 };
 
     if(qm_agora_handle.agora_init_flag == QM_FALSE) {
@@ -251,11 +255,9 @@ int qm_agora_join(void)
     if(qm_agora_handle.joined == QM_TRUE) {
         return QM_EOK;
     }
-
-    rval = qm_agora_gen_start(qm_agora_handle.agora_gen_handle);
-    if (rval != QM_EOK) {
-        return rval;
-    }
+    uid = *(int *)qm_agora_gen_get_data(QM_AGORA_GEN_TYPE_UID);
+    channelName = (char *)qm_agora_gen_get_data(QM_AGORA_GEN_TYPE_CHANNAL_NAME);
+    token = (char *)qm_agora_gen_get_data(QM_AGORA_GEN_TYPE_TOKEN);
 
     channel_options.auto_subscribe_audio = qm_agora_handle.audio_enable;
     channel_options.auto_subscribe_video = qm_agora_handle.video_enable;
@@ -264,23 +266,21 @@ int qm_agora_join(void)
     channel_options.enable_audio_mixer = true;
     channel_options.enable_audio_jitter_buffer = true;
 #endif
-    //channel_options.enable_audio_ai_qos = qm_agora_handle.enable_audio_ai_qos;
+    // channel_options.enable_audio_ai_qos = qm_agora_handle.enable_audio_ai_qos;
     channel_options.audio_codec_opt.pcm_duration  = qm_agora_handle.duration;
     channel_options.audio_codec_opt.audio_codec_type = AUDIO_CODEC_DISABLED;
-
-    uid = int_str_to_num(qm_agora_handle.agora_gen_handle->uid, qm_agora_handle.agora_gen_handle->uid_len);
 
 #if CONFIG_STATIC_AGORA_DATA
     rval = agora_rtc_join_channel(qm_agora_handle.conn_id, DEFAULT_CHANNEL_NAME, uid, DEFAULT_TOKEN, &channel_options);
 #else    
     rval = agora_rtc_join_channel(qm_agora_handle.conn_id, 
-                                    qm_agora_handle.agora_gen_handle->channelName, 
+                                    channelName, 
                                     uid, 
-                                    qm_agora_handle.agora_gen_handle->token, 
+                                    token, 
                                     &channel_options);
 #endif
     if (rval < 0) {
-        QM_LOGE(LOG_TAG, "Failed to join the channel %s, reason: %s\n", qm_agora_handle.agora_gen_handle->channelName, agora_rtc_err_2_str(rval));
+        QM_LOGE(LOG_TAG, "Failed to join the channel %s, reason: %s\n", channelName, agora_rtc_err_2_str(rval));
     } else {
         qm_agora_handle.joined = QM_TRUE;
     }
@@ -318,6 +318,7 @@ int qm_agora_leave(void)
 int qm_agora_connect(void)
 {
     int rval;
+    char *appId = NULL;
     if(qm_agora_handle.agora_init_flag == QM_FALSE) {
         rval = qm_agora_gen_start(qm_agora_handle.agora_gen_handle);
         if (rval != QM_EOK) {
@@ -335,11 +336,12 @@ int qm_agora_connect(void)
         service_opt.log_cfg.log_printf   = ag_printf;
         service_opt.license_value[0]     = '\0';
         service_opt.domain_limit         = qm_agora_handle.domain_limit;
+        appId = (char *)qm_agora_gen_get_data(QM_AGORA_GEN_TYPE_APPID);
 
 #if CONFIG_STATIC_AGORA_DATA
         rval = agora_rtc_init(CONFIG_AGORA_APP_ID, &event_handler, &service_opt);
 #else
-        rval = agora_rtc_init(qm_agora_handle.agora_gen_handle->appId, &event_handler, &service_opt);
+        rval = agora_rtc_init(appId, &event_handler, &service_opt);
 #endif
         if (rval < 0) {
             QM_LOGE(LOG_TAG, "Failed to initialize Agora sdk, license %p, reason: %s\n", service_opt.license_value, agora_rtc_err_2_str(rval));

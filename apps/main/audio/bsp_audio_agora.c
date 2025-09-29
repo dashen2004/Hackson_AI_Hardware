@@ -448,6 +448,7 @@ static void qm_agora_event_cb(qm_agora_event_type_e event, void *user_data)
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_NET_ERROR, NULL, 0);
             break;
         case QM_AGORA_EVENT_TYPE_JOIN_CHANNEL:
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_JOIN_CHANNEL_ID, NULL, 0);
             break;
         case QM_AGORA_EVENT_TYPE_LEAVE_CHANNEL:
             break;
@@ -604,6 +605,22 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_FALSE);
             qm_audio_recorder_enable_sr_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
         break;
+
+        case CONFIG_AUDIO_SUB_EVENT_JOIN_CHANNEL_ID:
+            bsp_wakeup_time_refresh();
+            
+            if (get_wakeup_timeout_flag() == QM_FALSE) {
+                break;
+            }
+
+            bsp_audio_join_event_set(true);
+            QM_LOGD("1","CONFIG_AUDIO_SUB_EVENT_JOIN_CHANNEL_ID");
+            if(bsp_audio_handle.ws_connect){
+                bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_START;
+            }
+            set_wakeup_timeout_flag(QM_FALSE);
+            qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
+        break;
         
         case CONFIG_AUDIO_SUB_EVENT_OPENING_REMARKS_ID:
             QM_LOGI(TAG, "opening_remarks");
@@ -657,7 +674,7 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
     }
     engine_params.command_str = sr_cmd;
     engine_params.command_num = command_num;
-    set_wakeup_timeout_flag(QM_TRUE);
+    set_wakeup_timeout_flag(QM_FALSE);
 
     bsp_audio_handle.recorder_engine = audio_record_engine_init(bsp_audio_handle.record_pipeline, &engine_params);
 
