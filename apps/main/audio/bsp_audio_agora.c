@@ -112,9 +112,10 @@ static bsp_audio_cfg_t audio_cfg = {
     .mode = QM_AUDIO_WS_LISTEN_MODE_REALTIME,
 };
 
-void bsp_audio_tts_text_set(qm_agora_stream_event_t *event);
+void bsp_audio_tts_text_set(qm_audio_ws_recv_tts_t tts);
 
 static struct bsp_audio_handle_t bsp_audio_handle = {0};
+static qm_audio_ws_recv_tts_t tts_content = {0};
 
 uint8_t get_wakeup_timeout_flag(void) {
     return bsp_audio_handle.wakeup_timeout;
@@ -192,6 +193,21 @@ static void wakeup_timeout_handle(void *arg)
 #endif
 }
 
+void wakeup_quit_immediately_trigger(uint8_t action) 
+{
+    switch (action) {
+    case 1:
+        break;
+    case 2:
+        qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIMEOUT_ID, NULL, 0);
+        
+        qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+        break;
+    default:
+        break;
+    }
+}
+
 static void bsp_wakeup_time_refresh(void)
 {
     if (get_wakeup_timeout_flag() == QM_TRUE) {
@@ -224,8 +240,10 @@ static void bsp_wakeup_time_refresh_by_state(uint8_t state)
         break;
 
         case AGENT_STATE_THINKING:
-            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
-            qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSING, CONFIG_AUDIO_WAKEUP_TIMEOUT);
+            if (get_wakeup_timeout_flag() != QM_TRUE) {
+                qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+                qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSING, CONFIG_AUDIO_WAKEUP_TIMEOUT);
+            }
         break;
             
         default:
@@ -400,7 +418,9 @@ static void qm_agora_stream_event_cb(qm_agora_stream_event_t *event, void *user_
             break;
         case QM_AGORA_STREAM_TYPE_TTS:
             QM_LOGI("1", "Assistant says[%lu]: %.*s", event->data.tts.duration_ms, event->data.tts.text_len, event->data.tts.text);
-            bsp_audio_tts_text_set(event);
+            tts_content.duration_ms = event->data.tts.duration_ms;
+            tts_content.text = event->data.tts.text;
+            bsp_audio_tts_text_set(tts_content);
             break;
         case QM_AGORA_STREAM_TYPE_AGENT_STATE:
             QM_LOGI("1", "agent state: %s", event->data.agent_state.text);
@@ -701,21 +721,25 @@ qm_err_t bsp_audio_resgiter(qm_audio_ws_recv_event_cb_t event_cb, void *user_dat
 void bsp_audio_llm_emotion_set(char *emotion)
 {
     qm_audio_ws_recv_evt_t recv = {0};
-
     recv.recv_type = QM_AUDIO_WS_RECV_TYPE_LLM;
+
     recv.data.llm.emotion = emotion;
     if(bsp_audio_handle.event_cb) {
         bsp_audio_handle.event_cb(&recv, bsp_audio_handle.user_data);
     }
 }
 
-void bsp_audio_tts_text_set(qm_agora_stream_event_t *event)
+void bsp_audio_tts_text_set(qm_audio_ws_recv_tts_t tts)
 {
-    qm_audio_ws_recv_evt_t recv = {0};
+    if (tts.text[0] == '\0' || tts.text == NULL) {
+        return;
+    }
 
+    qm_audio_ws_recv_evt_t recv = {0};
     recv.recv_type = QM_AUDIO_WS_RECV_TYPE_TTS;
-    recv.data.tts.text = event->data.tts.text;
-    recv.data.tts.duration_ms = event->data.tts.duration_ms;
+
+    recv.data.tts.text = tts.text;
+    recv.data.tts.duration_ms = tts.duration_ms;
     if (bsp_audio_handle.event_cb) {
         bsp_audio_handle.event_cb(&recv, bsp_audio_handle.user_data);
     }
@@ -743,20 +767,4 @@ qm_err_t bsp_audio_set_voice_mute(bool_t enable)
 bool_t bsp_audio_get_voice_mute(void)
 {
     return bsp_audio_handle.mute;
-}
-
-void wakeup_timerout_immediately_trigger(uint8_t action) 
-{
-    switch (action) {
-    case 1:
-        break;
-    case 2:
-        bsp_audio_join_event_set(false);
-        bsp_audio_handle.open_or_close = QM_FALSE;
-        qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
-        qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIMEOUT_ID, NULL, 0);
-        break;
-    default:
-        break;
-    }
 }

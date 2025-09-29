@@ -610,7 +610,7 @@ static qm_err_t chat_state_action(qm_spec_property_t *property)
 {
     int number = 0;
     qm_spec_property_unpack_number(property, &number);
-    wakeup_timerout_immediately_trigger(number);
+    wakeup_quit_immediately_trigger(number);
     return QM_EOK;
 }
 

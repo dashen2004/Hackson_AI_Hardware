@@ -163,7 +163,7 @@ void qm_bsp_offline_voice_play(uint8_t index) {
     }
 }
 
-void wakeup_timerout_immediately_trigger(uint8_t action) 
+void wakeup_quit_immediately_trigger(uint8_t action) 
 {
     switch (action) {
     case 1:
