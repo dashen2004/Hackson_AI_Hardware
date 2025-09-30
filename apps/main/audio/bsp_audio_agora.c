@@ -485,15 +485,15 @@ static void ind_timeout_handle(void *arg)
             }
             qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONFIG_IND_TIMEOUT);
         break;
-        case CONFIG_AUDIO_SUB_EVENT_NET_ERROR:
-            
-            bsp_audio_handle.ws_connect = QM_FALSE;
 
-            bsp_audio_join_event_set(false);
+        case CONFIG_AUDIO_SUB_EVENT_NET_ERROR:
+
+            net_state = CONFIG_AUDIO_SUB_EVENT_NET_ERROR;
 
             qm_bsp_offline_voice_play(PCM_CONN_ERROR_ID);
             qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONN_ERROR_TIMEOUT);
         break;
+
         case CONFIG_AUDIO_SUB_EVENT_CONN_WS:
 
             if(net_state == CONFIG_AUDIO_SUB_EVENT_NET_ERROR){
@@ -505,7 +505,7 @@ static void ind_timeout_handle(void *arg)
                 }
             }
 
-            bsp_audio_handle.network_ind_flag = 1;
+            //bsp_audio_handle.network_ind_flag = 1;
 
             net_state  = CONFIG_AUDIO_SUB_EVENT_CONN_WS;
 
@@ -559,9 +559,15 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                 qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
                 qm_agora_join();
             } else {
-                if(bsp_audio_handle.network_ind_flag == 0) {
-                    bsp_audio_handle.network_ind_flag = 1;
-                    qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG, NULL, 0);
+                if (bsp_audio_handle.network_ind_flag == 0) {
+                    //bsp_audio_handle.network_ind_flag = 1;
+                    qm_iot_reset_info_t reset_info;
+                    qm_iot_reset_info_get(&reset_info);
+                    if (reset_info.is_reset == QM_TRUE) {
+                        qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG, NULL, 0);
+                    } else {
+                        qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_NET_ERROR, NULL, 0);
+                    }
                 }
             }
         #endif
@@ -577,15 +583,22 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_NET_ERROR:
+            bsp_audio_join_event_set(false);
+            
             bsp_audio_handle.ws_connect = QM_FALSE;
             bsp_audio_handle.open_or_close = QM_FALSE;
             qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
 
             qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_FALSE);
             qm_audio_recorder_enable_sr_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
-            
+
+            //qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
+
             qm_cancel_delayed_action(&bsp_audio_handle.ind_timer);
-            qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)event_type, CONFIG_AUDIO_CONN_ERROR_TIMEOUT);
+            qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)event_type, 0);
+
+            //qm_agora_disconnect();
+            screen_wakeup_timeout_exit();
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_CEART_WS:

@@ -429,7 +429,7 @@ void create_screen_page_menu() {
                     lv_obj_set_pos(obj, 163, 178);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, 64);
                     lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/menu_mode_released.bin", NULL);
-                    lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_PRESSED, NULL, "/lvgl/images/menu_home_pressed.bin", NULL);
+                    lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_PRESSED, NULL, "/lvgl/images/menu_mode_pressed.bin", NULL);
                     lv_obj_add_event_cb(obj, action_mode_click, LV_EVENT_CLICKED, (void *)0);
                 }
                 {
