@@ -174,6 +174,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
                 ota_status_flag = 0;
                 set_var_ota_status(2, true);
             }
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_NET_ERROR, NULL, 0);
             break;
 
         case QM_IOT_EVENT_LOCAL_CONN:
@@ -195,7 +196,6 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
                 ota_status_flag = 0;
                 set_var_ota_status(2, true);
             }
-            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_NET_ERROR, NULL, 0);
             break;
 
         case QM_IOT_EVENT_RESET:
@@ -271,6 +271,7 @@ static void qm_iot_recv_handler(void *handle, const qm_iot_recv_t *recv, void *u
         
         case QM_IOT_RECV_TYPE_PROPERTY_SET:
             QM_LOGD(LOG_TAG, "app recv prop set did %d siid %d piid %d!!!", recv->did, recv->siid, recv->piid);
+            audio_light_action_and_report(recv->data.set.property);
         break;
 
         case QM_IOT_RECV_TYPE_PROPERTY_GET_RSP:

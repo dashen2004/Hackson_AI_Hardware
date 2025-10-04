@@ -98,6 +98,9 @@ struct bsp_audio_handle_t {
     uint8_t wakeup_timeout;
     uint8_t network_ind_flag;
     int agora_agent_state;
+
+    int net_cfg_hint_cnt;
+    int net_err_hint_cnt;
 };
 
 typedef struct 
@@ -185,6 +188,8 @@ static void wakeup_timeout_handle(void *arg)
             screen_wakeup_timeout_exit();
             bsp_audio_handle.open_or_close = QM_FALSE;
             qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
+
+            audio_cfg.mode = QM_AUDIO_WS_LISTEN_MODE_REALTIME;
         break;
 
         default:
@@ -482,8 +487,12 @@ static void ind_timeout_handle(void *arg)
         case CONFIG_AUDIO_SUB_EVENT_CONFIG:
             if(!audio_reset){
                 qm_bsp_offline_voice_play(PCM_NETCONFIG_ID);
+                bsp_audio_handle.net_cfg_hint_cnt++;
             }
-            qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONFIG_IND_TIMEOUT);
+
+            if (bsp_audio_handle.net_cfg_hint_cnt < 3) {
+                qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONFIG_IND_TIMEOUT);
+            }
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_NET_ERROR:
@@ -491,7 +500,11 @@ static void ind_timeout_handle(void *arg)
             net_state = CONFIG_AUDIO_SUB_EVENT_NET_ERROR;
 
             qm_bsp_offline_voice_play(PCM_CONN_ERROR_ID);
-            qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONN_ERROR_TIMEOUT);
+            bsp_audio_handle.net_err_hint_cnt++;
+
+            if (bsp_audio_handle.net_err_hint_cnt < 3) {
+                qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)ind_type, CONFIG_AUDIO_CONN_ERROR_TIMEOUT);
+            }
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_CONN_WS:
@@ -541,6 +554,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID: 
+            QM_LOGD("1","CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID");
             bsp_wakeup_time_refresh();
 
         #if CONFIG_SUPPORT_ONLINE_OPEN_WAV
@@ -564,8 +578,12 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                     qm_iot_reset_info_t reset_info;
                     qm_iot_reset_info_get(&reset_info);
                     if (reset_info.is_reset == QM_TRUE) {
+                        if (bsp_audio_handle.net_cfg_hint_cnt > -1)
+                            bsp_audio_handle.net_cfg_hint_cnt--;
                         qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG, NULL, 0);
                     } else {
+                        if (bsp_audio_handle.net_err_hint_cnt > -1)
+                            bsp_audio_handle.net_err_hint_cnt--;
                         qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_NET_ERROR, NULL, 0);
                     }
                 }
@@ -583,6 +601,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_NET_ERROR:
+            QM_LOGD("1","CONFIG_AUDIO_SUB_EVENT_NET_ERROR");
             bsp_audio_join_event_set(false);
             
             bsp_audio_handle.ws_connect = QM_FALSE;
@@ -595,7 +614,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
 
             qm_cancel_delayed_action(&bsp_audio_handle.ind_timer);
-            qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)event_type, 0);
+            qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)event_type, CONFIG_AUDIO_CONN_ERR_DELAY);
 
             qm_agora_disconnect();
             screen_wakeup_timeout_exit();
@@ -613,6 +632,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             QM_LOGD("1","CONFIG_AUDIO_SUB_EVENT_TIMEOUT_ID");
             if(bsp_audio_handle.ws_connect){
                 bsp_audio_handle.rec_type = AUDIO_REC_WAKEUP_END;
+                audio_cfg.mode = QM_AUDIO_WS_LISTEN_MODE_MANUAL;
             }
             set_wakeup_timeout_flag(QM_TRUE);
             qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_FALSE);

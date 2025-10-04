@@ -60,11 +60,13 @@ extern "C" {
 #define CONFIG_AUDIO_WAKEUP_TIMEOUT         (10 * 1000)
 #define CONFIG_AUDIO_WAKEEND_TIMEOUT        (6 * 1000)
 #define CONFIG_AUDIO_CLOSING_DURATION       (1200)
-#define CONFIG_AUDIO_ERR_TIMEOUT            (3 * 60 * 1000)
+#define CONFIG_AUDIO_ERR_TIMEOUT            (5 * 60 * 1000)
+
 
 #define CONFIG_AUDIO_CONFIG_IND_TIMEOUT      (3 * 60 * 1000)  //配网提示间隔
 
 #define CONFIG_AUDIO_CONN_ERROR_TIMEOUT      (2 * 60 * 1000)  //联网错误超时
+#define CONFIG_AUDIO_CONN_ERR_DELAY          (5 * 1000)
 
 #define CONFIG_AUDIO_CONN_SWITCH_TIMEOUT     (10  * 1000)  //切换模式超时
 
