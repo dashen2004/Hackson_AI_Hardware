@@ -577,14 +577,15 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                     //bsp_audio_handle.network_ind_flag = 1;
                     qm_iot_reset_info_t reset_info;
                     qm_iot_reset_info_get(&reset_info);
+                    qm_cancel_delayed_action(&bsp_audio_handle.ind_timer);
                     if (reset_info.is_reset == QM_TRUE) {
                         if (bsp_audio_handle.net_cfg_hint_cnt > -1)
                             bsp_audio_handle.net_cfg_hint_cnt--;
-                        qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CONFIG, NULL, 0);
+                        qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)CONFIG_AUDIO_SUB_EVENT_CONFIG, 0);
                     } else {
                         if (bsp_audio_handle.net_err_hint_cnt > -1)
                             bsp_audio_handle.net_err_hint_cnt--;
-                        qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_NET_ERROR, NULL, 0);
+                        qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)CONFIG_AUDIO_SUB_EVENT_NET_ERROR, 0);
                     }
                 }
             }

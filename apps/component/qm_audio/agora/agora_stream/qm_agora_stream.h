@@ -27,7 +27,7 @@ typedef struct {
     qm_agora_stream_recv_type_t type;
     union {
         struct {
-            const char *text;
+            char *text;
             uint32_t text_len;
             uint32_t duration_ms;
         } tts;

@@ -16,10 +16,10 @@
 
 #define LOG_TAG "AGORA"
 
-#define CONFIG_AGORA_APP_ID "9942a7948c3f4c4f8970d54ef6adfb24"
-#define DEFAULT_TOKEN "007eJxTYNhxKjb2TenKhntX4w5ve9h9dKHA5sU5W6etWH2978zabyGMCgyWliZGieaWJhbJxmkmySZpFpbmBimmJqlpZokpaUlGJiVzD2c0BDIyWLjVJTMyMDKwADGIzwQmmcEkC5iUYTA0MDEzjjczMTU1NLA0iDc0NzU3MzUwsjQyNzJhYAAACvsquw=="
-// #define DEFAULT_TOKEN NULL
-#define DEFAULT_CHANNEL_NAME "10463_64551090_1757650292724"
+#define CONFIG_AGORA_APP_ID "aab8b8f5a8cd4469a63042fcfafe7063"
+// #define DEFAULT_TOKEN "007eJxTYNhxKjb2TenKhntX4w5ve9h9dKHA5sU5W6etWH2978zabyGMCgyWliZGieaWJhbJxmkmySZpFpbmBimmJqlpZokpaUlGJiVzD2c0BDIyWLjVJTMyMDKwADGIzwQmmcEkC5iUYTA0MDEzjjczMTU1NLA0iDc0NzU3MzUwsjQyNzJhYAAACvsquw=="
+#define DEFAULT_TOKEN NULL
+#define DEFAULT_CHANNEL_NAME "10463"
  
 #define DEFAULT_SDK_LOG_PATH "io.agora.rtc_sdk"
  
@@ -208,7 +208,7 @@ static void __on_audio_data(connection_id_t conn_id, const uint32_t uid, uint16_
     }
     // QM_LOGD("1", "[conn-%u] on_audio_data, uid %u sent_ts %u data_type %d, len %d\n", conn_id, uid, sent_ts,
     //      info_ptr->data_type, len);
-    // QM_LOGD(LOG_TAG, "%d", len);
+    // QM_LOGD(LOG_TAG, "recv:%d", len);
     if(qm_agora_handle.audio_cb){
         qm_agora_handle.audio_cb((void *)data, len, qm_agora_handle.user_data);
     }
@@ -266,7 +266,7 @@ int qm_agora_join(void)
     channel_options.enable_audio_mixer = true;
     channel_options.enable_audio_jitter_buffer = true;
 #endif
-    // channel_options.enable_audio_ai_qos = qm_agora_handle.enable_audio_ai_qos;
+    //channel_options.enable_audio_ai_qos = qm_agora_handle.enable_audio_ai_qos;
     channel_options.audio_codec_opt.pcm_duration  = qm_agora_handle.duration;
     channel_options.audio_codec_opt.audio_codec_type = AUDIO_CODEC_DISABLED;
 
@@ -322,6 +322,7 @@ int qm_agora_connect(void)
     if(qm_agora_handle.agora_init_flag == QM_FALSE) {
         rval = qm_agora_gen_start(qm_agora_handle.agora_gen_handle);
         if (rval != QM_EOK) {
+            QM_LOGW(LOG_TAG, "qm agora gen failed!");
             return rval;
         }
 

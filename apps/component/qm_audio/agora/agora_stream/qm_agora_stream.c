@@ -49,7 +49,7 @@ typedef struct {
     uint32_t word_len;
     uint64_t last_utc_time;
     uint64_t utc_time;
-    uint64_t duration_ms;
+    uint32_t duration_ms;
 } qm_agora_stream_word_t;
 
 typedef struct{
@@ -313,26 +313,9 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     memset(new_text, 0, new_text_size + 1);
     memcpy(new_text, cJSON_GetStringValue(text) + word_info.last_word_len, new_text_size);
     
-#if CONFIG_AGORA_XJIANG_TTS
-    cJSON *start_ms = NULL;
-    start_ms = cJSON_GetObjectItem(root, START_MS_TYPE);
-    if (cJSON_IsNumber(start_ms) == false) {
-        QM_LOGW(LOG_TAG, "assistant.transcription start_ms is NULL");
-        ret = QM_EINVAL;
-        word_info.last_utc_time = 0;
-        word_info.last_word_len = 0;
-        goto __FREE;
-    }
-    word_info.utc_time = (uint64_t)cJSON_GetNumberValue(start_ms);
-    if(word_info.last_utc_time == 0) {
-        word_info.duration_ms = 0;
-    } else {
-        word_info.duration_ms = word_info.utc_time - word_info.last_utc_time;
-    }
-    word_info.last_utc_time = word_info.utc_time;
-#else
     cJSON *word = NULL;
     cJSON *words = NULL;
+    word_info.duration_ms = 0;
     words = cJSON_GetObjectItem(root, WORDS_TYPE);
     if (cJSON_IsArray(words) == true) {
         cJSON_ArrayForEach(word, words) {
@@ -353,12 +336,20 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
             } else if(word_info.last_utc_time == 0) {
                 word_info.last_utc_time = word_info.utc_time;
             }
+#if CONFIG_AGORA_XJIANG_TTS
+            cJSON *duration_ms = NULL;
+            duration_ms = cJSON_GetObjectItem(word, DURATION_MS_TYPE);
+            if (cJSON_IsNumber(duration_ms) == false) {
+                QM_LOGW(LOG_TAG, "assistant.transcription duration_ms is NULL");
+                goto __FREE;
+            }
+            word_info.duration_ms += duration_ms->valueint;
+#endif
         }
     } else {
         ret = QM_EINVAL;
         QM_LOGW(LOG_TAG, "assistant.transcription words is NULL");
     }
-#endif
     
     if(new_text_size != 0) {
         event.type = QM_AGORA_STREAM_TYPE_TTS;
@@ -495,15 +486,7 @@ static void stream_msg_recv_handler(uint8_t *decoded_msg, uint32_t decoded_len)
 #if 0
     char *data = cJSON_Print(root);
     int len = strlen(data);
-    for(int i = 0; i < len;) {
-        if(len - i > 500) {
-            QM_LOGD(LOG_TAG, "%.*s", 500, data + i);
-            i += 500;
-        } else {
-            QM_LOGD(LOG_TAG, "%.*s", len - i, data + i);
-            break;
-        }
-    }
+    QM_LOGD(LOG_TAG, "%.*s", len, data);
 #endif
     object = cJSON_GetObjectItem(root, OBJECT_TYPE);
     if (cJSON_IsString(object) == false) {

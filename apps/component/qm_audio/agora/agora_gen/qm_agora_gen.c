@@ -27,6 +27,7 @@ static int32_t qm_agora_gen_free(void *handle)
         return QM_ERROR;
     }
     agora_handle->exist_data = QM_FALSE;
+    agora_gen_handle->uid = 0;
     if(agora_handle->appId) {
         qm_free(agora_handle->appId);
         agora_handle->appId = NULL;
@@ -116,7 +117,7 @@ extern qm_err_t voice_rtc_login_info_get(void);
 static int32_t qm_agora_gen_wait(void)
 {
     int time_ms = 0;
-    while(time_ms < 500) {
+    while(time_ms < 1000) {
         if(agora_gen_handle->exist_data == QM_TRUE) {
             return QM_EOK;
         }
@@ -140,7 +141,8 @@ int32_t qm_agora_gen_start(void *handle)
 
     while (1) {
         voice_rtc_login_info_get();
-        if(qm_agora_gen_wait() == QM_EOK) {
+        ret = qm_agora_gen_wait();
+        if(ret == QM_EOK) {
             break;
         }
 
@@ -148,6 +150,7 @@ int32_t qm_agora_gen_start(void *handle)
         if(status != BACKOFF_ALGORITHM_SUCCESS){
             break;
         }
+
         qm_msleep(next_backoff);
     }
     return ret;
