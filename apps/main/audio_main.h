@@ -42,7 +42,7 @@ extern "C" {
 #define CONFIG_SUPPORT_AEC              (1)
 
 #define CONFIG_HARDWARE_VERSION         (21)
-#define CONFIG_XJIANG_VERSION           (38)
+#define CONFIG_XJIANG_VERSION           (39)
 #define CONFIG_XJIANG_CLOUD_PID         (10290)
 #define CONFIG_XJIANG_CLOUD_SECERT      "91B47743DC334240947B79CB80253852"
 
