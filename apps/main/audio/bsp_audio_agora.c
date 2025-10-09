@@ -244,6 +244,7 @@ static void bsp_wakeup_time_refresh_by_state(uint8_t state)
             }
         break;
 
+        case AGENT_STATE_NONE:
         case AGENT_STATE_THINKING:
             if (get_wakeup_timeout_flag() != QM_TRUE) {
                 qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
@@ -667,6 +668,10 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
 
             qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSED, CONFIG_AUDIO_WAKEEND_TIMEOUT);
         break;
+
+        case CONFIG_AUDIO_SUB_EVENT_AGORA_MUTE_ID:
+            QM_LOGI(TAG, "agora_mute");
+            qm_audio_mute();
 
         default:
         break;
