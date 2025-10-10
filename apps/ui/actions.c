@@ -238,6 +238,12 @@ static void goto_brightness_page(void) {
     loadScreenEx(SCREEN_ID_PAGE_BRIGHTNESS);
 } 
 
+static void goto_rgb_page(void) {
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
+    loadScreenEx(SCREEN_ID_PAGE_RGB);
+}
+
 // ******** 设置页面 ******** //
 static void goto_setup_page(void) {
     uint32_t timeout = bsp_lcd_get_turnoff_timeout();
@@ -611,7 +617,7 @@ void goto_ota_failure_page(void) {
 void action_back_click(lv_event_t * e) {
     lv_obj_t *currentPage = lv_scr_act();
     if (bsp_lcd_bl_brightness_percent_get() != 0) {
-        if (currentPage == objects.page_brightness || currentPage == objects.page_mode || currentPage == objects.page_setup/* || currentPage == objects.page_recog*/) {
+        if (currentPage == objects.page_brightness || currentPage == objects.page_mode || currentPage == objects.page_setup || currentPage == objects.page_rgb/* || currentPage == objects.page_recog*/) {
             goto_main_page();
         }
         else if (currentPage == objects.page_recog) {
@@ -705,6 +711,12 @@ void action_mode_click(lv_event_t * e) {
 void action_brightness_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         goto_brightness_page();
+    }
+}
+
+void action_rgb_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
+        goto_rgb_page();
     }
 }
 

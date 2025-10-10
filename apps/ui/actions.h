@@ -15,6 +15,7 @@ extern void action_recog_click(lv_event_t * e);
 extern void action_brightness_click(lv_event_t * e);
 extern void action_setup_click(lv_event_t * e);
 extern void action_mode_click(lv_event_t * e);
+extern void action_rgb_click(lv_event_t * e);
 extern void action_volume_click(lv_event_t * e);
 extern void action_screen_click(lv_event_t * e);
 extern void action_language_click(lv_event_t * e);

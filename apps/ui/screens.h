@@ -20,6 +20,7 @@ typedef struct _objects_t {
     lv_obj_t *page_netconfig;
     lv_obj_t *page_ota;
     lv_obj_t *page_recog;
+    lv_obj_t *page_rgb;
     lv_obj_t *slider_brightness_top;
     lv_obj_t *slider_brightness_bottom;
     lv_obj_t *slider_volume_value;
@@ -47,6 +48,7 @@ typedef struct _objects_t {
     lv_obj_t *menu_setup;
     lv_obj_t *menu_mode;
     lv_obj_t *menu_brightness;
+    lv_obj_t *menu_rgb;
     lv_obj_t *mode_nightlamp;
     lv_obj_t *mode_read;
     lv_obj_t *mode_relaxation;
@@ -132,6 +134,7 @@ typedef struct _objects_t {
     lv_obj_t *text_ota_failure_code;
     lv_obj_t *image_recog_emotion;
     lv_obj_t *text_recog_subtitles;
+    lv_obj_t *led_display;
 } objects_t;
 
 extern objects_t objects;
@@ -149,6 +152,7 @@ enum ScreensEnum {
     SCREEN_ID_PAGE_NETCONFIG = 10,
     SCREEN_ID_PAGE_OTA = 11,
     SCREEN_ID_PAGE_RECOG = 12,
+    SCREEN_ID_PAGE_RGB = 13,
 };
 
 void create_screen_page_main();
@@ -186,6 +190,9 @@ void tick_screen_page_ota();
 
 void create_screen_page_recog();
 void tick_screen_page_recog();
+
+void create_screen_page_rgb();
+void tick_screen_page_rgb();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

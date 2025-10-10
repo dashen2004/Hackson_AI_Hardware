@@ -243,9 +243,9 @@ void create_screen_page_main() {
                 {
                     lv_obj_t *obj = lv_img_create(parent_obj);
                     objects.image_logo = obj;
-                    lv_obj_set_pos(obj, 105, 105);
+                    lv_obj_set_pos(obj, 105, 115);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_img_set_src(obj, "/lvgl/images/logo.bin");
+                    lv_img_set_src(obj, "/lvgl/images/ljyd_logo.bin");
                 }
             }
         }
@@ -396,7 +396,7 @@ void create_screen_page_menu() {
                     // menu_home
                     lv_obj_t *obj = lv_imagebutton_create(parent_obj);
                     objects.menu_home = obj;
-                    lv_obj_set_pos(obj, 108, 20);
+                    lv_obj_set_pos(obj, 108, 108);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, 64);
                     lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/menu_home_released.bin", NULL);
                     lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_PRESSED, NULL, "/lvgl/images/menu_home_pressed.bin", NULL);
@@ -426,7 +426,7 @@ void create_screen_page_menu() {
                     // menu_mode
                     lv_obj_t *obj = lv_imagebutton_create(parent_obj);
                     objects.menu_mode = obj;
-                    lv_obj_set_pos(obj, 163, 178);
+                    lv_obj_set_pos(obj, 108, 21);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, 64);
                     lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/menu_mode_released.bin", NULL);
                     lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_PRESSED, NULL, "/lvgl/images/menu_mode_pressed.bin", NULL);
@@ -441,6 +441,16 @@ void create_screen_page_menu() {
                     lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/menu_brightness_released.bin", NULL);
                     lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_PRESSED, NULL, "/lvgl/images/menu_brightness_pressed.bin", NULL);
                     lv_obj_add_event_cb(obj, action_brightness_click, LV_EVENT_CLICKED, (void *)0);
+                }
+                {
+                    // menu_rgb
+                    lv_obj_t *obj = lv_imagebutton_create(parent_obj);
+                    objects.menu_rgb = obj;
+                    lv_obj_set_pos(obj, 163, 179);
+                    lv_obj_set_size(obj, LV_SIZE_CONTENT, 64);
+                    lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/menu_rgb_released.bin", NULL);
+                    lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_PRESSED, NULL, "/lvgl/images/menu_rgb_pressed.bin", NULL);
+                    lv_obj_add_event_cb(obj, action_rgb_click, LV_EVENT_CLICKED, (void *)0);
                 }
             }
         }
@@ -2313,6 +2323,53 @@ void tick_screen_page_recog() {
     }
 }
 
+void create_screen_page_rgb() {
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.page_rgb = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 360, 360);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    {
+        lv_obj_t *parent_obj = obj;
+        {
+            // led_display
+            lv_obj_t *obj = lv_led_create(parent_obj);
+            objects.led_display = obj;
+            lv_obj_set_pos(obj, 165, 18);
+            lv_obj_set_size(obj, 32, 32);
+            lv_led_set_color(obj, lv_color_hex(0xff0000ff));
+            lv_led_set_brightness(obj, 255);
+        }
+        {
+            lv_obj_t *obj = lv_obj_create(parent_obj);
+            lv_obj_set_pos(obj, 1, 300);
+            lv_obj_set_size(obj, 359, 60);
+            lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_add_event_cb(obj, action_back_click, LV_EVENT_CLICKED, (void *)0);
+            {
+                lv_obj_t *parent_obj = obj;
+                {
+                    lv_obj_t *obj = lv_image_create(parent_obj);
+                    lv_obj_set_pos(obj, 156, 2);
+                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                    lv_image_set_src(obj, "/lvgl/images/back.bin");
+                }
+            }
+        }
+    }
+    
+    tick_screen_page_rgb();
+}
+
+void tick_screen_page_rgb() {
+}
+
 typedef void (*tick_screen_func_t)();
 tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_page_main,
@@ -2327,6 +2384,7 @@ tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_page_netconfig,
     tick_screen_page_ota,
     tick_screen_page_recog,
+    tick_screen_page_rgb,
 };
 void tick_screen(int screen_index) {
     tick_screen_funcs[screen_index]();
@@ -2361,6 +2419,7 @@ void create_screens() {
     create_screen_page_mode();
     create_screen_page_brightness();
     create_screen_page_setup();
+    create_screen_page_rgb();
     create_screen_page_setup_volume();
     create_screen_page_setup_screen();
     create_screen_page_setup_language();
