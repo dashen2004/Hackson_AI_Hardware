@@ -58,6 +58,7 @@ extern "C" {
 
 //语音事件
 #define CONFIG_AUDIO_WAKEUP_TIMEOUT         (10 * 1000)
+#define CONFIG_AUDIO_MIC_TIMEOUT            (3 * 1000)
 #define CONFIG_AUDIO_WAKEEND_TIMEOUT        (6 * 1000)
 #define CONFIG_AUDIO_CLOSING_DURATION       (1200)
 #define CONFIG_AUDIO_ERR_TIMEOUT            (5 * 60 * 1000)
@@ -133,8 +134,9 @@ extern "C" {
 #define CONFIG_AUDIO_CLOSING_REMARKS      (2) //关机提示音
 
 // 超时事件
-#define CONFIG_TIMEOUT_TYPE_CLOSING        (0x20)
-#define CONFIG_TIMEOUT_TYPE_CLOSED         (0x21)
+#define CONFIG_TIMEOUT_TYPE_START_CLOSE    (0x20)
+#define CONFIG_TIMEOUT_TYPE_CLOSING        (0x21)
+#define CONFIG_TIMEOUT_TYPE_CLOSED         (0x22)
 
 //遥控器事件
 #define CONFIG_AUDIO_BEACON_HOLD_TIME           (2 * 100)
