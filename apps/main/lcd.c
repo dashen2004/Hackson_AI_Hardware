@@ -541,8 +541,7 @@ void turnoff_timer_reset(uint8_t flag) { // 0 - screen operation, 1 - audio rece
     if (flag == 0) {
         set_var_screen_operation_tick();
     } else {
-        if (get_current_screen() == SCREEN_ID_PAGE_MAIN || 
-        (get_current_screen() != SCREEN_ID_PAGE_RECOG && get_var_screen_operation_tick())) {
+        if (get_current_screen() != SCREEN_ID_PAGE_RECOG && get_var_screen_operation_tick()) {
             goto_recog_page();
         }
     }

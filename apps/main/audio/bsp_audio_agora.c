@@ -100,6 +100,8 @@ struct bsp_audio_handle_t {
     uint8_t network_ind_flag;
     int agora_agent_state;
 
+    int audio_start_play;
+
     int net_cfg_hint_cnt;
     int net_err_hint_cnt;
 };
@@ -415,8 +417,20 @@ static void audio_player_dev_cb(qm_player_t handle, qm_player_event_type_t event
 }
 
 // init qm_audio
+static void qm_audio_play_start(void)
+{
+    QM_LOGD("1", "audio_play_start");
+
+    qm_msleep(CONFIG_AUDIO_START_DELAY_MS);
+}
+
 static int qm_audio_play_data(qm_audio_type_t type, uint8_t *data, int len)
 {
+    if (bsp_audio_handle.audio_start_play) {
+        bsp_audio_handle.audio_start_play = 0;
+        qm_audio_play_start();
+    }
+
     int pcm_size = 0;
     static char pcm_data[1920] = {0};
     pcm_size = bsp_audio_opus_decode_data(bsp_audio_handle.opus_handle, data, len, pcm_data);
@@ -446,6 +460,7 @@ static void qm_agora_set_agent_state(uint8_t state)
         break;
 
         case AGENT_STATE_SPEAKING:
+            bsp_audio_handle.audio_start_play = 1;
         case AGENT_STATE_THINKING:
             qm_audio_play(QM_AUDIO_TYPE_AGENT);
         break;

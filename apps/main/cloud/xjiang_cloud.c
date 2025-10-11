@@ -27,13 +27,16 @@
 #include "esp_netif_types.h"
 
 #define LOG_TAG "APP"
+#define WEATHER_REQ_TIMEOUT_MS      (15 * 1000)
 #define BACKOFF_BASE_TIME_MS        (3 * 1000)
 #define BACKOFF_RECV_TIMEOUT_MS     (30 * 1000)
+#define BACKOFF_DEFAULT_TIMEOUT_MS  (5 * 60 * 1000)
 #define BACKOFF_RETRY_NUM           BACKOFF_ALGORITHM_RETRY_FOREVER
 
 static void *iot_handle = NULL;
 static bool_t connect = QM_FALSE;
 static qm_timer_t weather_request_timer = { 0 };
+static qm_timer_t weather_timeout_timer = { 0 };
 static qm_work_t weather_request_action = { 0 };
 static qm_work_t set_disconnected_action = { 0 };
 static qm_work_t set_connected_action = { 0 };
@@ -87,27 +90,32 @@ static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv)
 }
 
 static void weather_request_action_handler(void *arg) {
+    qm_timer_start(&weather_timeout_timer);
+
+    qm_iot_set_weahter_request(iot_handle);
+}
+
+static void weather_timeout_timer_handler(qm_timer_t *timer,  void *arg) {
+    qm_timer_stop(&weather_timeout_timer);
+
     if (backoff_ctx.attempts_num == 5) {
         QM_LOGD(LOG_TAG, "weather request retry 5 times!");
         set_var_weather_id(-1);
     }
 
-    // 请求天气
-    qm_iot_set_weahter_request(iot_handle);
-
     backoff_status = backoff_algorithm_get_next_delay(&backoff_ctx, &next_backoff);
     if (backoff_status != BACKOFF_ALGORITHM_SUCCESS) {
-        next_backoff = 5 * 60 * 1000;
-    }
-
-    while (next_backoff < 5 * 1000) {
-        next_backoff = next_backoff * 2;
+        next_backoff = BACKOFF_DEFAULT_TIMEOUT_MS;
     }
 
     qm_post_delayed_action(&weather_request_action, weather_request_action_handler, NULL, next_backoff);
 }
 
 static void weather_request_timer_handler(qm_timer_t *timer,  void *arg) {
+    if (!qm_timer_is_valid(&weather_timeout_timer)) {
+        qm_timer_new(&weather_timeout_timer, weather_timeout_timer_handler, NULL, WEATHER_REQ_TIMEOUT_MS, 1);
+    }
+
     backoff_algorithm_init(&backoff_ctx, BACKOFF_BASE_TIME_MS, BACKOFF_RECV_TIMEOUT_MS, BACKOFF_RETRY_NUM);
 
     qm_cancel_delayed_action(&weather_request_action);
@@ -178,10 +186,15 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             audio_light_snapshot_report();
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CEART_WS, NULL, 0);
 
+            if (!qm_timer_is_valid(&weather_timeout_timer)) {
+                qm_timer_new(&weather_timeout_timer, weather_timeout_timer_handler, NULL, WEATHER_REQ_TIMEOUT_MS, 1);
+            }
+
             backoff_algorithm_init(&backoff_ctx, BACKOFF_BASE_TIME_MS, BACKOFF_RECV_TIMEOUT_MS, BACKOFF_RETRY_NUM);
 
             qm_cancel_delayed_action(&weather_request_action);
             qm_post_delayed_action(&weather_request_action, weather_request_action_handler, NULL, 0);
+
             if (!qm_timer_is_valid(&weather_request_timer)) {
                 qm_timer_new(&weather_request_timer, weather_request_timer_handler, NULL, 60 * 60 * 1000, 1); // 1小时尝试更新一次
                 qm_timer_start(&weather_request_timer);
@@ -248,6 +261,8 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             set_var_city(event->data.weather_notify.secondaryname, event->data.weather_notify.secondaryname_len);
             set_var_weather_id(event->data.weather_notify.weather_type);
             set_var_temperature(event->data.weather_notify.temp);
+            qm_timer_stop(&weather_timeout_timer);
+            qm_timer_free(&weather_timeout_timer);
             qm_cancel_delayed_action(&weather_request_action);
             break;
 
