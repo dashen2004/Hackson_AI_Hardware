@@ -27,6 +27,7 @@ extern "C" {
 #define CONFIG_AUDIO_FMT_BITS          (16)
 #define CONFIG_AUDIO_FMT_CHANNEL       (1)
 #define CONFIG_AUDIO_FMT_DURATION_MS   (60)
+#define CONFIG_AUDIO_START_DELAY_MS    (100)
 
 #define CONFIG_AUDIO_FMT_FLOW_CTRL_ENABLE   (1) //
 #define CONFIG_AUDIO_FMT_MIN_LEN       (30) //
@@ -42,11 +43,11 @@ extern "C" {
 #define CONFIG_SUPPORT_AEC              (1)
 
 #define CONFIG_HARDWARE_VERSION         (21)
-#define CONFIG_XJIANG_VERSION           (39)
+#define CONFIG_XJIANG_VERSION           (40)
 #define CONFIG_XJIANG_CLOUD_PID         (10290)
 #define CONFIG_XJIANG_CLOUD_SECERT      "91B47743DC334240947B79CB80253852"
 
-#define  CONFIG_AUDIO_LIGHT_HW_VERSION  "LIGHT.0059.G.101_FW_WB74_0.3.9_0.3.9"
+#define  CONFIG_AUDIO_LIGHT_HW_VERSION  "LIGHT.0059.G.101_FW_WB74_0.4.0_0.4.0"
 
 #define CONFIG_SUPPORT_ONLINE_OPEN_WAV   (1)
 #define CONFIG_SUPPORT_ONLINE_CLOSE_WAV  (1)
@@ -58,6 +59,7 @@ extern "C" {
 
 //语音事件
 #define CONFIG_AUDIO_WAKEUP_TIMEOUT         (10 * 1000)
+#define CONFIG_AUDIO_MIC_TIMEOUT            (3 * 1000)
 #define CONFIG_AUDIO_WAKEEND_TIMEOUT        (6 * 1000)
 #define CONFIG_AUDIO_CLOSING_DURATION       (1200)
 #define CONFIG_AUDIO_ERR_TIMEOUT            (5 * 60 * 1000)
@@ -133,8 +135,9 @@ extern "C" {
 #define CONFIG_AUDIO_CLOSING_REMARKS      (2) //关机提示音
 
 // 超时事件
-#define CONFIG_TIMEOUT_TYPE_CLOSING        (0x20)
-#define CONFIG_TIMEOUT_TYPE_CLOSED         (0x21)
+#define CONFIG_TIMEOUT_TYPE_START_CLOSE    (0x20)
+#define CONFIG_TIMEOUT_TYPE_CLOSING        (0x21)
+#define CONFIG_TIMEOUT_TYPE_CLOSED         (0x22)
 
 //遥控器事件
 #define CONFIG_AUDIO_BEACON_HOLD_TIME           (2 * 100)

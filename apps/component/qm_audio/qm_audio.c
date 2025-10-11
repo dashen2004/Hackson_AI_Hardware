@@ -342,11 +342,14 @@ static int qm_audio_data_reset(qm_list_t *list)
     qm_list_node_t *node = NULL;
 
     qm_mutex_lock(&g_qm_audio_ctx.lock, QM_WAIT_FOREVER);
-    do{
+    while (1) {
         node = qm_list_lpop(g_qm_audio_ctx.list);
+        if(node == NULL) {
+            break;
+        }
         qm_list_node_destroy(node);
         node = NULL;
-    }while(node);
+    }
     qm_mutex_unlock(&g_qm_audio_ctx.lock);
     return QM_EOK;
 }

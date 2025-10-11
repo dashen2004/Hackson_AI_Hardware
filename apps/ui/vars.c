@@ -283,7 +283,7 @@ void set_var_recog_page_leave(bool value) {
 }
 
 uint32_t get_var_screen_operation_tick(void) {
-    return qm_utils_time_is_expired(&var_turnoff);
+    return qm_utils_time_is_expired(&var_screen_operation_tick);
 }
 
 void set_var_screen_operation_tick(void) {
