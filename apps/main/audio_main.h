@@ -26,7 +26,7 @@ extern "C" {
 #define CONFIG_AUDIO_FMT_RATE          (16000)
 #define CONFIG_AUDIO_FMT_BITS          (16)
 #define CONFIG_AUDIO_FMT_CHANNEL       (1)
-#define CONFIG_AUDIO_FMT_DURATION_MS   (60)
+#define CONFIG_AUDIO_FMT_DURATION_MS   (40)
 #define CONFIG_AUDIO_START_DELAY_MS    (100)
 
 #define CONFIG_AUDIO_FMT_FLOW_CTRL_ENABLE   (1) //

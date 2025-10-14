@@ -251,6 +251,8 @@ void set_var_ota_status(int8_t value, bool need_lock) {
     if(lv_port_init_flag == 0) {
         return;
     }
+
+    bsp_lcd_bl_on();
     
     if (need_lock) {
         lvgl_port_lock(0);

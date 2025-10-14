@@ -727,6 +727,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         case CONFIG_AUDIO_SUB_EVENT_AGORA_MUTE_ID:
             QM_LOGI(TAG, "agora_mute");
             qm_audio_mute();
+            qm_agora_stream_tts_data_reset();
 
             bsp_wakeup_time_refresh();
         default:
@@ -862,6 +863,12 @@ qm_err_t bsp_audio_ota_set_voice_mute(void)
 {
     bsp_audio_join_event_set(false);
     bsp_audio_set_voice_mute(true);
+    return QM_EOK;
+}
+
+qm_err_t bsp_audio_ota_set_voice_unmute(void)
+{
+    bsp_audio_set_voice_mute(false);
     return QM_EOK;
 }
 
