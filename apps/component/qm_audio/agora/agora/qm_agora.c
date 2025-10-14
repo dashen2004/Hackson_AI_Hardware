@@ -339,6 +339,11 @@ int qm_agora_connect(void)
         service_opt.domain_limit         = qm_agora_handle.domain_limit;
         appId = (char *)qm_agora_gen_get_data(QM_AGORA_GEN_TYPE_APPID);
 
+    #if CONFIG_AGORA_USE_LICENSE
+        char *licenseValue = (char *)qm_agora_gen_get_data(QM_AGORA_GEN_TYPE_LICENSE_VALUE);
+        memcpy(service_opt.license_value, licenseValue, strlen(licenseValue));
+    #endif
+
 #if CONFIG_STATIC_AGORA_DATA
         rval = agora_rtc_init(CONFIG_AGORA_APP_ID, &event_handler, &service_opt);
 #else

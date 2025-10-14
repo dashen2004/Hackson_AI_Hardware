@@ -439,6 +439,9 @@ static qm_err_t qm_stream_message_state_handler(cJSON *root)
     for(int i = 0; i < QM_ARRAY_SIZE(agent_state_list); i++) {
         if(strcmp(event.data.agent_state.text, agent_state_list[i]) == 0) {
             event.data.agent_state.state = i + 1;
+            if (event.data.agent_state.state == 1) {
+                tts_timer_start(0);
+            }
             break;
         }
     }
@@ -762,11 +765,10 @@ int qm_agora_stream_tts_data_reset(void)
 {
     qm_list_node_t *node = NULL;
 
-    qm_mutex_lock(&g_stream_handle.tts_lock, QM_WAIT_FOREVER);
-
     qm_cancel_delayed_action(&g_stream_handle.tts_work);
     g_stream_handle.tts_timer_is_running = QM_FALSE;
 
+    qm_mutex_lock(&g_stream_handle.tts_lock, QM_WAIT_FOREVER);
     while (1) {
         node = qm_list_lpop(&g_stream_handle.tts_list);
         if(node == NULL) {
@@ -775,7 +777,6 @@ int qm_agora_stream_tts_data_reset(void)
         qm_list_node_destroy(node);
         node = NULL;
     }
-
     qm_mutex_unlock(&g_stream_handle.tts_lock);
 
     return QM_EOK;

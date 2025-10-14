@@ -224,10 +224,10 @@ void wakeup_quit_immediately_trigger(uint8_t action)
     case 1:
         break;
     case 2:
+        qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
         set_mic_stop_flag(QM_TRUE);
         set_wakeup_timeout_flag(QM_TRUE);
         qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIMEOUT_ID, NULL, 0);
-        qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
         qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSED, 10 * 1000);
         break;
     default:
@@ -661,6 +661,8 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
         case CONFIG_AUDIO_SUB_EVENT_NET_ERROR:
             QM_LOGD("1","CONFIG_AUDIO_SUB_EVENT_NET_ERROR");
             bsp_audio_join_event_set(false);
+
+            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
             
             bsp_audio_handle.ws_connect = QM_FALSE;
             bsp_audio_handle.open_or_close = QM_FALSE;
@@ -668,8 +670,6 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
 
             qm_audio_recorder_enable_vc_mode(bsp_audio_handle.recorder_engine, QM_FALSE);
             qm_audio_recorder_enable_sr_mode(bsp_audio_handle.recorder_engine, QM_TRUE);
-
-            qm_cancel_delayed_action(&bsp_audio_handle.wakeup_timer);
 
             qm_cancel_delayed_action(&bsp_audio_handle.ind_timer);
             qm_post_delayed_action(&bsp_audio_handle.ind_timer, ind_timeout_handle, (void *)event_type, CONFIG_AUDIO_CONN_ERR_DELAY);

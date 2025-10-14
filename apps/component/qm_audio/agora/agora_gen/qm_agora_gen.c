@@ -40,6 +40,12 @@ static int32_t qm_agora_gen_free(void *handle)
         qm_free(agora_handle->token);
         agora_handle->token = NULL;
     }
+#if CONFIG_AGORA_USE_LICENSE
+    if(agora_handle->licenseValue) {
+        qm_free(agora_handle->licenseValue);
+        agora_handle->licenseValue = NULL;
+    }
+#endif
     return QM_EOK;
 }
 
@@ -62,6 +68,13 @@ void *qm_agora_gen_get_data(qm_agora_gen_data_type_t type)
         break;
         case QM_AGORA_GEN_TYPE_TOKEN:
             data = (void *)agora_gen_handle->token;
+        break;
+        case QM_AGORA_GEN_TYPE_LICENSE_VALUE:
+        #if CONFIG_AGORA_USE_LICENSE
+            data = (void *)agora_gen_handle->licenseValue;
+        #else
+            data = NULL;
+        #endif
         break;
         default:
         break;
@@ -98,12 +111,25 @@ int32_t qm_agora_gen_set_data(qm_agora_gen_data_type_t type, void *data, int len
             agora_gen_handle->token[agora_gen_handle->token_len] = '\0';
             QM_LOGD(LOG_TAG, "token:%.*s", agora_gen_handle->token_len, agora_gen_handle->token);
         break;
+        case QM_AGORA_GEN_TYPE_LICENSE_VALUE:
+        #if CONFIG_AGORA_USE_LICENSE
+            agora_gen_handle->licenseValue = (char *)data;
+            agora_gen_handle->licenseValue_len = len;
+            agora_gen_handle->licenseValue[agora_gen_handle->licenseValue_len] = '\0';
+            QM_LOGD(LOG_TAG, "licesenValue:%.*s", agora_gen_handle->licenseValue_len, agora_gen_handle->licenseValue);
+        #endif
         default:
         break;
     }
     if(agora_gen_handle->appId && agora_gen_handle->channelName && 
         agora_gen_handle->token && agora_gen_handle->uid) {
+        #if CONFIG_AGORA_USE_LICENSE
+            if (agora_gen_handle->licenseValue) {
+                agora_gen_handle->exist_data = QM_TRUE;
+            }
+        #else
         agora_gen_handle->exist_data = QM_TRUE;
+        #endif
     }
     return QM_EOK;
 }

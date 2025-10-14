@@ -42,6 +42,7 @@ static qm_err_t rtc_login_info_uid(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_appid(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_channel_name(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_token(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_license_value(qm_spec_property_t *property);
 
 static qm_err_t onoff_report(qm_spec_property_t *property);
 static qm_err_t bri_report(qm_spec_property_t *property);
@@ -65,6 +66,7 @@ static qm_err_t rtc_login_info_uid_report(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_appid_report(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_channel_name_report(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_token_report(qm_spec_property_t *property);
+static qm_err_t rtc_login_info_license_value_report(qm_spec_property_t *property);
 
 extern int audio_stream_EGV_set(uint8_t type);
 extern int audio_stream_EGV_get(void);
@@ -175,6 +177,10 @@ static audio_light_table_t g_light_table[] =
     {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_CHANNAL_NAME_PIID, rtc_login_info_channel_name, rtc_login_info_channel_name_report},
     //RTC登录信息token
     {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_TOKEN_PIID, rtc_login_info_token,rtc_login_info_token_report},
+#if CONFIG_AGORA_USE_LICENSE
+    //RTC登录信息license value
+    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_LICENSE_VALUE_PIID, rtc_login_info_license_value,rtc_login_info_license_value_report},
+#endif
 };
 
 qm_err_t audio_light_init(void)
@@ -792,6 +798,34 @@ static qm_err_t rtc_login_info_token(qm_spec_property_t *property)
 }
 
 static qm_err_t rtc_login_info_token_report(qm_spec_property_t *property)
+{
+    return QM_EOK;
+}
+
+static qm_err_t rtc_login_info_license_value(qm_spec_property_t *property)
+{
+    char *data = NULL;
+    int len = 0;
+    if(property == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, NULL, &len);
+    if(len == 0) {
+        return QM_ERROR;
+    }
+    data = (char *)qm_malloc(len);
+    if(data == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, data, &len);
+    if(data == NULL) {
+        return QM_ERROR;
+    }
+    qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_LICENSE_VALUE, data, len - 1);
+    return QM_EOK;
+}
+
+static qm_err_t rtc_login_info_license_value_report(qm_spec_property_t *property)
 {
     return QM_EOK;
 }
