@@ -351,7 +351,9 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
         QM_LOGW(LOG_TAG, "assistant.transcription words is NULL");
     }
 
-    if(new_text_size != 0) {
+    turn_status = cJSON_GetObjectItem(root, TURN_STATUS_TYPE);
+
+    if (new_text_size != 0 && cJSON_IsNumber(turn_status) && turn_status->valueint == 0) {
         event.type = QM_AGORA_STREAM_TYPE_TTS;
 #if CONFIG_AGORA_XJIANG_TTS
         event.data.tts.duration_ms = word_info.duration_ms;
@@ -366,7 +368,6 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
         QM_LOGW(LOG_TAG, "No new words found");
     }
 
-    turn_status = cJSON_GetObjectItem(root, TURN_STATUS_TYPE); 
     if (cJSON_IsNumber(turn_status) && turn_status->valueint == 1) {
         QM_LOGI("1", "Assistant says: %s", cJSON_GetStringValue(text));
         word_info.last_utc_time = 0;
@@ -439,9 +440,6 @@ static qm_err_t qm_stream_message_state_handler(cJSON *root)
     for(int i = 0; i < QM_ARRAY_SIZE(agent_state_list); i++) {
         if(strcmp(event.data.agent_state.text, agent_state_list[i]) == 0) {
             event.data.agent_state.state = i + 1;
-            if (event.data.agent_state.state == 1) {
-                tts_timer_start(0);
-            }
             break;
         }
     }

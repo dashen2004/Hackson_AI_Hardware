@@ -118,6 +118,7 @@ int32_t qm_agora_gen_set_data(qm_agora_gen_data_type_t type, void *data, int len
             agora_gen_handle->licenseValue[agora_gen_handle->licenseValue_len] = '\0';
             QM_LOGD(LOG_TAG, "licesenValue:%.*s", agora_gen_handle->licenseValue_len, agora_gen_handle->licenseValue);
         #endif
+        break;
         default:
         break;
     }
