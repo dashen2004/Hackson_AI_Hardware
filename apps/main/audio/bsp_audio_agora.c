@@ -629,6 +629,9 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                 bsp_audio_handle.open_or_close = QM_TRUE;
                 qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
                 qm_agora_join();
+
+                extern void goto_recog_page();
+                void goto_recog_page(void);
             } else {
                 if (bsp_audio_handle.network_ind_flag == 0) {
                     //bsp_audio_handle.network_ind_flag = 1;
