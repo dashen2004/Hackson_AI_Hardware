@@ -135,6 +135,15 @@ typedef struct _objects_t {
     lv_obj_t *image_recog_emotion;
     lv_obj_t *text_recog_subtitles;
     lv_obj_t *led_display;
+    lv_obj_t *rgb_select_red;
+    lv_obj_t *rgb_select_orange;
+    lv_obj_t *rgb_select_blue;
+    lv_obj_t *rgb_select_green;
+    lv_obj_t *rgb_select_purple;
+    lv_obj_t *rgb_select_colorful;
+    lv_obj_t *rgb_selected;
+    lv_obj_t *rgb_bar;
+    lv_obj_t *rgb_bar_slider;
 } objects_t;
 
 extern objects_t objects;

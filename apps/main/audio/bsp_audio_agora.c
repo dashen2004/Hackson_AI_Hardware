@@ -228,7 +228,7 @@ void wakeup_quit_immediately_trigger(uint8_t action)
         set_mic_stop_flag(QM_TRUE);
         set_wakeup_timeout_flag(QM_TRUE);
         qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIMEOUT_ID, NULL, 0);
-        qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSED, 10 * 1000);
+        qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSED, CONFIG_AUDIO_WAKEUP_TIMEOUT);
         break;
     default:
         break;
