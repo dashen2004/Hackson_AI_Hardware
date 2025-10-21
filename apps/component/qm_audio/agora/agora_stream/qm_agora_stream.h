@@ -52,6 +52,7 @@ void __on_stream_message(connection_id_t conn_id, uint32_t uid, int stream_id,
 int32_t qm_agora_stream_init(void);
 
 void qm_agora_stream_register(qm_agora_stream_event_cb_t func, void *user_data);
+int qm_agora_stream_tts_data_reset(void);
 
 #if defined(__cplusplus)
 }

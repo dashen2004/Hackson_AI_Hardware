@@ -7,6 +7,7 @@ extern "C" {
 
 #include "qm.h"
 #include "qm_agora_stream.h"
+#include "qm_agora_gen.h"
 
 #define CONFIG_ENABLE_AUDIO_MIXING                  0
 #define CONFIG_STATIC_AGORA_DATA                    0

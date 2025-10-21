@@ -212,7 +212,9 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             if(ota_status_flag) {
                 ota_status_flag = 0;
                 set_var_ota_status(2, true);
+                bsp_audio_ota_set_voice_unmute();
             }
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_NET_ERROR, NULL, 0);
             break;
 
         case QM_IOT_EVENT_LOCAL_CONN:
@@ -233,8 +235,8 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             if(ota_status_flag) {
                 ota_status_flag = 0;
                 set_var_ota_status(2, true);
+                bsp_audio_ota_set_voice_unmute();
             }
-            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_NET_ERROR, NULL, 0);
             break;
 
         case QM_IOT_EVENT_RESET:
@@ -289,6 +291,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
         case QM_IOT_EVENT_OTA_FAILED:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_OTA_FAILED");
             set_var_ota_status(2, true);
+            bsp_audio_ota_set_voice_unmute();
             ota_status_flag = 0;
             break;
 

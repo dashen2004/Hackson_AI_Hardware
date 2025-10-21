@@ -350,8 +350,10 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
         ret = QM_EINVAL;
         QM_LOGW(LOG_TAG, "assistant.transcription words is NULL");
     }
-    
-    if(new_text_size != 0) {
+
+    turn_status = cJSON_GetObjectItem(root, TURN_STATUS_TYPE);
+
+    if (new_text_size != 0 && cJSON_IsNumber(turn_status) && turn_status->valueint == 0) {
         event.type = QM_AGORA_STREAM_TYPE_TTS;
 #if CONFIG_AGORA_XJIANG_TTS
         event.data.tts.duration_ms = word_info.duration_ms;
@@ -366,7 +368,6 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
         QM_LOGW(LOG_TAG, "No new words found");
     }
 
-    turn_status = cJSON_GetObjectItem(root, TURN_STATUS_TYPE); 
     if (cJSON_IsNumber(turn_status) && turn_status->valueint == 1) {
         QM_LOGI("1", "Assistant says: %s", cJSON_GetStringValue(text));
         word_info.last_utc_time = 0;
@@ -756,6 +757,27 @@ void qm_agora_stream_register(qm_agora_stream_event_cb_t func, void *user_data)
     }
     g_stream_handle.event_cb = func;
     g_stream_handle.user_data = user_data;
+}
+
+int qm_agora_stream_tts_data_reset(void)
+{
+    qm_list_node_t *node = NULL;
+
+    qm_cancel_delayed_action(&g_stream_handle.tts_work);
+    g_stream_handle.tts_timer_is_running = QM_FALSE;
+
+    qm_mutex_lock(&g_stream_handle.tts_lock, QM_WAIT_FOREVER);
+    while (1) {
+        node = qm_list_lpop(&g_stream_handle.tts_list);
+        if(node == NULL) {
+            break;
+        }
+        qm_list_node_destroy(node);
+        node = NULL;
+    }
+    qm_mutex_unlock(&g_stream_handle.tts_lock);
+
+    return QM_EOK;
 }
 
 int32_t qm_agora_stream_init(void)

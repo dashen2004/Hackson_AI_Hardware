@@ -7,12 +7,15 @@ extern "C" {
 
 #include "qm.h"
 
+#define CONFIG_AGORA_USE_LICENSE    1
+
 typedef enum {
     QM_AGORA_GEN_TYPE_NONE = 0,
     QM_AGORA_GEN_TYPE_UID,
     QM_AGORA_GEN_TYPE_APPID,
     QM_AGORA_GEN_TYPE_CHANNAL_NAME,
     QM_AGORA_GEN_TYPE_TOKEN,
+    QM_AGORA_GEN_TYPE_LICENSE_VALUE,
     QM_AGORA_GEN_TYPE_MAX,
 } qm_agora_gen_data_type_t;
 
@@ -27,6 +30,8 @@ typedef struct
     uint32_t channelName_len;
     char *token;
     uint32_t token_len;
+    char *licenseValue;
+    uint32_t licenseValue_len;
 } qm_agora_gen_handle_t;
 
 void *qm_agora_gen_init(void);
