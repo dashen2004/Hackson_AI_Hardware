@@ -800,6 +800,8 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
 {
     int len = sizeof(int);
 
+    bsp_audio_handle.join_event = xEventGroupCreate();
+
     audio_reset = qm_is_crash_reset();
     qm_kv_get(OPENING_KV_TAG, &open_or_close, &len);
 

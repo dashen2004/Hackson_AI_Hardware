@@ -283,7 +283,7 @@ int32_t nc_audio_init(nc_audio_param_t *param)
 #if CONFIG_QM_OS_SUPPORT
     qm_mutex_new(&g_comm_ctx->lock);
 #endif
-        
+
     comm_base_init(&base_param);
 
     comm_base_recv_register(NC_AUDIO_PARSE_STATE_HEAD_1, header1_recv_len_cb, header1_recv_check);
@@ -510,7 +510,6 @@ static int mcu_get_ver_unpack(uint8_t *data, int len)
     if(!mcu_ver->type){
         comm_base_cmd_send(NC_AUDIO_SUB_CMD_GET_MCU_VER, CONFIG_NC_AUDIO_SEND_COUNT, CONFIG_NC_AUDIO_SEND_TIMEOUT_MS, (void *)&send_data);
     }else{
-        
         spk_cfg.bit = mic_cfg.bit = g_comm_ctx->bits;
         spk_cfg.type = mic_cfg.type = g_comm_ctx->fmt_type;
         spk_cfg.rate = mic_cfg.rate = cpu_to_be32(g_comm_ctx->rate);
@@ -527,10 +526,8 @@ static int mcu_get_ver_unpack(uint8_t *data, int len)
         send_data.playload = (uint8_t *)&spk_cfg;
         send_data.playload_len = sizeof(nc_audio_spk_cfg_t);
         comm_base_cmd_send(NC_AUDIO_SUB_CMD_SPK_CFG, CONFIG_NC_AUDIO_SEND_COUNT, CONFIG_NC_AUDIO_SEND_TIMEOUT_MS, (void *)&send_data);
-        
 
         nc_audio_cfg(NC_AUDIO_CFG_TYPE_VAD_ONOFF, g_comm_ctx->vad_timeout);
-        
     }
     
     if(g_comm_ctx->event_notify){
@@ -563,7 +560,6 @@ __exit:
 
 static int mic_cfg_unpack(uint8_t *data, int len)
 {
-
     nc_audio_event_param_t event = {0};
     nc_audio_code_t *mic_cfg_result = NULL;
     nc_audio_frame_header_t *header = (nc_audio_frame_header_t *)data;

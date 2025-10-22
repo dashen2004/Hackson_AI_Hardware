@@ -413,7 +413,7 @@ void uart_read(void *pvParameters) {
                     memset(nc_player_handle.recv_buff, 0, SERIAL_RECV_LEN);
                     int len = uart_read_bytes(uart_dev.port, nc_player_handle.recv_buff, event.size, portMAX_DELAY);
                     if (len){
-                        QM_HEX_LOGD("1", "recv ", nc_player_handle.recv_buff, len);
+                        // QM_HEX_LOGD("1", "recv ", nc_player_handle.recv_buff, len);
                         nc_audio_recv_push(nc_player_handle.recv_buff, len);
                     }
                     break;
