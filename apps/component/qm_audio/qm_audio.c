@@ -2,6 +2,7 @@
 #include "qm.h"
 #include "qm_ringbuf.h"
 #include "qm_utils_list.h"
+#include "freertos/FreeRTOS.h"
 
 typedef struct {
     qm_task_t task;
@@ -10,6 +11,7 @@ typedef struct {
     qm_audio_state_t state;
     qm_queue_t queue;
     qm_audio_param_t audio_param;
+    TickType_t xLastWakeTime;
 }qm_audio_ctx_t;
 
 typedef struct {
@@ -28,11 +30,11 @@ typedef struct {
 }qm_audio_event_info_t;
 
 #ifndef CONFIG_QM_AUDIO_TASK_SIZE
-#define CONFIG_QM_AUDIO_TASK_SIZE    (10 * 1024)
+#define CONFIG_QM_AUDIO_TASK_SIZE    (20 * 1024)
 #endif
 
 #ifndef CONFIG_QM_AUDIO_TASK_PRIO   
-#define CONFIG_QM_AUDIO_TASK_PRIO    5
+#define CONFIG_QM_AUDIO_TASK_PRIO    22
 #endif
 
 #ifndef CONFIG_QM_AUDIO_EVENT_QUEUE_LEN   
@@ -44,6 +46,8 @@ static qm_audio_ctx_t g_qm_audio_ctx = {0};
 static void audio_task(void *arg);
 static int data_match(void *a, void *b);
 static int qm_audio_state_set(qm_audio_state_t state);
+static int qm_audio_playing(void);
+static int qm_audio_local_stop(void);
 static int qm_audio_data_reset(qm_list_t *list);
 static int qm_audio_get_high_prior(qm_list_t *list, qm_audio_type_t *audio_type);
 static int qm_audio_data_find(qm_list_t *list, qm_audio_type_t type, qm_list_node_t **node);
@@ -109,15 +113,14 @@ static void audio_task(void *arg)
     int len = 0;
     unsigned int size = 0;
     qm_task_t task = {0};
-    qm_err_t ret = QM_EOK;
     qm_list_node_t *node = NULL;
-    qm_play_data_t *play_data = NULL;
+    qm_play_data_t play_data = {0};
     qm_audio_data_t *audio_data = NULL;
     qm_audio_event_info_t event_info = {0};
     qm_audio_type_t audio_type = QM_AUDIO_TYPE_NONE;
     qm_audio_ctx_t *audio_ctx = (qm_audio_ctx_t*)arg;
     uint32_t timeout = CONFIG_QM_AUDIO_NORMAL_WAIT_TIME;
-
+    int duration_ms = 0;
     memcpy(&task, &audio_ctx->task, sizeof(qm_task_t));
 
     while(1)
@@ -135,61 +138,71 @@ static void audio_task(void *arg)
             case QM_AUDIO_EVENT_PLAY_START:
 
                 timeout = CONFIG_QM_AUDIO_PLAY_WAIT_TIME;
+                audio_ctx->xLastWakeTime = xTaskGetTickCount();
+                
+                memcpy(&play_data, &event_info.data.play_data, sizeof(qm_play_data_t));
 
-                if(audio_type == QM_AUDIO_TYPE_NONE){
-                    play_data = &event_info.data.play_data;
-                    ret = qm_audio_get_high_prior(audio_ctx->list, &audio_type);
-                    if(ret != QM_EOK){
-                        break;
-                    }
-                    if(audio_ctx->audio_param.audio_eventcb){
-                        audio_ctx->audio_param.audio_eventcb(QM_AUDIO_EVENT_PLAY_START, NULL);
-                    }  
+                if(audio_ctx->audio_param.audio_eventcb){
+                    audio_ctx->audio_param.audio_eventcb(QM_AUDIO_EVENT_PLAY_START, NULL);
                 }
 
-                if(play_data->play_get){
-                    play_data->play_get(&data, &len);
+                qm_audio_playing();
+
+            break;
+            case QM_AUDIO_EVENT_PLAYING:
+                if(play_data.play_get){
+                    play_data.play_get(&data, &len);
                     if(data && len){
                         if(audio_ctx->audio_param.audio_play){
-                            audio_ctx->audio_param.audio_play(audio_type, data, len);
+                            audio_ctx->audio_param.audio_play(QM_AUDIO_TYPE_LOCAL, data, len,  &duration_ms);
                         }
-                        qm_msleep(audio_ctx->audio_param.duration_ms);
+                        event_info.event_type = QM_AUDIO_EVENT_PLAYING;
+                        qm_queue_send(&audio_ctx->queue, &event_info, sizeof(qm_audio_event_info_t));
+
+                        if(duration_ms != 0) {
+                            vTaskDelayUntil(&audio_ctx->xLastWakeTime, pdMS_TO_TICKS(duration_ms));
+                        }
                     }else{
-                        qm_audio_stop();
+                        memset(&play_data, 0, sizeof(qm_play_data_t));
+                        qm_audio_local_stop();
                     }
                 }else{
-                    qm_audio_data_find(audio_ctx->list, audio_type, &node);
+                    qm_audio_data_find(audio_ctx->list, QM_AUDIO_TYPE_AGENT, &node);
                     if(node){
                         audio_data = (qm_audio_data_t*)qm_list_node_val_get(node);
                         
                         if(audio_ctx->audio_param.audio_play){
-                            audio_ctx->audio_param.audio_play(audio_type, &audio_data->data[0], audio_data->len);
+                            audio_ctx->audio_param.audio_play(QM_AUDIO_TYPE_AGENT, &audio_data->data[0], audio_data->len, &duration_ms);
                         }
+
                         qm_mutex_lock(&g_qm_audio_ctx.lock, QM_WAIT_FOREVER);
                         qm_list_remove(audio_ctx->list, node);
                         len = qm_list_len_get(audio_ctx->list);
                         qm_mutex_unlock(&g_qm_audio_ctx.lock);
                         qm_list_node_destroy(node);
-
+                        if(duration_ms != 0) {
+                            vTaskDelayUntil(&audio_ctx->xLastWakeTime, pdMS_TO_TICKS(duration_ms));
+                        }
                         if(len){
-                            event_info.event_type = QM_AUDIO_EVENT_PLAY_START;
+                            event_info.event_type = QM_AUDIO_EVENT_PLAYING;
                             qm_queue_send(&audio_ctx->queue, &event_info, sizeof(qm_audio_event_info_t));
+                        } else {
+                            // if(audio_ctx->audio_param.audio_eventcb){
+                            //     audio_ctx->audio_param.audio_eventcb(QM_AUDIO_EVENT_PLAY_STOP, NULL);
+                            // }
                         }
                     }
                 }
-
             break;
-
             case QM_AUDIO_EVENT_PLAY_STOP:
-                
+            case QM_AUDIO_EVENT_PLAY_LOCAL_STOP:
                 timeout = CONFIG_QM_AUDIO_NORMAL_WAIT_TIME;
-                qm_audio_data_reset(audio_ctx->list);
-                memset(&event_info, 0, sizeof(qm_audio_event_info_t));
                 audio_type = QM_AUDIO_TYPE_NONE;
-
+                
                 if(audio_ctx->audio_param.audio_eventcb){
-                    audio_ctx->audio_param.audio_eventcb(QM_AUDIO_EVENT_PLAY_STOP, NULL);
+                    audio_ctx->audio_param.audio_eventcb(event_info.event_type, NULL);
                 } 
+                memset(&event_info, 0, sizeof(qm_audio_event_info_t));
 
             break;
 
@@ -275,7 +288,6 @@ int qm_audio_data_push(qm_audio_type_t type, uint8_t *data, int len)
     if(g_qm_audio_ctx.state != QM_AUDIO_STATE_SPEAK){
         return QM_EOK;
     }
-
     node = qm_list_node_extra_new(sizeof(qm_audio_data_t) - 1 + len);
     if(node == NULL){
         return -QM_ENOMEM;
@@ -292,7 +304,8 @@ int qm_audio_data_push(qm_audio_type_t type, uint8_t *data, int len)
     qm_mutex_unlock(&g_qm_audio_ctx.lock);
 
     if(!list_len){
-        event_info.event_type = QM_AUDIO_EVENT_PLAY_START;
+        g_qm_audio_ctx.xLastWakeTime = xTaskGetTickCount();
+        event_info.event_type = QM_AUDIO_EVENT_PLAYING;
         qm_queue_send(&g_qm_audio_ctx.queue, &event_info, sizeof(qm_audio_event_info_t));
     }
 
@@ -385,7 +398,7 @@ int qm_audio_play_with_data(qm_audio_type_t type, qm_play_data_t *play_data)
     memcpy(&event_info.data.play_data, play_data, sizeof(qm_play_data_t));
 
     qm_mutex_lock(&g_qm_audio_ctx.lock, QM_WAIT_FOREVER);
-    g_qm_audio_ctx.state = QM_AUDIO_STATE_SPEAK;
+    g_qm_audio_ctx.state = QM_AUDIO_STATE_LOCAL_SPEAK;
     qm_mutex_unlock(&g_qm_audio_ctx.lock);
 
     event_info.event_type = QM_AUDIO_EVENT_PLAY_START;
@@ -407,6 +420,15 @@ int qm_audio_play(qm_audio_type_t type)
     qm_mutex_unlock(&g_qm_audio_ctx.lock);
 
     event_info.event_type = QM_AUDIO_EVENT_PLAY_START;
+    qm_queue_send(&g_qm_audio_ctx.queue, &event_info, sizeof(qm_audio_event_info_t));
+    return QM_EOK;
+}
+
+static int qm_audio_playing(void)
+{
+    qm_audio_event_info_t event_info = {0};
+
+    event_info.event_type = QM_AUDIO_EVENT_PLAYING;
     qm_queue_send(&g_qm_audio_ctx.queue, &event_info, sizeof(qm_audio_event_info_t));
     return QM_EOK;
 }
@@ -439,6 +461,15 @@ int qm_audio_pause(void)
 
 int qm_audio_stop(void)
 {
+    qm_mutex_lock(&g_qm_audio_ctx.lock, QM_WAIT_FOREVER);
+    g_qm_audio_ctx.state = QM_AUDIO_STATE_SLIENT;
+    qm_mutex_unlock(&g_qm_audio_ctx.lock);
+
+    return QM_EOK;
+}
+
+int qm_audio_direct_stop(void)
+{
     qm_audio_event_info_t event_info = {0};
 
     qm_mutex_lock(&g_qm_audio_ctx.lock, QM_WAIT_FOREVER);
@@ -446,6 +477,19 @@ int qm_audio_stop(void)
     qm_mutex_unlock(&g_qm_audio_ctx.lock);
 
     event_info.event_type = QM_AUDIO_EVENT_PLAY_STOP;
+    qm_queue_send(&g_qm_audio_ctx.queue, &event_info, sizeof(qm_audio_event_info_t));
+    return QM_EOK;
+}
+
+static int qm_audio_local_stop(void)
+{
+    qm_audio_event_info_t event_info = {0};
+
+    qm_mutex_lock(&g_qm_audio_ctx.lock, QM_WAIT_FOREVER);
+    g_qm_audio_ctx.state = QM_AUDIO_STATE_SLIENT;
+    qm_mutex_unlock(&g_qm_audio_ctx.lock);
+
+    event_info.event_type = QM_AUDIO_EVENT_PLAY_LOCAL_STOP;
     qm_queue_send(&g_qm_audio_ctx.queue, &event_info, sizeof(qm_audio_event_info_t));
     return QM_EOK;
 }

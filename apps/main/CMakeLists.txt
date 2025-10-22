@@ -15,6 +15,23 @@ set(COMPONENT_SRCS
     "./audio/bsp_audio_agora.c"
     "./audio/bsp_audio_opus.c"
     "./audio/audio_cloud.c"
+    "./player/nc_player.c"
+    "./player/bsp_pcm.c"
+    "./player/opus/bsp_pcm_file.c"
+    "./player/opus/dingding_file.c"
+    "./player/opus/power_on_file.c"
+    "./player/opus/conn_file.c"
+    "./player/opus/discon_remind.c"
+    "./player/opus/disconn_file.c"
+    "./player/opus/loss_rssi.c"
+    "./player/opus/low_battery_level.c"
+    "./player/opus/mode_1_file.c"
+    "./player/opus/mode_2_file.c"
+    "./player/opus/mode_3_file.c"
+    "./player/opus/opus_reassure_file.c"
+    "./player/opus/ready_sleep_file.c"
+    "./player/opus/sleep.c"
+    "./player/opus/xjiang_test.c"
 
 
     "./player/qm_player_dev.c"
@@ -22,6 +39,7 @@ set(COMPONENT_SRCS
 
     "./prodtst/audio_prodtst.c"
 
+    "../component/nc_audio/nc_audio.c"
     "../component/qm_audio/qm_audio.c"
     "../component/qm_audio/ws/port/qm_audio_ws_port_lws.c"
     "../component/qm_audio/ws/qm_audio_ws.c"
@@ -87,7 +105,7 @@ set(COMPONENT_SRCS
 
     "$ENV{ADF_PATH}/qumi/components/http/util_httpc.c"
     "$ENV{ADF_PATH}/qumi/components/network/util_net.c"
-
+    "$ENV{ADF_PATH}/qumi/components/comm_base/src/comm_base.c"
     "$ENV{ADF_PATH}/qumi/components/qm_time/src/qm_time.c"
     "$ENV{ADF_PATH}/qumi/components/epochtime/src/qm_epochtime.c"
     # "$ENV{ADF_PATH}/qumi/components/adc_button/adc_button.c"
@@ -163,6 +181,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./cloud"
     "./beacon"
     "./qm_config"
+    "./player"
 
     "./player"
     "./prodtst"
@@ -171,6 +190,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_light/config"
     "../component/qm_light/pwm_alg"
 
+    "../component/nc_audio"
     "../component/qm_audio"
     "../component/qm_audio/common"
     "../component/qm_audio/ws"

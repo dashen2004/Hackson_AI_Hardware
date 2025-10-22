@@ -6,10 +6,10 @@
 #include "lcd.h"
 
 #include "bsp_light.h"
-#include "es8311.h"
 #include "qm_kv.h"
 #include "audio_light.h"
 #include "bsp_audio.h"
+#include "nc_player.h"
 #include "esp_lvgl_port.h"
 
 #include "qm_utils_timer.h"
@@ -150,14 +150,14 @@ void set_var_mute_value(bool value, bool flag) {
 int32_t get_var_volume_value(void) {
     int32_t val = 0;
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    es8311_codec_get_voice_volume((int *)&val);
+    val = nc_audio_get_volume();
 #endif
     return val;
 }
 
 void set_var_volume_value(int32_t value, bool flag) {
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    es8311_codec_set_voice_volume(value);
+    nc_audio_set_volume(value);
     if (flag) {
         qm_kv_set(VOLUME_KEY_NAME, &value, sizeof(int32_t), 1);
     }

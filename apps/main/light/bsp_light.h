@@ -16,10 +16,10 @@ extern "C" {
 #define CONFIG_BSP_LIGHT_FREQ               (4000)
 
 #define CONFIG_BSP_LIGHT_UP_INDEX           (0)
-#define CONFIG_BSP_LIGHT_UP_PIN             (10)
+#define CONFIG_BSP_LIGHT_UP_PIN             (1)
 
 #define CONFIG_BSP_LIGHT_DOWN_INDEX         (1)
-#define CONFIG_BSP_LIGHT_DOWN_PIN           (9)
+#define CONFIG_BSP_LIGHT_DOWN_PIN           (2)
 
 
 //延时关灯计算单元

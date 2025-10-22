@@ -28,14 +28,19 @@ extern "C" {
 #define CONFIG_AUDIO_FMT_CHANNEL       (1)
 #define CONFIG_AUDIO_FMT_DURATION_MS   (40)
 #define CONFIG_AUDIO_START_DELAY_MS    (100)
+#define CONFIG_AUDIO_FMT_SPK_GAIN      (50)
+#define CONFIG_AUDIO_FMT_MIC_GAIN      (32)
+#define CONFIG_AUDIO_FMT_VAD_TIMEOUT   (10) // 40 MS
+#define CONFIG_AUDIO_READY_SLEEP_TIMEOUT_S   (10 * 60)  //休眠时间
+#define CONFIG_AUDIO_RECORED_TIMEOUT         (60 * 1000)  //录音超时时间
+#define CONFIG_AUDIO_WAKEUP_TIMEOUT_S        (3 * 60)
 
 #define CONFIG_AUDIO_FMT_FLOW_CTRL_ENABLE   (1) //
-#define CONFIG_AUDIO_FMT_MIN_LEN       (30) //
-#define CONFIG_AUDIO_FMT_MAX_LEN       (80) //
+#define CONFIG_AUDIO_FMT_MIN_LEN            (30) //
+#define CONFIG_AUDIO_FMT_MAX_LEN            (80) //
 
-#define CONFIG_AUDIO_FMT_MIN_SPEED       (20) //ms
-#define CONFIG_AUDIO_FMT_MAX_SPEED       (80) //ms
-
+#define CONFIG_AUDIO_FMT_MIN_SPEED      (20) //ms
+#define CONFIG_AUDIO_FMT_MAX_SPEED      (80) //ms
 
 #define CONFIG_NETWORK_DELAY_MS         (1500)
 

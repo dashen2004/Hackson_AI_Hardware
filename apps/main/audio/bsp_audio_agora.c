@@ -48,6 +48,9 @@
 #include "qm_agora_stream.h"
 #include "qm_utils_string.h"
 
+#include "nc_audio.h"
+#include "nc_player.h"
+
 #define KV_TAG "AUDIO_MODE"
 
 static const char* TAG = "volc_rtc";
@@ -84,6 +87,8 @@ struct bsp_audio_handle_t {
     qm_work_t  ind_timer;
 
     qm_work_t  reconn_timer;
+
+    qm_sem_t wait_sem;
 
 #if CONFIG_SUPPORT_ONLINE_OPEN_WAV
     int open_or_close;
@@ -565,12 +570,11 @@ static void ind_timeout_handle(void *arg)
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_CONN_WS:
+            if (net_state == CONFIG_AUDIO_SUB_EVENT_NET_ERROR){
 
-            if(net_state == CONFIG_AUDIO_SUB_EVENT_NET_ERROR){
-
-                if(!audio_reset){
+                if (!audio_reset) {
                 #ifdef CONN_CLOUD_WAV
-                    qm_bsp_offline_voice_play(PCM_CONN_CLOUD_ID);
+                    nc_audio_play_bin(BSP_PCM_ID_NET_CONN);
                 #endif
                 }
             }
@@ -616,7 +620,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
 
         #if CONFIG_SUPPORT_ONLINE_OPEN_WAV
             if(!bsp_audio_handle.mute){
-                es8311_set_voice_mute(false);
+                nc_audio_set_mute(false);
             }
             
             player_pipeline_run(bsp_audio_handle.player_pipeline);
@@ -738,8 +742,111 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
     }
 }
 
+void bsp_audio_play_event(bsp_pcm_id_t id, qm_audio_event_t event_id, void *user_data)
+{
+    switch (event_id) {
+    case QM_AUDIO_EVENT_PLAY_LOCAL_STOP:
+        switch (id)
+        {
+            case BSP_PCM_ID_POWER_ON:
+                qm_sem_signal(&bsp_audio_handle.wait_sem);
+            break;
+            default:
+                break;
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_param_t *p_event)
+{
+    nc_audio_mic_data_t *mic_data = &p_event->mic_data;
+
+    switch (event_type)
+    {
+        case NC_AUDIO_EVENT_TYPE_MIC_DATA_GET:
+            switch (mic_data->status)
+            {
+                case NC_AUDIO_VAD_START:
+                    QM_LOGD(TAG, "vad start %d %d", bsp_audio_handle.open_or_close, bsp_audio_handle.ws_connect);
+                    qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_FRESH_WAKETIME_ID, NULL, 0);
+                break;
+                case NC_AUDIO_VAD_DATA:
+                    if(bsp_audio_handle.open_or_close && bsp_audio_handle.ws_connect){
+                        qm_agora_send_data(mic_data->payload, mic_data->payload_len);
+                    }
+                break;
+                case NC_AUDIO_VAD_STOP:
+                    QM_LOGD(TAG, "vad stop");
+                    qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_FRESH_WAKETIME_ID, NULL, 0);
+                break;
+                default:
+                break;
+            }
+            break;
+        case NC_AUDIO_EVENT_TYPE_WAKEUP:
+            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID, NULL, 0);
+        break;
+        default:
+        break;
+    }
+    
+    return QM_EOK;
+}
+
 qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
 {
+    int len = sizeof(int);
+
+    audio_reset = qm_is_crash_reset();
+    qm_kv_get(OPENING_KV_TAG, &open_or_close, &len);
+
+    bsp_audio_handle.ws_connect = QM_FALSE;
+
+    qm_sem_new(&bsp_audio_handle.wait_sem, 0);
+
+    if (prodtst_config_get() == 0) {
+        qm_event_register(CONFIG_AUDIO_MAIN_EVENT_ID, qm_audio_event_handler, NULL);
+    }
+
+    nc_player_param_t player_param = {
+        .event_cb = bsp_audio_play_event,
+        .notify = nc_audio_event_cb,
+        .user_data = &bsp_audio_handle,
+    };
+
+    nc_player_init(player_param);
+
+    qm_agora_cfg_t agora_cfg = {
+        .audio_enable = true,
+        .video_enable = false,
+        .domain_limit = false,
+        .enable_audio_ai_qos = true,
+        .duration = CONFIG_AUDIO_FMT_DURATION_MS,
+        .user_data = &bsp_audio_handle,
+        .audio_cb = qm_audio_data_recv_cb,
+        .stream_cb = qm_agora_stream_event_cb,
+        .event_cb = qm_agora_event_cb,
+    };
+
+    qm_agora_init(agora_cfg);
+
+    if (prodtst_config_get() == 0) {
+        nc_audio_play_bin(BSP_PCM_ID_POWER_ON);
+        qm_sem_wait(&bsp_audio_handle.wait_sem, 12 * 1000);
+        //bsp_refresh_sleep_timeout();
+        nc_audio_set_wakeup_on_off(QM_TRUE);
+    }
+
+    mcu_set_mic_gain(32);
+    nc_audio_cfg(NC_AUDIO_CFG_TYPE_VAD_ONOFF, 10);
+
+    nc_audio_set_spk_volume(nc_audio_get_volume());
+
+    return QM_EOK;
+    /*
     int len = sizeof(int);
     qm_audio_sr_cmd_table_t *sr_cmd = NULL;
     pipe_record_engine_params_t engine_params = {0};
@@ -824,6 +931,7 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
     audio_thread_create(NULL, "voice_read_task", voice_read_task, (void *)NULL, 30 * 1024, 5, true, 1);
 
     return QM_EOK;
+    */
 }
 
 // for external call
@@ -878,11 +986,7 @@ qm_err_t bsp_audio_ota_set_voice_unmute(void)
 qm_err_t bsp_audio_set_voice_mute(bool_t enable)
 {
     bsp_audio_handle.mute = enable;
-    if(enable){
-        es8311_set_voice_mute(true);
-    }else{
-        es8311_set_voice_mute(false);
-    }
+    nc_audio_set_mute(enable);
 
     return QM_EOK;
 }

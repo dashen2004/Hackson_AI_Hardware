@@ -52,3 +52,4 @@ coverage_report/
 
 # ESP-IDF default build directory name
 build
+apps/ui/arrow_lcd_design/*

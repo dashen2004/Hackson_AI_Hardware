@@ -8,6 +8,7 @@
 #include "wav_decoder.h"
 #include "es7210.h"
 #include "es8311.h"
+#include "nc_player.h"
 
 
 #if defined (CONFIG_AUDIO_SUPPORT_OPUS_DECODER)
@@ -280,7 +281,7 @@ qm_audio_stream_handle_t create_ch1_to_ch2_rsp_stream() // create_audio_player_r
 
 int audio_play_stream_mute(bool_t enable)
 {
-    // es8311_set_voice_mute(enable);
+    nc_audio_set_mute(enable);
     return QM_EOK;
 }
 

@@ -54,7 +54,9 @@ void screen_wakeup_timeout_exit(void)
 
 void ui_init() {
     create_screens();
+
     if (get_var_awss_value()) {
+        // if reboot because of netconfig, go to netconfig page
         extern void goto_netconfig_process_page(void);
         goto_netconfig_process_page();
     } else {
