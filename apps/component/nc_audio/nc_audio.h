@@ -12,6 +12,10 @@ extern "C" {
 #define CONFIG_NC_AUDIO_RECV_MAX_SIZE        (512)
 #endif
 
+#ifndef CONFIG_NC_AUDIO_INIT_TIMEOUT_MS  
+#define CONFIG_NC_AUDIO_INIT_TIMEOUT_MS      (1 * 1000)
+#endif
+
 /// 数据接收超时(从帧头开始计时)
 #ifndef CONFIG_NC_AUDIO_RECV_TIMEOUT_MS  
 #define CONFIG_NC_AUDIO_RECV_TIMEOUT_MS      (2000)

@@ -461,13 +461,13 @@ void nc_player_init(nc_player_param_t player_param)
     nc_player_handle.user_data = player_param.user_data;
     nc_player_handle.play_pcm_id = BSP_PCM_ID_MAX;
     
-    if(qm_mutex_new(&nc_player_handle.lock) != QM_EOK){
+    if (qm_mutex_new(&nc_player_handle.lock) != QM_EOK) {
         return;
     }
     nc_audio_init(&param);
 
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_SLIENT_TIMEOUT, (CONFIG_AUDIO_WAKEUP_TIMEOUT_S  + CONFIG_AUDIO_READY_SLEEP_TIMEOUT_S));
-    nc_audio_cfg(NC_AUDIO_CFG_TYPE_MAX_RECORD_TIME, CONFIG_AUDIO_RECORED_TIMEOUT/1000);
+    nc_audio_cfg(NC_AUDIO_CFG_TYPE_MAX_RECORD_TIME, CONFIG_AUDIO_RECORED_TIMEOUT / 1000);
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_VAD_ONOFF, CONFIG_AUDIO_FMT_VAD_TIMEOUT);
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_WAKEUP_ONOFF, QM_FALSE);
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_TIMEOUT_ONTIFY_ONOFF, QM_TRUE);

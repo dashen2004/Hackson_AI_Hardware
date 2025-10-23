@@ -14,6 +14,7 @@ typedef struct
 typedef struct 
 {
     qm_mutex_t lock;
+    qm_sem_t init_sem;
     uint16_t need_len;
     nc_audio_event_t event_notify;
     nc_audio_fmt_type_t           fmt_type;          /*!< 音频格式*/
@@ -282,6 +283,7 @@ int32_t nc_audio_init(nc_audio_param_t *param)
 
 #if CONFIG_QM_OS_SUPPORT
     qm_mutex_new(&g_comm_ctx->lock);
+    qm_sem_new(&g_comm_ctx->init_sem, 0);
 #endif
 
     comm_base_init(&base_param);
@@ -306,6 +308,8 @@ int32_t nc_audio_init(nc_audio_param_t *param)
 
     qm_msleep(100);
     comm_base_cmd_send(NC_AUDIO_SUB_CMD_GET_MCU_VER, CONFIG_NC_AUDIO_SEND_COUNT, CONFIG_NC_AUDIO_SEND_TIMEOUT_MS, (void *)&send_data);
+
+    qm_sem_wait(&g_comm_ctx->init_sem, CONFIG_NC_AUDIO_INIT_TIMEOUT_MS);
 
     return QM_EOK;
 }
@@ -507,9 +511,11 @@ static int mcu_get_ver_unpack(uint8_t *data, int len)
     }
     memcpy(mcu_ver, header->payload, payload_len - 1);
 
-    if(!mcu_ver->type){
+    if (!mcu_ver->type) {
         comm_base_cmd_send(NC_AUDIO_SUB_CMD_GET_MCU_VER, CONFIG_NC_AUDIO_SEND_COUNT, CONFIG_NC_AUDIO_SEND_TIMEOUT_MS, (void *)&send_data);
-    }else{
+    } else {
+        qm_sem_signal(&g_comm_ctx->init_sem);
+
         spk_cfg.bit = mic_cfg.bit = g_comm_ctx->bits;
         spk_cfg.type = mic_cfg.type = g_comm_ctx->fmt_type;
         spk_cfg.rate = mic_cfg.rate = cpu_to_be32(g_comm_ctx->rate);
@@ -530,7 +536,7 @@ static int mcu_get_ver_unpack(uint8_t *data, int len)
         nc_audio_cfg(NC_AUDIO_CFG_TYPE_VAD_ONOFF, g_comm_ctx->vad_timeout);
     }
     
-    if(g_comm_ctx->event_notify){
+    if (g_comm_ctx->event_notify) {
         g_comm_ctx->event_notify(NC_AUDIO_EVENT_TYPE_GET_MCU_VER, &event);
     }
     
