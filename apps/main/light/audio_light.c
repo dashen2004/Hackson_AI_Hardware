@@ -68,10 +68,10 @@ static qm_err_t rtc_login_info_channel_name_report(qm_spec_property_t *property)
 static qm_err_t rtc_login_info_token_report(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_license_value_report(qm_spec_property_t *property);
 
-extern int audio_stream_EGV_set(uint8_t type);
-extern int audio_stream_EGV_get(void);
-extern int audio_stream_ALG_set(float type);
-extern float audio_stream_ALG_get(void);
+// extern int audio_stream_EGV_set(uint8_t type);
+// extern int audio_stream_EGV_get(void);
+// extern int audio_stream_ALG_set(float type);
+// extern float audio_stream_ALG_get(void);
 static qm_err_t EGV_aciton(qm_spec_property_t *property)
 {
     char data[10] = {0};
@@ -86,7 +86,7 @@ static qm_err_t EGV_aciton(qm_spec_property_t *property)
         return QM_ERROR;
     }
 
-    audio_stream_EGV_set(value);
+    // audio_stream_EGV_set(value);
     return QM_EOK;
 }
 
@@ -104,7 +104,7 @@ static qm_err_t EGV_report(qm_spec_property_t *property)
 
     qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_EGV_SIID, CONFIG_AUDIO_EGV_PIID);
     char data[10] = {0};
-    sprintf(data, "%d", audio_stream_EGV_get());
+    //sprintf(data, "%d", audio_stream_EGV_get());
     qm_spec_property_pack_string(property_pre, data, strlen(data));
     qm_spec_property_add(property_operation, property_pre);
     return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
@@ -123,7 +123,7 @@ static qm_err_t ALG_aciton(qm_spec_property_t *property)
         return QM_ERROR;
     }
 
-    audio_stream_ALG_set(value);
+    // audio_stream_ALG_set(value);
     return QM_EOK;
 }
 
@@ -141,7 +141,7 @@ static qm_err_t ALG_report(qm_spec_property_t *property)
 
     qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_EGV_SIID, CONFIG_AUDIO_EGV_PIID);
     char data[10] = {0};
-    sprintf(data, "%1f", audio_stream_ALG_get());
+    // sprintf(data, "%1f", audio_stream_ALG_get());
     qm_spec_property_pack_string(property_pre, data, strlen(data));
     qm_spec_property_add(property_operation, property_pre);
     return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
@@ -167,19 +167,19 @@ static audio_light_table_t g_light_table[] =
     {CONFIG_AUDIO_VOICE_CONTROL_SIID,   CONFIG_AUDIO_VOICE_CORPUS_PIID,     voice_corpus_action,voice_corpus_report},
     {CONFIG_AUDIO_VOICE_CONTROL_SIID,   CONFIG_AUDIO_VOICE_ABORT_PIID,      voice_abort_action,  voice_abort_report},
     {CONFIG_AUDIO_VOICE_CONTROL_SIID,   CONFIG_AUDIO_VOICE_EMOTION_PIID,    voice_emotion_action,  voice_emotion_report},
-    {CONFIG_AUDIO_EGV_SIID,     CONFIG_AUDIO_EGV_PIID,      EGV_aciton,  EGV_report},
-    {CONFIG_AUDIO_ALG_SIID,     CONFIG_AUDIO_ALG_PIID,      ALG_aciton,  ALG_report},
+    {CONFIG_AUDIO_EGV_SIID,             CONFIG_AUDIO_EGV_PIID,              EGV_aciton,  EGV_report},
+    {CONFIG_AUDIO_ALG_SIID,             CONFIG_AUDIO_ALG_PIID,              ALG_aciton,  ALG_report},
     //RTC登录信息UID
-    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_UID_PIID, rtc_login_info_uid, rtc_login_info_uid_report},
+    {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_UID_PIID,          rtc_login_info_uid, rtc_login_info_uid_report},
     //RTC登录信息APPID
-    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_APPID_PIID, rtc_login_info_appid, rtc_login_info_appid_report},
+    {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_APPID_PIID,        rtc_login_info_appid, rtc_login_info_appid_report},
     //RTC登录信息channal name
-    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_CHANNAL_NAME_PIID, rtc_login_info_channel_name, rtc_login_info_channel_name_report},
+    {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_CHANNAL_NAME_PIID, rtc_login_info_channel_name, rtc_login_info_channel_name_report},
     //RTC登录信息token
-    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_TOKEN_PIID, rtc_login_info_token,rtc_login_info_token_report},
+    {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_TOKEN_PIID,        rtc_login_info_token,rtc_login_info_token_report},
 #if CONFIG_AGORA_USE_LICENSE
     //RTC登录信息license value
-    {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_LICENSE_VALUE_PIID, rtc_login_info_license_value,rtc_login_info_license_value_report},
+    {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_LICENSE_VALUE_PIID, rtc_login_info_license_value,rtc_login_info_license_value_report},
 #endif
 };
 

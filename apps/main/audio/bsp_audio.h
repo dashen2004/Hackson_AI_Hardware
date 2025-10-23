@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 #include "qm.h"
-#include "qm_audio_sr.h"
+// #include "qm_audio_sr.h"
 #include "qm_audio_ws.h"
 
 typedef struct {

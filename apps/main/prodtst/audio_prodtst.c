@@ -277,7 +277,7 @@ static qm_at_result_t at_set_voice(void *channel, const char *args)
         vTaskDelay(voice.wait / portTICK_PERIOD_MS);
     }
     for(uint8_t i = 0; i < voice.count; i++) {
-        while(qm_bsp_voice_is_idle() != 1) {
+        while(bsp_audio_player_is_idle() != 1) {
             vTaskDelay(10 / portTICK_PERIOD_MS);
         }
         if(voice.interval) {

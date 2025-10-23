@@ -179,7 +179,7 @@ void wakeup_quit_immediately_trigger(uint8_t action)
     }
 }
 
-uint8_t qm_bsp_voice_is_idle(void) {
+uint8_t bsp_audio_player_is_idle(void) {
     return qm_player_is_idle(bsp_audio_handle.player_handle);
 }
 

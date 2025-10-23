@@ -10,7 +10,7 @@
 #include "audio_main.h"
 #include "audio_cloud.h"
 #include "audio_light.h"
-#include "audio_prodtst.h"
+// #include "audio_prodtst.h"
 
 #define QM_RESET_TAG        "qm_reset"
 #define QM_RESET_UNKNOWN    (1)
@@ -46,10 +46,10 @@ void qm_application_start(void)
     int flag = QM_RESET_UNKNOWN;
     int len = sizeof(int);
 
-    if (prodtst_config_get() == 1) {
-        esp_log_set_level_master(ESP_LOG_NONE);
-        qm_set_log_level(QM_LL_NONE);
-    }
+    // if (prodtst_config_get() == 1) {
+    //     esp_log_set_level_master(ESP_LOG_NONE);
+    //     qm_set_log_level(QM_LL_NONE);
+    // }
 
     QM_LOGD("1", "Ver:%s", CONFIG_AUDIO_LIGHT_HW_VERSION);
 
@@ -84,9 +84,11 @@ void qm_application_start(void)
 
     lcd_init();
 
-    if (prodtst_config_get() == 0) {
-        audio_light_init();
-    }
+    // if (prodtst_config_get() == 0) {
+    //     audio_light_init();
+    // }
+    
+    audio_light_init();
 
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)
     audio_cloud_init();
@@ -95,9 +97,9 @@ void qm_application_start(void)
     set_var_volume_value(volume, false);
 #endif
 
-    if (audio_prodtst_init() == 1) {
-        return;
-    }
+    // if (audio_prodtst_init() == 1) {
+    //     return;
+    // }
 
 #if (CONFIG_LCD_DISABLE_CLOUD == 0)
     xjiang_cloud_init();

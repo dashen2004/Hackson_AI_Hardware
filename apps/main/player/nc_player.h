@@ -36,7 +36,7 @@ int32_t nc_audio_set_wakeup_on_off(bool onoff);
 int32_t nc_audio_set_wakeup_state_on_off(bool onoff);
 int32_t nc_audio_set_mute(bool mute);
 bool nc_audio_get_mute(void);
-//void qm_agora_set_agent_state(qm_agent_state_t state, const char *text);
+void qm_agora_set_agent_state(qm_agent_state_t state, const char *text);
 
 #ifdef __cplusplus
 }
