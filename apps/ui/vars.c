@@ -130,6 +130,38 @@ void set_var_light_mode(int8_t value, bool flag) {
     bsp_light_store_update();
 }
 
+int8_t get_var_rgb_select(void) {
+    return bsp_light_store_get()->rgb_sel;
+}
+
+void set_var_rgb_select(int8_t value, bool flag) {
+    bsp_rgb_select(value);
+    // audio_light_snapshot_report();
+    bsp_light_store_update();
+}
+
+uint64_t get_var_rgb_value(void) {
+    return bsp_light_store_get()->rgb_val;
+}
+
+void set_var_rgb_value(uint64_t value) {
+    bsp_rgb_value_set(value);
+    // audio_light_snapshot_report();
+    bsp_light_store_update();
+}
+
+int8_t get_var_rgb_on_off(void) {
+    return bsp_light_store_get()->rgb_on_off;
+}
+
+void set_var_rgb_on_off(int8_t value) {
+    if (bsp_light_store_get()->rgb_on_off != value) {
+        bsp_light_rgb_on_off(value);
+        //audio_light_snapshot_report();
+        bsp_light_store_update();
+    }
+}
+
 bool get_var_mute_value(void) {
     int mute = 0;
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)

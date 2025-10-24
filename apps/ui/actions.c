@@ -236,7 +236,64 @@ static void goto_brightness_page(void) {
     uint32_t timeout = bsp_lcd_get_turnoff_timeout();
     set_var_turnoff_value(timeout);
     loadScreenEx(SCREEN_ID_PAGE_BRIGHTNESS);
-} 
+}
+
+// ******** rgb选择页面 ******** //
+void action_rgb_red_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->rgb_sel != BSP_RGB_SELECT_RED) {
+        set_var_rgb_select(BSP_RGB_SELECT_RED, true);
+        turnoff_timer_reset(0);
+        tick_screen_page_rgb();
+    }
+}
+
+void action_rgb_orange_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->rgb_sel != BSP_RGB_SELECT_ORANGE) {
+        set_var_rgb_select(BSP_RGB_SELECT_ORANGE, true);
+        turnoff_timer_reset(0);
+        tick_screen_page_rgb();
+    }
+}
+
+void action_rgb_green_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->rgb_sel != BSP_RGB_SELECT_GREEN) {
+        set_var_rgb_select(BSP_RGB_SELECT_GREEN, true);
+        turnoff_timer_reset(0);
+        tick_screen_page_rgb();
+    }
+}
+
+void action_rgb_blue_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->rgb_sel != BSP_RGB_SELECT_BLUE) {
+        set_var_rgb_select(BSP_RGB_SELECT_BLUE, true);
+        turnoff_timer_reset(0);
+        tick_screen_page_rgb();
+    }
+}
+
+void action_rgb_purple_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->rgb_sel != BSP_RGB_SELECT_PURPLE) {
+        set_var_rgb_select(BSP_RGB_SELECT_PURPLE, true);
+        turnoff_timer_reset(0);
+        tick_screen_page_rgb();
+    }
+}
+
+void action_rgb_colorful_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0 && bsp_light_store_get()->rgb_sel != BSP_RGB_SELECT_COLORFUL) {
+        set_var_rgb_select(BSP_RGB_SELECT_COLORFUL, true);
+        turnoff_timer_reset(0);
+        tick_screen_page_rgb();
+    }
+}
+
+void action_rgb_switch_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
+        set_var_rgb_on_off(bsp_light_store_get()->rgb_on_off ? QM_FALSE : QM_TRUE);
+        turnoff_timer_reset(0);
+        tick_screen_page_rgb();
+    }
+}
 
 static void goto_rgb_page(void) {
     uint32_t timeout = bsp_lcd_get_turnoff_timeout();

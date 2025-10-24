@@ -303,10 +303,90 @@ qm_err_t bsp_light_select(bsp_light_sel_t sel)
     return QM_EOK;
 }
 
+// rgb on off
+qm_err_t bsp_light_rgb_on_off(bool_t on_off)
+{
+    bsp_light_store_t *store = bsp_light_store_get();
+
+    if (on_off) {
+        //light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+       
+    } else {
+        //light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+    }
+
+    store->rgb_on_off = on_off;
+    
+    return QM_EOK;
+}
+
+// rgb select
+qm_err_t bsp_rgb_select(bsp_rgb_select_t select)
+{
+    if (select <= BSP_RGB_SELECT_NONE || select > BSP_RGB_SELECT_COLORFUL) {
+        return QM_EINVAL;
+    }
+
+    bsp_light_store_t *store = bsp_light_store_get();
+
+    store->rgb_sel = select;
+    store->rgb_on_off = QM_TRUE;
+
+    switch (select) 
+    {
+        case BSP_RGB_SELECT_RED:
+            store->rgb_val = CONFIG_BSP_RGB_RED_DEFAULT_VALUE;
+        break;
+
+        case BSP_RGB_SELECT_ORANGE:
+            store->rgb_val = CONFIG_BSP_RGB_ORANGE_DEFAULT_VALUE;
+        break;
+
+        case BSP_RGB_SELECT_GREEN:
+            store->rgb_val = CONFIG_BSP_RGB_GREEN_DEFAULT_VALUE;
+        break;
+
+        case BSP_RGB_SELECT_BLUE:
+            store->rgb_val = CONFIG_BSP_RGB_BLUE_DEFAULT_VALUE;
+        break;
+
+        case BSP_RGB_SELECT_PURPLE:
+            store->rgb_val = CONFIG_BSP_RGB_PURPLE_DEFAULT_VALUE;
+        break;
+
+        case BSP_RGB_SELECT_COLORFUL:
+            store->rgb_val = CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE;
+        break;
+
+        default:
+            break;
+    }
+
+    // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+
+    return QM_EOK;
+}
+
+// rgb value set
+qm_err_t bsp_rgb_value_set(uint64_t val)
+{
+    if (val > 0x00FFFFFF) {
+        return QM_EINVAL;
+    }
+
+    bsp_light_store_t *store = bsp_light_store_get();
+
+    store->rgb_val = val;
+    store->rgb_on_off = QM_TRUE;
+
+    // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+
+    return QM_EOK;
+}
+
 //亮度  亮度范围值
 qm_err_t bsp_light_bri_set(int bri)
 {
-
     bsp_light_store_t *store = bsp_light_store_get();
 
     switch (store->sel)

@@ -54,8 +54,14 @@ extern "C" {
 #define CONFIG_BSP_LIGHT_UP_DEFAULT_BRI         (LIGHT_LIGHTNESS_UNIT(100))
 #define CONFIG_BSP_LIGHT_DOWN_DEFAULT_BRI       (LIGHT_LIGHTNESS_UNIT(100))
 
-
-//
+// rgb default value
+#define CONFIG_BSP_RGB_RED_DEFAULT_VALUE        (0x00FD5B3F)
+#define CONFIG_BSP_RGB_ORANGE_DEFAULT_VALUE     (0x00FD9B3F)
+#define CONFIG_BSP_RGB_BLUE_DEFAULT_VALUE       (0x003FB7FD)
+#define CONFIG_BSP_RGB_GREEN_DEFAULT_VALUE      (0x0060FD5A)
+#define CONFIG_BSP_RGB_PURPLE_DEFAULT_VALUE     (0x008B3FFC)
+#define CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE   (0x00D2691E)
+#define CONFIG_BSP_RGB_SHUTDOWN_VALUE           (0x00E0E0E0)
 
 //灯光简易算法
 #define LIGHT_CLAMP(x)  (x)  //server will do clamp, 或者调光曲线负责最低亮度的限制
@@ -96,6 +102,17 @@ typedef enum
     BSP_LIGHT_BRI_GRAD_DOWN     = 2,     //暗一点
 }bsp_light_bri_grad_t;
 
+typedef enum 
+{
+    BSP_RGB_SELECT_NONE     = 0,
+    BSP_RGB_SELECT_RED      = 1,
+    BSP_RGB_SELECT_ORANGE   = 2,
+    BSP_RGB_SELECT_GREEN    = 3,
+    BSP_RGB_SELECT_BLUE     = 4,
+    BSP_RGB_SELECT_PURPLE   = 5,
+    BSP_RGB_SELECT_COLORFUL = 6,
+}bsp_rgb_select_t;
+
 typedef struct  {
 
     uint8_t is_reset;
@@ -114,6 +131,10 @@ typedef struct  {
 
     bsp_light_mode_t mode;
 
+    bsp_rgb_select_t rgb_sel;
+    uint64_t rgb_val;
+    uint8_t rgb_on_off;
+
 } bsp_light_store_t;
 
 qm_err_t bsp_light_init(void);
@@ -129,14 +150,23 @@ qm_err_t bsp_light_store_update(void);
 //开关
 qm_err_t bsp_light_bri_on_off(bool_t on_off);
 
+// rgb on off
+qm_err_t bsp_light_rgb_on_off(bool_t on_off);
+
 //模式
 qm_err_t bsp_light_mode(bsp_light_mode_t mode);
 
 //灯源选择
 qm_err_t bsp_light_select(bsp_light_sel_t sel);
 
+// rgb select
+qm_err_t bsp_rgb_select(bsp_rgb_select_t select);
+
 //亮度  亮度范围值 0 ~ 100
 qm_err_t bsp_light_bri_set(int bri);
+
+// rgb value set
+qm_err_t bsp_rgb_value_set(uint64_t value);
 
 //上光亮度  亮度范围值 0 ~ 100
 qm_err_t bsp_light_bri_up_set(int bri);

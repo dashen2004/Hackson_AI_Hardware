@@ -53,7 +53,12 @@ void set_var_temperature(int8_t value);
 
 int8_t get_var_light_mode(void);
 void set_var_light_mode(int8_t value, bool flag);
-
+int8_t get_var_rgb_select(void);
+void set_var_rgb_select(int8_t value, bool flag);
+uint64_t get_var_rgb_value(void);
+void set_var_rgb_value(uint64_t value);
+int8_t get_var_rgb_on_off(void);
+void set_var_rgb_on_off(int8_t value);
 // void set_var_weather_info_got(bool timeout, char *__city, int __weather_id, int __temperature);
 // bool get_var_weather_info_got(void);
 
