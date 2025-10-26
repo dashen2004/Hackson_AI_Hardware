@@ -533,6 +533,12 @@ static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_dat
     }
 }
 
+void bsp_lcd_set_int_screen(void) {
+    set_var_emotion_id(20);
+    set_var_subtitles(CONFIG_AUDIO_INT_HINT_TEXT);
+    turnoff_timer_reset(1);
+}
+
 extern void goto_recog_page(void);
 
 void turnoff_timer_reset(uint8_t flag) { // 0 - screen operation, 1 - audio receive

@@ -7,6 +7,7 @@ set(COMPONENT_SRCS
     "./apps/main.c" 
     "./apps/audio_main.c"
  
+    "./button/bsp_button.c"
     "./light/bsp_light.c"
     "./light/audio_light.c"
     "./cloud/xjiang_cloud.c"
@@ -100,6 +101,7 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ntp/qm_iot_ntp.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/shadow/qm_iot_shadow.c"
 
+    "$ENV{ADF_PATH}/qumi/components/multi_button/multi_button.c"
     "$ENV{ADF_PATH}/qumi/components/http/util_httpc.c"
     "$ENV{ADF_PATH}/qumi/components/network/util_net.c"
     "$ENV{ADF_PATH}/qumi/components/comm_base/src/comm_base.c"
@@ -175,6 +177,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./apps"
     "./audio"
     # "./beacon"
+    "./button"
     "./cloud"
     "./light"
     "./player"

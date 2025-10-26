@@ -5,6 +5,7 @@
 #include "esp_system.h"
 
 #include "lcd.h"
+#include "bsp_button.h"
 #include "xjiang_cloud.h"
 
 #include "audio_main.h"
@@ -100,6 +101,8 @@ void qm_application_start(void)
     // if (audio_prodtst_init() == 1) {
     //     return;
     // }
+
+    bsp_button_init();
 
 #if (CONFIG_LCD_DISABLE_CLOUD == 0)
     xjiang_cloud_init();

@@ -17,6 +17,7 @@
 #include "raw_stream.h"
 
 #include "ui.h"
+#include "lcd.h"
 #include "bsp_audio.h"
 #include "bsp_light.h"
 #include "nc_player.h"
@@ -355,7 +356,8 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             bsp_wakeup_time_refresh();
         break;
 
-        case CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID: 
+        case CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID:
+            set_wakeup_timeout_flag(QM_FALSE);
             bsp_wakeup_time_refresh();
 
         #if CONFIG_SUPPORT_ONLINE_OPEN_WAV
@@ -395,6 +397,25 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                 }
             }
         #endif
+        break;
+
+        case CONFIG_AUDIO_SUB_EVENT_BUTTON_WAKEUP_ID:
+            if (bsp_audio_handle.open_or_close) {
+                qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_AGORA_MUTE_ID, NULL, 0);
+                bsp_lcd_set_int_screen();
+            }
+            else {
+                qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID, NULL, 0);
+            }
+        break;
+
+        case CONFIG_AUDIO_SUB_EVENT_BUTTON_MUTE_ID:
+        break;
+
+        case CONFIG_AUDIO_SUB_EVENT_BUTTON_WAKEUP_HOLD_ID:
+        break;
+
+        case CONFIG_AUDIO_SUB_EVENT_BUTTON_MUTE_HOLD_ID:
         break;
 
         case CONFIG_AUDIO_USB_EVENT_CONNING_LOCAL:
@@ -502,7 +523,6 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
             }
             break;
         case NC_AUDIO_EVENT_TYPE_WAKEUP:
-            set_wakeup_timeout_flag(QM_FALSE);
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID, NULL, 0);
         break;
         default:
