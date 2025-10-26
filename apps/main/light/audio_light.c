@@ -43,6 +43,8 @@ static qm_err_t rtc_login_info_appid(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_channel_name(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_token(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_license_value(qm_spec_property_t *property);
+static qm_err_t rgb_onoff_aciton(qm_spec_property_t *property);
+static qm_err_t rgb_value_aciton(qm_spec_property_t *property);
 
 static qm_err_t onoff_report(qm_spec_property_t *property);
 static qm_err_t bri_report(qm_spec_property_t *property);
@@ -67,6 +69,8 @@ static qm_err_t rtc_login_info_appid_report(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_channel_name_report(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_token_report(qm_spec_property_t *property);
 static qm_err_t rtc_login_info_license_value_report(qm_spec_property_t *property);
+static qm_err_t rgb_onoff_report(qm_spec_property_t *property);
+static qm_err_t rgb_value_report(qm_spec_property_t *property);
 
 // extern int audio_stream_EGV_set(uint8_t type);
 // extern int audio_stream_EGV_get(void);
@@ -176,11 +180,13 @@ static audio_light_table_t g_light_table[] =
     //RTC登录信息channal name
     {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_CHANNAL_NAME_PIID, rtc_login_info_channel_name, rtc_login_info_channel_name_report},
     //RTC登录信息token
-    {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_TOKEN_PIID,        rtc_login_info_token,rtc_login_info_token_report},
+    {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_TOKEN_PIID,        rtc_login_info_token, rtc_login_info_token_report},
 #if CONFIG_AGORA_USE_LICENSE
     //RTC登录信息license value
-    {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_LICENSE_VALUE_PIID, rtc_login_info_license_value,rtc_login_info_license_value_report},
+    {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_LICENSE_VALUE_PIID, rtc_login_info_license_value, rtc_login_info_license_value_report},
 #endif
+    {CONFIG_AUDIO_RGB_ONOFF_SIID,       CONFIG_AUDIO_RGB_ONOFF_PIID,        rgb_onoff_aciton,  rgb_onoff_report},
+    {CONFIG_AUDIO_RGB_VALUE_SIID,       CONFIG_AUDIO_RGB_VALUE_PIID,        rgb_value_aciton,  rgb_value_report},
 };
 
 qm_err_t audio_light_init(void)
@@ -235,6 +241,14 @@ qm_err_t audio_light_snapshot_report(void)
 //灯源选择
     audio_light_add(property_operation, 
         CONFIG_AUDIO_LIGHT_SEL_SIID, CONFIG_AUDIO_LIGHT_SEL_PIID, CONFIG_AUDIO_LIGHT_SEL_TYPE, (int)(store->sel));
+
+//rgb on_off
+    audio_light_add(property_operation, 
+        CONFIG_AUDIO_RGB_ONOFF_SIID, CONFIG_AUDIO_RGB_ONOFF_PIID, CONFIG_AUDIO_RGB_ONOFF_TYPE, (int)(store->rgb_on_off));
+
+//rgb value
+    audio_light_add(property_operation, 
+        CONFIG_AUDIO_RGB_VALUE_SIID, CONFIG_AUDIO_RGB_VALUE_PIID, CONFIG_AUDIO_RGB_VALUE_TYPE, (int)(store->rgb_val));
 
     return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
 }
@@ -828,4 +842,40 @@ static qm_err_t rtc_login_info_license_value(qm_spec_property_t *property)
 static qm_err_t rtc_login_info_license_value_report(qm_spec_property_t *property)
 {
     return QM_EOK;
+}
+
+// rgb on off
+static qm_err_t rgb_onoff_aciton(qm_spec_property_t *property)
+{
+    bool_t onoff = QM_FALSE;
+    qm_spec_property_unpack_bool(property, &onoff);
+
+    bsp_light_rgb_on_off(onoff);
+
+    bsp_light_store_update();
+
+    return QM_EOK;
+}
+
+static qm_err_t rgb_onoff_report(qm_spec_property_t *property)
+{
+   return audio_light_snapshot_report();
+}
+
+// rgb value
+static qm_err_t rgb_value_aciton(qm_spec_property_t *property)
+{
+    int rgb_val = 0;
+    qm_spec_property_unpack_number(property, &rgb_val);
+
+    bsp_light_rgb_value_set(rgb_val);
+
+    bsp_light_store_update();
+
+    return QM_EOK;
+}
+
+static qm_err_t rgb_value_report(qm_spec_property_t *property)
+{
+    return audio_light_snapshot_report();
 }

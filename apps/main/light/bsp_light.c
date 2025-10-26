@@ -55,7 +55,46 @@ static bsp_light_info_t g_light_info[CONFIG_BSP_LIGHT_NUM] =
             .cb = qm_light_driver_event,
             .arg = (void *)&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX],
         },
-    }
+    },
+
+    // 红灯
+    {
+        .alg_id = QM_LIGHT_ALG_ID_AUX,
+        .base = {
+            .port = CONFIG_BSP_LIGHT_RED_INDEX,
+            .freq = CONFIG_BSP_LIGHT_FREQ,
+            .pin = CONFIG_BSP_LIGHT_RED_PIN, 
+            .level = QM_LIGHT_DRIVER_LEVEL_HIGH,
+            .cb = qm_light_driver_event,
+            .arg = (void *)&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX],
+        },
+    },
+
+    // 绿灯
+    {
+        .alg_id = QM_LIGHT_ALG_ID_AUX,
+        .base = {
+            .port = CONFIG_BSP_LIGHT_GREEN_INDEX,
+            .freq = CONFIG_BSP_LIGHT_FREQ,
+            .pin = CONFIG_BSP_LIGHT_GREEN_PIN, 
+            .level = QM_LIGHT_DRIVER_LEVEL_HIGH,
+            .cb = qm_light_driver_event,
+            .arg = (void *)&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX],
+        },
+    },
+
+    // 蓝灯
+    {
+        .alg_id = QM_LIGHT_ALG_ID_AUX,
+        .base = {
+            .port = CONFIG_BSP_LIGHT_BLUE_INDEX,
+            .freq = CONFIG_BSP_LIGHT_FREQ,
+            .pin = CONFIG_BSP_LIGHT_BLUE_PIN, 
+            .level = QM_LIGHT_DRIVER_LEVEL_HIGH,
+            .cb = qm_light_driver_event,
+            .arg = (void *)&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX],
+        },
+    },
 };
 
 static void qm_light_driver_event(qm_light_driver_handle_t handle, qm_light_driver_event_type_t event_type, void* arg)
@@ -116,6 +155,24 @@ static void light_total_lightness_update(void)
             break;
     }
     QM_LOGD(LOG_TAG,"[update]:%d,(%d,%d)\n", store->total_bri, store->up_bri, store->down_bri);
+}
+
+static void light_set_rgb(uint8_t on_off)
+{
+    bsp_light_store_t *store = bsp_light_store_get();
+
+    static uint16_t rgb_lightness[3] = {0};
+    qm_light_alg_conver_rgb_to_lightness(store->rgb_val, rgb_lightness, 3);
+
+    if (on_off) {
+        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], rgb_lightness[0], CONFIG_BSP_LIGHT_FADE_TIME);
+        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], rgb_lightness[1], CONFIG_BSP_LIGHT_FADE_TIME);
+        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], rgb_lightness[2], CONFIG_BSP_LIGHT_FADE_TIME);
+    } else {
+        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+    }
 }
 
 qm_err_t bsp_light_store_update(void)
@@ -308,12 +365,7 @@ qm_err_t bsp_light_rgb_on_off(bool_t on_off)
 {
     bsp_light_store_t *store = bsp_light_store_get();
 
-    if (on_off) {
-        //light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
-       
-    } else {
-        //light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
-    }
+    light_set_rgb(on_off);
 
     store->rgb_on_off = on_off;
     
@@ -321,7 +373,7 @@ qm_err_t bsp_light_rgb_on_off(bool_t on_off)
 }
 
 // rgb select
-qm_err_t bsp_rgb_select(bsp_rgb_select_t select)
+qm_err_t bsp_light_rgb_select(bsp_rgb_select_t select)
 {
     if (select <= BSP_RGB_SELECT_NONE || select > BSP_RGB_SELECT_COLORFUL) {
         return QM_EINVAL;
@@ -362,13 +414,13 @@ qm_err_t bsp_rgb_select(bsp_rgb_select_t select)
             break;
     }
 
-    // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+    light_set_rgb(QM_TRUE);
 
     return QM_EOK;
 }
 
 // rgb value set
-qm_err_t bsp_rgb_value_set(uint64_t val)
+qm_err_t bsp_light_rgb_value_set(uint32_t val)
 {
     if (val > 0x00FFFFFF) {
         return QM_EINVAL;
@@ -379,7 +431,7 @@ qm_err_t bsp_rgb_value_set(uint64_t val)
     store->rgb_val = val;
     store->rgb_on_off = QM_TRUE;
 
-    // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+    light_set_rgb(QM_TRUE);
 
     return QM_EOK;
 }

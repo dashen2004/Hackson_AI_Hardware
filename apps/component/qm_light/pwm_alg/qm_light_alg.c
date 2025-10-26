@@ -72,3 +72,15 @@ int qm_light_alg_get_exp(qm_light_alg_id_t alg_id, int lightness)
 
     return pwm;
 }
+
+void qm_light_alg_conver_rgb_to_lightness(uint32_t rgb_val, uint16_t *lightness, uint32_t len)
+{
+    QM_LOGI("1", "rgb value: %08x", rgb_val);
+
+    // red
+    lightness[0] = 0;
+    // green
+    lightness[1] = 100;
+    // blue
+    lightness[2] = 100;
+}

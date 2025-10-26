@@ -9,7 +9,7 @@ extern "C" {
 
 #define CONFIG_BSP_LIGHT_KV_TAG "bsp_light"
 
-#define CONFIG_BSP_LIGHT_NUM    (2)
+#define CONFIG_BSP_LIGHT_NUM    (5)
 
 #define CONFIG_BSP_LIGHT_FADE_TIME          (1000)
 
@@ -20,6 +20,16 @@ extern "C" {
 
 #define CONFIG_BSP_LIGHT_DOWN_INDEX         (1)
 #define CONFIG_BSP_LIGHT_DOWN_PIN           (2)
+
+// rgb light
+#define CONFIG_BSP_LIGHT_RED_INDEX          (2)
+#define CONFIG_BSP_LIGHT_RED_PIN            (3)
+
+#define CONFIG_BSP_LIGHT_GREEN_INDEX        (3)
+#define CONFIG_BSP_LIGHT_GREEN_PIN          (9)
+
+#define CONFIG_BSP_LIGHT_BLUE_INDEX         (4)
+#define CONFIG_BSP_LIGHT_BLUE_PIN           (15)
 
 
 //延时关灯计算单元
@@ -160,13 +170,13 @@ qm_err_t bsp_light_mode(bsp_light_mode_t mode);
 qm_err_t bsp_light_select(bsp_light_sel_t sel);
 
 // rgb select
-qm_err_t bsp_rgb_select(bsp_rgb_select_t select);
+qm_err_t bsp_light_rgb_select(bsp_rgb_select_t select);
 
 //亮度  亮度范围值 0 ~ 100
 qm_err_t bsp_light_bri_set(int bri);
 
 // rgb value set
-qm_err_t bsp_rgb_value_set(uint64_t value);
+qm_err_t bsp_light_rgb_value_set(uint32_t value);
 
 //上光亮度  亮度范围值 0 ~ 100
 qm_err_t bsp_light_bri_up_set(int bri);

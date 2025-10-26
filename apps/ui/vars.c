@@ -135,18 +135,18 @@ int8_t get_var_rgb_select(void) {
 }
 
 void set_var_rgb_select(int8_t value, bool flag) {
-    bsp_rgb_select(value);
-    // audio_light_snapshot_report();
+    bsp_light_rgb_select(value);
+    audio_light_snapshot_report();
     bsp_light_store_update();
 }
 
-uint64_t get_var_rgb_value(void) {
+uint32_t get_var_rgb_value(void) {
     return bsp_light_store_get()->rgb_val;
 }
 
-void set_var_rgb_value(uint64_t value) {
-    bsp_rgb_value_set(value);
-    // audio_light_snapshot_report();
+void set_var_rgb_value(uint32_t value) {
+    bsp_light_rgb_value_set(value);
+    audio_light_snapshot_report();
     bsp_light_store_update();
 }
 
@@ -157,7 +157,7 @@ int8_t get_var_rgb_on_off(void) {
 void set_var_rgb_on_off(int8_t value) {
     if (bsp_light_store_get()->rgb_on_off != value) {
         bsp_light_rgb_on_off(value);
-        //audio_light_snapshot_report();
+        audio_light_snapshot_report();
         bsp_light_store_update();
     }
 }

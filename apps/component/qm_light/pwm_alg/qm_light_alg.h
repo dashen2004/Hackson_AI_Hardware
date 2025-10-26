@@ -34,4 +34,6 @@ void qm_light_alg_table_init(void);
 
 int qm_light_alg_get_exp(qm_light_alg_id_t alg_id, int lightness);
 
+void qm_light_alg_conver_rgb_to_lightness(uint32_t rgb_val, uint16_t *lightness, uint32_t len);
+
 #endif
