@@ -19,7 +19,6 @@ typedef struct  {
 
     uint16_t lightness;     //有效范围[0,65535]
 
-
     qm_light_alg_id_t alg_id;
 
 } bsp_light_info_t;
@@ -65,30 +64,38 @@ static void qm_light_driver_event(qm_light_driver_handle_t handle, qm_light_driv
 
 static qm_err_t light_set_lightness(bsp_light_info_t *light_info, int lightness, int fade_time)
 {
-    int lightness_algo = qm_light_alg_get_exp(light_info->alg_id, lightness);
-    int lightness_new = LIGHTNESS_VALUE((lightness), lightness_algo);
- 
-    if(lightness_new != light_info->lightness){
-
-        QM_LOGD(LOG_TAG,"[lslt]:%d,(%d,%d)d,%d\n", light_info->alg_id, lightness_new, lightness_algo, fade_time);
-        
-        qm_light_driver_set_lightness_linear(light_info->handle, lightness_new, fade_time);
-
-        light_info->lightness = lightness_new;
+    if (lightness == 0) {
+        bsp_light_bulb_set_cw(bsp_light_store_get()->cct, 0);
+    } else {
+        bsp_light_bulb_set_cw(bsp_light_store_get()->cct, bsp_light_store_get()->total_bri);
     }
+
+    // int lightness_algo = qm_light_alg_get_exp(light_info->alg_id, lightness);
+    // int lightness_new = LIGHTNESS_VALUE((lightness), lightness_algo);
+ 
+    // if(lightness_new != light_info->lightness){
+
+    //     QM_LOGD(LOG_TAG,"[lslt]:%d,(%d,%d),%d\n", light_info->alg_id, lightness_new, lightness_algo, fade_time);
+
+    //     qm_light_driver_set_lightness_linear(light_info->handle, lightness_new, fade_time);
+    //     //bsp_light_bulb_set_cw(bsp_light_store_get()->cct, lightness_new);
+
+    //     light_info->lightness = lightness_new;
+    // }
 
     return QM_EOK;
 }
 
 static qm_err_t light_set_lightness_blink(bsp_light_info_t *light_info, int lightness)
 {
-    int lightness_algo = qm_light_alg_get_exp(light_info->alg_id, lightness);
-    int lightness_new = LIGHTNESS_VALUE((lightness), lightness_algo);
+    bsp_light_bulb_set_cw(bsp_light_store_get()->cct, bsp_light_store_get()->total_bri);
+    // int lightness_algo = qm_light_alg_get_exp(light_info->alg_id, lightness);
+    // int lightness_new = LIGHTNESS_VALUE((lightness), lightness_algo);
  
-    QM_LOGD(LOG_TAG,"[blink]:%d,(%d,%d)d\n", light_info->alg_id, lightness_new, lightness_algo);
+    // QM_LOGD(LOG_TAG,"[blink]:%d,(%d,%d)d\n", light_info->alg_id, lightness_new, lightness_algo);
         
-    light_info->lightness = lightness_new;
-    qm_light_driver_blink(light_info->handle, 0, lightness_new, LIGHT_BLINK_INTERVAL, LIGHT_BLINK_BEGIN_DUTY, LIGHT_BLINK_COUNT);
+    // light_info->lightness = lightness_new;
+    // qm_light_driver_blink(light_info->handle, 0, lightness_new, LIGHT_BLINK_INTERVAL, LIGHT_BLINK_BEGIN_DUTY, LIGHT_BLINK_COUNT);
 
     return QM_EOK;
 }
@@ -146,7 +153,7 @@ qm_err_t bsp_light_init(void)
     int crash_reset = 0;
     int store_len = 0;
 
-    qm_light_alg_table_init();
+    // qm_light_alg_table_init();
 
     ret = qm_kv_get(CONFIG_BSP_LIGHT_KV_TAG, &g_light_store, &store_len);
     if(ret != QM_EOK || store_len == 0){
@@ -164,15 +171,15 @@ qm_err_t bsp_light_init(void)
 
     QM_LOGD(LOG_TAG,"[kv]:[%d]%d(%d,%d),%d,%d\n", g_light_store.is_reset, g_light_store.total_bri, g_light_store.up_bri, g_light_store.down_bri, g_light_store.sel, g_light_store.mode);
 
-    for (int i = 0; i < QM_ARRAY_SIZE(g_light_info); i++)
-    {
-        g_light_info[i].handle = qm_light_driver_init(&g_light_info[i].base);
-        if(g_light_info[i].handle == NULL){
-            return -QM_EINVAL;
-        }
-    }
+    // for (int i = 0; i < QM_ARRAY_SIZE(g_light_info); i++)
+    // {
+    //     g_light_info[i].handle = qm_light_driver_init(&g_light_info[i].base);
+    //     if(g_light_info[i].handle == NULL){
+    //         return -QM_EINVAL;
+    //     }
+    // }
 
-    //bsp_light_bulb_init();
+    bsp_light_bulb_init();
     
     if(g_light_store.is_reset){
         bsp_light_blink();
@@ -205,23 +212,18 @@ qm_err_t bsp_light_bri_on_off(bool_t on_off)
 {
     bsp_light_store_t *store = bsp_light_store_get();
 
-    if(on_off){
-
+    if (on_off) {
         if(store->mode == BSP_LIGHT_MODE_SLEEP){
             store->mode = BSP_LIGHT_MODE_NONE;
         }
 
         light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
         light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX], store->down_bri, CONFIG_BSP_LIGHT_FADE_TIME);
-        //bsp_light_bulb_set_cw(store->cct, store->total_bri);
-    
-    }else{
+    } else {
         qm_cancel_delayed_action(&delay_off);
         
         light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
         light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
-        //bsp_light_bulb_set_cw(store->cct, 0);
-    
     }
 
     store->on_off = on_off;
@@ -1076,6 +1078,10 @@ qm_err_t bsp_light_reset(void)
     store->sel = BSP_LIGHT_SEL_DUAL;
     store->mode = BSP_LIGHT_MODE_NONE;
     store->is_reset = QM_TRUE;
+    store->cct = CONFIG_BSP_LIGHT_CCT_NATURAL_VALUE;
+    store->rgb_on_off = QM_FALSE;
+    store->rgb_sel = BSP_RGB_SELECT_RED;
+    store->rgb_val = CONFIG_BSP_RGB_RED_DEFAULT_VALUE;
 
     light_total_lightness_update();
 
