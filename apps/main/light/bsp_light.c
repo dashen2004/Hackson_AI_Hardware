@@ -219,6 +219,8 @@ qm_err_t bsp_light_init(void)
         }
     }
 
+    bsp_light_rgb_on_off(QM_FALSE);
+
     g_light_store.is_reset = QM_FALSE;
 
     bsp_light_store_update();
@@ -1182,4 +1184,23 @@ qm_err_t voice_rtc_login_info_get(void)
 
     qm_spec_property_add(property_operation, property_pre);
     return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_GET_REQ, property_operation);
+}
+
+void bsp_light_test(int8_t val) {
+    switch (val) {
+        case 0:
+            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+            break;
+        case 1: 
+            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], 100, CONFIG_BSP_LIGHT_FADE_TIME);
+            break;
+        case 2:
+            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], 100, CONFIG_BSP_LIGHT_FADE_TIME);
+            break;
+        case 3:
+            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], 100, CONFIG_BSP_LIGHT_FADE_TIME);
+            break;
+    }
 }

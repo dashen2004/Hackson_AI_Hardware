@@ -14,6 +14,8 @@
 
 #include "qm_utils_timer.h"
 
+#include "qm_color.h"
+
 // static char var_mode_nightlamp_title[33] = "小夜灯";
 // static char var_mode_read_title[33] = "阅读";
 // static char var_mode_relaxation_title[33] = "休闲";
@@ -330,4 +332,35 @@ char *get_var_ip_addr(void) {
 
 void set_var_ip_addr(char *ip_addr) {
     strcpy(var_ip_addr, ip_addr);
+}
+
+uint32_t conver_slider_value_to_rgb_value(int32_t slider_val, uint32_t start_rgb_val, uint32_t end_rgb_val) {
+    qm_color_rgb_t rgb, start_rgb, end_rgb;
+
+    qm_color_code2rgb(start_rgb_val, &start_rgb);
+    qm_color_code2rgb(end_rgb_val, &end_rgb);
+
+    qm_color_value2rgb(slider_val, 0, 100, start_rgb, end_rgb, &rgb);
+
+    uint32_t val = 0;
+    qm_color_rgb2code(rgb, &val);
+
+    QM_LOGI("1", "rgb value: %08lx", val);
+
+    return val;
+}
+
+int32_t conver_rgb_value_to_slider_value(uint32_t rgb_val, uint32_t start_rgb_val, uint32_t end_rgb_val) {
+    qm_color_rgb_t rgb, start_rgb, end_rgb;
+    int32_t slider_val = 0;
+
+    qm_color_code2rgb(rgb_val, &rgb);
+    qm_color_code2rgb(start_rgb_val, &start_rgb);
+    qm_color_code2rgb(end_rgb_val, &end_rgb);
+
+    qm_color_rgb2value(&rgb, &start_rgb, &end_rgb, 0, 100, &slider_val);
+
+    QM_LOGI("1", "slider value: %ld", slider_val);
+
+    return slider_val;
 }

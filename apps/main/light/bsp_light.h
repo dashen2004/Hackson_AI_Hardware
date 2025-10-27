@@ -70,8 +70,21 @@ extern "C" {
 #define CONFIG_BSP_RGB_BLUE_DEFAULT_VALUE       (0x003FB7FD)
 #define CONFIG_BSP_RGB_GREEN_DEFAULT_VALUE      (0x0060FD5A)
 #define CONFIG_BSP_RGB_PURPLE_DEFAULT_VALUE     (0x008B3FFC)
-#define CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE   (0x00D2691E)
+#define CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE   (0x003F71FD)
 #define CONFIG_BSP_RGB_SHUTDOWN_VALUE           (0x00E0E0E0)
+
+#define CONFIG_BSP_RGB_RED_START_VALUE          (0x00FD3F3F)
+#define CONFIG_BSP_RGB_RED_END_VALUE            (0x00FD743F)
+#define CONFIG_BSP_RGB_ORANGE_START_VALUE       (0x00FD753F)
+#define CONFIG_BSP_RGB_ORANGE_END_VALUE         (0x00FDD340)
+#define CONFIG_BSP_RGB_GREEN_START_VALUE        (0x0040FD6F)
+#define CONFIG_BSP_RGB_GREEN_END_VALUE          (0x0070D53A)
+#define CONFIG_BSP_RGB_BLUE_START_VALUE         (0x003F71FD)
+#define CONFIG_BSP_RGB_BLUE_END_VALUE           (0x0040FDFD)
+#define CONFIG_BSP_RGB_PURPLE_START_VALUE       (0x00603FFB)
+#define CONFIG_BSP_RGB_PURPLE_END_VALUE         (0x00AB3FFB)
+#define CONFIG_BSP_RGB_COLORFUL_START_VALUE     (0x00FD3F3F)
+#define CONFIG_BSP_RGB_COLORFUL_END_VALUE       (0x00FD3FC3)
 
 //灯光简易算法
 #define LIGHT_CLAMP(x)  (x)  //server will do clamp, 或者调光曲线负责最低亮度的限制
@@ -237,6 +250,8 @@ qm_err_t bsp_light_nature(void);
 qm_err_t voice_corpus_request(uint8_t number);
 
 qm_err_t voice_abort_request(uint8_t number);
+
+void bsp_light_test(int8_t val);
 
 #ifdef __cplusplus
 }

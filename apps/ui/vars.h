@@ -80,6 +80,9 @@ void set_var_screen_operation_tick(void);
 char *get_var_ip_addr(void);
 void set_var_ip_addr(char *ip_addr);
 
+uint32_t conver_slider_value_to_rgb_value(int32_t slider_val, uint32_t start_rgb_val, uint32_t end_rgb_val);
+int32_t conver_rgb_value_to_slider_value(uint32_t rgb_val, uint32_t start_rgb_val, uint32_t end_rgb_val);
+
 #ifdef __cplusplus
 }
 #endif

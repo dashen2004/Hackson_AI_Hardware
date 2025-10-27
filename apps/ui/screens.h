@@ -143,7 +143,6 @@ typedef struct _objects_t {
     lv_obj_t *rgb_select_colorful;
     lv_obj_t *rgb_selected;
     lv_obj_t *rgb_bar;
-    lv_obj_t *rgb_bar_slider;
 } objects_t;
 
 extern objects_t objects;

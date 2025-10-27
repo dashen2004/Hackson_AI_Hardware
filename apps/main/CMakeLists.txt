@@ -50,6 +50,7 @@ set(COMPONENT_SRCS
     "../component/qm_audio/agora/agora/qm_agora.c"
     "../component/qm_audio/agora/agora_gen/qm_agora_gen.c"
     "../component/qm_audio/agora/agora_stream/qm_agora_stream.c"
+    "../component/qm_color/qm_color.c"
 
     # "../component/qm_audio/board/dual_mic/board_pins_config.c"
     # "../component/qm_audio/board/dual_mic/qm_audio_board.c" 
@@ -187,6 +188,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_light/driver"
     "../component/qm_light/config"
     "../component/qm_light/pwm_alg"
+    "../component/qm_color"
 
     "../component/nc_audio"
     "../component/qm_audio"
