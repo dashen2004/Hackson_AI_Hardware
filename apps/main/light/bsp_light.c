@@ -56,45 +56,6 @@ static bsp_light_info_t g_light_info[CONFIG_BSP_LIGHT_NUM] =
             .arg = (void *)&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX],
         },
     },
-
-    // 红灯
-    {
-        .alg_id = QM_LIGHT_ALG_ID_AUX,
-        .base = {
-            .port = CONFIG_BSP_LIGHT_RED_INDEX,
-            .freq = CONFIG_BSP_LIGHT_FREQ,
-            .pin = CONFIG_BSP_LIGHT_RED_PIN, 
-            .level = QM_LIGHT_DRIVER_LEVEL_HIGH,
-            .cb = qm_light_driver_event,
-            .arg = (void *)&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX],
-        },
-    },
-
-    // 绿灯
-    {
-        .alg_id = QM_LIGHT_ALG_ID_AUX,
-        .base = {
-            .port = CONFIG_BSP_LIGHT_GREEN_INDEX,
-            .freq = CONFIG_BSP_LIGHT_FREQ,
-            .pin = CONFIG_BSP_LIGHT_GREEN_PIN, 
-            .level = QM_LIGHT_DRIVER_LEVEL_HIGH,
-            .cb = qm_light_driver_event,
-            .arg = (void *)&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX],
-        },
-    },
-
-    // 蓝灯
-    {
-        .alg_id = QM_LIGHT_ALG_ID_AUX,
-        .base = {
-            .port = CONFIG_BSP_LIGHT_BLUE_INDEX,
-            .freq = CONFIG_BSP_LIGHT_FREQ,
-            .pin = CONFIG_BSP_LIGHT_BLUE_PIN, 
-            .level = QM_LIGHT_DRIVER_LEVEL_HIGH,
-            .cb = qm_light_driver_event,
-            .arg = (void *)&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX],
-        },
-    },
 };
 
 static void qm_light_driver_event(qm_light_driver_handle_t handle, qm_light_driver_event_type_t event_type, void* arg)
@@ -118,6 +79,7 @@ static qm_err_t light_set_lightness(bsp_light_info_t *light_info, int lightness,
 
     return QM_EOK;
 }
+
 static qm_err_t light_set_lightness_blink(bsp_light_info_t *light_info, int lightness)
 {
     int lightness_algo = qm_light_alg_get_exp(light_info->alg_id, lightness);
@@ -131,10 +93,8 @@ static qm_err_t light_set_lightness_blink(bsp_light_info_t *light_info, int ligh
     return QM_EOK;
 }
 
-
 static void light_total_lightness_update(void)
 {
-
     bsp_light_store_t *store = bsp_light_store_get();
 
     switch (store->sel)
@@ -165,13 +125,13 @@ static void light_set_rgb(uint8_t on_off)
     qm_light_alg_conver_rgb_to_lightness(store->rgb_val, rgb_lightness, 3);
 
     if (on_off) {
-        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], rgb_lightness[0], CONFIG_BSP_LIGHT_FADE_TIME);
-        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], rgb_lightness[1], CONFIG_BSP_LIGHT_FADE_TIME);
-        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], rgb_lightness[2], CONFIG_BSP_LIGHT_FADE_TIME);
+        // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], rgb_lightness[0], CONFIG_BSP_LIGHT_FADE_TIME);
+        // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], rgb_lightness[1], CONFIG_BSP_LIGHT_FADE_TIME);
+        // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], rgb_lightness[2], CONFIG_BSP_LIGHT_FADE_TIME);
     } else {
-        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
-        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
-        light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+        // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+        // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+        // light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
     }
 }
 
@@ -195,6 +155,10 @@ qm_err_t bsp_light_init(void)
         g_light_store.sel = BSP_LIGHT_SEL_DUAL;
         g_light_store.mode = BSP_LIGHT_MODE_NONE;
         g_light_store.is_reset = QM_FALSE;
+        g_light_store.cct = CONFIG_BSP_LIGHT_CCT_NATURAL_VALUE;
+        g_light_store.rgb_on_off = QM_FALSE;
+        g_light_store.rgb_sel = BSP_RGB_SELECT_RED;
+        g_light_store.rgb_val = CONFIG_BSP_RGB_RED_DEFAULT_VALUE;
         light_total_lightness_update();
     }
 
@@ -207,6 +171,8 @@ qm_err_t bsp_light_init(void)
             return -QM_EINVAL;
         }
     }
+
+    //bsp_light_bulb_init();
     
     if(g_light_store.is_reset){
         bsp_light_blink();
@@ -247,12 +213,14 @@ qm_err_t bsp_light_bri_on_off(bool_t on_off)
 
         light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], store->up_bri, CONFIG_BSP_LIGHT_FADE_TIME);
         light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX], store->down_bri, CONFIG_BSP_LIGHT_FADE_TIME);
+        //bsp_light_bulb_set_cw(store->cct, store->total_bri);
     
     }else{
         qm_cancel_delayed_action(&delay_off);
         
         light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_UP_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
         light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_DOWN_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
+        //bsp_light_bulb_set_cw(store->cct, 0);
     
     }
 
@@ -1184,23 +1152,4 @@ qm_err_t voice_rtc_login_info_get(void)
 
     qm_spec_property_add(property_operation, property_pre);
     return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_GET_REQ, property_operation);
-}
-
-void bsp_light_test(int8_t val) {
-    switch (val) {
-        case 0:
-            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
-            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
-            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], 0, CONFIG_BSP_LIGHT_FADE_TIME);
-            break;
-        case 1: 
-            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_RED_INDEX], 100, CONFIG_BSP_LIGHT_FADE_TIME);
-            break;
-        case 2:
-            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_GREEN_INDEX], 100, CONFIG_BSP_LIGHT_FADE_TIME);
-            break;
-        case 3:
-            light_set_lightness(&g_light_info[CONFIG_BSP_LIGHT_BLUE_INDEX], 100, CONFIG_BSP_LIGHT_FADE_TIME);
-            break;
-    }
 }

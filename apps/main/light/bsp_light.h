@@ -9,7 +9,7 @@ extern "C" {
 
 #define CONFIG_BSP_LIGHT_KV_TAG "bsp_light"
 
-#define CONFIG_BSP_LIGHT_NUM    (5)
+#define CONFIG_BSP_LIGHT_NUM    (2)
 
 #define CONFIG_BSP_LIGHT_FADE_TIME          (1000)
 
@@ -20,16 +20,6 @@ extern "C" {
 
 #define CONFIG_BSP_LIGHT_DOWN_INDEX         (1)
 #define CONFIG_BSP_LIGHT_DOWN_PIN           (2)
-
-// rgb light
-#define CONFIG_BSP_LIGHT_RED_INDEX          (2)
-#define CONFIG_BSP_LIGHT_RED_PIN            (3)
-
-#define CONFIG_BSP_LIGHT_GREEN_INDEX        (3)
-#define CONFIG_BSP_LIGHT_GREEN_PIN          (9)
-
-#define CONFIG_BSP_LIGHT_BLUE_INDEX         (4)
-#define CONFIG_BSP_LIGHT_BLUE_PIN           (15)
 
 
 //延时关灯计算单元
@@ -85,6 +75,10 @@ extern "C" {
 #define CONFIG_BSP_RGB_PURPLE_END_VALUE         (0x00AB3FFB)
 #define CONFIG_BSP_RGB_COLORFUL_START_VALUE     (0x00FD3F3F)
 #define CONFIG_BSP_RGB_COLORFUL_END_VALUE       (0x00FD3FC3)
+
+#define CONFIG_BSP_LIGHT_CCT_WARM_VALUE         (2700)
+#define CONFIG_BSP_LIGHT_CCT_NATURAL_VALUE      (3500)
+#define CONFIG_BSP_LIGHT_CCT_COOL_VALUE         (5500)
 
 //灯光简易算法
 #define LIGHT_CLAMP(x)  (x)  //server will do clamp, 或者调光曲线负责最低亮度的限制
@@ -147,8 +141,9 @@ typedef struct  {
     
     uint16_t down_bri;  
 
-    uint8_t total_bri; 
-    //
+    uint8_t total_bri;
+
+    uint16_t cct;
 
     bsp_light_sel_t sel;
 
@@ -246,12 +241,13 @@ qm_err_t bsp_light_neuter(void);
 //自然光
 qm_err_t bsp_light_nature(void);
 
-
 qm_err_t voice_corpus_request(uint8_t number);
 
 qm_err_t voice_abort_request(uint8_t number);
 
-void bsp_light_test(int8_t val);
+void bsp_light_bulb_init(void);
+void bsp_light_bulb_set_cw(uint16_t cct, uint8_t brightness);
+void bsp_light_bulb_set_hsv(uint16_t hue, uint8_t saturation, uint8_t value);
 
 #ifdef __cplusplus
 }

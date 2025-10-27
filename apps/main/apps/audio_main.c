@@ -11,6 +11,7 @@
 #include "audio_main.h"
 #include "audio_cloud.h"
 #include "audio_light.h"
+#include "bsp_light.h"
 // #include "audio_prodtst.h"
 
 #define QM_RESET_TAG        "qm_reset"
@@ -40,6 +41,18 @@ int qm_set_reset_flag(void)
     qm_kv_set(QM_RESET_TAG, &qm_reset_flag, sizeof(int), QM_TRUE);
 
     return QM_EOK;
+}
+
+static void gx8006()
+{
+    bsp_light_bulb_init();
+    bsp_light_bulb_set_cw(3500, 50);
+    bsp_light_bulb_set_hsv(240, 100, 100);
+
+    while (1) {
+        qm_msleep(2000);
+        printf("gx8006 test\r\n");
+    }
 }
 
 void qm_application_start(void)

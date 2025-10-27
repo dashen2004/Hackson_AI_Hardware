@@ -18,4 +18,5 @@ dependencies:
   espressif/esp_lcd_touch_cst816s: ^1.0.6
   lvgl/lvgl: 9.2.2
   espressif/esp_lvgl_port: ^2.6.0
-  78/esp-opus: ^1.0.5
+#  78/esp-opus: ^1.0.5
+  espressif/lightbulb_driver: ^1.11.0
