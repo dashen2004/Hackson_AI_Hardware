@@ -24,11 +24,7 @@ static qm_err_t onoff_aciton(qm_spec_property_t *property);
 static qm_err_t bri_aciton(qm_spec_property_t *property);
 static qm_err_t mode_aciton(qm_spec_property_t *property);
 static qm_err_t switch_aciton(qm_spec_property_t *property);
-static qm_err_t sel_aciton(qm_spec_property_t *property);
-static qm_err_t ratio_aciton(qm_spec_property_t *property);
 static qm_err_t grad_aciton(qm_spec_property_t *property);
-static qm_err_t uplight_aciton(qm_spec_property_t *property);
-static qm_err_t downlight_aciton(qm_spec_property_t *property);
 static qm_err_t delay_off_aciton(qm_spec_property_t *property);
 static qm_err_t reset_aciton(qm_spec_property_t *property);
 static qm_err_t volume_set_action(qm_spec_property_t *property);
@@ -50,11 +46,7 @@ static qm_err_t onoff_report(qm_spec_property_t *property);
 static qm_err_t bri_report(qm_spec_property_t *property);
 static qm_err_t mode_report(qm_spec_property_t *property);
 static qm_err_t switch_report(qm_spec_property_t *property);
-static qm_err_t sel_report(qm_spec_property_t *property);
-static qm_err_t ratio_report(qm_spec_property_t *property);
 static qm_err_t grad_report(qm_spec_property_t *property);
-static qm_err_t uplight_report(qm_spec_property_t *property);
-static qm_err_t downlight_report(qm_spec_property_t *property);
 static qm_err_t delay_off_report(qm_spec_property_t *property);
 static qm_err_t reset_report(qm_spec_property_t *property);
 static qm_err_t volume_set_report(qm_spec_property_t *property);
@@ -157,11 +149,7 @@ static audio_light_table_t g_light_table[] =
     {CONFIG_AUDIO_LIGHT_BRI_SIID,       CONFIG_AUDIO_LIGHT_BRI_PIID,        bri_aciton, bri_report},
     {CONFIG_AUDIO_LIGHT_MODE_SIID,      CONFIG_AUDIO_LIGHT_MODE_PIID,       mode_aciton,  mode_report},
     {CONFIG_AUDIO_LIGHT_SWITCH_SIID,    CONFIG_AUDIO_LIGHT_SWITCH_PIID,     switch_aciton, switch_report},
-    {CONFIG_AUDIO_LIGHT_SEL_SIID,       CONFIG_AUDIO_LIGHT_SEL_PIID,        sel_aciton,  sel_report},
-    {CONFIG_AUDIO_LIGHT_RATIO_SIID,     CONFIG_AUDIO_LIGHT_RATIO_PIID,      ratio_aciton,  ratio_report},
     {CONFIG_AUDIO_LIGHT_GRAD_SIID,      CONFIG_AUDIO_LIGHT_GRAD_PIID,       grad_aciton,  grad_report},
-    {CONFIG_AUDIO_LIGHT_UPLIGHT_SIID,   CONFIG_AUDIO_LIGHT_UPLIGHT_PIID,    uplight_aciton,  uplight_report},
-    {CONFIG_AUDIO_LIGHT_DOWNLIGHT_SIID, CONFIG_AUDIO_LIGHT_DOWNLIGHT_PIID,  downlight_aciton,  downlight_report},
     {CONFIG_AUDIO_LIGHT_DELAY_OFF_SIID, CONFIG_AUDIO_LIGHT_DELAY_OFF_PIID,  delay_off_aciton,  delay_off_report},
     {CONFIG_AUDIO_LIGHT_RESET_SIID,     CONFIG_AUDIO_LIGHT_RESET_PIID,      reset_aciton,  reset_report},
     {CONFIG_AUDIO_VOLUME_SIID,          CONFIG_AUDIO_VOLUME_PIID,           volume_set_action,  volume_set_report},
@@ -233,14 +221,10 @@ qm_err_t audio_light_snapshot_report(void)
         CONFIG_AUDIO_LIGHT_ONOFF_SIID, CONFIG_AUDIO_LIGHT_ONOFF_PIID, CONFIG_AUDIO_LIGHT_ONOFF_TYPE, (int)(store->on_off));
 //亮度
     audio_light_add(property_operation, 
-        CONFIG_AUDIO_LIGHT_BRI_SIID, CONFIG_AUDIO_LIGHT_BRI_PIID, CONFIG_AUDIO_LIGHT_BRI_TYPE, (int)(store->total_bri));
+        CONFIG_AUDIO_LIGHT_BRI_SIID, CONFIG_AUDIO_LIGHT_BRI_PIID, CONFIG_AUDIO_LIGHT_BRI_TYPE, (int)(store->brightness));
 //模式
     audio_light_add(property_operation, 
         CONFIG_AUDIO_LIGHT_MODE_SIID, CONFIG_AUDIO_LIGHT_MODE_PIID, CONFIG_AUDIO_LIGHT_MODE_TYPE, (int)(store->mode));
-
-//灯源选择
-    audio_light_add(property_operation, 
-        CONFIG_AUDIO_LIGHT_SEL_SIID, CONFIG_AUDIO_LIGHT_SEL_PIID, CONFIG_AUDIO_LIGHT_SEL_TYPE, (int)(store->sel));
 
 //rgb on_off
     audio_light_add(property_operation, 
@@ -336,6 +320,7 @@ static qm_err_t onoff_report(qm_spec_property_t *property)
 {
    return audio_light_snapshot_report();
 }
+
 //亮度
 static qm_err_t bri_aciton(qm_spec_property_t *property)
 {
@@ -391,45 +376,6 @@ static qm_err_t switch_report(qm_spec_property_t *property)
     return audio_light_snapshot_report();
 }
 
-//灯源选择
-static qm_err_t sel_aciton(qm_spec_property_t *property)
-{
-    int sel = 0;
-    qm_spec_property_unpack_number(property, &sel);
-
-    bsp_light_select(sel);
-
-    bsp_light_store_update();
-
-    return QM_EOK;
-}
-
-static qm_err_t sel_report(qm_spec_property_t *property)
-{
-    return audio_light_snapshot_report();
-}
-
-//亮度配比
-static qm_err_t ratio_aciton(qm_spec_property_t *property)
-{
-    int ratio = 0;
-    qm_spec_property_unpack_number(property, &ratio);
-
-    bsp_light_bri_ratio(ratio);
-
-    bsp_light_store_update();
-
-    return QM_EOK;
-}
-
-static qm_err_t ratio_report(qm_spec_property_t *property)
-{
-//亮度配比上报(节省资源复用同一个 property)
-    xjiang_cloud_report(property);
-
-    return audio_light_snapshot_report();
-}
-
 //亮度渐变:亮一点，暗一点
 static qm_err_t grad_aciton(qm_spec_property_t *property)
 {   
@@ -448,42 +394,6 @@ static qm_err_t grad_report(qm_spec_property_t *property)
     return audio_light_snapshot_report();
 }
 
-//上光
-static qm_err_t uplight_aciton(qm_spec_property_t *property)
-{   
-    int onoff = 0;
-    qm_spec_property_unpack_number(property, &onoff);
-
-    bsp_light_uplight_switch(onoff);
-
-    bsp_light_store_update();
-
-    return QM_EOK;
-}
-
-static qm_err_t uplight_report(qm_spec_property_t *property)
-{
-    return audio_light_snapshot_report();
-}
-
-//下光
-static qm_err_t downlight_aciton(qm_spec_property_t *property)
-{   
-    int onoff = 0;
-    qm_spec_property_unpack_number(property, &onoff);
-
-    bsp_light_downlight_switch(onoff);
-
-    bsp_light_store_update();
-
-    return QM_EOK;
-}
-
-static qm_err_t downlight_report(qm_spec_property_t *property)
-{
-    return audio_light_snapshot_report();
-}
-
 //定时
 static void delay_off_work(void)
 {
@@ -498,9 +408,9 @@ static qm_err_t delay_off_aciton(qm_spec_property_t *property)
     return bsp_light_delay_off(delay_off, delay_off_work);
 }
 
+//定时关灯
 static qm_err_t delay_off_report(qm_spec_property_t *property)
 {
-//定时关灯
     xjiang_cloud_report(property);
     return QM_EOK;
 }

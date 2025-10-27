@@ -9,18 +9,9 @@ extern "C" {
 
 #define CONFIG_BSP_LIGHT_KV_TAG "bsp_light"
 
-#define CONFIG_BSP_LIGHT_NUM    (2)
-
 #define CONFIG_BSP_LIGHT_FADE_TIME          (1000)
 
 #define CONFIG_BSP_LIGHT_FREQ               (4000)
-
-#define CONFIG_BSP_LIGHT_UP_INDEX           (0)
-#define CONFIG_BSP_LIGHT_UP_PIN             (1)
-
-#define CONFIG_BSP_LIGHT_DOWN_INDEX         (1)
-#define CONFIG_BSP_LIGHT_DOWN_PIN           (2)
-
 
 //延时关灯计算单元
 #define DLEAY_OFF_UNIT(X)   (X * 60 * 1000)
@@ -31,28 +22,21 @@ extern "C" {
 #define LIGHT_BLINK_BEGIN_DUTY      (50)
 
 //项目灯光总亮度计算公式
-#define LIGHT_LIGHTNESS_UNIT(X)          (X * 100)
-#define LIGHT_TOTAL_LIGHTNESS_UNIT(X)    (X / 100)
+#define LIGHT_LIGHTNESS_UNIT(X)          (X * 1)
+#define LIGHT_TOTAL_LIGHTNESS_UNIT(X)    (X / 1)
 
 //灯光亮度单元
 #define LIGHT_BRI_UNIT            (LIGHT_LIGHTNESS_UNIT(5))
 #define LIGHT_AUDIO_BRI_UNIT      (LIGHT_LIGHTNESS_UNIT(20))
-
-#define LIGHT_TOTAL_LIGHTNESS(X,Y)      (((X * 75) + (Y * 25)) / 100)
-#define LIGHT_UP_LIGHTNESS(X)           ((X * 100))
-#define LIGHT_DOWN_LIGHTNESS(X)         ((X * 100))
 
 //最小亮度
 #define CONFIG_BSP_LIGHT_MIN            (8)
 //最大亮度
 #define CONFIG_BSP_LIGHT_MAX            (100)
 
-
-#define CONFIG_BSP_LIGHT_TOTAL_DEFAULT_BRI      (100)
-#define CONFIG_BSP_LIGHT_MIN_LIGHTNESS          (LIGHT_LIGHTNESS_UNIT(CONFIG_BSP_LIGHT_MIN))   //8%
-#define CONFIG_BSP_LIGHT_MAX_LIGHTNESS          (LIGHT_LIGHTNESS_UNIT(CONFIG_BSP_LIGHT_MAX)) //100%
-#define CONFIG_BSP_LIGHT_UP_DEFAULT_BRI         (LIGHT_LIGHTNESS_UNIT(100))
-#define CONFIG_BSP_LIGHT_DOWN_DEFAULT_BRI       (LIGHT_LIGHTNESS_UNIT(100))
+#define CONFIG_BSP_LIGHT_DEFAULT_BRI      (100)
+#define CONFIG_BSP_LIGHT_MIN_LIGHTNESS    (LIGHT_LIGHTNESS_UNIT(CONFIG_BSP_LIGHT_MIN))   //8%
+#define CONFIG_BSP_LIGHT_MAX_LIGHTNESS    (LIGHT_LIGHTNESS_UNIT(CONFIG_BSP_LIGHT_MAX)) //100%
 
 // rgb default value
 #define CONFIG_BSP_RGB_RED_DEFAULT_VALUE        (0x00FD5B3F)
@@ -94,30 +78,14 @@ typedef enum
     BSP_LIGHT_MODE_READ     = 2,    //阅读模式:上光100%+下光100%
     BSP_LIGHT_MODE_SLEEP    = 4,    //睡觉模式:关灯
     BSP_LIGHT_MODE_IDLE     = 3,    //休闲模式:上光100%+下光 50%
-}bsp_light_mode_t;
-
-typedef enum 
-{
-    BSP_LIGHT_SEL_NONE     = 0,
-    BSP_LIGHT_SEL_DUAL     = 1,     //双光源
-    BSP_LIGHT_SEL_DOWN     = 2,     //仅下光
-    BSP_LIGHT_SEL_UP       = 3,     //仅上光
-}bsp_light_sel_t;
-
-typedef enum 
-{
-    BSP_LIGHT_BRI_RATIO_NONE        = 0,
-    BSP_LIGHT_BRI_RATIO_DUAL        = 1,     //亮度均衡:   上光 50%+下光 50%
-    BSP_LIGHT_BRI_RATIO_UP          = 2,     //上光源更亮: 上光100%+下光 8%
-    BSP_LIGHT_BRI_RATIO_DOWN        = 3,     //下光源更亮: 上光 8%+下光 100%
-}bsp_light_bri_ratio_t;
+} bsp_light_mode_t;
 
 typedef enum 
 {
     BSP_LIGHT_BRI_GRAD_NONE     = 0,
     BSP_LIGHT_BRI_GRAD_UP       = 1,     //亮一点
     BSP_LIGHT_BRI_GRAD_DOWN     = 2,     //暗一点
-}bsp_light_bri_grad_t;
+} bsp_light_bri_grad_t;
 
 typedef enum 
 {
@@ -128,31 +96,19 @@ typedef enum
     BSP_RGB_SELECT_BLUE     = 4,
     BSP_RGB_SELECT_PURPLE   = 5,
     BSP_RGB_SELECT_COLORFUL = 6,
-}bsp_rgb_select_t;
+} bsp_rgb_select_t;
 
 typedef struct  {
-
     uint8_t is_reset;
 
     uint8_t on_off;
-
-    //上光*0.75+下光*0.25=总亮度
-    uint16_t up_bri;  
-    
-    uint16_t down_bri;  
-
-    uint8_t total_bri;
-
+    uint8_t brightness;
     uint16_t cct;
-
-    bsp_light_sel_t sel;
-
     bsp_light_mode_t mode;
 
-    bsp_rgb_select_t rgb_sel;
-    uint64_t rgb_val;
     uint8_t rgb_on_off;
-
+    uint32_t rgb_val;
+    bsp_rgb_select_t rgb_sel;
 } bsp_light_store_t;
 
 qm_err_t bsp_light_init(void);
@@ -173,9 +129,6 @@ qm_err_t bsp_light_rgb_on_off(bool_t on_off);
 
 //模式
 qm_err_t bsp_light_mode(bsp_light_mode_t mode);
-
-//灯源选择
-qm_err_t bsp_light_select(bsp_light_sel_t sel);
 
 // rgb select
 qm_err_t bsp_light_rgb_select(bsp_rgb_select_t select);
@@ -198,29 +151,11 @@ qm_err_t bsp_light_bri_up(void);
 //亮度-
 qm_err_t bsp_light_bri_down(void);
 
-//亮度配比
-qm_err_t bsp_light_bri_ratio(bsp_light_bri_ratio_t ratio);
-
 //亮度渐变
 qm_err_t bsp_light_bri_grad(bsp_light_bri_grad_t grad);
 
-//上光开关
-qm_err_t bsp_light_uplight_switch(bool_t on_off);
-
-//下光开关
-qm_err_t bsp_light_downlight_switch(bool_t on_off);
-
-//上发光变亮
-qm_err_t bsp_light_warm_up(void);
-
-//下发光变亮
-qm_err_t bsp_light_warm_down(void);
-
 //变光
 qm_err_t bsp_light_switch1(void);
-
-//全亮->半亮
-qm_err_t bsp_light_switch2(void);
 
 //定时关灯
 qm_err_t bsp_light_delay_off_cancel(void);

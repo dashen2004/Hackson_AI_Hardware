@@ -98,26 +98,24 @@ void set_var_brightness_onoff(bool value) {
     }
 }
 
-int32_t get_var_brightness_top() {
-    int32_t up_bri = bsp_light_store_get()->up_bri / 100;
-    return (bsp_light_store_get()->on_off ? up_bri : 0);
+int32_t get_var_brightness() {
+    int32_t bri = bsp_light_store_get()->brightness;
+    return (bsp_light_store_get()->on_off ? bri : 0);
 }
 
-// flag: false - 不更新灯的亮度, true - 更新灯的亮度
-void set_var_brightness_top(int32_t value) {
-    bsp_light_bri_up_set(value);
+void set_var_brightness(int32_t value) {
+    bsp_light_bri_set(value);
     audio_light_snapshot_report();
     bsp_light_store_update();
 }
 
-int32_t get_var_brightness_bottom() {
-    int32_t down_bri = bsp_light_store_get()->down_bri / 100;
-    return (bsp_light_store_get()->on_off ? down_bri : 0);
+int32_t get_var_cct() {
+    int32_t bri = bsp_light_store_get()->brightness;
+    return (bsp_light_store_get()->on_off ? bri : 0);
 }
 
-// flag: false - 不更新灯的亮度, true - 更新灯的亮度
-void set_var_brightness_bottom(int32_t value) {
-    bsp_light_bri_down_set(value);
+void set_var_cct(int32_t value) {
+    bsp_light_bri_set(value);
     audio_light_snapshot_report();
     bsp_light_store_update();
 }

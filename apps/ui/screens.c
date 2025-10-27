@@ -34,7 +34,7 @@ static void event_handler_cb_page_brightness_slider_brightness_top(lv_event_t *e
         if (tick_value_change_obj != ta) {
             turnoff_timer_reset(0);
             int32_t value = lv_slider_get_value(ta);
-            set_var_brightness_top(value);
+            set_var_brightness(value);
         }
     }
 }
@@ -46,7 +46,7 @@ static void event_handler_cb_page_brightness_slider_brightness_bottom(lv_event_t
         if (tick_value_change_obj != ta) {
             turnoff_timer_reset(0);
             int32_t value = lv_slider_get_value(ta);
-            set_var_brightness_bottom(value);
+            set_var_cct(value);
         }
     }
 }
@@ -806,7 +806,7 @@ void tick_screen_page_brightness() {
         }
     }
     {
-        int32_t new_val = get_var_brightness_top();
+        int32_t new_val = get_var_brightness();
         int32_t cur_val = lv_slider_get_value(objects.slider_brightness_top);
         if (new_val != cur_val) {
             tick_value_change_obj = objects.slider_brightness_top;
@@ -822,7 +822,7 @@ void tick_screen_page_brightness() {
         }
     }
     {
-        int32_t new_val = get_var_brightness_bottom();
+        int32_t new_val = get_var_cct();
         int32_t cur_val = lv_slider_get_value(objects.slider_brightness_bottom);
         if (new_val != cur_val) {
             tick_value_change_obj = objects.slider_brightness_bottom;

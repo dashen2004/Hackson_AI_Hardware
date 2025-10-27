@@ -1,14 +1,4 @@
 dependencies:
-  78/esp-opus:
-    component_hash: 8182b733f071d7bfe1e837f4c9f8649a63e4c937177f089e65772880c02f2e17
-    dependencies:
-    - name: idf
-      require: private
-      version: '>=5.0'
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    version: 1.0.5
   chmorgan/esp-libhelix-mp3:
     component_hash: cbb76089dc2c5749f7b470e2e70aedc44c9da519e04eb9a67d4c7ec275229e53
     dependencies:
@@ -101,6 +91,20 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.1.0
+  espressif/lightbulb_driver:
+    component_hash: 9b96e696a812c4ceda56ec12d829302769c821db5e01815f717d3cf5431bc0cb
+    dependencies:
+    - name: espressif/cmake_utilities
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    - name: idf
+      require: private
+      version: '>=4.3.2'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.11.0
   espressif/nghttp:
     component_hash: 32e513409ddce0000990ec74b0711f535462726236d72578cd70498e6bd66dc3
     dependencies:
@@ -133,17 +137,17 @@ dependencies:
       type: service
     version: 9.2.2
 direct_dependencies:
-- 78/esp-opus
 - chmorgan/esp-libhelix-mp3
 - espressif/esp-dsp
 - espressif/esp_lcd_st77916
 - espressif/esp_lcd_touch_cst816s
 - espressif/esp_lvgl_port
 - espressif/jsmn
+- espressif/lightbulb_driver
 - espressif/nghttp
 - espressif/zlib
 - idf
 - lvgl/lvgl
-manifest_hash: 832b2b6c01ecc4f369076e9681813cca6af70702af47afe47825af4cad174d9f
+manifest_hash: d0af89d46b3f88eb38fdf9147de5f2fe054687b8f95ce2031c525b771c30e4c2
 target: esp32s3
 version: 2.0.0

@@ -41,10 +41,6 @@ typedef enum {
 
 qm_err_t audio_cloud_init(void);
 
-void audio_cloud_event_post(int audio_event);
-
-void qm_bsp_offline_voice_play(PCM_FILE_ID_t pcm_id);
-uint8_t qm_bsp_voice_is_idle(void);
 #ifdef __cplusplus
 }
 #endif

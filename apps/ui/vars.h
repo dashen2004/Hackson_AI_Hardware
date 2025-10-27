@@ -28,10 +28,10 @@ extern int32_t get_var_volume_value();
 extern void set_var_volume_value(int32_t value, bool flag);
 extern bool get_var_brightness_onoff(void);
 extern void set_var_brightness_onoff(bool value);
-extern int32_t get_var_brightness_top();
-extern void set_var_brightness_top(int32_t value);
-extern int32_t get_var_brightness_bottom();
-extern void set_var_brightness_bottom(int32_t value);
+extern int32_t get_var_brightness();
+extern void set_var_brightness(int32_t value);
+extern int32_t get_var_cct();
+extern void set_var_cct(int32_t value);
 
 extern int32_t get_var_scr_tmo_value(void);
 extern void set_var_scr_tmo_value(int32_t value, bool flag);

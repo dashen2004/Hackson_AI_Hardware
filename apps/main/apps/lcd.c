@@ -92,15 +92,15 @@ void bsp_lcd_bl_set(int brightness_percent) {
     if(brightness_percent == 0) {
         ESP_LOGI(LOG_TAG, "Turning off LCD backlight");
         esp_lcd_panel_disp_on_off(panel_handle, false);
-        ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, false);
+        ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_5, false);
         return;
     } else {
         esp_lcd_panel_disp_on_off(panel_handle, true);
     }
     ESP_LOGI(LOG_TAG, "Setting LCD backlight: %d", brightness_percent);
     uint32_t duty_cycle = (1023 * brightness_percent) / 100; // LEDC resolution set to 10bits, thus: 100% = 1023
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, duty_cycle);
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_5, duty_cycle);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_5);
 }
 
 int bsp_lcd_bl_brightness_percent_get(void) {
@@ -133,7 +133,7 @@ void bsp_lcd_bl_init(void) {
     const ledc_channel_config_t LCD_backlight_channel = {
         .gpio_num = EXAMPLE_PIN_NUM_LCD_BL,
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = LEDC_CHANNEL_2,
+        .channel = LEDC_CHANNEL_5,
         .intr_type = LEDC_INTR_DISABLE,
         .timer_sel = LEDC_TIMER_2,
         .duty = 0,
@@ -145,13 +145,13 @@ void bsp_lcd_bl_init(void) {
         .duty_resolution = LEDC_TIMER_10_BIT,
         .timer_num = LEDC_TIMER_2,
         .freq_hz = 5000,
-        .clk_cfg = LEDC_AUTO_CLK
+        .clk_cfg = LEDC_USE_XTAL_CLK
     };
 
     ledc_timer_config(&LCD_backlight_timer);
     ledc_channel_config(&LCD_backlight_channel);
 
-    bsp_lcd_bl_off(); // bsp_lcd_bl_on();
+    bsp_lcd_bl_on();
 }
 
 esp_err_t bsp_lcd_tp_init(void)
