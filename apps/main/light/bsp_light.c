@@ -62,19 +62,9 @@ qm_err_t bsp_light_init(void)
 
     bsp_light_bulb_init();
 
-    if (g_light_store.is_reset) {
-        bsp_light_blink();
-    } else {
-        crash_reset = qm_is_crash_reset();
-        if (!crash_reset) {
-            bsp_light_bri_on_off(QM_TRUE);
-        } else {
-            bsp_light_bri_on_off(g_light_store.on_off);
-        }
-    }
-
-    // default close rgb
+    // default close rgb and light
     bsp_light_rgb_on_off(QM_FALSE);
+    bsp_light_bri_on_off(QM_FALSE);
 
     g_light_store.is_reset = QM_FALSE;
 
@@ -111,6 +101,20 @@ qm_err_t bsp_light_bri_on_off(bool_t on_off)
     return QM_EOK;
 }
 
+// 色温
+qm_err_t bsp_light_cct_set(uint32_t cct_val)
+{
+    bsp_light_store_t *store = bsp_light_store_get();
+
+    store->cct = cct_val;
+    store->on_off = QM_TRUE;
+    store->mode = BSP_LIGHT_MODE_NONE;
+
+    light_set_lightness(store->brightness);
+    
+    return QM_EOK;
+}
+
 //模式
 qm_err_t bsp_light_mode(bsp_light_mode_t mode)
 {
@@ -119,30 +123,35 @@ qm_err_t bsp_light_mode(bsp_light_mode_t mode)
     switch (mode)
     {
         case BSP_LIGHT_MODE_NIGHT:
-            store->brightness = 8;
+            store->brightness = 20;
+            store->cct = 3000;
             store->on_off = QM_TRUE;
 
             light_set_lightness(store->brightness);
         break;
 
         case BSP_LIGHT_MODE_READ:
-            store->brightness = 100;
+            store->brightness = 40;
+            store->cct = 3900;
             store->on_off = QM_TRUE;
 
             light_set_lightness(store->brightness);
         break;
 
         case BSP_LIGHT_MODE_IDLE:
-            store->brightness = 50;
+            store->brightness = 60;
+            store->cct = 5700;
             store->on_off = QM_TRUE;
 
             light_set_lightness(store->brightness);
         break;
 
         case BSP_LIGHT_MODE_SLEEP:
-            store->on_off = QM_FALSE;
+            store->brightness = 8;
+            store->cct = 5700;
+            store->on_off = QM_TRUE;
 
-            light_set_lightness(0);
+            light_set_lightness(store->brightness);
         break;
 
         default:

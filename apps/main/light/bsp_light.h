@@ -60,6 +60,9 @@ extern "C" {
 #define CONFIG_BSP_RGB_COLORFUL_START_VALUE     (0x00FD3F3F)
 #define CONFIG_BSP_RGB_COLORFUL_END_VALUE       (0x00FD3FC3)
 
+// cct
+#define CONFIG_BSP_LIGHT_CCT_MAX_VALUE          (5700)
+#define CONFIG_BSP_LIGHT_CCT_MIN_VALUE          (2700)
 #define CONFIG_BSP_LIGHT_CCT_WARM_VALUE         (2700)
 #define CONFIG_BSP_LIGHT_CCT_NATURAL_VALUE      (3500)
 #define CONFIG_BSP_LIGHT_CCT_COOL_VALUE         (5500)
@@ -124,6 +127,9 @@ qm_err_t bsp_light_store_update(void);
 //开关
 qm_err_t bsp_light_bri_on_off(bool_t on_off);
 
+// 色温
+qm_err_t bsp_light_cct_set(uint32_t cct_val);
+
 // rgb on off
 qm_err_t bsp_light_rgb_on_off(bool_t on_off);
 
@@ -169,12 +175,6 @@ qm_err_t bsp_light_blink(void);
 
 //全亮
 qm_err_t bsp_light_all(void);
-
-//中性光
-qm_err_t bsp_light_neuter(void);
-
-//自然光
-qm_err_t bsp_light_nature(void);
 
 qm_err_t voice_corpus_request(uint8_t number);
 

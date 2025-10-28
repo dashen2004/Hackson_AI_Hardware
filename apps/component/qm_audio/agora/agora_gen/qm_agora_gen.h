@@ -7,7 +7,7 @@ extern "C" {
 
 #include "qm.h"
 
-#define CONFIG_AGORA_USE_LICENSE    1
+#define CONFIG_AGORA_USE_LICENSE    0
 
 typedef enum {
     QM_AGORA_GEN_TYPE_NONE = 0,

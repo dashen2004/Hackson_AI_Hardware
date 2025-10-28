@@ -206,8 +206,6 @@ qm_err_t qm_color_rgb2value(qm_color_rgb_t *color, qm_color_rgb_t *start_color, 
 qm_err_t qm_color_value2rgb(int32_t val, int32_t min_value, int32_t max_value,
                             qm_color_rgb_t start_color, qm_color_rgb_t end_color, qm_color_rgb_t *color)
 {
-    color = NULL;
-
     if (min_value > max_value) {
         return QM_EINVAL;
     }

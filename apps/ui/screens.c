@@ -25,6 +25,8 @@ lv_font_t *font_pingfang_16px = NULL;
 lv_font_t *font_pingfang_20px = NULL;
 lv_font_t *font_pingfang_24px = NULL;
 
+static uint32_t rgb_slider_start_value = 0, rgb_slider_end_value = 0;
+
 extern int bsp_lcd_bl_brightness_percent_get(void);
 
 static void event_handler_cb_page_brightness_slider_brightness_top(lv_event_t *e) {
@@ -46,7 +48,7 @@ static void event_handler_cb_page_brightness_slider_brightness_bottom(lv_event_t
         if (tick_value_change_obj != ta) {
             turnoff_timer_reset(0);
             int32_t value = lv_slider_get_value(ta);
-            set_var_cct(value);
+            set_var_cct(value * 100);
         }
     }
 }
@@ -59,6 +61,20 @@ static void event_handler_cb_page_setup_volume_volume_value(lv_event_t *e) {
             turnoff_timer_reset(0);
             int32_t value = lv_slider_get_value(ta);
             set_var_volume_value(value, true);
+        }
+    }
+}
+
+static void event_handler_cb_page_rgb_slider(lv_event_t *e) {
+    lv_event_code_t event = lv_event_get_code(e);
+    if (event == LV_EVENT_VALUE_CHANGED && bsp_lcd_bl_brightness_percent_get() != 0) {
+        lv_obj_t *ta = lv_event_get_target(e);
+        if (tick_value_change_obj != ta) {
+            turnoff_timer_reset(0);
+            int32_t value = lv_slider_get_value(ta);
+            uint32_t rgb_val = conver_slider_value_to_rgb_value(100 - value, rgb_slider_start_value, rgb_slider_end_value);
+            set_var_rgb_value(rgb_val);
+            lv_led_set_color(objects.led_display, lv_color_hex(rgb_val));
         }
     }
 }
@@ -717,13 +733,13 @@ void create_screen_page_brightness() {
                     objects.slider_brightness_bottom = obj;
                     lv_obj_set_pos(obj, 0, 82);
                     lv_obj_set_size(obj, 294, 48);
-                    lv_slider_set_range(obj, 8, 100);
+                    lv_slider_set_range(obj, 27, 57);
                     lv_obj_add_event_cb(obj, event_handler_cb_page_brightness_slider_brightness_bottom, LV_EVENT_ALL, 0);
                     lv_obj_clear_flag(obj, LV_OBJ_FLAG_GESTURE_BUBBLE);
                     lv_obj_set_style_bg_opa(obj, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
                     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff565656), LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_bg_color(obj, lv_color_hex(0xffff9000), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_color(obj, lv_color_hex(0xffffffff), LV_PART_INDICATOR | LV_STATE_DEFAULT);
                 }
                 {
                     // text_brightness_top_value
@@ -832,7 +848,7 @@ void tick_screen_page_brightness() {
 
         char temp[16];
         if (new_val == 0) { sprintf(temp, "关闭"); }
-        else { sprintf(temp, "%ld%%", new_val); }
+        else { sprintf(temp, "%ld00K", new_val); }
         if (lv_strcmp(lv_label_get_text(objects.text_brightness_bottom_value), temp)) {
             lv_label_set_text(objects.text_brightness_bottom_value, temp);
         }
@@ -2381,56 +2397,62 @@ void create_screen_page_rgb() {
         }
         {
             // rgb_select_red
-            lv_obj_t *obj = lv_imagebutton_create(parent_obj);
+            lv_obj_t *obj = lv_image_create(parent_obj);
             objects.rgb_select_red = obj;
             lv_obj_set_pos(obj, 76, 53);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, 48);
-            lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/rgb_select_red.bin", NULL);
+            lv_image_set_src(obj, "/lvgl/images/rgb_select_red.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE|LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_event_cb(obj, action_rgb_red_click, LV_EVENT_PRESSED, (void *)0);
         }
         {
             // rgb_select_orange
-            lv_obj_t *obj = lv_imagebutton_create(parent_obj);
+            lv_obj_t *obj = lv_image_create(parent_obj);
             objects.rgb_select_orange = obj;
             lv_obj_set_pos(obj, 156, 53);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, 48);
-            lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/rgb_select_orange.bin", NULL);
+            lv_image_set_src(obj, "/lvgl/images/rgb_select_orange.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE|LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_event_cb(obj, action_rgb_orange_click, LV_EVENT_PRESSED, (void *)0);
         }
         {
             // rgb_select_green
-            lv_obj_t *obj = lv_imagebutton_create(parent_obj);
+            lv_obj_t *obj = lv_image_create(parent_obj);
             objects.rgb_select_green = obj;
             lv_obj_set_pos(obj, 235, 53);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, 48);
-            lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/rgb_select_green.bin", NULL);
+            lv_image_set_src(obj, "/lvgl/images/rgb_select_green.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE|LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_event_cb(obj, action_rgb_green_click, LV_EVENT_PRESSED, (void *)0);
         }
         {
             // rgb_select_blue
-            lv_obj_t *obj = lv_imagebutton_create(parent_obj);
+            lv_obj_t *obj = lv_image_create(parent_obj);
             objects.rgb_select_blue = obj;
             lv_obj_set_pos(obj, 76, 142);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, 48);
-            lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/rgb_select_blue.bin", NULL);
+            lv_image_set_src(obj, "/lvgl/images/rgb_select_blue.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE|LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_event_cb(obj, action_rgb_blue_click, LV_EVENT_PRESSED, (void *)0);
         }
         {
             // rgb_select_purple
-            lv_obj_t *obj = lv_imagebutton_create(parent_obj);
+            lv_obj_t *obj = lv_image_create(parent_obj);
             objects.rgb_select_purple = obj;
             lv_obj_set_pos(obj, 156, 142);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, 48);
-            lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/rgb_select_purple.bin", NULL);
+            lv_image_set_src(obj, "/lvgl/images/rgb_select_purple.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE|LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_event_cb(obj, action_rgb_purple_click, LV_EVENT_PRESSED, (void *)0);
         }
         {
             // rgb_select_colorful
-            lv_obj_t *obj = lv_imagebutton_create(parent_obj);
+            lv_obj_t *obj = lv_image_create(parent_obj);
             objects.rgb_select_colorful = obj;
             lv_obj_set_pos(obj, 235, 142);
             lv_obj_set_size(obj, LV_SIZE_CONTENT, 48);
-            lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, "/lvgl/images/rgb_select_colorful.bin", NULL);
+            lv_image_set_src(obj, "/lvgl/images/rgb_select_colorful.bin");
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE|LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_event_cb(obj, action_rgb_colorful_click, LV_EVENT_PRESSED, (void *)0);
         }
         {
@@ -2454,6 +2476,7 @@ void create_screen_page_rgb() {
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_image_src(obj, "/lvgl/images/rgb_bar_slider.bin", LV_PART_KNOB | LV_STATE_DEFAULT);
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
+            lv_obj_add_event_cb(obj, event_handler_cb_page_rgb_slider, LV_EVENT_ALL, 0);
         }
     }
     
@@ -2493,49 +2516,67 @@ void tick_screen_page_rgb() {
         switch (new_select_val) {
             case BSP_RGB_SELECT_RED:
                 lv_obj_set_pos(objects.rgb_selected, 74, 51);
+                set_var_rgb_value(CONFIG_BSP_RGB_RED_DEFAULT_VALUE);
                 lv_led_set_color(objects.led_display, lv_color_hex(CONFIG_BSP_RGB_RED_DEFAULT_VALUE));
                 lv_obj_set_style_bg_image_src(objects.rgb_bar, "/lvgl/images/rgb_bar_red.bin", LV_PART_MAIN | LV_STATE_DEFAULT);
 
+                rgb_slider_start_value = CONFIG_BSP_RGB_RED_START_VALUE;
+                rgb_slider_end_value = CONFIG_BSP_RGB_RED_END_VALUE;
                 slider_value = 100 - conver_rgb_value_to_slider_value(CONFIG_BSP_RGB_RED_DEFAULT_VALUE, CONFIG_BSP_RGB_RED_START_VALUE, CONFIG_BSP_RGB_RED_END_VALUE);
             break;
-            
+
             case BSP_RGB_SELECT_ORANGE:
                 lv_obj_set_pos(objects.rgb_selected, 154, 51);
+                set_var_rgb_value(CONFIG_BSP_RGB_ORANGE_DEFAULT_VALUE);
                 lv_led_set_color(objects.led_display, lv_color_hex(CONFIG_BSP_RGB_ORANGE_DEFAULT_VALUE));
                 lv_obj_set_style_bg_image_src(objects.rgb_bar, "/lvgl/images/rgb_bar_orange.bin", LV_PART_MAIN | LV_STATE_DEFAULT);
 
+                rgb_slider_start_value = CONFIG_BSP_RGB_ORANGE_START_VALUE;
+                rgb_slider_end_value = CONFIG_BSP_RGB_ORANGE_END_VALUE;
                 slider_value = 100 - conver_rgb_value_to_slider_value(CONFIG_BSP_RGB_ORANGE_DEFAULT_VALUE, CONFIG_BSP_RGB_ORANGE_START_VALUE, CONFIG_BSP_RGB_ORANGE_END_VALUE);
             break;
 
             case BSP_RGB_SELECT_GREEN:
                 lv_obj_set_pos(objects.rgb_selected, 233, 51);
+                set_var_rgb_value(CONFIG_BSP_RGB_GREEN_DEFAULT_VALUE);
                 lv_led_set_color(objects.led_display, lv_color_hex(CONFIG_BSP_RGB_GREEN_DEFAULT_VALUE));
                 lv_obj_set_style_bg_image_src(objects.rgb_bar, "/lvgl/images/rgb_bar_green.bin", LV_PART_MAIN | LV_STATE_DEFAULT);
 
+                rgb_slider_start_value = CONFIG_BSP_RGB_GREEN_START_VALUE;
+                rgb_slider_end_value = CONFIG_BSP_RGB_GREEN_END_VALUE;
                 slider_value = 100 - conver_rgb_value_to_slider_value(CONFIG_BSP_RGB_GREEN_DEFAULT_VALUE, CONFIG_BSP_RGB_GREEN_START_VALUE, CONFIG_BSP_RGB_GREEN_END_VALUE);
             break;
 
             case BSP_RGB_SELECT_BLUE:
                 lv_obj_set_pos(objects.rgb_selected, 74, 140);
+                set_var_rgb_value(CONFIG_BSP_RGB_BLUE_DEFAULT_VALUE);
                 lv_led_set_color(objects.led_display, lv_color_hex(CONFIG_BSP_RGB_BLUE_DEFAULT_VALUE));
                 lv_obj_set_style_bg_image_src(objects.rgb_bar, "/lvgl/images/rgb_bar_blue.bin", LV_PART_MAIN | LV_STATE_DEFAULT);
 
+                rgb_slider_start_value = CONFIG_BSP_RGB_BLUE_START_VALUE;
+                rgb_slider_end_value = CONFIG_BSP_RGB_BLUE_END_VALUE;
                 slider_value = 100 - conver_rgb_value_to_slider_value(CONFIG_BSP_RGB_BLUE_DEFAULT_VALUE, CONFIG_BSP_RGB_BLUE_START_VALUE, CONFIG_BSP_RGB_BLUE_END_VALUE);
             break;
 
             case BSP_RGB_SELECT_PURPLE:
                 lv_obj_set_pos(objects.rgb_selected, 154, 140);
+                set_var_rgb_value(CONFIG_BSP_RGB_PURPLE_DEFAULT_VALUE);
                 lv_led_set_color(objects.led_display, lv_color_hex(CONFIG_BSP_RGB_PURPLE_DEFAULT_VALUE));
                 lv_obj_set_style_bg_image_src(objects.rgb_bar, "/lvgl/images/rgb_bar_purple.bin", LV_PART_MAIN | LV_STATE_DEFAULT);
 
+                rgb_slider_start_value = CONFIG_BSP_RGB_PURPLE_START_VALUE;
+                rgb_slider_end_value = CONFIG_BSP_RGB_PURPLE_END_VALUE;
                 slider_value = 100 - conver_rgb_value_to_slider_value(CONFIG_BSP_RGB_PURPLE_DEFAULT_VALUE, CONFIG_BSP_RGB_PURPLE_START_VALUE, CONFIG_BSP_RGB_PURPLE_END_VALUE);
             break;
 
             case BSP_RGB_SELECT_COLORFUL:
                 lv_obj_set_pos(objects.rgb_selected, 233, 140);
+                set_var_rgb_value(CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE);
                 lv_led_set_color(objects.led_display, lv_color_hex(CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE));
-                lv_obj_set_style_bg_image_src(objects.rgb_bar, "/lvgl/images/rgb_bar_colorful.bin", LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_image_src(objects.rgb_bar, "/lvgl/images/rgb_bar_color.bin", LV_PART_MAIN | LV_STATE_DEFAULT);
 
+                rgb_slider_start_value = CONFIG_BSP_RGB_COLORFUL_START_VALUE;
+                rgb_slider_end_value = CONFIG_BSP_RGB_COLORFUL_END_VALUE;
                 slider_value = 100 - conver_rgb_value_to_slider_value(CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE, CONFIG_BSP_RGB_COLORFUL_START_VALUE, CONFIG_BSP_RGB_COLORFUL_END_VALUE);
             break;
 

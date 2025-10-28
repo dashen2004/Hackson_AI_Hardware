@@ -25,6 +25,7 @@ static qm_err_t bri_aciton(qm_spec_property_t *property);
 static qm_err_t mode_aciton(qm_spec_property_t *property);
 static qm_err_t switch_aciton(qm_spec_property_t *property);
 static qm_err_t grad_aciton(qm_spec_property_t *property);
+static qm_err_t cct_action(qm_spec_property_t *property);
 static qm_err_t delay_off_aciton(qm_spec_property_t *property);
 static qm_err_t reset_aciton(qm_spec_property_t *property);
 static qm_err_t volume_set_action(qm_spec_property_t *property);
@@ -47,6 +48,7 @@ static qm_err_t bri_report(qm_spec_property_t *property);
 static qm_err_t mode_report(qm_spec_property_t *property);
 static qm_err_t switch_report(qm_spec_property_t *property);
 static qm_err_t grad_report(qm_spec_property_t *property);
+static qm_err_t cct_report(qm_spec_property_t *property);
 static qm_err_t delay_off_report(qm_spec_property_t *property);
 static qm_err_t reset_report(qm_spec_property_t *property);
 static qm_err_t volume_set_report(qm_spec_property_t *property);
@@ -150,6 +152,7 @@ static audio_light_table_t g_light_table[] =
     {CONFIG_AUDIO_LIGHT_MODE_SIID,      CONFIG_AUDIO_LIGHT_MODE_PIID,       mode_aciton,  mode_report},
     {CONFIG_AUDIO_LIGHT_SWITCH_SIID,    CONFIG_AUDIO_LIGHT_SWITCH_PIID,     switch_aciton, switch_report},
     {CONFIG_AUDIO_LIGHT_GRAD_SIID,      CONFIG_AUDIO_LIGHT_GRAD_PIID,       grad_aciton,  grad_report},
+    {CONFIG_AUDIO_LIGHT_CCT_SIID,       CONFIG_AUDIO_LIGHT_CCT_PIID,        cct_action, cct_report},
     {CONFIG_AUDIO_LIGHT_DELAY_OFF_SIID, CONFIG_AUDIO_LIGHT_DELAY_OFF_PIID,  delay_off_aciton,  delay_off_report},
     {CONFIG_AUDIO_LIGHT_RESET_SIID,     CONFIG_AUDIO_LIGHT_RESET_PIID,      reset_aciton,  reset_report},
     {CONFIG_AUDIO_VOLUME_SIID,          CONFIG_AUDIO_VOLUME_PIID,           volume_set_action,  volume_set_report},
@@ -159,8 +162,6 @@ static audio_light_table_t g_light_table[] =
     {CONFIG_AUDIO_VOICE_CONTROL_SIID,   CONFIG_AUDIO_VOICE_CORPUS_PIID,     voice_corpus_action,voice_corpus_report},
     {CONFIG_AUDIO_VOICE_CONTROL_SIID,   CONFIG_AUDIO_VOICE_ABORT_PIID,      voice_abort_action,  voice_abort_report},
     {CONFIG_AUDIO_VOICE_CONTROL_SIID,   CONFIG_AUDIO_VOICE_EMOTION_PIID,    voice_emotion_action,  voice_emotion_report},
-    {CONFIG_AUDIO_EGV_SIID,             CONFIG_AUDIO_EGV_PIID,              EGV_aciton,  EGV_report},
-    {CONFIG_AUDIO_ALG_SIID,             CONFIG_AUDIO_ALG_PIID,              ALG_aciton,  ALG_report},
     //RTC登录信息UID
     {CONFIG_AUDIO_RTC_LOGIN_SIID,       CONFIG_AUDIO_RTC_UID_PIID,          rtc_login_info_uid, rtc_login_info_uid_report},
     //RTC登录信息APPID
@@ -225,6 +226,9 @@ qm_err_t audio_light_snapshot_report(void)
 //模式
     audio_light_add(property_operation, 
         CONFIG_AUDIO_LIGHT_MODE_SIID, CONFIG_AUDIO_LIGHT_MODE_PIID, CONFIG_AUDIO_LIGHT_MODE_TYPE, (int)(store->mode));
+//cct
+    audio_light_add(property_operation, 
+        CONFIG_AUDIO_LIGHT_CCT_SIID, CONFIG_AUDIO_LIGHT_CCT_PIID, CONFIG_AUDIO_LIGHT_CCT_TYPE, (int)(store->cct));
 
 //rgb on_off
     audio_light_add(property_operation, 
@@ -302,6 +306,7 @@ qm_err_t audio_light_action_and_report(qm_spec_property_t *property)
 //开关灯
 static qm_err_t onoff_aciton(qm_spec_property_t *property)
 {
+    qm_msleep(600);
     bool_t onoff = QM_FALSE;
     qm_spec_property_unpack_bool(property, &onoff);
 
@@ -338,6 +343,7 @@ static qm_err_t bri_report(qm_spec_property_t *property)
 {
     return audio_light_snapshot_report();
 }
+
 //模式
 static qm_err_t mode_aciton(qm_spec_property_t *property)
 {
@@ -352,6 +358,24 @@ static qm_err_t mode_aciton(qm_spec_property_t *property)
 }
 
 static qm_err_t mode_report(qm_spec_property_t *property)
+{
+    return audio_light_snapshot_report();
+}
+
+// cct
+static qm_err_t cct_action(qm_spec_property_t *property)
+{
+    int cct = 0;
+    qm_spec_property_unpack_number(property, &cct);
+
+    bsp_light_cct_set(cct);
+
+    bsp_light_store_update();
+
+    return QM_EOK;
+}
+
+static qm_err_t cct_report(qm_spec_property_t *property)
 {
     return audio_light_snapshot_report();
 }
@@ -757,6 +781,7 @@ static qm_err_t rtc_login_info_license_value_report(qm_spec_property_t *property
 // rgb on off
 static qm_err_t rgb_onoff_aciton(qm_spec_property_t *property)
 {
+    qm_msleep(600);
     bool_t onoff = QM_FALSE;
     qm_spec_property_unpack_bool(property, &onoff);
 
@@ -775,8 +800,49 @@ static qm_err_t rgb_onoff_report(qm_spec_property_t *property)
 // rgb value
 static qm_err_t rgb_value_aciton(qm_spec_property_t *property)
 {
-    int rgb_val = 0;
-    qm_spec_property_unpack_number(property, &rgb_val);
+    char *data = NULL;
+    int len = 0;
+    if (property == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, NULL, &len);
+    if (len == 0) {
+        return QM_ERROR;
+    }
+    data = (char *)qm_malloc(len);
+    if (data == NULL) {
+        return QM_ERROR;
+    }
+    qm_spec_property_unpack_string(property, data, &len);
+    if (data == NULL) {
+        return QM_ERROR;
+    }
+
+    uint32_t rgb_val = 0;
+
+    if (data[0] == 'r' && data[1] == 'g' && data[2] == 'b') {
+        uint16_t split_offset_1 = 0, split_offset_2 = 0;
+
+        for (int32_t i = 0; data[i] != '\0'; i++) {
+            if (data[i] == ',') {
+                if (split_offset_1 == 0) {
+                    split_offset_1 = i;
+                } else {
+                    split_offset_2 = i;
+                }
+            }
+        }
+
+        char *red_start = &data[4], *red_end = &data[split_offset_1 - 1];
+        char *green_start = &data[split_offset_1 + 2], *green_end = &data[split_offset_2 - 1];
+        char *blue_start = &data[split_offset_2 + 2], *blue_end = &data[strlen(data) - 2];
+
+        uint32_t red_value = strtod(red_start, &red_end);
+        uint32_t green_value = strtod(green_start, &green_end);
+        uint32_t blue_value = strtod(blue_start, &blue_end);
+
+        rgb_val = (red_value << 16) | (green_value << 8) | blue_value;
+    }
 
     bsp_light_rgb_value_set(rgb_val);
 

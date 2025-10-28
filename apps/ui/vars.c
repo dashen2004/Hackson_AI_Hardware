@@ -110,12 +110,12 @@ void set_var_brightness(int32_t value) {
 }
 
 int32_t get_var_cct() {
-    int32_t bri = bsp_light_store_get()->brightness;
-    return (bsp_light_store_get()->on_off ? bri : 0);
+    int32_t cct = bsp_light_store_get()->cct;
+    return cct / 100;
 }
 
 void set_var_cct(int32_t value) {
-    bsp_light_bri_set(value);
+    bsp_light_cct_set(value);
     audio_light_snapshot_report();
     bsp_light_store_update();
 }

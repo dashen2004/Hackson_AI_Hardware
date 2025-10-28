@@ -53,3 +53,7 @@ coverage_report/
 # ESP-IDF default build directory name
 build
 apps/ui/arrow_lcd_design/
+apps/managed_components/espressif__lightbulb_driver/CHANGELOG.md
+apps/managed_components/espressif__lightbulb_driver/CHECKSUMS.json
+apps/managed_components/espressif__lightbulb_driver/README.md
+apps/managed_components/espressif__lightbulb_driver/sdkconfig.rename

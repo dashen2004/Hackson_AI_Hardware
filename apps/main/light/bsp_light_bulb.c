@@ -75,9 +75,9 @@ lightbulb_power_limit_t limit = {
     .color_max_power = 100,
     .color_max_value = 100,
     .color_min_value = 10,
-    .white_max_power = 100,
-    .white_max_brightness = 100,
-    .white_min_brightness = 10
+    .white_max_power = 50,
+    .white_max_brightness = CONFIG_BSP_LIGHT_MAX_LIGHTNESS,
+    .white_min_brightness = CONFIG_BSP_LIGHT_MIN_LIGHTNESS
 };
 
 lightbulb_gamma_config_t Gamma = {
@@ -127,7 +127,7 @@ void bsp_light_bulb_init(void)
 #endif
         // 2. Configure the drive capability
         .capability.enable_fade = true,
-        .capability.fade_time_ms = CONFIG_BSP_LIGHT_FADE_TIME,
+        .capability.fade_time_ms = 500,
         .capability.enable_status_storage = false,
 
 #if CONFIG_LIGHTBULB_DEMO_DRIVER_SELECT_WS2812
@@ -175,8 +175,8 @@ void bsp_light_bulb_init(void)
         .cct_mix_mode.precise.table = table,
         .capability.enable_precise_cct_control = 1,
 #else
-        .cct_mix_mode.standard.kelvin_max = 6500,
-        .cct_mix_mode.standard.kelvin_min = 2200,
+        .cct_mix_mode.standard.kelvin_max = CONFIG_BSP_LIGHT_CCT_MAX_VALUE,
+        .cct_mix_mode.standard.kelvin_min = CONFIG_BSP_LIGHT_CCT_MIN_VALUE,
 #endif
 
         //7. Init param
