@@ -102,6 +102,7 @@ int seial_send(uint8_t *data, int len)
     }
 
     // QM_HEX_LOGD("1", "send ", data, len);
+    // QM_LOGI("1", "send data len:%d", len);
     ret = qm_uart_write(&uart_dev, data, len, 0);
     uart_wait_tx_done(uart_dev.port, portMAX_DELAY);
 
@@ -191,6 +192,7 @@ void qm_agora_set_agent_state(qm_agent_state_t state, const char *text)
             qm_mutex_lock(&nc_player_handle.lock, QM_WAIT_FOREVER);
             nc_player_handle.agent_play_idle = 1;
             if(qm_audio_state_get() == QM_AUDIO_STATE_SLIENT && nc_player_handle.pcm_play_idle == 0) {
+                audio_play_start();
                 qm_audio_play(QM_AUDIO_TYPE_AGENT);
             }
             qm_mutex_unlock(&nc_player_handle.lock);
@@ -444,7 +446,7 @@ void nc_player_init(nc_player_param_t player_param)
         .rate = CONFIG_AUDIO_FMT_RATE,
         .bits = CONFIG_AUDIO_FMT_BITS,
         .channel = CONFIG_AUDIO_FMT_CHANNEL,
-        .spk_gain = 35,
+        .spk_gain = 50,
         .mic_gain = CONFIG_AUDIO_FMT_MIC_GAIN,
         .vad_tiemout = CONFIG_AUDIO_FMT_VAD_TIMEOUT,
 
@@ -484,4 +486,5 @@ void nc_player_init(nc_player_param_t player_param)
     };
 
     qm_audio_init(&audio_param);
+    qm_audio_stop();
 }

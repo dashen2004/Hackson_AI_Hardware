@@ -153,7 +153,7 @@ void wakeup_quit_immediately_trigger(uint8_t action)
         set_mic_stop_flag(QM_TRUE);
         set_wakeup_timeout_flag(QM_TRUE);
         qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_TIMEOUT_ID, NULL, 0);
-        qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSED, CONFIG_AUDIO_WAKEUP_TIMEOUT);
+        qm_post_delayed_action(&bsp_audio_handle.wakeup_timer, wakeup_timeout_handle, (void *)CONFIG_TIMEOUT_TYPE_CLOSED, 10 * 1000);
         break;
     default:
         break;
@@ -570,14 +570,14 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
 
     qm_agora_init(agora_cfg);
 
-    // nc_audio_set_spk_volume(nc_audio_get_volume());
-    nc_audio_set_spk_volume(1);
     nc_audio_set_mic_on_off(QM_FALSE);
     nc_audio_set_wakeup_on_off(QM_FALSE);
     nc_audio_set_wakeup_state_on_off(QM_FALSE);
 
     nc_audio_play_bin(BSP_PCM_ID_POWER_ON);
     qm_sem_wait(&bsp_audio_handle.wait_sem, CONFIG_AUDIO_POWER_ON_DURATION);
+
+    nc_audio_set_spk_volume(nc_audio_get_volume());
 
     return QM_EOK;
 }

@@ -2486,14 +2486,17 @@ void create_screen_page_rgb() {
 void tick_screen_page_rgb() {
     static int32_t slider_value = 0;
     static int8_t rgb_select_last = BSP_RGB_SELECT_NONE;
+    static uint32_t rgb_val_last = 0;
     static int8_t rgb_on_off_last = QM_FALSE;
 
     int8_t new_select_val = get_var_rgb_select();
+    uint32_t new_rgb_val = get_var_rgb_value();
     int8_t new_on_off_val = get_var_rgb_on_off();
 
-    if (new_select_val != rgb_select_last || new_on_off_val != rgb_on_off_last) {
+    if (new_select_val != rgb_select_last || new_on_off_val != rgb_on_off_last || new_rgb_val != rgb_val_last) {
         rgb_select_last = new_select_val;
         rgb_on_off_last = new_on_off_val;
+        rgb_val_last = new_rgb_val;
 
         if (new_on_off_val == QM_FALSE) {
             lv_obj_add_flag(objects.rgb_selected, LV_OBJ_FLAG_HIDDEN);
@@ -2571,13 +2574,20 @@ void tick_screen_page_rgb() {
 
             case BSP_RGB_SELECT_COLORFUL:
                 lv_obj_set_pos(objects.rgb_selected, 233, 140);
-                set_var_rgb_value(CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE);
-                lv_led_set_color(objects.led_display, lv_color_hex(CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE));
+                uint32_t cur_rgb_val = 0;
+                if (new_rgb_val != CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE) {
+                    cur_rgb_val = new_rgb_val;
+                } else {
+                    cur_rgb_val = CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE;
+                }
+
+                set_var_rgb_value(cur_rgb_val);
+                lv_led_set_color(objects.led_display, lv_color_hex(cur_rgb_val));
                 lv_obj_set_style_bg_image_src(objects.rgb_bar, "/lvgl/images/rgb_bar_color.bin", LV_PART_MAIN | LV_STATE_DEFAULT);
 
                 rgb_slider_start_value = CONFIG_BSP_RGB_COLORFUL_START_VALUE;
                 rgb_slider_end_value = CONFIG_BSP_RGB_COLORFUL_END_VALUE;
-                slider_value = 100 - conver_rgb_value_to_slider_value(CONFIG_BSP_RGB_COLORFUL_DEFAULT_VALUE, CONFIG_BSP_RGB_COLORFUL_START_VALUE, CONFIG_BSP_RGB_COLORFUL_END_VALUE);
+                slider_value = 100 - conver_rgb_value_to_slider_value(cur_rgb_val, CONFIG_BSP_RGB_COLORFUL_START_VALUE, CONFIG_BSP_RGB_COLORFUL_END_VALUE);
             break;
 
             default:

@@ -66,85 +66,6 @@ static qm_err_t rtc_login_info_license_value_report(qm_spec_property_t *property
 static qm_err_t rgb_onoff_report(qm_spec_property_t *property);
 static qm_err_t rgb_value_report(qm_spec_property_t *property);
 
-// extern int audio_stream_EGV_set(uint8_t type);
-// extern int audio_stream_EGV_get(void);
-// extern int audio_stream_ALG_set(float type);
-// extern float audio_stream_ALG_get(void);
-static qm_err_t EGV_aciton(qm_spec_property_t *property)
-{
-    char data[10] = {0};
-    int len = 0;
-    int value = 0;
-    if(property == NULL) {
-        return QM_ERROR;
-    }
-
-    qm_spec_property_unpack_string(property, data, &len);
-    if(sscanf(data, "%d", &value) != 1) {
-        return QM_ERROR;
-    }
-
-    // audio_stream_EGV_set(value);
-    return QM_EOK;
-}
-
-static qm_err_t EGV_report(qm_spec_property_t *property)
-{
-    qm_spec_property_t *property_pre = NULL;
-    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
-    if(property_operation == NULL){
-        return -QM_ENOMEM;
-    }
-    property_pre = qm_spec_property_creat();
-    if(property_pre == NULL){
-        return QM_ERROR;
-    }
-
-    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_EGV_SIID, CONFIG_AUDIO_EGV_PIID);
-    char data[10] = {0};
-    //sprintf(data, "%d", audio_stream_EGV_get());
-    qm_spec_property_pack_string(property_pre, data, strlen(data));
-    qm_spec_property_add(property_operation, property_pre);
-    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
-}
-
-static qm_err_t ALG_aciton(qm_spec_property_t *property)
-{
-    char data[10] = {0};
-    int len = 0;
-    float value = 0;
-    if(property == NULL) {
-        return QM_ERROR;
-    }
-    qm_spec_property_unpack_string(property, data, &len);
-    if(sscanf(data, "%1f", &value) != 1) {
-        return QM_ERROR;
-    }
-
-    // audio_stream_ALG_set(value);
-    return QM_EOK;
-}
-
-static qm_err_t ALG_report(qm_spec_property_t *property)
-{
-    qm_spec_property_t *property_pre = NULL;
-    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
-    if(property_operation == NULL){
-        return -QM_ENOMEM;
-    }
-    property_pre = qm_spec_property_creat();
-    if(property_pre == NULL){
-        return QM_ERROR;
-    }
-
-    qm_spec_property_pack_xiid(property_pre, CONFIG_AUDIO_EGV_SIID, CONFIG_AUDIO_EGV_PIID);
-    char data[10] = {0};
-    // sprintf(data, "%1f", audio_stream_ALG_get());
-    qm_spec_property_pack_string(property_pre, data, strlen(data));
-    qm_spec_property_add(property_operation, property_pre);
-    return xjiang_cloud_multi_report(QM_IOT_CORE_MSG_TYPE_AWS_REPORT, property_operation);
-}
-
 static audio_light_table_t g_light_table[] =
 {
     {CONFIG_AUDIO_LIGHT_ONOFF_SIID,     CONFIG_AUDIO_LIGHT_ONOFF_PIID,      onoff_aciton,  onoff_report},
@@ -844,6 +765,7 @@ static qm_err_t rgb_value_aciton(qm_spec_property_t *property)
         rgb_val = (red_value << 16) | (green_value << 8) | blue_value;
     }
 
+    bsp_light_rgb_select(BSP_RGB_SELECT_COLORFUL);
     bsp_light_rgb_value_set(rgb_val);
 
     bsp_light_store_update();

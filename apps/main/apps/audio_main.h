@@ -34,7 +34,7 @@ extern "C" {
 #define CONFIG_AUDIO_READY_SLEEP_TIMEOUT_S   (10 * 60)  //休眠时间
 #define CONFIG_AUDIO_RECORED_TIMEOUT         (60 * 1000)  //录音超时时间
 #define CONFIG_AUDIO_WAKEUP_TIMEOUT_S        (3 * 60)
-#define CONFIG_AUDIO_POWER_ON_DURATION       (12 * 1000)
+#define CONFIG_AUDIO_POWER_ON_DURATION       (10 * 1000)
 
 #define CONFIG_AUDIO_FMT_FLOW_CTRL_ENABLE   (1) //
 #define CONFIG_AUDIO_FMT_MIN_LEN            (30) //
@@ -64,7 +64,7 @@ extern "C" {
 #define CONFIG_AUDIO_BOARD_SUPPORT_BUTTON_SWITCH    (0)
 
 //语音事件
-#define CONFIG_AUDIO_WAKEUP_TIMEOUT         (10 * 1000)
+#define CONFIG_AUDIO_WAKEUP_TIMEOUT         (3 * 60 * 1000)
 #define CONFIG_AUDIO_MIC_TIMEOUT            (3 * 1000)
 #define CONFIG_AUDIO_WAKEEND_TIMEOUT        (6 * 1000)
 #define CONFIG_AUDIO_CLOSING_DURATION       (1200)

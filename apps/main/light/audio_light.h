@@ -15,21 +15,13 @@ extern "C" {
 
 #define AUDIO_LIGHT_DELAY_OFF_UNIT(X)   (X * 1000 * 60)
 
-//灯源选择
-typedef enum
-{
-    AUDIO_LIGHT_SEL_ALL  = 0,   //双光源
-    AUDIO_LIGHT_SEL_DOWN = 1,   //仅下光
-    AUDIO_LIGHT_SEL_UP   = 2,   //仅上光
-}audio_light_sel_t;
-
 typedef enum
 {
     AUDIO_LIGHT_MODE_EXIT  = 0,   //空模式
-    AUDIO_LIGHT_MODE_NIGHT = 1,   //小夜灯（上光 8%+下光 8%）
-    AUDIO_LIGHT_MODE_READ  = 2,  //阅读模式（上光100%+下光100%）
-    AUDIO_LIGHT_MODE_IDLE  = 3,  //休闲模式（上光100%+下光 50%）
-    AUDIO_LIGHT_MODE_SLEEP = 4,  //睡觉模式（关灯）
+    AUDIO_LIGHT_MODE_NIGHT = 1,   //小夜灯
+    AUDIO_LIGHT_MODE_READ  = 2,   //阅读模式
+    AUDIO_LIGHT_MODE_IDLE  = 3,   //休闲模式
+    AUDIO_LIGHT_MODE_SLEEP = 4,   //睡觉模式
 }audio_light_mode_t;
 
 typedef enum
