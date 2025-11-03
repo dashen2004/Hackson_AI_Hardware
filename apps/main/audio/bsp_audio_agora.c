@@ -380,8 +380,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
 
                 qm_agora_join();
 
-                extern void goto_recog_page();
-                void goto_recog_page(void);
+                bsp_lcd_goto_recog_page_wake();
             } else {
                 qm_iot_reset_info_t reset_info;
                 qm_iot_reset_info_get(&reset_info);

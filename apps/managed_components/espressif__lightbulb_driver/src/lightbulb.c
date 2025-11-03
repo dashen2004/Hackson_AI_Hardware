@@ -2116,3 +2116,116 @@ esp_err_t lightbulb_basic_effect_stop_and_restore(void)
 
     return lightbulb_set_switch(is_on);
 }
+
+esp_err_t lightbulb_set_both_cct_hsv(uint16_t cct, uint8_t brightness,
+                                    uint16_t hue, uint8_t saturation, uint8_t value)
+{
+    LIGHTBULB_CHECK(s_lb_obj, "not init", return ESP_ERR_INVALID_ARG);
+    LIGHTBULB_CHECK(IS_WHITE_CHANNEL_SELECTED(), "white channel output is disable", return ESP_ERR_INVALID_STATE);
+    LIGHTBULB_CHECK(brightness <= 100, "brightness out of range: %d", return ESP_ERR_INVALID_ARG, brightness);
+    LIGHTBULB_CHECK((cct >= s_lb_obj->cct_manager.kelvin_range.min && cct <= s_lb_obj->cct_manager.kelvin_range.max) || ((cct <= 100)), "CCT(%d) is not in valid range and is converted by an internal function", NULL, cct);
+    LIGHTBULB_CHECK(hue <= 360, "hue out of range: %d", return ESP_ERR_INVALID_ARG, hue);
+    LIGHTBULB_CHECK(saturation <= 100, "saturation out of range: %d", return ESP_ERR_INVALID_ARG, saturation);
+    LIGHTBULB_CHECK(value <= 100, "value out of range: %d", return ESP_ERR_INVALID_ARG, value);
+    LIGHTBULB_CHECK(IS_COLOR_CHANNEL_SELECTED(), "color channel output is disable", return ESP_ERR_INVALID_STATE);
+    LB_MUTEX_TAKE(portMAX_DELAY);
+
+    if (cct > 100) {
+        ESP_LOGW(TAG, "will convert kelvin to percentage, %dK -> %d%%", cct, s_lb_obj->cct_manager.kelvin_to_percentage(cct));
+        cct = s_lb_obj->cct_manager.kelvin_to_percentage(cct);
+    }
+    if (s_lb_obj->cap.led_beads == LED_BEADS_1CH_C || s_lb_obj->cap.led_beads == LED_BEADS_4CH_RGBC) {
+        if (cct != 100) {
+            cct = 100;
+            ESP_LOGW(TAG, "The current led beads can only be set to cold white");
+        }
+    } else if (s_lb_obj->cap.led_beads == LED_BEADS_1CH_W || s_lb_obj->cap.led_beads == LED_BEADS_4CH_RGBW) {
+        if (cct != 0) {
+            cct = 0;
+            ESP_LOGW(TAG, "The current led beads can only be set to warm white");
+        }
+    }
+    LIGHTBULB_CHECK(cct <= 100, "cct out of range: %d", return ESP_ERR_INVALID_ARG, cct);
+    LB_MUTEX_TAKE(portMAX_DELAY);
+
+    esp_err_t err = ESP_OK;
+
+    if (IS_AUTO_STATUS_STORAGE_ENABLED()) {
+        xTimerReset(s_lb_obj->storage_timer, 0);
+    }
+
+    if (IS_EFFECT_RUNNING() && IS_EFFECT_ALLOW_INTERRUPT()) {
+        if (IS_EFFECT_TIMER_ACTIVE()) {
+            xTimerStop(s_lb_obj->effect_timer, 0);
+        }
+        s_lb_obj->effect_flag.running = false;
+    } else if (IS_EFFECT_RUNNING()) {
+        ESP_LOGW(TAG, "Executing the effect, and does not allow interruption, skip writing, only save");
+        goto SAVE_ONLY;
+    }
+
+    if (s_lb_obj->status.on || IS_AUTO_ON_FUNCTION_ENABLED()) {
+        if (IS_LOW_POWER_FUNCTION_ENABLED()) {
+            xTimerStop(s_lb_obj->power_timer, 0);
+        }
+
+        uint16_t white_value[5] = { 0 };
+        uint16_t color_value[5] = { 0 };
+        float color_param[5] = { 0 };
+        uint16_t fade_time = CALCULATE_FADE_TIME();
+        uint8_t channel_mask = get_channel_mask(s_lb_obj->cap.led_beads);
+        uint8_t _value = value;
+        uint8_t _brightness = brightness;
+
+        ESP_LOGI(TAG, "set cct:%d, brightness:%d", cct, brightness);
+        // 1. calculate brightness
+        _brightness = process_white_brightness_limit(_brightness);
+
+        // 2. convert to cold warm and redistribute power
+        err |= cct_and_brightness_convert_and_power_limit(s_lb_obj->cap.led_beads, s_lb_obj->power.white_max_power / 100.0, cct, _brightness, white_value);
+        ESP_LOGI(TAG, "hal write value [r:%d g:%d b:%d c:%d w:%d], channel_mask:%d fade_ms:%d", white_value[0], white_value[1], white_value[2], white_value[3], white_value[4], channel_mask, fade_time);
+
+        // 1. calculate value
+        ESP_LOGI(TAG, "set [h:%d s:%d v:%d]", hue, saturation, value);
+        _value = process_color_value_limit(value);
+
+        // 2. convert to r g b
+        s_lb_obj->color_manager.hsv_to_rgb(hue, saturation, _value, &color_param[0], &color_param[1], &color_param[2], &color_param[3], &color_param[4]);
+        ESP_LOGI(TAG, "Convert write value [r:%0.2f%% g:%0.2f%% b:%0.2f%% c:%0.2f%% w:%0.2f%%]", color_param[0] * 100, color_param[1] * 100, color_param[2] * 100, color_param[3] * 100, color_param[4] * 100);
+
+        // 3. Redistribute power
+        err |= process_color_power_limit(s_lb_obj->power.color_max_power / 100.0, color_param, _value, color_value);
+        ESP_LOGI(TAG, "hal write value [r:%d g:%d b:%d c:%d w:%d], channel_mask:%d fade_ms:%d", color_value[0], color_value[1], color_value[2], color_value[3], color_value[4], channel_mask, fade_time);
+
+        uint16_t merge_value[5] = {0};
+        merge_value[0] = color_value[0];
+        merge_value[1] = color_value[1];
+        merge_value[2] = color_value[2];
+        merge_value[3] = white_value[3];
+        merge_value[4] = white_value[4];
+
+        err |= hal_set_channel_group(merge_value, channel_mask, fade_time);
+        LIGHTBULB_CHECK(err == ESP_OK, "set hal channel group fail", goto EXIT);
+
+        s_lb_obj->status.on = true;
+    } else {
+        ESP_LOGW(TAG, "Skip writing, because power is not turned on or auto-on is disable");
+    }
+
+SAVE_ONLY:
+    s_lb_obj->status.mode = WORK_COLOR;
+    s_lb_obj->status.hue = hue;
+    s_lb_obj->status.saturation = saturation;
+    s_lb_obj->status.value = value;
+    s_lb_obj->status.cct_percentage = cct;
+    s_lb_obj->status.brightness = brightness;
+
+    if (s_lb_obj->cap.sync_change_brightness_value) {
+        s_lb_obj->status.brightness = value;
+        s_lb_obj->status.value = brightness;
+    }
+
+EXIT:
+    LB_MUTEX_GIVE();
+    return err;
+}

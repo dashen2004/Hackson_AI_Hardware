@@ -21,6 +21,7 @@ int bsp_lcd_bl_brightness_percent_get(void);
 void bsp_lcd_bl_off(void);
 void bsp_lcd_bl_on(void);
 void bsp_lcd_set_int_screen(void);
+void bsp_lcd_goto_recog_page_wake(void);
 void turnoff_timer_reset(uint8_t flag);
 void lcd_init(void);
 

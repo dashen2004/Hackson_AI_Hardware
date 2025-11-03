@@ -127,7 +127,7 @@ void bsp_light_bulb_init(void)
 #endif
         // 2. Configure the drive capability
         .capability.enable_fade = true,
-        .capability.fade_time_ms = 500,
+        .capability.fade_time_ms = 500, //CONFIG_BSP_LIGHT_FADE_TIME,
         .capability.enable_status_storage = false,
 
 #if CONFIG_LIGHTBULB_DEMO_DRIVER_SELECT_WS2812
@@ -180,7 +180,7 @@ void bsp_light_bulb_init(void)
 #endif
 
         //7. Init param
-        .init_status.mode = WORK_COLOR,
+        .init_status.mode = WORK_INVALID,
         .init_status.on = false,
         .init_status.hue = 0,
         .init_status.saturation = 100,
@@ -194,11 +194,20 @@ void bsp_light_bulb_init(void)
 }
 
 //色温灯调节
-void bsp_light_bulb_set_cw(uint16_t cct, uint8_t brightness) {
+void bsp_light_bulb_set_cw(uint16_t cct, uint8_t brightness)
+{
     lightbulb_set_cctb(cct, brightness);
 }
 
 //RGB灯调节
-void bsp_light_bulb_set_hsv(uint16_t hue, uint8_t saturation, uint8_t value) {
+void bsp_light_bulb_set_hsv(uint16_t hue, uint8_t saturation, uint8_t value)
+{
     lightbulb_set_hsv(hue, saturation, value);
+}
+
+// 同时调节
+void bsp_light_bulb_set_both(uint16_t cct, uint8_t brightness, 
+                        uint16_t hue, uint8_t saturation, uint8_t value) 
+{
+    lightbulb_set_both_cct_hsv(cct, brightness, hue, saturation, value);
 }

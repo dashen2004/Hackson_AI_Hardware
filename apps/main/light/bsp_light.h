@@ -183,6 +183,8 @@ qm_err_t voice_abort_request(uint8_t number);
 void bsp_light_bulb_init(void);
 void bsp_light_bulb_set_cw(uint16_t cct, uint8_t brightness);
 void bsp_light_bulb_set_hsv(uint16_t hue, uint8_t saturation, uint8_t value);
+void bsp_light_bulb_set_both(uint16_t cct, uint8_t brightness,
+                            uint16_t hue, uint8_t saturation, uint8_t value);
 
 #ifdef __cplusplus
 }

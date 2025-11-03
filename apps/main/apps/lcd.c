@@ -541,14 +541,19 @@ void bsp_lcd_set_int_screen(void) {
 
 extern void goto_recog_page(void);
 
+void bsp_lcd_goto_recog_page_wake(void) {
+    if (get_current_screen() == SCREEN_ID_PAGE_MAIN) {
+        goto_recog_page();
+    }
+}
+
 void turnoff_timer_reset(uint8_t flag) { // 0 - screen operation, 1 - audio receive
 
     uint32_t timeout = bsp_lcd_get_turnoff_timeout();
     if (flag == 0) {
         set_var_screen_operation_tick();
     } else {
-        if (get_current_screen() == SCREEN_ID_PAGE_MAIN ||
-            (get_current_screen() != SCREEN_ID_PAGE_RECOG && get_var_screen_operation_tick())) {
+        if (get_current_screen() != SCREEN_ID_PAGE_RECOG && get_var_screen_operation_tick()) {
             goto_recog_page();
         }
     }
@@ -636,7 +641,7 @@ static void lcd_task(void *arg) {
         lvgl_port_lock(0); // 锁定lvgl接口，以保护UI更新过程。 
         ui_tick();
         lvgl_port_unlock(); // 解锁lvgl接口以允许其他任务访问。 
-        vTaskDelay(pdMS_TO_TICKS(100)); // 函数延迟100毫秒，以避免过度占用CPU资源。
+        vTaskDelay(pdMS_TO_TICKS(50)); // 函数延迟100毫秒，以避免过度占用CPU资源。
     }
 }
 

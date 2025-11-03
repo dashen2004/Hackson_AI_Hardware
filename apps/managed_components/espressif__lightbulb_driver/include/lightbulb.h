@@ -770,6 +770,9 @@ esp_err_t lightbulb_basic_effect_stop_and_restore(void);
  */
 void lightbulb_lighting_output_test(lightbulb_lighting_unit_t mask, uint16_t speed_ms);
 
+esp_err_t lightbulb_set_both_cct_hsv(uint16_t cct, uint8_t brightness,
+                                    uint16_t hue, uint8_t saturation, uint8_t value);
+
 #ifdef __cplusplus
 }
 #endif
