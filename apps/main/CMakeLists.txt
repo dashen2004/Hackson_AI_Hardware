@@ -329,5 +329,4 @@ set(COMPONENT_ADD_INCLUDEDIRS
 register_component()
 
 
-spiffs_create_partition_image(spiffs_data ../spiffs FLASH_IN_PROJECT)
 spiffs_create_partition_image(lvgl ../ui/spiffs FLASH_IN_PROJECT)

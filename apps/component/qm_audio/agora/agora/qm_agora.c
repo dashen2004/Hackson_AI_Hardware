@@ -208,6 +208,7 @@ static void __on_audio_data(connection_id_t conn_id, const uint32_t uid, uint16_
     }
     // QM_LOGD("1", "[conn-%u] on_audio_data, uid %u sent_ts %u data_type %d, len %d\n", conn_id, uid, sent_ts,
     //      info_ptr->data_type, len);
+    // QM_HEX_LOGD("1","recv: ", data, len);
     // QM_LOGD(LOG_TAG, "recv:%d", len);
     if(qm_agora_handle.audio_cb){
         qm_agora_handle.audio_cb((void *)data, len, qm_agora_handle.user_data);

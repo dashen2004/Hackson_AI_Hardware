@@ -201,6 +201,7 @@ void tick_screen_page_recog();
 
 void create_screen_page_rgb();
 void tick_screen_page_rgb();
+void tick_screen_page_rgb_value();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

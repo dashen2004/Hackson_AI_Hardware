@@ -210,7 +210,7 @@ void nc_audio_play_bin(bsp_pcm_id_t pcm_id)
     if(nc_player_handle.play_pcm_id == BSP_PCM_ID_SLEEP) {
         qm_mutex_unlock(&nc_player_handle.lock);
         return;
-    } else if(pcm_id == BSP_PCM_ID_POWER_ON) {
+    } else if(pcm_id == BSP_PCM_ID_DING_DING) {
         audio_play_start();
     }
     nc_player_handle.play_pcm_id = pcm_id;
@@ -446,7 +446,7 @@ void nc_player_init(nc_player_param_t player_param)
         .rate = CONFIG_AUDIO_FMT_RATE,
         .bits = CONFIG_AUDIO_FMT_BITS,
         .channel = CONFIG_AUDIO_FMT_CHANNEL,
-        .spk_gain = 50,
+        .spk_gain = CONFIG_AUDIO_FMT_SPK_GAIN,
         .mic_gain = CONFIG_AUDIO_FMT_MIC_GAIN,
         .vad_tiemout = CONFIG_AUDIO_FMT_VAD_TIMEOUT,
 

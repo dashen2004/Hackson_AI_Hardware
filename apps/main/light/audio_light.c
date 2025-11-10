@@ -5,6 +5,7 @@
 
 #include "audio_main.h"
 #include "audio_light.h"
+#include "screens.h"
 
 #include "bsp_light.h"
 #include "bsp_audio.h"
@@ -769,6 +770,8 @@ static qm_err_t rgb_value_aciton(qm_spec_property_t *property)
     bsp_light_rgb_value_set(rgb_val);
 
     bsp_light_store_update();
+
+    tick_screen_page_rgb_value();
 
     return QM_EOK;
 }

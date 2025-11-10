@@ -486,7 +486,7 @@ void bsp_audio_play_event(bsp_pcm_id_t id, qm_audio_event_t event_id, void *user
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID, NULL, 0);
         break;
 
-        case BSP_PCM_ID_POWER_ON:
+        case BSP_PCM_ID_DING_DING:
             qm_sem_signal(&bsp_audio_handle.wait_sem);
         break;
 
@@ -573,7 +573,7 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
     nc_audio_set_wakeup_on_off(QM_FALSE);
     nc_audio_set_wakeup_state_on_off(QM_FALSE);
 
-    nc_audio_play_bin(BSP_PCM_ID_POWER_ON);
+    nc_audio_play_bin(BSP_PCM_ID_DING_DING);
     qm_sem_wait(&bsp_audio_handle.wait_sem, CONFIG_AUDIO_POWER_ON_DURATION);
 
     nc_audio_set_spk_volume(nc_audio_get_volume());

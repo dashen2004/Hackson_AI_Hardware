@@ -424,8 +424,9 @@ void app_lvgl(void)
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = io_handle,
         .panel_handle = panel_handle,
-        .buffer_size = EXAMPLE_LCD_H_RES * 180 * sizeof(uint16_t),
-        .double_buffer = 0,
+        .buffer_size = EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES,
+        .double_buffer = 1,
+        .trans_size = 0,
         .hres = EXAMPLE_LCD_H_RES,
         .vres = EXAMPLE_LCD_V_RES,
         .color_format = LV_COLOR_FORMAT_RGB565,
@@ -440,7 +441,8 @@ void app_lvgl(void)
             .buff_spiram = 1,
             .swap_bytes = 1,
             .buff_dma = 1,
-            .full_refresh = 1,
+            .full_refresh = 0,
+            .direct_mode = 0,
         }
     };
     lvgl_disp = lvgl_port_add_disp(&disp_cfg);
@@ -641,7 +643,7 @@ static void lcd_task(void *arg) {
         lvgl_port_lock(0); // 锁定lvgl接口，以保护UI更新过程。 
         ui_tick();
         lvgl_port_unlock(); // 解锁lvgl接口以允许其他任务访问。 
-        vTaskDelay(pdMS_TO_TICKS(50)); // 函数延迟100毫秒，以避免过度占用CPU资源。
+        vTaskDelay(pdMS_TO_TICKS(50)); // 函数延迟50毫秒，以避免过度占用CPU资源。
     }
 }
 
