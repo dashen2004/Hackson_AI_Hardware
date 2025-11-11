@@ -533,7 +533,6 @@ static qm_err_t voice_corpus_action(qm_spec_property_t *property)
 
 static qm_err_t voice_corpus_report(qm_spec_property_t *property)
 {
-
     return QM_EOK;
 }
 
@@ -541,14 +540,12 @@ static qm_err_t voice_abort_action(qm_spec_property_t *property)
 {
     int number = 0;
     qm_spec_property_unpack_number(property, &number);
-    
-    printf("voice_abort_action: %d\n", number);
+
     return QM_EOK;
 }
 
 static qm_err_t voice_abort_report(qm_spec_property_t *property)
 {
-
     return QM_EOK;
 }
 
@@ -568,7 +565,6 @@ static qm_err_t voice_emotion_action(qm_spec_property_t *property)
 
 static qm_err_t voice_emotion_report(qm_spec_property_t *property)
 {
- 
     return QM_EOK;
 }
 

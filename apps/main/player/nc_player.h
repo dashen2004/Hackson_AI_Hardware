@@ -32,7 +32,7 @@ int nc_audio_get_volume(void);
 
 int32_t nc_audio_set_spk_on_off(bool onoff);
 int32_t nc_audio_set_mic_on_off(bool onoff);
-int32_t nc_audio_set_wakeup_on_off(bool onoff);
+int32_t nc_audio_set_wakeup_word_on_off(bool onoff);
 int32_t nc_audio_set_wakeup_state_on_off(bool onoff);
 int32_t nc_audio_set_mute(bool mute);
 bool nc_audio_get_mute(void);

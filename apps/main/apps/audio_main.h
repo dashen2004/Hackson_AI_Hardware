@@ -11,30 +11,29 @@ extern "C" {
 #endif
 
 #include "qm.h"
-#include "qm_spec_api.h"
-
-#define CONFIG_AUDIO_WS_TIMEOUT     (5 * 1000)
 
 // #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:8000/xiaozhi/v1/"     //老服务
-
 #define CONFIG_NETWORK_URL          "ws://voice.ljyd.cn/voice/xiaojiang/v1/"                  //正式服
 // #define CONFIG_NETWORK_URL       "ws://aiagentplatform.xjiangiot.com:28000/xiaojiang/v1/"  //测试服
+
+#define CONFIG_AUDIO_WS_TIMEOUT        (5 * 1000)
 
 #define CONFIG_AUDIO_AGENT_UID         (100)
 #define CONFIG_AUDIO_PLAYER_UID        (200)
 
-#define CONFIG_AUDIO_FMT_RATE          (16000)
-#define CONFIG_AUDIO_FMT_BITS          (16)
-#define CONFIG_AUDIO_FMT_CHANNEL       (1)
-#define CONFIG_AUDIO_FMT_DURATION_MS   (40)
-#define CONFIG_AUDIO_START_DELAY_MS    (100)
-#define CONFIG_AUDIO_FMT_SPK_GAIN      (30)
-#define CONFIG_AUDIO_FMT_MIC_GAIN      (32)
-#define CONFIG_AUDIO_FMT_VAD_TIMEOUT   (10) // * 40 MS
-#define CONFIG_AUDIO_READY_SLEEP_TIMEOUT_S   (10 * 60)  //休眠时间
-#define CONFIG_AUDIO_RECORED_TIMEOUT         (60 * 1000)  //录音超时时间
-#define CONFIG_AUDIO_WAKEUP_TIMEOUT_S        (3 * 60)
-#define CONFIG_AUDIO_POWER_ON_DURATION       (10 * 1000)
+#define CONFIG_AUDIO_VAD_ON_OFF             (0)
+
+#define CONFIG_AUDIO_FMT_RATE               (16000)
+#define CONFIG_AUDIO_FMT_BITS               (16)
+#define CONFIG_AUDIO_FMT_CHANNEL            (1)
+#define CONFIG_AUDIO_FMT_DURATION_MS        (40)
+#define CONFIG_AUDIO_FMT_SPK_GAIN           (30)
+#define CONFIG_AUDIO_FMT_MIC_GAIN           (32)
+#define CONFIG_AUDIO_FMT_VAD_TIMEOUT        (10) // * 40 MS
+#define CONFIG_AUDIO_CONF_RECORED_TIMEOUT   (0xFF)
+#define CONFIG_AUDIO_CONF_WAKEUP_TIMEOUT    (0xFF)
+#define CONFIG_AUDIO_POWER_ON_DURATION      (10 * 1000)
+#define CONFIG_AUDIO_START_DELAY_MS         (100)
 
 #define CONFIG_AUDIO_FMT_FLOW_CTRL_ENABLE   (1) //
 #define CONFIG_AUDIO_FMT_MIN_LEN            (30) //
@@ -48,7 +47,7 @@ extern "C" {
 #define CONFIG_DISABLE_SR_FUNC          (0)
 #define CONFIG_SUPPORT_AEC              (1)
 
-#define CONFIG_HARDWARE_VERSION         (21)
+#define CONFIG_HARDWARE_VERSION         (10)
 #define CONFIG_XJIANG_VERSION           (10)
 #define CONFIG_XJIANG_CLOUD_PID         (10511)
 #define CONFIG_XJIANG_CLOUD_SECERT      "FC689BC595EE4C149DD2F7E2E3ED9F4A"
@@ -107,19 +106,18 @@ extern "C" {
 #define CONFIG_AUDIO_SUB_EVENT_OTA_SUCCESS          (0x010C)
 #define CONFIG_AUDIO_SUB_EVENT_OTA_FAILED           (0x010D)
 
-#define CONFIG_AUDIO_INT_HINT_TEXT                  ("请继续对话...")
-// button event id
+#define CONFIG_AUDIO_INT_HINT_TEXT                      ("请继续对话...")
 #define CONFIG_AUDIO_SUB_EVENT_BUTTON_WAKEUP_ID         (0x0501)
 #define CONFIG_AUDIO_SUB_EVENT_BUTTON_WAKEUP_HOLD_ID    (0x0502)
 #define CONFIG_AUDIO_SUB_EVENT_BUTTON_MUTE_ID           (0x0503)
 #define CONFIG_AUDIO_SUB_EVENT_BUTTON_MUTE_HOLD_ID      (0x0504)
 
-#define CONFIG_AUDIO_SUB_EVENT_OPENING_REMARKS_ID     (0x0601)
-#define CONFIG_AUDIO_SUB_EVENT_CLOSING_REMARKS_ID     (0x0602)
+#define CONFIG_AUDIO_SUB_EVENT_OPENING_REMARKS_ID       (0x0601)
+#define CONFIG_AUDIO_SUB_EVENT_CLOSING_REMARKS_ID       (0x0602)
 
-#define CONFIG_AUDIO_SUB_EVENT_AGORA_ID             (0x0701)
-#define CONFIG_AUDIO_SUB_EVENT_AGORA_STEAM_ID       (0x0702)
-#define CONFIG_AUDIO_SUB_EVENT_AGORA_MUTE_ID        (0x0703)
+#define CONFIG_AUDIO_SUB_EVENT_AGORA_ID                 (0x0701)
+#define CONFIG_AUDIO_SUB_EVENT_AGORA_STEAM_ID           (0x0702)
+#define CONFIG_AUDIO_SUB_EVENT_AGORA_MUTE_ID            (0x0703)
 
 #define CONFIG_AUDIO_ID_LIGHT_WAKEUP         (1)
 #define CONFIG_AUDIO_ID_LIGHT_NETCONFIG      (2)
@@ -147,49 +145,50 @@ extern "C" {
 #define CONFIG_AUDIO_OPENING_REMARKS      (1) //开机提示音
 #define CONFIG_AUDIO_CLOSING_REMARKS      (2) //关机提示音
 
+#define CONFIG_AUDIO_ABORT_REQUEST                  (1) //打断播报并请求唤醒语料
+#define CONFIG_AUDIO_ABORT_WITH_WAKEUP_REQUEST      (2) //打断播报
+
 // 超时事件
 #define CONFIG_TIMEOUT_TYPE_START_CLOSE    (0x20)
 #define CONFIG_TIMEOUT_TYPE_CLOSING        (0x21)
 #define CONFIG_TIMEOUT_TYPE_CLOSED         (0x22)
 
+//beacon事件
 //遥控器事件
 #define CONFIG_AUDIO_BEACON_HOLD_TIME           (2 * 100)
 #define CONFIG_AUDIO_BEACON_POWER_ON_TIMEOUT    (6 * 1000)
-
 //对码
-#define CONFIG_AUDIO_BEACON_PAIR            (0x86)
+#define CONFIG_AUDIO_BEACON_PAIR                (0x86)
 //开灯
-#define CONFIG_AUDIO_BEACON_ON              (0x01)
+#define CONFIG_AUDIO_BEACON_ON                  (0x01)
 //关灯
-#define CONFIG_AUDIO_BEACON_OFF             (0x02)
+#define CONFIG_AUDIO_BEACON_OFF                 (0x02)
 //亮度+
-#define CONFIG_AUDIO_BEACON_BRI_UP          (0x10)
-#define CONFIG_AUDIO_BEACON_BRI_UP_HOLD     (0x82)
-#define CONFIG_AUDIO_BEACON_BRI_UP_CANCEL   (0xC2)
+#define CONFIG_AUDIO_BEACON_BRI_UP              (0x10)
+#define CONFIG_AUDIO_BEACON_BRI_UP_HOLD         (0x82)
+#define CONFIG_AUDIO_BEACON_BRI_UP_CANCEL       (0xC2)
 //亮度-
-#define CONFIG_AUDIO_BEACON_BRI_DOWN        (0x11)
-#define CONFIG_AUDIO_BEACON_BRI_DOWN_HOLD   (0x83)
-#define CONFIG_AUDIO_BEACON_BRI_DOWN_CANCEL (0xC3)
+#define CONFIG_AUDIO_BEACON_BRI_DOWN            (0x11)
+#define CONFIG_AUDIO_BEACON_BRI_DOWN_HOLD       (0x83)
+#define CONFIG_AUDIO_BEACON_BRI_DOWN_CANCEL     (0xC3)
 //上发光变亮
-#define CONFIG_AUDIO_BEACON_WARM_UP         (0x12)
-#define CONFIG_AUDIO_BEACON_WARM_UP_HOLD    (0x84)
-#define CONFIG_AUDIO_BEACON_WARM_UP_CANCEL  (0xC4)
-
+#define CONFIG_AUDIO_BEACON_WARM_UP             (0x12)
+#define CONFIG_AUDIO_BEACON_WARM_UP_HOLD        (0x84)
+#define CONFIG_AUDIO_BEACON_WARM_UP_CANCEL      (0xC4)
 //下发光变亮
 #define CONFIG_AUDIO_BEACON_WARM_DOWN           (0x13)
 #define CONFIG_AUDIO_BEACON_WARM_DOWN_HOLD      (0x85)
 #define CONFIG_AUDIO_BEACON_WARM_DOWN_CANCEL    (0xC5)
-
 //变光
-#define CONFIG_AUDIO_BEACON_SWITCH1         (0x04)
+#define CONFIG_AUDIO_BEACON_SWITCH1             (0x04)
 //全/半亮
-#define CONFIG_AUDIO_BEACON_SWITCH2         (0x05)
+#define CONFIG_AUDIO_BEACON_SWITCH2             (0x05)
 //小夜灯
-#define CONFIG_AUDIO_BEACON_NIGHT           (0x07)
+#define CONFIG_AUDIO_BEACON_NIGHT               (0x07)
 //延时关灯： 延时60s关灯
-#define CONFIG_AUDIO_BEACON_DELAY_OFF       (0x08)
+#define CONFIG_AUDIO_BEACON_DELAY_OFF           (0x08)
 //清码：通电5S后执行
-#define CONFIG_AUDIO_BEACON_RESET           (0x80)
+#define CONFIG_AUDIO_BEACON_RESET               (0x80)
 
 //spec事件
 //开关灯
@@ -298,23 +297,14 @@ extern "C" {
 
 // rgb
 // rgb on off
-#define CONFIG_AUDIO_RGB_ONOFF_SIID       (8)
-#define CONFIG_AUDIO_RGB_ONOFF_PIID       (1)
-#define CONFIG_AUDIO_RGB_ONOFF_TYPE       (QM_SPEC_PROPERTY_FORMAT_BOOL)
+#define CONFIG_AUDIO_RGB_ONOFF_SIID         (8)
+#define CONFIG_AUDIO_RGB_ONOFF_PIID         (1)
+#define CONFIG_AUDIO_RGB_ONOFF_TYPE         (QM_SPEC_PROPERTY_FORMAT_BOOL)
 
 // rgb value
-#define CONFIG_AUDIO_RGB_VALUE_SIID       (8)
-#define CONFIG_AUDIO_RGB_VALUE_PIID       (3)
-#define CONFIG_AUDIO_RGB_VALUE_TYPE       (QM_SPEC_PROPERTY_FORMAT_NUMBER)
-
-#define CONFIG_AUDIO_EGV_SIID       (8)
-#define CONFIG_AUDIO_EGV_PIID       (1)
-#define CONFIG_AUDIO_EGV_TYPE       (QM_SPEC_PROPERTY_FORMAT_STRING)
-
-#define CONFIG_AUDIO_ALG_SIID       (8)
-#define CONFIG_AUDIO_ALG_PIID       (2)
-#define CONFIG_AUDIO_ALG_TYPE       (QM_SPEC_PROPERTY_FORMAT_STRING)
-
+#define CONFIG_AUDIO_RGB_VALUE_SIID         (8)
+#define CONFIG_AUDIO_RGB_VALUE_PIID         (3)
+#define CONFIG_AUDIO_RGB_VALUE_TYPE         (QM_SPEC_PROPERTY_FORMAT_NUMBER)
 
 int qm_is_crash_reset(void);
 int qm_set_reset_flag(void);

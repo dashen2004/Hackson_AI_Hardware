@@ -312,8 +312,8 @@ static void goto_setup_page(void) {
 void action_volume_mute_click(lv_event_t * e) {
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         set_var_mute_value(get_var_mute_value() ? false : true, true);
-    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
-    set_var_turnoff_value(timeout);
+        uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+        set_var_turnoff_value(timeout);
     }
 }
 

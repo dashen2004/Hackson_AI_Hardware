@@ -169,6 +169,12 @@ static void agent_set_ind_timeout(void *arg)
     qm_mutex_unlock(&nc_player_handle.lock);
 }
 
+static void nc_audio_refr_mic(void)
+{
+    nc_audio_set_wakeup_state_on_off(QM_TRUE);
+    nc_audio_cfg(NC_AUDIO_CFG_TYPE_MAX_RECORD_TIME, CONFIG_AUDIO_CONF_RECORED_TIMEOUT);
+}
+
 void qm_agora_set_agent_state(qm_agent_state_t state, const char *text)
 {
     if(AGENT_STATE_MAX <= state && state <= AGENT_STATE_NONE) {
@@ -186,19 +192,28 @@ void qm_agora_set_agent_state(qm_agent_state_t state, const char *text)
     {
         case AGENT_STATE_SILENT:
             qm_post_delayed_action(&nc_player_handle.ind_time, agent_set_ind_timeout, NULL, 2000);
-            break;
+        #if (CONFIG_AUDIO_VAD_ON_OFF == 0)
+            nc_audio_refr_mic();
+        #endif
+        break;
+
         case AGENT_STATE_SPEAKING:
         case AGENT_STATE_THINKING:
             qm_mutex_lock(&nc_player_handle.lock, QM_WAIT_FOREVER);
             nc_player_handle.agent_play_idle = 1;
-            if(qm_audio_state_get() == QM_AUDIO_STATE_SLIENT && nc_player_handle.pcm_play_idle == 0) {
+            if (qm_audio_state_get() == QM_AUDIO_STATE_SLIENT && nc_player_handle.pcm_play_idle == 0) {
                 audio_play_start();
                 qm_audio_play(QM_AUDIO_TYPE_AGENT);
+
+            #if (CONFIG_AUDIO_VAD_ON_OFF == 0)
+                nc_audio_refr_mic();
+            #endif
             }
             qm_mutex_unlock(&nc_player_handle.lock);
-            break;
+        break;
+
         default:
-            break;
+        break;
     }
 }
 
@@ -274,7 +289,7 @@ int32_t nc_audio_set_mic_on_off(bool onoff)
     return nc_audio_cfg(NC_AUDIO_CFG_TYPE_MIC_ONOFF, onoff);
 }
 
-int32_t nc_audio_set_wakeup_on_off(bool onoff) 
+int32_t nc_audio_set_wakeup_word_on_off(bool onoff) 
 {
     return nc_audio_cfg(NC_AUDIO_CFG_TYPE_WAKEUP_ONOFF, onoff);
 }
@@ -468,9 +483,13 @@ void nc_player_init(nc_player_param_t player_param)
     }
     nc_audio_init(&param);
 
-    nc_audio_cfg(NC_AUDIO_CFG_TYPE_SLIENT_TIMEOUT, (CONFIG_AUDIO_WAKEUP_TIMEOUT_S  + CONFIG_AUDIO_READY_SLEEP_TIMEOUT_S));
-    nc_audio_cfg(NC_AUDIO_CFG_TYPE_MAX_RECORD_TIME, CONFIG_AUDIO_RECORED_TIMEOUT / 1000);
+#if CONFIG_AUDIO_VAD_ON_OFF
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_VAD_ONOFF, CONFIG_AUDIO_FMT_VAD_TIMEOUT);
+#else
+    nc_audio_cfg(NC_AUDIO_CFG_TYPE_VAD_ONOFF, 0);
+#endif
+    nc_audio_cfg(NC_AUDIO_CFG_TYPE_SLIENT_TIMEOUT, CONFIG_AUDIO_CONF_WAKEUP_TIMEOUT);
+    nc_audio_cfg(NC_AUDIO_CFG_TYPE_MAX_RECORD_TIME, CONFIG_AUDIO_CONF_RECORED_TIMEOUT);
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_WAKEUP_ONOFF, QM_FALSE);
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_TIMEOUT_ONTIFY_ONOFF, QM_TRUE);
 

@@ -361,22 +361,20 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             bsp_wakeup_time_refresh();
 
         #if CONFIG_SUPPORT_ONLINE_OPEN_WAV
-            if (!bsp_audio_handle.mute) {
-                nc_audio_set_mute(false);
+            if (bsp_audio_handle.mute) {
+                nc_audio_set_mute(true);
             }
 
-            // open mic
-            nc_audio_set_mic_on_off(QM_TRUE);
-            nc_audio_set_wakeup_on_off(QM_TRUE);
-            nc_audio_set_wakeup_state_on_off(QM_TRUE);
-
             if (bsp_audio_handle.open_or_close) {
+                voice_abort_request(CONFIG_AUDIO_ABORT_WITH_WAKEUP_REQUEST);
                 break;
             }
 
             if (bsp_audio_handle.ws_connect) {
                 bsp_audio_handle.open_or_close = QM_TRUE;
                 qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
+
+                nc_audio_set_wakeup_state_on_off(QM_TRUE);
 
                 qm_agora_join();
 
@@ -400,7 +398,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
 
         case CONFIG_AUDIO_SUB_EVENT_BUTTON_WAKEUP_ID:
             if (bsp_audio_handle.open_or_close) {
-                qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_AGORA_MUTE_ID, NULL, 0);
+                voice_abort_request(CONFIG_AUDIO_ABORT_REQUEST);
                 bsp_lcd_set_int_screen();
             }
             else {
@@ -502,6 +500,7 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
     switch (event_type)
     {
         case NC_AUDIO_EVENT_TYPE_MIC_DATA_GET:
+        #if CONFIG_AUDIO_VAD_ON_OFF
             switch (mic_data->status)
             {
                 case NC_AUDIO_VAD_START:
@@ -520,10 +519,17 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
                 default:
                 break;
             }
-            break;
+        #else
+            if (mic_data->payload_len && bsp_audio_handle.open_or_close && bsp_audio_handle.ws_connect && !get_mic_stop_flag()) {
+                qm_agora_send_data(mic_data->payload, mic_data->payload_len);
+            }
+        #endif
+        break;
+
         case NC_AUDIO_EVENT_TYPE_WAKEUP:
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID, NULL, 0);
         break;
+
         default:
         break;
     }
@@ -569,14 +575,12 @@ qm_err_t bsp_audio_init(bsp_audio_cmd_table_t *command_str, int command_num)
 
     qm_agora_init(agora_cfg);
 
-    nc_audio_set_mic_on_off(QM_FALSE);
-    nc_audio_set_wakeup_on_off(QM_FALSE);
+    nc_audio_set_mic_on_off(QM_TRUE);
+    nc_audio_set_wakeup_word_on_off(QM_TRUE);
     nc_audio_set_wakeup_state_on_off(QM_FALSE);
 
     nc_audio_play_bin(BSP_PCM_ID_DING_DING);
     qm_sem_wait(&bsp_audio_handle.wait_sem, CONFIG_AUDIO_POWER_ON_DURATION);
-
-    nc_audio_set_spk_volume(nc_audio_get_volume());
 
     return QM_EOK;
 }
