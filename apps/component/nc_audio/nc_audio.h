@@ -99,6 +99,7 @@ typedef enum{
     NC_AUDIO_EVENT_TYPE_MIC_DATA_GET,
     NC_AUDIO_EVENT_TYPE_SPK_PLAY_ACK,
     NC_AUDIO_EVENT_TYPE_SPK_REPLY,
+    NC_AUDIO_EVENT_TYPE_CONFIG,
     NC_AUDIO_EVENT_MAX,
 }nc_audio_event_type_t;
 
@@ -251,6 +252,7 @@ typedef union
     nc_audio_code_t spk_play_ack;
     nc_audio_mic_data_t mic_data;
     nc_audio_spk_state_t spk_state;
+    nc_audio_code_t config_result;
 }nc_audio_event_param_t;
 
 typedef int (*nc_audio_send_t)(uint8_t *data, int len);

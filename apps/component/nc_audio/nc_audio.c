@@ -784,6 +784,17 @@ static int sleep_pack(uint8_t *data, int *len, void *arg)
 
 static int cfg_unpack(uint8_t *data, int len)
 {
+    nc_audio_event_param_t event = {0};
+    nc_audio_code_t *config_result = NULL;
+    nc_audio_frame_header_t *header = (nc_audio_frame_header_t *)data;
+
+    config_result = &event.config_result;
+    config_result->code = header->payload[1];
+
+    if (g_comm_ctx->event_notify) {
+        g_comm_ctx->event_notify(NC_AUDIO_EVENT_TYPE_CONFIG, &event);
+    }
+
     return QM_EOK;
 }
 

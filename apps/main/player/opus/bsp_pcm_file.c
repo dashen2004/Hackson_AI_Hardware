@@ -5,8 +5,8 @@
 #include "bsp_audio_opus.h"
 
 extern const uint8_t opus_dingding_file[1564];
-extern const uint8_t opus_conn_file[3404];
-extern const uint8_t opus_disconn_file[3164];
+extern const uint8_t opus_conn_file[2764];
+extern const uint8_t opus_disconn_file[4604];
 extern const uint8_t opus_mode_1_file[4284];        // AI对话模式
 extern const uint8_t opus_mode_2_file[4124];        // 安抚模式
 extern const uint8_t opus_mode_3_file[3884];        // 录音模式
@@ -21,8 +21,8 @@ extern const uint8_t xj_test_file[3164];
 
 bsp_pcm_file_t bsp_pcm_file[BSP_PCM_ID_MAX] =
 {
-    [BSP_PCM_ID_NET_CONN]={3404, (uint8_t *)opus_conn_file},
-    [BSP_PCM_ID_NET_DISCONN]={3164, (uint8_t *)opus_disconn_file},
+    [BSP_PCM_ID_NET_CONN]={2764, (uint8_t *)opus_conn_file},
+    [BSP_PCM_ID_NET_DISCONN]={4604, (uint8_t *)opus_disconn_file},
     [BSP_PCM_ID_MODE_1]={4284, (uint8_t *)opus_mode_1_file},
     [BSP_PCM_ID_MODE_2]={4124, (uint8_t *)opus_mode_2_file},
     [BSP_PCM_ID_MODE_3] = {3884, (uint8_t *)opus_mode_3_file},

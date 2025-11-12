@@ -169,7 +169,7 @@ static void agent_set_ind_timeout(void *arg)
     qm_mutex_unlock(&nc_player_handle.lock);
 }
 
-static void nc_audio_refr_mic(void)
+void nc_audio_refr_mic(void)
 {
     nc_audio_set_wakeup_state_on_off(QM_TRUE);
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_MAX_RECORD_TIME, CONFIG_AUDIO_CONF_RECORED_TIMEOUT);
@@ -192,9 +192,6 @@ void qm_agora_set_agent_state(qm_agent_state_t state, const char *text)
     {
         case AGENT_STATE_SILENT:
             qm_post_delayed_action(&nc_player_handle.ind_time, agent_set_ind_timeout, NULL, 2000);
-        #if (CONFIG_AUDIO_VAD_ON_OFF == 0)
-            nc_audio_refr_mic();
-        #endif
         break;
 
         case AGENT_STATE_SPEAKING:
@@ -204,10 +201,6 @@ void qm_agora_set_agent_state(qm_agent_state_t state, const char *text)
             if (qm_audio_state_get() == QM_AUDIO_STATE_SLIENT && nc_player_handle.pcm_play_idle == 0) {
                 audio_play_start();
                 qm_audio_play(QM_AUDIO_TYPE_AGENT);
-
-            #if (CONFIG_AUDIO_VAD_ON_OFF == 0)
-                nc_audio_refr_mic();
-            #endif
             }
             qm_mutex_unlock(&nc_player_handle.lock);
         break;
@@ -402,6 +395,11 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
         break;
         case NC_AUDIO_EVENT_TYPE_SLEEP:
             QM_LOGD("1", "Sleep");
+        break;
+        case NC_AUDIO_EVENT_TYPE_CONFIG:
+            if (nc_player_handle.notify) {
+                nc_player_handle.notify(event_type, p_event);
+            }
         break;
         case NC_AUDIO_EVENT_TYPE_GET_MCU_VER:
             QM_LOGD("1", "audio version:%s", p_event->mcu_ver.str_ver); 

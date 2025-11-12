@@ -35,6 +35,7 @@ int32_t nc_audio_set_mic_on_off(bool onoff);
 int32_t nc_audio_set_wakeup_word_on_off(bool onoff);
 int32_t nc_audio_set_wakeup_state_on_off(bool onoff);
 int32_t nc_audio_set_mute(bool mute);
+void nc_audio_refr_mic(void);
 bool nc_audio_get_mute(void);
 void qm_agora_set_agent_state(qm_agent_state_t state, const char *text);
 

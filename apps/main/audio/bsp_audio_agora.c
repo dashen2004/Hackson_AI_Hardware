@@ -70,6 +70,9 @@ struct bsp_audio_handle_t {
 
     int net_cfg_hint_cnt;
     int net_err_hint_cnt;
+
+    qm_work_t  refr_mic_tmo_action;
+    qm_timer_t refr_mic_timer;
 };
 
 static int audio_reset = 0;
@@ -98,6 +101,29 @@ void set_mic_stop_flag(uint8_t flag) {
 
 uint8_t bsp_audio_player_is_idle(void) {
     return nc_audio_play_is_idle();
+}
+
+// refresh sound pick up timeout
+static void refresh_mic_timeout_handle(void *arg)
+{
+    QM_LOGI("1", "refresh timeout");
+
+    qm_post_delayed_action(&bsp_audio_handle.refr_mic_tmo_action, refresh_mic_timeout_handle, NULL, CONFIG_AUDIO_REFR_MIC_TIMEOUT);
+    nc_audio_refr_mic();
+}
+
+static void refresh_mic_handle(qm_timer_t *timer, void *arg)
+{
+    QM_LOGI("1", "refresh sound pick up");
+
+    qm_timer_stop(&bsp_audio_handle.refr_mic_timer);
+
+    if (!bsp_audio_handle.open_or_close) {
+        return;
+    }
+
+    qm_post_delayed_action(&bsp_audio_handle.refr_mic_tmo_action, refresh_mic_timeout_handle, NULL, CONFIG_AUDIO_REFR_MIC_TIMEOUT);
+    nc_audio_refr_mic();
 }
 
 // handle voice timeout
@@ -378,6 +404,13 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
 
                 qm_agora_join();
 
+            #if !CONFIG_AUDIO_VAD_ON_OFF
+                if (!qm_timer_is_valid(&bsp_audio_handle.refr_mic_timer)) {
+                    qm_timer_new(&bsp_audio_handle.refr_mic_timer, refresh_mic_handle, NULL, CONFIG_AUDIO_REFR_MIC_INTERVAL, 1);
+                }
+                qm_timer_start(&bsp_audio_handle.refr_mic_timer);
+            #endif
+
                 bsp_lcd_goto_recog_page_wake();
             } else {
                 qm_iot_reset_info_t reset_info;
@@ -528,6 +561,17 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
 
         case NC_AUDIO_EVENT_TYPE_WAKEUP:
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID, NULL, 0);
+        break;
+
+        case NC_AUDIO_EVENT_TYPE_CONFIG:
+        #if !CONFIG_AUDIO_VAD_ON_OFF
+            uint8_t config_res = p_event->config_result.code == 0 ? QM_TRUE : QM_FALSE;
+            if (config_res && bsp_audio_handle.open_or_close) {
+                qm_cancel_delayed_action(&bsp_audio_handle.refr_mic_tmo_action);
+
+                qm_timer_start(&bsp_audio_handle.refr_mic_timer);
+            }
+        #endif
         break;
 
         default:
