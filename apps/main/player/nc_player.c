@@ -352,9 +352,6 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
     switch (event_type)
     {
         case NC_AUDIO_EVENT_TYPE_MIC_DATA_GET:
-            if(nc_player_handle.notify) {
-                nc_player_handle.notify(event_type, p_event);
-            }
         break;
         case NC_AUDIO_EVENT_TYPE_SPK_REPLY:
             QM_LOGD("1", "spk state: %d", p_event->spk_state.status);
@@ -389,17 +386,11 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
         case NC_AUDIO_EVENT_TYPE_WAKEUP:
             QM_LOGD("1", "wakeup");
             qm_post_delayed_action(&nc_player_handle.ind_time, agent_set_ind_timeout, NULL, 0);
-            if(nc_player_handle.notify) {
-                nc_player_handle.notify(event_type, p_event);
-            }
         break;
         case NC_AUDIO_EVENT_TYPE_SLEEP:
             QM_LOGD("1", "Sleep");
         break;
         case NC_AUDIO_EVENT_TYPE_CONFIG:
-            if (nc_player_handle.notify) {
-                nc_player_handle.notify(event_type, p_event);
-            }
         break;
         case NC_AUDIO_EVENT_TYPE_GET_MCU_VER:
             QM_LOGD("1", "audio version:%s", p_event->mcu_ver.str_ver); 
@@ -407,6 +398,10 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
         break;
         default:
             break;
+    }
+
+    if (nc_player_handle.notify) {
+        nc_player_handle.notify(event_type, p_event);
     }
     
     return QM_EOK;

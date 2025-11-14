@@ -273,11 +273,6 @@ static void qm_agora_stream_event_cb(qm_agora_stream_event_t *event, void *user_
             QM_LOGI("1", "agent state: %s", event->data.agent_state.text);
             bsp_wakeup_time_refresh_by_state(event->data.agent_state.state);
             qm_agora_set_agent_state(event->data.agent_state.state, event->data.agent_state.text);
-            if (event->data.agent_state.state == AGENT_STATE_SILENT) {
-                bsp_audio_handle.mic_send_flag = 1;
-            } else {
-                bsp_audio_handle.mic_send_flag = 0;
-            }
             break;
         case QM_AGORA_STREAM_TYPE_INTERRUPT:
             QM_LOGI("1", "user interrupt %d", event->data.interrupt.turn_id);
@@ -585,6 +580,13 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
             }
         #endif
         break;
+
+        case NC_AUDIO_EVENT_TYPE_SPK_REPLY:
+            if (p_event->spk_state.status == NC_AUDIO_SPK_REPLY_TYPE_START) {
+                bsp_audio_handle.mic_send_flag = 0;
+            } else {
+                bsp_audio_handle.mic_send_flag = 1;
+            }
 
         default:
         break;
