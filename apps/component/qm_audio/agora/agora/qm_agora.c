@@ -78,6 +78,8 @@ int qm_agora_send_data(const void *data, size_t len)
 
     info.data_type = AUDIO_DATA_TYPE_OPUS;
 
+    // QM_LOGI("1", "Send audio data len=%ld", len);
+
     int rval = agora_rtc_send_audio_data(qm_agora_handle.conn_id, data, len, &info);
     if (rval < 0) {
         QM_LOGD(TAG, "Failed to send audio data, reason: %s\n", agora_rtc_err_2_str(rval));
