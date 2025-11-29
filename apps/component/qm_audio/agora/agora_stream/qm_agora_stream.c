@@ -408,12 +408,22 @@ static qm_err_t qm_stream_user_trans_handler(cJSON *root)
     if(cJSON_IsFalse(final)) {
         return QM_EOK;
     }
-#endif
+
     event.type = QM_AGORA_STREAM_TYPE_STT;
     event.data.stt.text = cJSON_GetStringValue(text);
     if(g_stream_handle.event_cb) {
         g_stream_handle.event_cb(&event, g_stream_handle.user_data);
     }
+#else
+    event.type = QM_AGORA_STREAM_TYPE_STT;
+    event.data.stt.text = cJSON_GetStringValue(text);
+    extern void bsp_audio_stt_text_set(char* stt);
+    bsp_audio_stt_text_set(event.data.stt.text);
+    if(g_stream_handle.event_cb && cJSON_IsTrue(final)) {
+        g_stream_handle.event_cb(&event, g_stream_handle.user_data);
+    }
+#endif
+
     return QM_EOK;
 }
 

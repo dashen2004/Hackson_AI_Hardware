@@ -13,6 +13,7 @@
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
 
+#include "bsp_audio.h"
 #include "bsp_light.h"
 #include "audio_light.h"
 #include "audio_main.h"
@@ -420,6 +421,8 @@ void action_network_config_submit_click(lv_event_t * e) {
             set_var_language_value(0, false);   // 语言: 默认0(中文)
             xjiang_cloud_reset();
         } else {
+            bsp_audio_set_voice_mute(1);
+
             lv_obj_add_flag  (objects.container_netconfig_prepare, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag  (objects.container_netconfig_process, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag  (objects.container_netconfig_success, LV_OBJ_FLAG_HIDDEN);

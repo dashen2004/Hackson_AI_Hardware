@@ -529,6 +529,11 @@ static void audio_ws_recv_event_cb(qm_audio_ws_recv_evt_t *event, void *user_dat
             turnoff_timer_reset(1);
             break;
         }
+        case QM_AUDIO_WS_RECV_TYPE_STT: {
+            set_var_subtitles(event->data.stt.text);
+            turnoff_timer_reset(1);
+            break;
+        }
         default: {
             break;
         }

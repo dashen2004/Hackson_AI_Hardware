@@ -119,7 +119,6 @@ static void audio_play_start(void)
     nc_player_handle.spk_play.type = NC_AUDIO_SPK_PLAY_TYPE_START;
 
     nc_play_spk_direct_play(&nc_player_handle.spk_play, NULL, 0);
-    qm_msleep(CONFIG_AUDIO_FMT_DURATION_MS);
 }
 
 static void audio_play_data(uint8_t *payload, int payload_len)
@@ -127,6 +126,7 @@ static void audio_play_data(uint8_t *payload, int payload_len)
     if(nc_player_handle.spk_play.type == NC_AUDIO_SPK_PLAY_TYPE_STOP){
         return ;
     }
+    // QM_LOGD("1", "send 8006 data len:%d", payload_len);
     nc_player_handle.spk_play.msg_id++;
     nc_player_handle.spk_play.type = NC_AUDIO_SPK_PLAY_TYPE_DATA;
     nc_play_spk_direct_play(&nc_player_handle.spk_play, payload, payload_len);
@@ -309,9 +309,9 @@ bool nc_audio_get_mute(void)
 
 static int qm_audio_play_data(qm_audio_type_t type, uint8_t *data, int len, int *timeout)
 {
-    while(qm_gpio_get_level(&nc_int_io) == 0) {
-        qm_msleep(10);
-    }
+    while(qm_gpio_get_level(&nc_int_io) == 0);
+    qm_msleep(10);
+
 #if PLAY_DATA_DIFF
     QM_LOGD("1", "diff:%d", (xTaskGetTickCount() - last));
     last = xTaskGetTickCount();

@@ -167,7 +167,11 @@ int32_t qm_agora_gen_start(void *handle)
     backoff_algorithm_init(&backoff_ctx, BACKOFF_BASE_TIME_MS, BACKOFF_RECV_TIMEOUT_MS, BACKOFF_RETRY_NUM);
 
     while (1) {
-        voice_rtc_login_info_get();
+        ret = voice_rtc_login_info_get();
+        if(ret != QM_EOK) {
+            break;
+        }
+
         ret = qm_agora_gen_wait();
         if(ret == QM_EOK) {
             break;
@@ -220,13 +224,6 @@ void *qm_agora_gen_init(void)
 #define AGORA_CHANNELNAME_KEY    "channelName"
 #define AGORA_TOKEN_KEY          "token"
 #define AGORA_OK_KEY             "ok"
-
-#define CONFIG_QM_AGORA_GEN_KV_HEADER   "agora/"
-
-#define UID_KEY                 (CONFIG_QM_AGORA_GEN_KV_HEADER"uid")
-#define APPID_KEY               (CONFIG_QM_AGORA_GEN_KV_HEADER"appId")
-#define CHANNELNAME_KEY         (CONFIG_QM_AGORA_GEN_KV_HEADER"channelName")
-#define TOKEN_KEY               (CONFIG_QM_AGORA_GEN_KV_HEADER"token")
 
 #define AGORA_GEN_BUFFER_MAX_LEN    (4096)
 
@@ -314,8 +311,11 @@ static int qm_agora_gen_recv_handler(void *handle, char *buff, int len)
     memcpy(agora_handle->channelName, channelName, channelName_len);
     memcpy(agora_handle->token, token, token_len);
     qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_UID, &agora_handle->uid, 0);
+    agora_gen_handle->exist_data = QM_FALSE;
     qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_APPID, agora_handle->appId, appId_len);
+    agora_gen_handle->exist_data = QM_FALSE;
     qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_CHANNAL_NAME, agora_handle->channelName, channelName_len);
+    agora_gen_handle->exist_data = QM_FALSE;
     qm_agora_gen_set_data(QM_AGORA_GEN_TYPE_TOKEN, agora_handle->token, token_len);
     return QM_EOK;
 __FREE:

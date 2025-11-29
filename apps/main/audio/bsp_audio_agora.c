@@ -52,6 +52,7 @@ struct bsp_audio_handle_t {
 #if CONFIG_SUPPORT_ONLINE_OPEN_WAV
     int open_or_close;
 #endif
+    int wakeup_flag;
 
     int command_num;
     bsp_audio_cmd_table_t *command_str;
@@ -78,8 +79,6 @@ struct bsp_audio_handle_t {
 
 static int audio_reset = 0;
 static int open_or_close = QM_FALSE;
-
-void bsp_audio_tts_text_set(qm_audio_ws_recv_tts_t tts);
 
 static struct bsp_audio_handle_t bsp_audio_handle = {0};
 static qm_audio_ws_recv_tts_t tts_content = {0};
@@ -268,6 +267,11 @@ static void qm_agora_stream_event_cb(qm_agora_stream_event_t *event, void *user_
             tts_content.duration_ms = event->data.tts.duration_ms;
             tts_content.text = event->data.tts.text;
             bsp_audio_tts_text_set(tts_content);
+
+            if (bsp_audio_handle.wakeup_flag) {
+                bsp_lcd_goto_recog_page_wake();
+                bsp_audio_handle.wakeup_flag = 0;
+            }
             break;
         case QM_AGORA_STREAM_TYPE_AGENT_STATE:
             QM_LOGI("1", "agent state: %s", event->data.agent_state.text);
@@ -404,6 +408,7 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
 
                 nc_audio_set_wakeup_state_on_off(QM_TRUE);
                 bsp_audio_handle.mic_send_flag = 1;
+                bsp_audio_handle.wakeup_flag = 1;
 
                 qm_agora_join();
 
@@ -413,8 +418,6 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                 }
                 qm_timer_start(&bsp_audio_handle.refr_mic_timer);
             #endif
-
-                bsp_lcd_goto_recog_page_wake();
             } else {
                 qm_iot_reset_info_t reset_info;
                 qm_iot_reset_info_get(&reset_info);
@@ -674,6 +677,21 @@ void bsp_audio_tts_text_set(qm_audio_ws_recv_tts_t tts)
 
     recv.data.tts.text = tts.text;
     recv.data.tts.duration_ms = tts.duration_ms;
+    if (bsp_audio_handle.event_cb) {
+        bsp_audio_handle.event_cb(&recv, bsp_audio_handle.user_data);
+    }
+}
+
+void bsp_audio_stt_text_set(char* stt)
+{
+    if (stt[0] == '\0') {
+        return;
+    }
+
+    qm_audio_ws_recv_evt_t recv = {0};
+    recv.recv_type = QM_AUDIO_WS_RECV_TYPE_STT;
+
+    recv.data.stt.text = stt;
     if (bsp_audio_handle.event_cb) {
         bsp_audio_handle.event_cb(&recv, bsp_audio_handle.user_data);
     }
