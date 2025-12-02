@@ -68,7 +68,9 @@ struct bsp_audio_handle_t {
 
     uint8_t wakeup_timeout;
     uint8_t mic_stop_flag;
+#if CONFIG_AUDIO_CLOSE_MIC_DURING_SPEAK
     uint8_t mic_send_flag;
+#endif
 
     int net_cfg_hint_cnt;
     int net_err_hint_cnt;
@@ -280,7 +282,6 @@ static void qm_agora_stream_event_cb(qm_agora_stream_event_t *event, void *user_
             break;
         case QM_AGORA_STREAM_TYPE_INTERRUPT:
             QM_LOGI("1", "user interrupt %d", event->data.interrupt.turn_id);
-            bsp_audio_handle.mic_send_flag = 1;
             break;
         default:
             break;
@@ -407,7 +408,9 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                 qm_kv_set(OPENING_KV_TAG, &bsp_audio_handle.open_or_close, sizeof(int), QM_TRUE);
 
                 nc_audio_set_wakeup_state_on_off(QM_TRUE);
+            #if CONFIG_AUDIO_CLOSE_MIC_DURING_SPEAK
                 bsp_audio_handle.mic_send_flag = 1;
+            #endif
                 bsp_audio_handle.wakeup_flag = 1;
 
                 qm_agora_join();
@@ -548,9 +551,13 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
                 break;
                 case NC_AUDIO_VAD_DATA:
                     if (bsp_audio_handle.open_or_close && bsp_audio_handle.ws_connect && !get_mic_stop_flag()) {
+                    #if CONFIG_AUDIO_CLOSE_MIC_DURING_SPEAK
                         if (bsp_audio_handle.mic_send_flag) {
                             qm_agora_send_data(mic_data->payload, mic_data->payload_len);
                         }
+                    #else
+                        qm_agora_send_data(mic_data->payload, mic_data->payload_len);
+                    #endif
                     }
                 break;
                 case NC_AUDIO_VAD_STOP:
@@ -562,9 +569,13 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
             }
         #else
             if (mic_data->payload_len && bsp_audio_handle.open_or_close && bsp_audio_handle.ws_connect && !get_mic_stop_flag()) {
-                if (bsp_audio_handle.mic_send_flag) {
+                #if CONFIG_AUDIO_CLOSE_MIC_DURING_SPEAK
+                    if (bsp_audio_handle.mic_send_flag) {
+                        qm_agora_send_data(mic_data->payload, mic_data->payload_len);
+                    }
+                #else
                     qm_agora_send_data(mic_data->payload, mic_data->payload_len);
-                }
+                #endif
             }
         #endif
         break;
@@ -585,11 +596,13 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
         break;
 
         case NC_AUDIO_EVENT_TYPE_SPK_REPLY:
+        #if CONFIG_AUDIO_CLOSE_MIC_DURING_SPEAK
             if (p_event->spk_state.status == NC_AUDIO_SPK_REPLY_TYPE_START) {
                 bsp_audio_handle.mic_send_flag = 0;
             } else {
                 bsp_audio_handle.mic_send_flag = 1;
             }
+        #endif
 
         default:
         break;

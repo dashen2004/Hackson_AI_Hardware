@@ -22,6 +22,7 @@ extern "C" {
 #define CONFIG_AUDIO_PLAYER_UID        (200)
 
 #define CONFIG_AUDIO_VAD_ON_OFF             (0)
+#define CONFIG_AUDIO_CLOSE_MIC_DURING_SPEAK (1)
 
 #define CONFIG_AUDIO_FMT_RATE               (16000)
 #define CONFIG_AUDIO_FMT_BITS               (16)
