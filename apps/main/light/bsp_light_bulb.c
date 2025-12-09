@@ -196,6 +196,16 @@ void bsp_light_bulb_init(void)
 //色温灯调节
 void bsp_light_bulb_set_cw(uint16_t cct, uint8_t brightness)
 {
+    if (cct < CONFIG_BSP_LIGHT_CCT_MIN_VALUE || cct > CONFIG_BSP_LIGHT_CCT_MAX_VALUE) {
+        QM_LOGD(LOG_TAG, "cct %d out of range, set to default %d\n", cct, CONFIG_BSP_LIGHT_CCT_NATURAL_VALUE);
+        cct = CONFIG_BSP_LIGHT_CCT_NATURAL_VALUE;
+    }
+
+    if (brightness < CONFIG_BSP_LIGHT_MIN || brightness > CONFIG_BSP_LIGHT_MAX) {
+        QM_LOGD(LOG_TAG, "brightness %d out of range, set to default %d\n", brightness, CONFIG_BSP_LIGHT_DEFAULT_BRI);
+        brightness = CONFIG_BSP_LIGHT_DEFAULT_BRI;
+    }
+
     lightbulb_set_cctb(cct, brightness);
 }
 
