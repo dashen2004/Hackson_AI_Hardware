@@ -201,7 +201,7 @@ void bsp_light_bulb_set_cw(uint16_t cct, uint8_t brightness)
         cct = CONFIG_BSP_LIGHT_CCT_NATURAL_VALUE;
     }
 
-    if (brightness < CONFIG_BSP_LIGHT_MIN || brightness > CONFIG_BSP_LIGHT_MAX) {
+    if (brightness != 0 && (brightness < CONFIG_BSP_LIGHT_MIN || brightness > CONFIG_BSP_LIGHT_MAX)) {
         QM_LOGD(LOG_TAG, "brightness %d out of range, set to default %d\n", brightness, CONFIG_BSP_LIGHT_DEFAULT_BRI);
         brightness = CONFIG_BSP_LIGHT_DEFAULT_BRI;
     }

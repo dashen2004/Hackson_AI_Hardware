@@ -191,6 +191,12 @@ typedef struct
 #pragma pack()
 
 typedef enum {
+    NC_AUDIO_WAKE_TYPE_WAKEUP = 100,
+    NC_AUDIO_WAKE_TYPE_OPEN_LIGHT = 201,
+    NC_AUDIO_WAKE_TYPE_CLOSE_LIGHT = 202,
+} nc_audio_wake_type_t;
+
+typedef enum {
     NC_AUDIO_SPK_PLAY_TYPE_START = 0,
     NC_AUDIO_SPK_PLAY_TYPE_DATA,
     NC_AUDIO_SPK_PLAY_TYPE_STOP,
@@ -226,6 +232,11 @@ typedef enum {
 
 } nc_audio_cfg_type_t;  
 
+typedef struct
+{
+    nc_audio_wake_type_t type;
+}nc_audio_wakeup_t;
+
 typedef struct 
 {
    uint32_t msg_id;
@@ -247,6 +258,7 @@ typedef struct
 typedef union 
 {
     nc_audio_get_mcu_ver_t mcu_ver;
+    nc_audio_wakeup_t wakeup_type;
     nc_audio_code_t mic_cfg_result;
     nc_audio_code_t spk_cfg_result;
     nc_audio_code_t spk_play_ack;

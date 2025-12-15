@@ -17,6 +17,9 @@ extern const uint8_t discon_remind_file[5324];
 extern const uint8_t low_battery_level_file[5564];
 extern const uint8_t loss_rssi_file[5964];
 extern const uint8_t sleep_file[4844];
+extern const uint8_t interrupt_file[0];
+extern const uint8_t open_light_file[0];
+extern const uint8_t close_light_file[0];
 extern const uint8_t xj_test_file[3164];
 
 bsp_pcm_file_t bsp_pcm_file[BSP_PCM_ID_MAX] =
@@ -34,6 +37,9 @@ bsp_pcm_file_t bsp_pcm_file[BSP_PCM_ID_MAX] =
     [BSP_PCM_ID_DISCONN_REMIND]={5324, (uint8_t *)discon_remind_file},
     [BSP_PCM_ID_LOW_BAT_LEVEL]={5564, (uint8_t *)low_battery_level_file},
     [BSP_PCM_ID_LOSS_RSSI]={5964, (uint8_t *)loss_rssi_file},
+    [BSP_PCM_ID_INTERRUPT]={4284, (uint8_t *)interrupt_file},
+    [BSP_PCM_ID_OPEN_LIGHT]={5884, (uint8_t *)open_light_file},
+    [BSP_PCM_ID_CLOSE_LIGHT]={5324, (uint8_t *)close_light_file},
     [BSP_PCM_ID_XJIANG_TEST]={3164, (uint8_t *)xj_test_file},
 };
 

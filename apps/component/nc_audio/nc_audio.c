@@ -746,11 +746,21 @@ static int wakeup_unpack(uint8_t *data, int len)
     nc_audio_code_t *spk_play_result = NULL;
     nc_audio_frame_header_t *header = (nc_audio_frame_header_t *)data;
 #endif
+    nc_audio_event_param_t event = {0};
+    nc_audio_wakeup_t *wakeup_result = NULL;
+    nc_audio_frame_header_t *header = (nc_audio_frame_header_t *)data;
+
+    wakeup_result = &event.wakeup_type;
+
+    wakeup_result->type = (
+        (header->payload[0] << 24)| (header->payload[1] << 16) |
+        (header->payload[2] << 8) | (header->payload[3]) );
+
+    QM_LOGI("1", "wakeup type:%d", wakeup_result->type);
 
     if(g_comm_ctx->event_notify){
-        g_comm_ctx->event_notify(NC_AUDIO_EVENT_TYPE_WAKEUP, NULL);
+        g_comm_ctx->event_notify(NC_AUDIO_EVENT_TYPE_WAKEUP, &event);
     }
-    
 
     return QM_EOK;
 }

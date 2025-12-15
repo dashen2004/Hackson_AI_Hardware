@@ -399,7 +399,12 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
             }
 
             if (bsp_audio_handle.open_or_close) {
+            #if CONFIG_AUDIO_LOCAL_IOT_CONTROL
+                voice_abort_request(CONFIG_AUDIO_ABORT_REQUEST);
+                nc_audio_play_bin(BSP_PCM_ID_INTERRUPT);
+            #else
                 voice_abort_request(CONFIG_AUDIO_ABORT_WITH_WAKEUP_REQUEST);
+            #endif
                 break;
             }
 
@@ -436,6 +441,16 @@ static void qm_audio_event_handler(qm_input_event_t *input_event, void *arg)
                 }
             }
         #endif
+        break;
+
+        case CONFIG_AUDIO_SUB_EVENT_LOCAL_IOT_CONTROL_ID:
+            if ((int)input_event->value == NC_AUDIO_WAKE_TYPE_OPEN_LIGHT) {
+                bsp_light_bri_on_off(QM_TRUE);
+                nc_audio_play_bin(BSP_PCM_ID_OPEN_LIGHT);
+            } else if ((int)input_event->value == NC_AUDIO_WAKE_TYPE_CLOSE_LIGHT) {
+                bsp_light_bri_on_off(QM_FALSE);
+                nc_audio_play_bin(BSP_PCM_ID_CLOSE_LIGHT);
+            }
         break;
 
         case CONFIG_AUDIO_SUB_EVENT_BUTTON_WAKEUP_ID:
@@ -581,7 +596,14 @@ static int nc_audio_event_cb(nc_audio_event_type_t event_type, nc_audio_event_pa
         break;
 
         case NC_AUDIO_EVENT_TYPE_WAKEUP:
-            qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID, NULL, 0);
+            if (p_event->wakeup_type.type == NC_AUDIO_WAKE_TYPE_WAKEUP) {
+                qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_WAKEUP_ID, (NULL), 0);
+            } else if (p_event->wakeup_type.type == NC_AUDIO_WAKE_TYPE_OPEN_LIGHT || p_event->wakeup_type.type == NC_AUDIO_WAKE_TYPE_CLOSE_LIGHT) {
+            #if CONFIG_AUDIO_LOCAL_IOT_CONTROL
+                qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_LOCAL_IOT_CONTROL_ID, (void*)p_event->wakeup_type.type, 0);
+            #endif
+            }
+
         break;
 
         case NC_AUDIO_EVENT_TYPE_CONFIG:

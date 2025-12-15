@@ -23,6 +23,7 @@ extern "C" {
 
 #define CONFIG_AUDIO_VAD_ON_OFF             (0)
 #define CONFIG_AUDIO_CLOSE_MIC_DURING_SPEAK (1)
+#define CONFIG_AUDIO_LOCAL_IOT_CONTROL      (0)
 
 #define CONFIG_AUDIO_FMT_RATE               (16000)
 #define CONFIG_AUDIO_FMT_BITS               (16)
@@ -103,6 +104,7 @@ extern "C" {
 #define CONFIG_AUDIO_SUB_EVENT_SWITCH_MODE_ID       (0x0109)
 #define CONFIG_AUDIO_SUB_EVENT_SWITCH_COMPLETE_ID   (0x010A)
 #define CONFIG_AUDIO_SUB_EVENT_JOIN_CHANNEL_ID      (0x010B)
+#define CONFIG_AUDIO_SUB_EVENT_LOCAL_IOT_CONTROL_ID (0x010C)
 #define CONFIG_AUDIO_SUB_EVENT_FRESH_WAKETIME_ID    (0x0307)
 
 #define CONFIG_AUDIO_SUB_EVENT_OTA_START            (0x010B)
@@ -148,8 +150,8 @@ extern "C" {
 #define CONFIG_AUDIO_OPENING_REMARKS      (1) //开机提示音
 #define CONFIG_AUDIO_CLOSING_REMARKS      (2) //关机提示音
 
-#define CONFIG_AUDIO_ABORT_REQUEST                  (1) //打断播报并请求唤醒语料
-#define CONFIG_AUDIO_ABORT_WITH_WAKEUP_REQUEST      (2) //打断播报
+#define CONFIG_AUDIO_ABORT_REQUEST                  (1) //打断播报
+#define CONFIG_AUDIO_ABORT_WITH_WAKEUP_REQUEST      (2) //打断播报并请求唤醒语料
 
 // 超时事件
 #define CONFIG_TIMEOUT_TYPE_START_CLOSE    (0x20)
