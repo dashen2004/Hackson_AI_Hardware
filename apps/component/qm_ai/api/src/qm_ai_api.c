@@ -5,7 +5,7 @@
 #include "gx8006_driver.h"
 #endif
 
-struct qm_ai_t
+typedef struct qm_ai_t
 {
     qm_ai_driver_type_t drvier_type;
 };
@@ -18,12 +18,24 @@ struct qm_ai_t
  */
 int32_t qm_ai_start(qm_ai_handle_t handle)
 {
-
-#if CONFIG_QM_AI_DRIVER_USER_GX8006
-    if()
-    {   
-        qm_ai_driver_param_t param = QM_AI_DRIVER_GX8006_DEFAULT_HANDLE();
-        qm_ai_driver_open(&param);
+    if(handle == NULL){
+        return -QM_EINVAL;
     }
-#endif
+
+    switch(handle->drvier_type)
+    {   
+    #if CONFIG_QM_AI_DRIVER_USER_GX8006
+        case QM_AI_DRIVER_TYPE_GX8006:
+            qm_ai_driver_open(&QM_AI_DRIVER_GX8006_DEFAULT_HANDLE);
+        break;
+    #endif
+
+    #if CONFIG_QM_AI_DRIVER_USER_CUSTOM
+        case QM_AI_DRIVER_TYPE_CUSTOM:
+            qm_ai_driver_open(&QM_AI_DRIVER_CUSTOM_HANDLE);
+        break;
+    #endif
+        default:
+        break;
+    }
 }

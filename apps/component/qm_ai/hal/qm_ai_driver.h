@@ -129,7 +129,7 @@ typedef struct {
 typedef int (*qm_ai_driver_event_notify_t)(qm_ai_driver_event_type_t event_type, qm_ai_driver_event_param_t *event_param,void *arg);
 
 //用户自定义驱动时使用
-extern qm_ai_driver_param_t  qm_ai_drvier_ext_custom_param;
+extern qm_ai_driver_param_t  QM_AI_DRIVER_CUSTOM_HANDLE;
 
 /**
  * @brief  打开会话

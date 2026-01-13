@@ -8,7 +8,6 @@ extern "C" {
 #include "qm.h"
 #include "qm_spec_api.h"
 #include "qm_ai_common.h"
-#include "qm_ai_driver.h"
 
 typedef struct qm_ai_t *qm_ai_handle_t;
 
