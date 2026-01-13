@@ -3,69 +3,7 @@ file(GLOB UI_SRCS ${UI_DIR}/*.c)
 
 set(COMPONENT_SRCS 
 
-    "./apps/lcd.c"
     "./apps/main.c" 
-    "./apps/audio_main.c"
- 
-    "./button/bsp_button.c"
-    "./light/bsp_light.c"
-    "./light/audio_light.c"
-    "./light/bsp_light_bulb.c"
-    "./cloud/xjiang_cloud.c"
-    # "./beacon/audio_beacon.c"
-    # "./audio/bsp_audio.c"
-    "./audio/bsp_audio_agora.c"
-    # "./audio/bsp_audio_opus.c"
-    "./audio/audio_cloud.c"
-    "./player/nc_player.c"
-    "./player/bsp_pcm.c"
-    "./player/opus/bsp_pcm_file.c"
-    "./player/opus/dingding_file.c"
-    "./player/opus/power_on_file.c"
-    "./player/opus/conn_file.c"
-    "./player/opus/discon_remind.c"
-    "./player/opus/disconn_file.c"
-    "./player/opus/loss_rssi.c"
-    "./player/opus/low_battery_level.c"
-    "./player/opus/mode_1_file.c"
-    "./player/opus/mode_2_file.c"
-    "./player/opus/mode_3_file.c"
-    "./player/opus/opus_reassure_file.c"
-    "./player/opus/ready_sleep_file.c"
-    "./player/opus/sleep.c"
-    "./player/opus/interrupt_file.c"
-    "./player/opus/open_light_file.c"
-    "./player/opus/close_light_file.c"
-    "./player/opus/xjiang_test.c"
-    # "./player/qm_player_dev.c"
-    # "./player/qm_player.c"
-
-    # "./prodtst/audio_prodtst.c"
-
-    "../component/nc_audio/nc_audio.c"
-    "../component/qm_audio/qm_audio.c"
-    # "../component/qm_audio/ws/port/qm_audio_ws_port_lws.c"
-    # "../component/qm_audio/ws/qm_audio_ws.c"
-    # "../component/qm_audio/encoder/qm_audio_encoder.c"
-    # "../component/qm_audio/sr/qm_audio_sr.c"
-    # "../component/qm_audio/vc/qm_audio_vc.c"
-    # "../component/qm_audio/recorder/qm_audio_recorder.c"
-    # "../component/qm_audio/processor/qm_audio_processor.c"
-    "../component/qm_audio/agora/agora/qm_agora.c"
-    "../component/qm_audio/agora/agora_gen/qm_agora_gen.c"
-    "../component/qm_audio/agora/agora_stream/qm_agora_stream.c"
-    "../component/qm_color/qm_color.c"
-
-    # "../component/qm_audio/board/dual_mic/board_pins_config.c"
-    # "../component/qm_audio/board/dual_mic/qm_audio_board.c" 
-    # "../component/qm_audio/board/dual_mic/qm_audio_stream.c"   
-
-    # "../component/qm_audio/board/single_mic/board_pins_config.c"
-    # "../component/qm_audio/board/single_mic/qm_audio_board.c"
-    # "../component/qm_audio/board/single_mic/qm_audio_stream.c"
-
-    "../component/qm_light/pwm_alg/qm_light_alg.c"
-    "../component/qm_light/driver/qm_light_driver.c"
 
     "$ENV{ADF_PATH}/qumi/kernel/init/qm_init.c"
 
@@ -180,40 +118,6 @@ set(COMPONENT_SRCS
     )
 set(COMPONENT_ADD_INCLUDEDIRS 
     "./apps"
-    "./audio"
-    # "./beacon"
-    "./button"
-    "./cloud"
-    "./light"
-    "./player"
-    # "./prodtst"
-    "./qm_config"
-
-    "../component/qm_light/driver"
-    "../component/qm_light/config"
-    "../component/qm_light/pwm_alg"
-    "../component/qm_color"
-
-    "../component/nc_audio"
-    "../component/qm_audio"
-    # "../component/qm_audio/common"
-    "../component/qm_audio/ws"
-    # "../component/qm_audio/encoder"
-    # "../component/qm_audio/board"
-    "../component/qm_audio/agora/agora"
-    "../component/qm_audio/agora/agora_gen"
-    "../component/qm_audio/agora/agora_stream"
-    
-    # "../component/qm_audio/board/dual_mic"
-    # "../component/qm_audio/board/single_mic"
-    "../../components/agora_iot_sdk/include"
-
-
-    # "../component/qm_audio/sr"
-    # "../component/qm_audio/vc"
-    # "../component/qm_audio/recorder"
-    # "../component/qm_audio/processor"
-
     "$ENV{ADF_PATH}/qumi/board/esp32x"
 
     "$ENV{ADF_PATH}/qumi/components/bson"
