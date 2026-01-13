@@ -11,41 +11,80 @@ extern "C" {
 
 typedef struct qm_ai_t *qm_ai_handle_t;
 
+
+typedef enum
+{
+    QM_AI_DRIVER_CTRL_NONE = 0,
+
+    /**
+     * @brief 设置消音状态
+     *
+     * @details
+     *
+     * 数据类型: (bool_t *)
+     */
+    QM_AI_DRIVER_CTRL_SET_MUTE,
+    /**
+     * @brief 获取消音状态
+     *
+     * @details
+     *
+     * 数据类型: (bool_t *)
+     */
+    QM_AI_DRIVER_CTRL_GET_MUTE,
+    /**
+     * @brief 设置音量
+     *
+     * @details
+     *
+     * 数据类型: (uint32_t *)
+     */
+    QM_AI_DRIVER_CTRL_SET_VOLUME,
+    /**
+     * @brief 获取音量
+     *
+     * @details
+     *
+     * 数据类型: (uint32_t *)
+     */
+    QM_AI_DRIVER_CTRL_GET_VOLUME,
+    /**
+     * @brief 使能 PA状态
+     *
+     * @details
+     *
+     * 数据类型: (bool_t *)
+     */
+    QM_AI_DRIVER_CTRL_ENABLE_PA,
+}qm_ai_driver_ctrl_t;
+
 typedef enum
 {
     QM_AI_EVENT_NONE = 0,
     
+    //驱动状态
+    QM_AI_EVENT_DRIVER_WAKEUP = 0x00,
+    QM_AI_EVENT_DRIVER_TIMEOUT,
+
     //网络状态
-    QM_AI_EVENT_CONFIG,
-    QM_AI_EVENT_CONFIG_TIMEOUT,
-    QM_AI_EVENT_CLOUD_CONN,
+    QM_AI_EVENT_CLOUD_CONN = 0x10,
     QM_AI_EVENT_CLOUD_DISCONN,
-    QM_AI_EVENT_BIND_NOTIFY,
-    QM_AI_EVENT_RESET,
+    QM_AI_EVENT_CLOUD_LICENSE,
 
-    //OTA状态
-    QM_AI_EVENT_OTA_READY,
-    QM_AI_EVENT_OTA_START,
-    QM_AI_EVENT_OTA_INSTALLING,
-    QM_AI_EVENT_OTA_PROGRESS_UPADTE,
-    QM_AI_EVENT_OTA_FAILED,
-    QM_AI_EVENT_OTA_SUCCESS,
-    QM_AI_EVENT_OTA_CANCEL,
+    //音量控制
+    QM_AI_EVENT_VOLUME_CTRL = 0x20,
+    QM_AI_EVENT_VOLUME_UP,
+    QM_AI_EVENT_VOLUME_DOWN,
 
-    //控制指令
-    QM_AI_EVENT_TYPE_SET,
-    QM_AI_EVENT_TYPE_GET_RSP,
-    QM_AI_EVENT_TYPE_GET_REQ,
+    //智能体事件
+    QM_AI_EVENT_AGENT_STATE = 0x100,
+    QM_AI_EVENT_AGENT_ABORT,
+    QM_AI_EVENT_AGENT_LLM,
+    QM_AI_EVENT_AGENT_STT,
+    QM_AI_EVENT_AGENT_TTS,
+    QM_AI_EVENT_AGENT_STOP,
 
-    //识别事件
-    QM_AI_EVENT_TYPE_WAKEUP,
-    QM_AI_EVENT_TYPE_ABORT,
-    QM_AI_EVENT_TYPE_LLM,
-    QM_AI_EVENT_TYPE_STT,
-    QM_AI_EVENT_TYPE_TTS,
-    QM_AI_EVENT_TYPE_TIMEOUT,
 }qm_ai_event_type_t;
-
 
 typedef struct 
 {
@@ -54,58 +93,57 @@ typedef struct
     {
         struct 
         {
-            qm_spec_property_t *property;
-        }set;
+            int reserved;
+        }driver_wakeup;
 
         struct 
         {
-            qm_spec_property_t *property;
-        }get_rsp;
-
-        struct 
-        {
-            qm_spec_property_t *property;
-        }get_req;
-
-        struct 
-        {
-            
-        }wakeup;
+            int reserved;
+        }driver_timeout;
 
         struct
         {
             
-        }abort;
+        }agent_abort;
 
         struct 
         {
             
-        }llm;
+        }agent_llm;
 
         struct 
         {
             
-        }stt;
+        }agent_stt;
 
         struct 
         {
             
-        }tts;
-
-
+        }agent_tts;
+        
         struct 
         {
             
-        }atimeout;
+        }agent_timeout;
     }data;
 }qm_ai_even_t;
 
-typedef void (*qm_ai_event_handler_t)(void *handle, qm_ai_event_type_t event_type, qm_ai_even_t *event_param, void *arg);
+typedef void (*qm_ai_event_handler_t)(void *handle, qm_ai_even_t *event_param, void *arg);
+
+typedef struct {
+    int (*open)(void);
+    int (*close)(void);
+    int (*write)(void *data, int len);
+    int (*read)(void *data, int len, uint32_t timeout);
+    int (*ctrl) (qm_ai_driver_ctrl_t cmd, void *param);
+} qm_ai_driver_param_t;
 
 typedef struct 
 {
-    qm_ai_driver_type_t driver_type;
-
+    /**
+     * Configure audio drvier api
+    */
+    qm_ai_driver_param_t param;
     /**
      * Configure audio data type
     */
@@ -131,12 +169,15 @@ typedef struct
      * wakeup timeout. default 10s
      */
     int wakeup_timeout;
+
 }qm_ai_audio_options_t;
 
 typedef struct 
 {
-    qm_ai_driver_type_t driver_type;
-    
+    /**
+     * Configure video drvier api
+    */
+    qm_ai_driver_param_t param;
     /**
      * The video data type: #video_data_type_e.
      */
@@ -160,14 +201,17 @@ typedef struct
      * The rotation information of the encoded video frame: #VIDEO_ORIENTATION.
      */
     qm_ai_video_orientation_t rotation;
+
 }qm_ai_video_options_t;
 
+#if 0
 typedef struct 
 {
     uint32_t pid;
-    char    *sercet;
-    char    *lincese_param;
-}qm_ai_lincese_t;
+    char    *secret;
+    char    *license;
+}qm_ai_license_t;
+#endif
 
 /**
  * @brief 初始化IOT句柄
@@ -176,6 +220,7 @@ typedef struct
  * 
  */
 qm_ai_handle_t qm_ai_open(qm_ai_comm_type_t comm_type, void *arg);
+
 
 /**
  * @brief 设置版本号
@@ -209,14 +254,15 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
  */
 int32_t qm_ai_set_video_option(qm_ai_handle_t handle, qm_ai_video_options_t *options);
 
-
+#if 0
 /**
  * @brief 配置lincese
  * 
  * @details 
  * 
  */
-int32_t qm_ai_set_lincese(qm_ai_handle_t handle, qm_ai_lincese_t *param);
+int32_t qm_ai_set_license(qm_ai_handle_t handle, qm_ai_license_t *param);
+#endif
 
 /**
  * @brief 启动AI模块
@@ -302,29 +348,6 @@ uint32_t qm_ai_audio_get_local_volume(qm_ai_handle_t handle);
  */
 int32_t qm_ai_audio_player_data(qm_ai_handle_t handle, uint8_t *data, uint32_t size);
 
-/**
- * @brief 
- * 
- * @details 
- * 
- */
-int32_t qm_ai_video_set_mute(qm_ai_handle_t handle, bool_t mute);
-
-/**
- * @brief 
- * 
- * @details 
- * 
- */
-bool_t qm_ai_video_get_mute_state(qm_ai_handle_t handle);
-
-/**
- * @brief 
- * 
- * @details 
- * 
- */
-int32_t qm_ai_video_send_data(qm_ai_handle_t handle, uint8_t *data, uint32_t size);
 
 /**
  * @brief 反初始化AI句柄
