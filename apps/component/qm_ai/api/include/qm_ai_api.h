@@ -6,57 +6,10 @@ extern "C" {
 #endif
 
 #include "qm.h"
-#include "qm_spec_api.h"
 #include "qm_ai_common.h"
+#include "qm_ai_driver.h"
 
 typedef struct qm_ai_t *qm_ai_handle_t;
-
-
-typedef enum
-{
-    QM_AI_DRIVER_CTRL_NONE = 0,
-
-    /**
-     * @brief 设置消音状态
-     *
-     * @details
-     *
-     * 数据类型: (bool_t *)
-     */
-    QM_AI_DRIVER_CTRL_SET_MUTE,
-    /**
-     * @brief 获取消音状态
-     *
-     * @details
-     *
-     * 数据类型: (bool_t *)
-     */
-    QM_AI_DRIVER_CTRL_GET_MUTE,
-    /**
-     * @brief 设置音量
-     *
-     * @details
-     *
-     * 数据类型: (uint32_t *)
-     */
-    QM_AI_DRIVER_CTRL_SET_VOLUME,
-    /**
-     * @brief 获取音量
-     *
-     * @details
-     *
-     * 数据类型: (uint32_t *)
-     */
-    QM_AI_DRIVER_CTRL_GET_VOLUME,
-    /**
-     * @brief 使能 PA状态
-     *
-     * @details
-     *
-     * 数据类型: (bool_t *)
-     */
-    QM_AI_DRIVER_CTRL_ENABLE_PA,
-}qm_ai_driver_ctrl_t;
 
 typedef enum
 {
@@ -91,16 +44,6 @@ typedef struct
     qm_ai_event_type_t type;
     union 
     {
-        struct 
-        {
-            int reserved;
-        }driver_wakeup;
-
-        struct 
-        {
-            int reserved;
-        }driver_timeout;
-
         struct
         {
             
@@ -128,15 +71,7 @@ typedef struct
     }data;
 }qm_ai_even_t;
 
-typedef void (*qm_ai_event_handler_t)(void *handle, qm_ai_even_t *event_param, void *arg);
-
-typedef struct {
-    int (*open)(void);
-    int (*close)(void);
-    int (*write)(void *data, int len);
-    int (*read)(void *data, int len, uint32_t timeout);
-    int (*ctrl) (qm_ai_driver_ctrl_t cmd, void *param);
-} qm_ai_driver_param_t;
+typedef void (*qm_ai_event_handler_t)(qm_ai_handle_t handle, qm_ai_even_t *event_param, void *arg);
 
 typedef struct 
 {
@@ -253,6 +188,14 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
  * 
  */
 int32_t qm_ai_set_video_option(qm_ai_handle_t handle, qm_ai_video_options_t *options);
+
+/**
+ * @brief 配置事件回调
+ * 
+ * @details 
+ * 
+ */
+int32_t qm_ai_set_event_regsiter_option(qm_ai_handle_t handle, qm_ai_event_handler_t handler, void *arg);
 
 #if 0
 /**
