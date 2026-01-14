@@ -121,4 +121,4 @@ typedef void (*qm_ai_driver_event_handler_t)(void *handle, qm_ai_driver_event_ty
 }
 #endif
 
-#endif  /* __QM_AI_CLOUD_H__ */
+#endif
