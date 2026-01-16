@@ -139,15 +139,6 @@ typedef struct
 
 }qm_ai_video_options_t;
 
-#if 0
-typedef struct 
-{
-    uint32_t pid;
-    char    *secret;
-    char    *license;
-}qm_ai_license_t;
-#endif
-
 /**
  * @brief 初始化IOT句柄
  * 
@@ -189,6 +180,15 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
  */
 int32_t qm_ai_set_video_option(qm_ai_handle_t handle, qm_ai_video_options_t *options);
 
+
+/**
+ * @brief 配置服务句柄  
+ * 
+ * @details
+ * 
+ */
+int32_t qm_ai_set_service_handle_option(qm_ai_handle_t handle, void *service_handle);
+
 /**
  * @brief 配置事件回调
  * 
@@ -196,16 +196,6 @@ int32_t qm_ai_set_video_option(qm_ai_handle_t handle, qm_ai_video_options_t *opt
  * 
  */
 int32_t qm_ai_set_event_register_option(qm_ai_handle_t handle, qm_ai_event_handler_t handler, void *arg);
-
-#if 0
-/**
- * @brief 配置lincese
- * 
- * @details 
- * 
- */
-int32_t qm_ai_set_license(qm_ai_handle_t handle, qm_ai_license_t *param);
-#endif
 
 /**
  * @brief 启动AI模块

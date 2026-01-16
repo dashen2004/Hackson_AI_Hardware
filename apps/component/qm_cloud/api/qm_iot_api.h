@@ -151,6 +151,21 @@ typedef enum {
     QM_IOT_RECV_TYPE_MAX
 } qm_iot_recv_type_t;
 
+
+typedef enum {
+    /**
+     * @brief 接收类型为 AWS IOT  (后续会逐步取消此接口)
+ * 
+     * 
+     * @details 
+     * 
+     */
+    QM_IOT_SERVICE_TYPE_SET = 0,
+    QM_IOT_SERVICE_TYPE_GET = 0,
+    QM_IOT_SERVICE_TYPE_REPORT = 0,
+
+} qm_iot_service_type_t;
+
 typedef struct {
     /**
      * @brief 接收类型
@@ -481,7 +496,7 @@ int32_t qm_iot_set_weahter_request(void *handle);
  * 
  */
 int qm_iot_service_register(void *handle, int service_id, uint8_t siid, uint16_t piid, 
-                                qm_iot_recv_type_t type , qm_iot_service_handler_t service_fn, void *userdata);
+                                qm_iot_service_type_t type , qm_iot_service_handler_t service_fn, void *userdata);
 
 /**
  * @brief 服务功能上报
@@ -492,7 +507,7 @@ int qm_iot_service_register(void *handle, int service_id, uint8_t siid, uint16_t
  * @details property调用后，接口内部会qm_free掉该资源
  * 
  */
-int qm_iot_service_push(void *handle, int service_id, qm_spec_property_t *property);
+int qm_iot_service_push(void *handle, qm_iot_service_type_t type, int service_id, qm_spec_property_t *property);
 
 
 /**
