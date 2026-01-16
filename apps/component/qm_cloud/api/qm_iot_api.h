@@ -481,7 +481,7 @@ int32_t qm_iot_set_weahter_request(void *handle);
  * 
  */
 int qm_iot_service_register(void *handle, int service_id, uint8_t siid, uint16_t piid, 
-                                qm_iot_service_handler_t service_fn, void *userdata);
+                                qm_iot_recv_type_t type , qm_iot_service_handler_t service_fn, void *userdata);
 
 /**
  * @brief 服务功能上报
