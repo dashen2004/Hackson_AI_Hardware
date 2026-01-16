@@ -195,7 +195,7 @@ int32_t qm_ai_set_video_option(qm_ai_handle_t handle, qm_ai_video_options_t *opt
  * @details 
  * 
  */
-int32_t qm_ai_set_event_regsiter_option(qm_ai_handle_t handle, qm_ai_event_handler_t handler, void *arg);
+int32_t qm_ai_set_event_register_option(qm_ai_handle_t handle, qm_ai_event_handler_t handler, void *arg);
 
 #if 0
 /**
