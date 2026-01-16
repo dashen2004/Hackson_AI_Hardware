@@ -1,5 +1,6 @@
 #include "qm.h"
 #include "qm_ai_api.h"
+#include "qm_ai_inner_rtc_api.h"
 
 #if CONFIG_QM_AI_DRIVER_USER_GX8006
 #include "gx8006_driver.h"

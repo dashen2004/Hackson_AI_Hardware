@@ -69,9 +69,9 @@ typedef struct
             
         }agent_timeout;
     }data;
-}qm_ai_even_t;
+}qm_ai_event_t;
 
-typedef void (*qm_ai_event_handler_t)(qm_ai_handle_t handle, qm_ai_even_t *event_param, void *arg);
+typedef void (*qm_ai_event_handler_t)(qm_ai_handle_t handle, qm_ai_event_t *event_param, void *arg);
 
 typedef struct 
 {
