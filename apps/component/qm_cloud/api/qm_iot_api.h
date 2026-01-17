@@ -15,6 +15,7 @@ typedef enum
     QM_IOT_NET_TYPE_WIFI_COMBO,
     QM_IOT_NET_TYPE_WIFI,
     QM_IOT_NET_TYPE_4G,
+    QM_IOT_NET_TYPE_MAX,
 }qm_iot_net_type_t;
 
 typedef enum {
@@ -153,18 +154,15 @@ typedef enum {
 
 
 typedef enum {
-    /**
-     * @brief 接收类型为 AWS IOT  (后续会逐步取消此接口)
- * 
-     * 
-     * @details 
-     * 
-     */
     QM_IOT_SERVICE_TYPE_SET = 0,
-    QM_IOT_SERVICE_TYPE_GET = 0,
-    QM_IOT_SERVICE_TYPE_REPORT = 0,
-
+    QM_IOT_SERVICE_TYPE_GET_REQ,
+    QM_IOT_SERVICE_TYPE_GET_RSP,
 } qm_iot_service_type_t;
+
+typedef struct {
+    uint8_t siid;
+    uint16_t piid;
+} qm_iot_service_iid_t;
 
 typedef struct {
     /**
@@ -312,13 +310,15 @@ typedef void (*qm_iot_event_handler_t)(void *handle, const qm_iot_event_t *event
  * @brief 通知用户所调用的服务接收回调函数
  * 
  * @param[in] handle 会话句柄
+ * @param[in] type 接收类型
  * @param[in] service_id 服务ID
- * @param[in] property 服务属性
+ * @param[in] property_operation 服务属性列表
  * @param[in] userdata 用户上下文
  * 
  * @return void
  */
-typedef void (*qm_iot_service_handler_t)(void *handle, int service_id, qm_spec_property_t *property,void *userdata);
+typedef void (*qm_iot_service_handler_t)(void *handle, int service_id, 
+                                           qm_iot_service_type_t type, qm_spec_property_operation_t *property_operation,void *userdata);
 
 
 typedef enum {
@@ -484,30 +484,23 @@ int32_t qm_iot_reset(void *handle);
  */
 int32_t qm_iot_set_weahter_request(void *handle);
 
+
 /**
  * @brief 服务功能注册
  * 
  * @param[in] handle 会话句柄
  * @param[in] service_id 服务ID
- * @param[in] siid SIID
- * @param[in] piid PIID
+ * @param[in] iid      服务属性内容, 详见 qm_iot_service_iid_t
+ * @param[in] iid_num  属性数量
  * @param[in] service_fn 服务回调函数
  * @param[in] userdata 用户上下文
  * 
- */
-int qm_iot_service_register(void *handle, int service_id, uint8_t siid, uint16_t piid, 
-                                qm_iot_service_type_t type , qm_iot_service_handler_t service_fn, void *userdata);
-
-/**
- * @brief 服务功能上报
- * @param[in] handle 会话句柄
- * @param[in] service_id 服务ID
- * @param[in] property 服务属性
- * 
- * @details property调用后，接口内部会qm_free掉该资源
+ * @details  多组 siid piid 的情况下, 平台一次下发时返回全部信息 才会触发callback。
+ *           若需要多次触发，进行多次注册即可
  * 
  */
-int qm_iot_service_push(void *handle, qm_iot_service_type_t type, int service_id, qm_spec_property_t *property);
+int qm_iot_service_register(void *handle, int service_id, qm_iot_service_iid_t *iid, int iid_num, 
+                                qm_iot_service_handler_t service_fn, void *userdata);
 
 
 /**
@@ -522,5 +515,4 @@ int32_t qm_iot_event_notify(void *handle, qm_iot_event_type_t event);
 }
 #endif
 
-#endif 
-
+#endif  /* __QM_IOT_CLOUD_H__ */
