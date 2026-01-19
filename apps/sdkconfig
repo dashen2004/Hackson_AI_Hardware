@@ -2479,6 +2479,12 @@ CONFIG_LIGHTBULB_CHECK_DEFAULT_LEVEL_0=y
 # end of LightBulb Driver Config
 
 #
+# NGHTTP configuration
+#
+CONFIG_ESP_NGHTTP2_INBOUND_BUFFER_LENGTH=4096
+# end of NGHTTP configuration
+
+#
 # LVGL configuration
 #
 CONFIG_LV_CONF_SKIP=y

@@ -10,8 +10,8 @@ typedef struct {
 
     char* license;
 
-    qm_ai_stream_cb_t stream_cb;
     qm_ai_audio_cb_t audio_cb;
+    qm_ai_stream_cb_t stream_cb;
     qm_ai_event_cb_t event_cb;
 
     void *user_data;

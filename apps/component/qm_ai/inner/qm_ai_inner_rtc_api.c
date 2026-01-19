@@ -16,9 +16,9 @@ static qm_ai_rtc_handle_t qm_ai_rtc_handle = {0};
 
 int qm_ai_rtc_init(qm_ai_rtc_cfg_t cfg)
 {
-    if (cfg.license == NULL || cfg.license[0] == "\0")
+    if (cfg.license == NULL || cfg.license[0] == '\0')
     {
-        QM_LOGE(RTC_TAG, "no rtc license, please retry!");
+        QM_LOGE(RTC_TAG, "No rtc license, please retry!");
         return QM_ERROR;
     }
 
@@ -35,6 +35,7 @@ int qm_ai_rtc_init(qm_ai_rtc_cfg_t cfg)
         .event_cb = cfg.event_cb,
     };
 
+    agora_cfg.license = (char *)malloc(strlen(cfg.license) + 1);
     memcpy(agora_cfg.license, cfg.license, strlen(cfg.license) + 1);
 
     if (qm_agora_init(agora_cfg) != QM_EOK) {
@@ -42,12 +43,13 @@ int qm_ai_rtc_init(qm_ai_rtc_cfg_t cfg)
         return QM_ERROR;
     }
 
+    QM_LOGI(RTC_TAG, "Link init success!");
     qm_ai_rtc_handle.rtc_init_flag = QM_TRUE;
 
     return QM_EOK;
 }
 
-int qm_ai_rtc_connect()
+int qm_ai_rtc_connect(void)
 {
     if (qm_ai_rtc_handle.rtc_init_flag != QM_TRUE) {
         QM_LOGE(RTC_TAG, "Fail to connect rtc, not inited!");
@@ -60,12 +62,13 @@ int qm_ai_rtc_connect()
         return ret;
     }
 
+    QM_LOGI(RTC_TAG, "Link connect success!");
     qm_ai_rtc_handle.rtc_connect_flag = QM_TRUE;
 
     return QM_EOK;
 }
 
-int qm_ai_rtc_join()
+int qm_ai_rtc_join(void)
 {
     if (qm_ai_rtc_handle.rtc_connect_flag != QM_TRUE) {
         QM_LOGE(RTC_TAG, "Fail to join rtc channel, not connected!");
@@ -78,6 +81,7 @@ int qm_ai_rtc_join()
         return ret;
     }
 
+    QM_LOGI(RTC_TAG, "Link join success!");
     qm_ai_rtc_handle.rtc_join_flag = QM_TRUE;
 
     return QM_EOK;
@@ -86,6 +90,7 @@ int qm_ai_rtc_join()
 int qm_ai_rtc_send_audio_data(const void *data, size_t len)
 {
     if (qm_ai_rtc_handle.rtc_join_flag != QM_TRUE) {
+        QM_LOGE(RTC_TAG, "Fail to send audio data, not joined rtc channel!");
         return QM_EINIT;
     }
 
@@ -98,7 +103,7 @@ int qm_ai_rtc_send_audio_data(const void *data, size_t len)
     return ret;
 }
 
-int qm_ai_rtc_deinit()
+int qm_ai_rtc_deinit(void)
 {
     qm_ai_rtc_handle.rtc_init_flag = QM_FALSE;
     qm_ai_rtc_handle.rtc_connect_flag = QM_FALSE;
@@ -109,7 +114,7 @@ int qm_ai_rtc_deinit()
     return ret;
 }
 
-int qm_ai_rtc_disconnect()
+int qm_ai_rtc_disconnect(void)
 {
     qm_ai_rtc_handle.rtc_connect_flag = QM_FALSE;
     qm_ai_rtc_handle.rtc_join_flag = QM_FALSE;
@@ -119,7 +124,7 @@ int qm_ai_rtc_disconnect()
     return ret;
 }
 
-int qm_ai_rtc_leave()
+int qm_ai_rtc_leave(void)
 {
     qm_ai_rtc_handle.rtc_join_flag = QM_FALSE;
 
