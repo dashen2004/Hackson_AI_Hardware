@@ -154,9 +154,11 @@ typedef enum {
 
 
 typedef enum {
-    QM_IOT_SERVICE_TYPE_SET = 0,
+    QM_IOT_SERVICE_TYPE_NONE = 0,
+    QM_IOT_SERVICE_TYPE_SET,
     QM_IOT_SERVICE_TYPE_GET_REQ,
     QM_IOT_SERVICE_TYPE_GET_RSP,
+    QM_IOT_SERVICE_TYPE_MAX
 } qm_iot_service_type_t;
 
 typedef struct {
