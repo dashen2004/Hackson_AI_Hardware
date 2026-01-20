@@ -18,15 +18,15 @@ extern "C" {
 #define CONFIG_QM_IOT_SDK_VESRION               ("1.0.0")
 
 #ifndef CONFIG_QM_IOT_SET_CANCEL
-#define CONFIG_QM_IOT_SET_CANCEL               1
+#define CONFIG_QM_IOT_SET_CANCEL               0
 #endif
 
 #ifndef CONFIG_QM_IOT_GET_CANCEL
-#define CONFIG_QM_IOT_GET_CANCEL               1
+#define CONFIG_QM_IOT_GET_CANCEL               0
 #endif
 
 #ifndef CONFIG_QM_IOT_SPEC_SUPPORT
-#define CONFIG_QM_IOT_SPEC_SUPPORT              1
+#define CONFIG_QM_IOT_SPEC_SUPPORT             1
 #endif
 
 #ifndef CONFIG_QM_IOT_AUTHCODE_SUPPORT

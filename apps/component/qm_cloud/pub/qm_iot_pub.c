@@ -195,7 +195,7 @@ static void qm_iot_set_recv_handler(void *handle, const qm_iot_mqtt_recv_t *pack
     }
 
     qm_spec_data_unpack(QM_SPEC_DATA_TYPE_JSON, QM_SPEC_MSG_TYPE_SET, (uint8_t *)value, value_len, &data_info);
-    iot_recv.data.prop_get.operation = data_info.operation.property_operation;
+    iot_recv.data.prop_set.operation = data_info.operation.property_operation;
     if(pub_handle->recv_handler){
         pub_handle->recv_handler(pub_handle, &iot_recv, pub_handle->userdata);
     }
