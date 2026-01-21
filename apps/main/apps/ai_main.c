@@ -78,7 +78,7 @@ static int audio_driver_write(void *data, size_t len)
     return QM_EOK;
 }
 
-static int audio_driver_read(void *data, size_t *len, uint32_t timeout)
+static int audio_driver_read(void *data, size_t len, uint32_t timeout)
 {
     return QM_EOK;
 }
@@ -106,13 +106,14 @@ void qm_application_start(void)
     void *iot_handle = xjiang_cloud_get_handle();
     qm_ai_init(ai_handle, iot_handle);
 
-    qm_ai_driver_param_t driver = {
+    qm_ai_driver_param_t driver = {0};
+    /*{
         .open = audio_driver_open,
         .close = audio_driver_close,
         .ctrl = audio_driver_ctrl,
         .write = audio_driver_write,
         .read = audio_driver_read,
-    };
+    };*/
 
     qm_ai_audio_options_t audio_op = {
         .channel_num = 1,

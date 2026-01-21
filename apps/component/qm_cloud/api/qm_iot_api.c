@@ -1064,7 +1064,7 @@ static int qm_iot_pub_recv_service_handler(qm_iot_core_handle_t *core_handle, qm
         }
     }
 
-    if(service->service_fn){
+    if(service_find && service->service_fn){
         service->service_fn(core_handle, service->service_id, 
                             service_type, property_operation, service->userdata);
     }
@@ -1536,6 +1536,7 @@ int qm_iot_service_register(void *handle, int service_id, qm_iot_service_iid_t *
     node = qm_list_find(core_handle->service, &match_service);
     if(node != NULL){
         QM_LOGE(LOG_TAG, "service is exist!!");
+        qm_mutex_unlock(&core_handle->lock);
         return -QM_EINVAL;
     }
 

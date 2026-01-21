@@ -82,7 +82,7 @@ typedef struct {
     int (*open)(void);
     int (*close)(void);
     int (*write)(void *data, size_t len);
-    int (*read)(void *data, size_t* len, uint32_t timeout);
+    int (*read)(void *data, size_t len, uint32_t timeout);
     int (*ctrl) (qm_ai_driver_ctrl_t cmd, void *param);
 } qm_ai_driver_param_t;
 

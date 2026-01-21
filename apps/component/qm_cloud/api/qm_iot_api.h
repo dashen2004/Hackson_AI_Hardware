@@ -486,7 +486,6 @@ int32_t qm_iot_reset(void *handle);
  */
 int32_t qm_iot_set_weahter_request(void *handle);
 
-
 /**
  * @brief 服务功能注册
  * 

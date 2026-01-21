@@ -171,7 +171,6 @@ static void mqtt_devinfo_reply_recv_handler(void *handle, const qm_iot_mqtt_recv
     
 }
 
-                      
 #if CONFIG_QM_IOT_NETWORK_TYPE_4G
 char *qm_iot_dev_4g_devinfo_pack(void)
 {

@@ -76,12 +76,12 @@
  * @brief  Audio Codec Chip Function Definition
  */
 #define FUNC_AUDIO_CODEC_EN       (1)
-#define CODEC_ADC_I2S_PORT        ((i2s_port_t)0)
-#define CODEC_ADC_BITS_PER_SAMPLE ((i2s_data_bit_width_t)32)  /* 32bit */
-#define CODEC_ADC_SAMPLE_RATE     (48000)
+#define CODEC_ADC_I2S_PORT        ((i2s_port_t)1)
+#define CODEC_ADC_BITS_PER_SAMPLE ((i2s_data_bit_width_t)16)  /* 32bit */
+#define CODEC_ADC_SAMPLE_RATE     (16000)
 #define RECORD_HARDWARE_AEC       (true)
 #define BOARD_PA_GAIN             (0)  /* Power amplifier gain defined by board (dB) */
-#define PA_ENABLE_GPIO            GPIO_NUM_46
+#define PA_ENABLE_GPIO            GPIO_NUM_16
 #define HEADPHONE_DETECT          (-1)
 #define ES7210_MIC_SELECT         (ES7210_INPUT_MIC1 | ES7210_INPUT_MIC2 | ES7210_INPUT_MIC3)
 

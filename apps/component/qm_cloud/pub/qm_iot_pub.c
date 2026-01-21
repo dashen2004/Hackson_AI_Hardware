@@ -84,7 +84,7 @@ static void payload_malloc_and_copy(qm_iot_pub_handle_t *pub_handle, char *type,
     char *json_msg = NULL;
 
     if(pub_handle == NULL || msg == NULL || !msg_len){
-        return NULL;
+        return ;
     }
 
     msg_len = QM_IOT_COMMON_DID_MAX_LEN + strlen(type) + strlen(QM_IOT_COMMON_PARAMS_PROPERTY_PAYLOAD_FMT) + msg_len;

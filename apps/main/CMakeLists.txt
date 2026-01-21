@@ -14,6 +14,17 @@ set(COMPONENT_SRCS
     "../component/qm_ai/module/volume/qm_ai_volume.c"
     "../component/qm_struct_json/src/qm_struct_mapper.c"
 
+    "../component/qm_ai/driver/gx8008c_micarray.c"
+
+    "../component/qm_audio/encoder/qm_audio_encoder.c"
+    "../component/qm_audio/sr/qm_audio_sr.c"
+    "../component/qm_audio/vc/qm_audio_vc.c"
+    "../component/qm_audio/recorder/qm_audio_recorder.c"
+    "../component/qm_audio/processor/qm_audio_processor.c"
+
+    "../component/qm_audio/board/gx8008_dev_board/qm_audio_board.c" 
+    "../component/qm_audio/board/gx8008_dev_board/qm_audio_stream.c" 
+
     "$ENV{ADF_PATH}/qumi/kernel/init/qm_init.c"
 
     # "$ENV{ADF_PATH}/qumi/components/ble_remoter/src/ble_remoter.c"
@@ -140,6 +151,15 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_ai/module/license"
     "../component/qm_ai/module/volume"
     "../component/qm_struct_json/include"
+
+    "../component/qm_audio"
+    "../component/qm_audio/encoder"
+    "../component/qm_audio/board"
+    "../component/qm_audio/board/gx8008_dev_board"
+    "../component/qm_audio/sr"
+    "../component/qm_audio/vc"
+    "../component/qm_audio/recorder"
+    "../component/qm_audio/processor"
 
     "$ENV{ADF_PATH}/components/agora_iot_sdk/include"
 

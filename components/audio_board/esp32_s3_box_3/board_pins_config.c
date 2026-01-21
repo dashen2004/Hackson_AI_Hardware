@@ -37,7 +37,7 @@ esp_err_t get_i2c_pins(i2c_port_t port, i2c_config_t *i2c_config)
 {
     AUDIO_NULL_CHECK(TAG, i2c_config, return ESP_FAIL);
     if (port == I2C_NUM_0 || port == I2C_NUM_1) {
-        i2c_config->sda_io_num = GPIO_NUM_8;
+        i2c_config->sda_io_num = GPIO_NUM_17;
         i2c_config->scl_io_num = GPIO_NUM_18;
     } else {
         i2c_config->sda_io_num = -1;
@@ -51,16 +51,20 @@ esp_err_t get_i2c_pins(i2c_port_t port, i2c_config_t *i2c_config)
 esp_err_t get_i2s_pins(int port, board_i2s_pin_t *i2s_config)
 {
     AUDIO_NULL_CHECK(TAG, i2s_config, return ESP_FAIL);
+    // ES8311
     if (port == 0) {
-        i2s_config->bck_io_num = GPIO_NUM_17;
-        i2s_config->ws_io_num = GPIO_NUM_45;
+        i2s_config->bck_io_num = GPIO_NUM_5;
+        i2s_config->ws_io_num = GPIO_NUM_7;
         i2s_config->data_out_num = GPIO_NUM_15;
-        i2s_config->data_in_num = GPIO_NUM_16;
-        i2s_config->mck_io_num = GPIO_NUM_2;
-    } else {
-        memset(i2s_config, -1, sizeof(board_i2s_pin_t));
-        ESP_LOGE(TAG, "I2S PORT %d is not supported, please use I2S PORT 0", port);
-        return ESP_FAIL;
+        i2s_config->data_in_num = GPIO_NUM_6;
+        i2s_config->mck_io_num = GPIO_NUM_4;
+    // GX8008C
+    } else if (port == 1) {
+        i2s_config->bck_io_num = GPIO_NUM_38;
+        i2s_config->ws_io_num = GPIO_NUM_48;
+        i2s_config->data_out_num = GPIO_NUM_NC;
+        i2s_config->data_in_num = GPIO_NUM_47;
+        i2s_config->mck_io_num = GPIO_NUM_21; 
     }
     return ESP_OK;
 }

@@ -8,14 +8,15 @@
 
 #define AI_TAG "AI"
 
-#define CONFIG_QM_AI_DRIVER_USER_GX8006 0
+#define CONFIG_QM_AI_AUDIO_DRIVER_USER_GX8006   0
+#define CONFIG_QM_AI_AUDIO_DRIVER_GX8008C       1
 
-#if CONFIG_QM_AI_DRIVER_GX8006
+#if CONFIG_QM_AI_AUDIO_DRIVER_USER_GX8006
 #include "gx8006_driver.h"
 extern qm_ai_driver_param_t audio_driver_gx8006;
-#elif CONFIG_QM_AI_DRIVER_GX8008C
-#include "gx8008c_driver.h"
-extern qm_ai_driver_param_t audio_driver_gx8008c;
+#elif CONFIG_QM_AI_AUDIO_DRIVER_GX8008C
+// #include "gx8008c_driver.h"
+extern qm_ai_driver_param_t QM_AI_AUDIO_DRIVER_GX8008C_HANDLE;
 #elif CONFIG_QM_AI_DRIVER_CUSTOM
 qm_ai_driver_param_t audio_driver_custom;
 #endif
@@ -77,10 +78,10 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
 
     if (ai_check_driver_is_null(&options->audio_driver)) {
         handle->drvier_type = QM_AI_DRIVER_TYPE_DEFAULT;
-        #if CONFIG_QM_AI_DRIVER_GX8006
+        #if CONFIG_QM_AI_AUDIO_DRIVER_GX8006
             handle->driver_handle = &audio_driver_gx8006;
-        #elif CONFIG_QM_AI_DRIVER_GX8008C
-            handle->driver_handle = &audio_driver_gx8008c;
+        #elif CONFIG_QM_AI_AUDIO_DRIVER_GX8008C
+            handle->driver_handle = &QM_AI_AUDIO_DRIVER_GX8008C_HANDLE;
         #endif
     } else {
         if (!ai_check_driver_is_valid(&options->audio_driver)) {
@@ -294,8 +295,9 @@ static void ai_task(void *arg)
 {
     qm_ai_handle_t handle = (qm_ai_handle_t)arg;
 
-    void *data = NULL;
-    size_t data_len = 0;
+    static int16_t audio_buf[640];
+
+    int ret;
 
     while (1) {
         if (handle->audio_timeout_flag) {
@@ -303,14 +305,11 @@ static void ai_task(void *arg)
             continue;
         }
 
-        // handle->driver_handle->read(data, &data_len, 100);
-
-        // if (data_len != 0) {
-        //     qm_ai_rtc_send_audio_data(data, data_len);
-        // }
-
-        QM_LOGI(AI_TAG, "audio task running...");
-        qm_msleep(1000);
+        ret = handle->driver_handle->read((void *)audio_buf, sizeof(audio_buf), 0xFFFF);
+        // qm_ai_rtc_send_audio_data(audio_buf, sizeof(audio_buf));
+        if (ret == QM_EOK) {
+            handle->driver_handle->write((void *)audio_buf, sizeof(audio_buf));
+        }
 
         if (!handle->ai_start_flag) {
             QM_LOGI(AI_TAG, "ai func stop, quit ai task");
