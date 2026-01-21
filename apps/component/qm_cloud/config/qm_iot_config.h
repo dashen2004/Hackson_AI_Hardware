@@ -26,7 +26,7 @@ extern "C" {
 #endif
 
 #ifndef CONFIG_QM_IOT_SPEC_SUPPORT
-#define CONFIG_QM_IOT_SPEC_SUPPORT              1
+#define CONFIG_QM_IOT_SPEC_SUPPORT             1
 #endif
 
 #ifndef CONFIG_QM_IOT_AUTHCODE_SUPPORT
