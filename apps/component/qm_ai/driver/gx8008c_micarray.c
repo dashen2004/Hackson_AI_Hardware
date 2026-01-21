@@ -47,7 +47,7 @@ static int bsp_audio_open(void)
         goto err;
     }
     // 设置默认音量
-    es8311_codec_set_voice_volume(60);
+    es8311_codec_set_voice_volume(70);
     audio_handle.is_open = 1;
 
     return QM_EOK;

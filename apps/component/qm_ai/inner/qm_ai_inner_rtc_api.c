@@ -37,7 +37,8 @@ int qm_ai_rtc_init(qm_ai_rtc_cfg_t cfg)
         .codec_type = cfg.codec_type,
         .sample_rate = cfg.sample_rate,
         .channel_num = cfg.channel_num,
-        .duration = cfg.duration
+        .duration = cfg.duration,
+        .user_data = cfg.user_data
     };
 
     agora_cfg.license = (char *)qm_malloc(strlen(cfg.license) + 1);

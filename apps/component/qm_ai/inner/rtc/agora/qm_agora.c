@@ -247,7 +247,7 @@ static void __on_audio_data(connection_id_t conn_id, const uint32_t uid, uint16_
     // QM_HEX_LOGD("1","recv: ", data, len);
     // QM_LOGD(LOG_TAG, "agora recv:%d", len);
     if(qm_agora_handle.audio_cb){
-        qm_agora_handle.audio_cb((void *)data, len, (void*)uid);
+        qm_agora_handle.audio_cb((void *)data, len, qm_agora_handle.user_data);
     }
 }
 

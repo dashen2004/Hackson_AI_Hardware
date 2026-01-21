@@ -306,9 +306,8 @@ static void ai_task(void *arg)
         }
 
         ret = handle->driver_handle->read((void *)audio_buf, sizeof(audio_buf), 0xFFFF);
-        // qm_ai_rtc_send_audio_data(audio_buf, sizeof(audio_buf));
         if (ret == QM_EOK) {
-            handle->driver_handle->write((void *)audio_buf, sizeof(audio_buf));
+            qm_ai_rtc_send_audio_data(audio_buf, sizeof(audio_buf));
         }
 
         if (!handle->ai_start_flag) {
@@ -322,7 +321,12 @@ static void ai_task(void *arg)
 
 static void ai_recv_audio_data(void *data, int len, void *user_data)
 {
-    // handle->driver_handle->write(data, len);
+    if (user_data == NULL) {
+        return;
+    }
+
+    qm_ai_handle_t handle = (qm_ai_handle_t)user_data;
+    handle->driver_handle->write(data, len);
 }
 
 /**
@@ -349,6 +353,7 @@ int32_t qm_ai_start(qm_ai_handle_t handle)
     }
 
     handle->rtc_cfg.audio_cb = ai_recv_audio_data;
+    handle->rtc_cfg.user_data = handle;
 
     if (qm_ai_rtc_init(handle->rtc_cfg) != QM_EOK) {
         goto __exit;
