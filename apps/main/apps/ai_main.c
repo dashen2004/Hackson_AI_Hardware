@@ -53,6 +53,46 @@ static void qm_ai_stream_event_cb(qm_ai_stream_event_t *event, void *user_data)
     }
 }
 
+static int audio_driver_open(void)
+{
+    QM_LOGI("AI_DRV", "audio driver open");
+
+    return QM_EOK;
+}
+
+static int audio_driver_close(void)
+{
+    QM_LOGI("AI_DRV", "audio driver close");
+
+    return QM_EOK;
+}
+
+static int audio_driver_write(void *data, size_t len)
+{
+    if (len == 0) {
+        return QM_EINVAL;
+    }
+
+    QM_LOGI("AI_DRV", "audio driver write");
+
+    return QM_EOK;
+}
+
+static int audio_driver_read(void *data, size_t *len, uint32_t timeout)
+{
+    return QM_EOK;
+}
+
+static int audio_driver_ctrl(qm_ai_driver_ctrl_t cmd, void *param)
+{
+    QM_LOGI("AI_DRV", "audio driver cmd");
+
+    switch (cmd) {
+    default:
+        return -QM_ERROR;
+    }
+}
+
 void qm_application_start(void)
 {
     QM_LOGD("1", "Ver:%s", CONFIG_QM_AI_SDK_VERSION);
@@ -65,6 +105,26 @@ void qm_application_start(void)
 
     void *iot_handle = xjiang_cloud_get_handle();
     qm_ai_init(ai_handle, iot_handle);
+
+    qm_ai_driver_param_t driver = {
+        .open = audio_driver_open,
+        .close = audio_driver_close,
+        .ctrl = audio_driver_ctrl,
+        .write = audio_driver_write,
+        .read = audio_driver_read,
+    };
+
+    qm_ai_audio_options_t audio_op = {
+        .channel_num = 1,
+        .codec_type = QM_AI_AUDIO_CODEC_TYPE_G722,
+        .data_type = QM_AI_AUDIO_DATA_TYPE_PCM,
+        .duration = 40,
+        .sample_rate = 16000,
+        .audio_driver = driver,
+        .wakeup_timeout = 0
+    };
+
+    qm_ai_set_audio_option(ai_handle, &audio_op);
 
     qm_ai_register_module(ai_handle, QM_AI_MOD_VOLUME, NULL);
 

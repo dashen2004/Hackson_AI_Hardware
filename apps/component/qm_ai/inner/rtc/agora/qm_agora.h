@@ -46,9 +46,13 @@ typedef void (*qm_agora_audio_event_cb_t)(void *data, int len, void *user_data);
 typedef void (*qm_agora_event_cb_t)(qm_ai_event_type_e event, void *user_data);
 
 typedef struct {
-    int duration;
     bool audio_enable;
     bool video_enable;
+    qm_ai_audio_data_type_t data_type;
+    qm_ai_audio_codec_type_t codec_type;
+    int sample_rate;
+    int channel_num;
+    int duration;
     bool domain_limit;
     bool enable_audio_ai_qos;
     qm_agora_stream_event_cb_t stream_cb;

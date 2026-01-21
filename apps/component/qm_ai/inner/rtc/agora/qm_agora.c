@@ -32,6 +32,11 @@ typedef struct{
 typedef struct {
     bool                          audio_enable;
     bool                          video_enable;
+    qm_ai_audio_data_type_t data_type;
+    qm_ai_audio_codec_type_t codec_type;
+    int sample_rate;
+    int channel_num;
+    int duration;
     bool                          domain_limit;
     bool                          enable_audio_ai_qos;
     bool                          connect;
@@ -41,8 +46,6 @@ typedef struct {
     qm_agora_gen_handle_t         *agora_gen_handle;
     connection_id_t               conn_id;
     connection_info_t             conn_info;
-
-    int                           duration;
 
     qm_agora_audio_event_cb_t     audio_cb;
     qm_agora_event_cb_t           event_cb;
@@ -76,7 +79,7 @@ int qm_agora_send_audio_data(const void *data, size_t len)
         return QM_ERROR;
     }
 
-    info.data_type = AUDIO_DATA_TYPE_PCM;
+    info.data_type = qm_agora_handle.data_type;
 
     int rval = agora_rtc_send_audio_data(qm_agora_handle.conn_id, data, len, &info);
     if (rval < 0) {
@@ -382,9 +385,9 @@ int qm_agora_join(void)
     channel_options.enable_audio_jitter_buffer = true;
 #endif
     // channel_options.enable_audio_ai_qos = qm_agora_handle.enable_audio_ai_qos;
-    channel_options.audio_codec_opt.audio_codec_type = AUDIO_CODEC_TYPE_G722;
-    channel_options.audio_codec_opt.pcm_sample_rate = 16000;
-    channel_options.audio_codec_opt.pcm_channel_num = 1;
+    channel_options.audio_codec_opt.audio_codec_type = qm_agora_handle.codec_type;
+    channel_options.audio_codec_opt.pcm_sample_rate = qm_agora_handle.sample_rate;
+    channel_options.audio_codec_opt.pcm_channel_num = qm_agora_handle.channel_num;
     channel_options.audio_codec_opt.pcm_duration  = qm_agora_handle.duration;
 
 #if CONFIG_STATIC_AGORA_DATA
@@ -435,6 +438,10 @@ int qm_agora_leave(void)
 int qm_agora_init(qm_agora_cfg_t cfg)
 {
     qm_agora_handle.duration = cfg.duration;
+    qm_agora_handle.data_type = cfg.data_type;
+    qm_agora_handle.codec_type = cfg.codec_type;
+    qm_agora_handle.sample_rate = cfg.sample_rate;
+    qm_agora_handle.channel_num = cfg.channel_num;
     qm_agora_handle.audio_enable = cfg.audio_enable;
     qm_agora_handle.video_enable = cfg.video_enable;
     qm_agora_handle.domain_limit = cfg.domain_limit;

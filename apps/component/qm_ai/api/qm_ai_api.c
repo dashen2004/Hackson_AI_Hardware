@@ -42,6 +42,24 @@ typedef struct qm_ai_t
     qm_task_t audio_task;
 };
 
+static bool ai_check_driver_is_null(qm_ai_driver_param_t *driver)
+{
+    if (driver->open || driver->close || driver->write || driver->read || driver->ctrl) {
+        return 0;
+    }
+
+    return 1;
+}
+
+static bool ai_check_driver_is_valid(qm_ai_driver_param_t *driver)
+{
+    if (driver->open && driver->close && driver->write && driver->ctrl) {
+        return 1;
+    }
+
+    return 0;
+}
+
 static void ai_driver_read_cb(qm_ai_driver_type_t type, const void *data, size_t len) 
 {
     qm_ai_rtc_send_audio_data(data, len);
@@ -55,8 +73,9 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
     }
 
     handle->driver_handle = (qm_ai_driver_param_t *)qm_malloc(sizeof(qm_ai_driver_param_t));
+    memset(handle->driver_handle, 0, sizeof(qm_ai_driver_param_t));
 
-    if (options->audio_driver.open == NULL) {
+    if (ai_check_driver_is_null(&options->audio_driver)) {
         handle->drvier_type = QM_AI_DRIVER_TYPE_DEFAULT;
         #if CONFIG_QM_AI_DRIVER_GX8006
             handle->driver_handle = &audio_driver_gx8006;
@@ -64,19 +83,30 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
             handle->driver_handle = &audio_driver_gx8008c;
         #endif
     } else {
+        if (!ai_check_driver_is_valid(&options->audio_driver)) {
+            QM_LOGE(AI_TAG, "custom audio driver is invalid");
+            return QM_ERROR;
+        }
+
         handle->drvier_type = QM_AI_DRIVER_TYPE_CUSTOM;
-        memcpy(&handle->driver_handle, &options->audio_driver, sizeof(qm_ai_driver_param_t));
+        memcpy(handle->driver_handle, &options->audio_driver, sizeof(qm_ai_driver_param_t));
     }
 
-    qm_ai_driver_param_t *driver = handle->driver_handle;
-
-    if (driver->read == NULL) {
-        driver->ctrl(QM_AI_DRIVER_CTRL_READ_CALLBACK, ai_driver_read_cb);
+    // start driver
+    if (!ai_check_driver_is_valid(handle->driver_handle)) {
+        QM_LOGE(AI_TAG, "audio driver is invalid");
+        return QM_ERROR;
     }
 
-    driver->open();
+    if (handle->driver_handle->read == NULL) {
+        handle->driver_handle->ctrl(QM_AI_DRIVER_CTRL_READ_CALLBACK, ai_driver_read_cb);
+    }
+
+    handle->driver_handle->open();
 
     handle->audio_driver_ready = 1;
+
+    QM_LOGI(AI_TAG, "Audio driver is ready");
 
     // rtc config
     handle->rtc_cfg.audio_enable = 1;
@@ -314,10 +344,10 @@ int32_t qm_ai_start(qm_ai_handle_t handle)
         return QM_EINVAL;
     }
 
-    // if (!handle->audio_driver_ready) {
-    //     QM_LOGE(AI_TAG, "Audio driver not inited, please check and try again");
-    //     return QM_EINVAL;
-    // }
+    if (!handle->audio_driver_ready) {
+        QM_LOGE(AI_TAG, "Audio driver not inited, please check and try again");
+        return QM_EINVAL;
+    }
 
     handle->rtc_cfg.audio_cb = ai_recv_audio_data;
 
