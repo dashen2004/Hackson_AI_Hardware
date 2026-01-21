@@ -456,3 +456,8 @@ int qm_agora_init(qm_agora_cfg_t cfg)
 
     return QM_EOK;
 }
+
+int qm_agora_deinit(void)
+{
+    return QM_EOK;
+}

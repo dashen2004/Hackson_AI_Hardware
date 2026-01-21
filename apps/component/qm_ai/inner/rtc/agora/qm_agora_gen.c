@@ -123,12 +123,18 @@ int32_t rtc_agora_gen_unpack_license(char *license)
         return QM_EINVAL;
     }
 
-    item = cJSON_GetObjectItem(root, "appId");
+    item = cJSON_GetObjectItem(root, "uid");
+    if (cJSON_IsNumber(item) == true) {
+        int uid = item->valueint;
+        rtc_agora_gen_set_data(QM_AGORA_GEN_TYPE_UID, &uid, sizeof(int));
+    }
+
+    item = cJSON_GetObjectItem(root, "app_id");
     if (cJSON_IsString(item) == true) {
         rtc_agora_gen_set_data(QM_AGORA_GEN_TYPE_APPID, item->valuestring, strlen(item->valuestring));
     }
 
-    item = cJSON_GetObjectItem(root, "channelName");
+    item = cJSON_GetObjectItem(root, "channel_name");
     if (cJSON_IsString(item) == true) {
         rtc_agora_gen_set_data(QM_AGORA_GEN_TYPE_CHANNEL_NAME, item->valuestring, strlen(item->valuestring));
     }
@@ -138,10 +144,9 @@ int32_t rtc_agora_gen_unpack_license(char *license)
         rtc_agora_gen_set_data(QM_AGORA_GEN_TYPE_TOKEN, item->valuestring, strlen(item->valuestring));
     }
 
-    item = cJSON_GetObjectItem(root, "uid");
-    if (cJSON_IsNumber(item) == true) {
-        int uid = item->valueint;
-        rtc_agora_gen_set_data(QM_AGORA_GEN_TYPE_UID, &uid, sizeof(int));
+    item = cJSON_GetObjectItem(root, "license");
+    if (cJSON_IsString(item) == true) {
+        rtc_agora_gen_set_data(QM_AGORA_GEN_TYPE_LICENSE_VALUE, item->valuestring, strlen(item->valuestring));
     }
 
     // cJSON_Delete(root);
@@ -199,8 +204,7 @@ void *qm_agora_gen_init(char *license)
     memset(agora_handle, 0, sizeof(qm_agora_gen_handle_t));
     agora_gen_handle = agora_handle;
 
-    rtc_agora_gen_unpack_license(DEFAULT_LICENSE_JSON);
-    // rtc_agora_gen_unpack_license(license);
+    rtc_agora_gen_unpack_license(license);
 
     return agora_handle;
 }

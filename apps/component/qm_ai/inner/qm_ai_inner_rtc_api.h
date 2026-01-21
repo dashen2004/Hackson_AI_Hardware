@@ -10,6 +10,12 @@ typedef struct {
 
     char* license;
 
+    qm_ai_audio_data_type_t data_type;
+    qm_ai_audio_codec_type_t codec_type;
+    int sample_rate;
+    int channel_num;
+    int duration;
+
     qm_ai_audio_cb_t audio_cb;
     qm_ai_stream_cb_t stream_cb;
     qm_ai_event_cb_t event_cb;

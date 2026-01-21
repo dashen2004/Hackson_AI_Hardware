@@ -1,9 +1,18 @@
-set(UI_DIR ../ui) 
-file(GLOB UI_SRCS ${UI_DIR}/*.c)
-
 set(COMPONENT_SRCS 
 
-    "./apps/main.c" 
+    "./apps/main.c"
+    "./apps/ai_main.c"
+    "./cloud/xjiang_cloud.c"
+
+    "../component/qm_ai/inner/qm_ai_inner_rtc_api.c"
+    "../component/qm_ai/inner/rtc/agora/qm_agora.c"
+    "../component/qm_ai/inner/rtc/agora/qm_agora_gen.c"
+    "../component/qm_ai/inner/rtc/agora/qm_agora_stream.c"
+
+    "../component/qm_ai/api/qm_ai_api.c"
+    "../component/qm_ai/module/license/qm_ai_license.c"
+    "../component/qm_ai/module/volume/qm_ai_volume.c"
+    "../component/qm_struct_json/src/qm_struct_mapper.c"
 
     "$ENV{ADF_PATH}/qumi/kernel/init/qm_init.c"
 
@@ -40,6 +49,7 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/dynreg/qm_iot_dynreg.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/api/qm_iot_api.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/core/qm_iot_core.c"
+    "$ENV{ADF_PATH}/qumi/components/qm_cloud/core/qm_iot_core_wifi_combo.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/mqtt/qm_iot_mqtt.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/ntp/qm_iot_ntp.c"
     "$ENV{ADF_PATH}/qumi/components/qm_cloud/shadow/qm_iot_shadow.c"
@@ -118,6 +128,21 @@ set(COMPONENT_SRCS
     )
 set(COMPONENT_ADD_INCLUDEDIRS 
     "./apps"
+    "./qm_config"
+    "./cloud"
+
+    "../component/qm_ai/api"
+    "../component/qm_ai/common"
+    "../component/qm_ai/driver"
+    "../component/qm_ai/inner"
+    "../component/qm_ai/inner/rtc/agora"
+
+    "../component/qm_ai/module/license"
+    "../component/qm_ai/module/volume"
+    "../component/qm_struct_json/include"
+
+    "$ENV{ADF_PATH}/components/agora_iot_sdk/include"
+
     "$ENV{ADF_PATH}/qumi/board/esp32x"
 
     "$ENV{ADF_PATH}/qumi/components/bson"
@@ -228,12 +253,6 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "$ENV{ADF_PATH}/qumi/utility/barcode"
     "$ENV{ADF_PATH}/qumi/utility/sprintf"
     "$ENV{ADF_PATH}/qumi/utility/sscanf"
-
-    ${UI_DIR}
     )
 
-
 register_component()
-
-
-spiffs_create_partition_image(lvgl ../ui/spiffs FLASH_IN_PROJECT)

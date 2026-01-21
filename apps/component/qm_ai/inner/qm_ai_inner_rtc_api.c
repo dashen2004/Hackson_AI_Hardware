@@ -35,7 +35,7 @@ int qm_ai_rtc_init(qm_ai_rtc_cfg_t cfg)
         .event_cb = cfg.event_cb,
     };
 
-    agora_cfg.license = (char *)malloc(strlen(cfg.license) + 1);
+    agora_cfg.license = (char *)qm_malloc(strlen(cfg.license) + 1);
     memcpy(agora_cfg.license, cfg.license, strlen(cfg.license) + 1);
 
     if (qm_agora_init(agora_cfg) != QM_EOK) {
