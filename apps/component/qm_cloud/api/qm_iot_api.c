@@ -1059,6 +1059,7 @@ static int qm_iot_pub_recv_service_handler(qm_iot_core_handle_t *core_handle, qm
         if(service_find){
             break;
         }
+        node = qm_list_iterator_next(&self);
     }
 
 
