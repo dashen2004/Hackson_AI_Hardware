@@ -712,10 +712,6 @@ static void qm_iot_prov_timeout_notify(void *arg)
 
 static void qm_iot_event_post(qm_iot_core_handle_t *core_handle, qm_iot_event_t *event)
 {
-    if(core_handle == NULL){
-        return;
-    }
-
     if(core_handle->event_handler){
         core_handle->event_handler(core_handle, event, core_handle->user_data);
     }
@@ -869,10 +865,6 @@ static void iot_req_action(void *arg)
     qm_iot_dev_send_devinfo(core_handle->dev_handle, param);
 #endif
 
-#if CONFIG_QM_IOT_OTA_SUPPORT
-    qm_iot_ota_start(core_handle->ota_handle);
-#endif
-
 #if CONFIG_QM_IOT_NTP_SUPPORT
     if(core_handle->ntp_handle){
         qm_iot_ntp_request(core_handle->ntp_handle);
@@ -888,6 +880,10 @@ static void qm_iot_core_process_start(qm_iot_core_handle_t *core_handle)
 
 #if CONFIG_QM_IOT_MQTT_SUPPORT
     qm_iot_mqtt_pre_sub_start(core_handle->mqtt_handle);
+#endif
+
+#if CONFIG_QM_IOT_OTA_SUPPORT
+    qm_iot_ota_start(core_handle->ota_handle);
 #endif
 
     qm_post_delayed_action(&core_handle->core_req, iot_req_action, (void *)core_handle, 0);
@@ -1016,6 +1012,7 @@ static int qm_iot_pub_recv_service_handler(qm_iot_core_handle_t *core_handle, qm
     
     switch (recv->type)
     {
+        case QM_IOT_PUBRECV_SHADOW_SET:
         case QM_IOT_PUBRECV_PROPERTY_SET:
             service_type = QM_IOT_SERVICE_TYPE_SET;
             property_operation = recv->data.prop_set.operation;
@@ -1087,16 +1084,9 @@ static int qm_iot_pub_recv_comm_handler(qm_iot_core_handle_t *core_handle, qm_io
     switch (recv->type)
     {
         case QM_IOT_PUBRECV_SHADOW_SET:
-            iot_recv.type = QM_IOT_RECV_TYPE_SET;
-            iot_recv.siid = recv->data.set.spec_property->siid;
-            iot_recv.piid = recv->data.set.spec_property->piid;
-            iot_recv.data.set.property = recv->data.set.spec_property;
-            if(core_handle->recv_handler){
-                core_handle->recv_handler(core_handle, &iot_recv, core_handle->user_data);
-            }
-        break;
     #if CONFIG_QM_IOT_SPEC_SUPPORT
         case QM_IOT_PUBRECV_PROPERTY_SET:
+    #endif
             while (1)
             {
                 spec_prop = qm_spec_property_next(recv->data.prop_set.operation, spec_prop);
@@ -1113,7 +1103,7 @@ static int qm_iot_pub_recv_comm_handler(qm_iot_core_handle_t *core_handle, qm_io
                 }
             }
         break;
-
+     #if CONFIG_QM_IOT_SPEC_SUPPORT
         case QM_IOT_PUBRECV_PROPERTY_GET_RSP:
             while (1)
             {

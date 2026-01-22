@@ -132,17 +132,9 @@ static void qm_iot_shadow_recv_handler(void *handle, qm_iot_shadow_recv_t *recv,
     iot_recv.type = QM_IOT_PUBRECV_SHADOW_SET;
 
     qm_spec_data_unpack(QM_SPEC_DATA_TYPE_AWS_JSON, QM_SPEC_MSG_TYPE_SET, (uint8_t *)recv->data.set.payload, recv->data.set.payload_len, &data_info);
-    while (1)
-    {
-        spec_property = qm_spec_property_next(data_info.operation.property_operation, spec_property);
-        if(spec_property == NULL){
-            break;
-        }
-
-        iot_recv.data.set.spec_property = spec_property;
-        if(pub_handle->recv_handler){
-            pub_handle->recv_handler(pub_handle, &iot_recv, pub_handle->userdata);
-        }
+    iot_recv.data.prop_set.operation = data_info.operation.property_operation;
+    if(pub_handle->recv_handler){
+        pub_handle->recv_handler(pub_handle, &iot_recv, pub_handle->userdata);
     }
     qm_spec_data_destroy(QM_SPEC_DATA_TYPE_AWS_JSON, QM_SPEC_MSG_TYPE_SET, &data_info);
 }
@@ -195,7 +187,7 @@ static void qm_iot_set_recv_handler(void *handle, const qm_iot_mqtt_recv_t *pack
     }
 
     qm_spec_data_unpack(QM_SPEC_DATA_TYPE_JSON, QM_SPEC_MSG_TYPE_SET, (uint8_t *)value, value_len, &data_info);
-    iot_recv.data.prop_set.operation = data_info.operation.property_operation;
+    iot_recv.data.prop_get.operation = data_info.operation.property_operation;
     if(pub_handle->recv_handler){
         pub_handle->recv_handler(pub_handle, &iot_recv, pub_handle->userdata);
     }

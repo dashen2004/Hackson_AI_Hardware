@@ -29,7 +29,7 @@ extern "C" {
 #define QM_IOT_COMMON_PARAMS_MODULE_TYPE_KEY             "moudle"
 
 typedef enum {
-    QM_IOT_CODE_SUCCESS,
+    QM_IOT_CODE_SUCCESS = 0,
     QM_IOT_CODE_ERROR,
 }qm_iot_code_t;
 
