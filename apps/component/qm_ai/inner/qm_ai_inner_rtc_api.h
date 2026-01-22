@@ -18,7 +18,7 @@ typedef struct {
 
     qm_ai_audio_cb_t audio_cb;
     qm_ai_stream_cb_t stream_cb;
-    qm_ai_event_cb_t event_cb;
+    qm_ai_link_event_cb_t event_cb;
 
     void *user_data;
 } qm_ai_rtc_cfg_t;

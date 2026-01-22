@@ -369,7 +369,7 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
     }
 
     if (cJSON_IsNumber(turn_status) && turn_status->valueint == 1) {
-        QM_LOGI("1", "Assistant says: %s", cJSON_GetStringValue(text));
+        // QM_LOGI("1", "Assistant says: %s", cJSON_GetStringValue(text));
         word_info.last_utc_time = 0;
         word_info.last_word_len = 0;
     } else {

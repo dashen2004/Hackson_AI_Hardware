@@ -43,7 +43,7 @@ typedef struct {
 } qm_agora_event_t;
 
 typedef void (*qm_agora_audio_event_cb_t)(void *data, int len, void *user_data);
-typedef void (*qm_agora_event_cb_t)(qm_ai_event_type_e event, void *user_data);
+typedef void (*qm_agora_event_cb_t)(qm_ai_link_event_type_e event, void *user_data);
 
 typedef struct {
     bool audio_enable;

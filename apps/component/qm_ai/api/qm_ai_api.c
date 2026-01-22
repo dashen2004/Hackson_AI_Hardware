@@ -5,6 +5,7 @@
 #include "qm_event.h"
 #include "qm_ai_license.h"
 #include "qm_ai_volume.h"
+#include "qm_ai_voice_control.h"
 
 #define AI_TAG "AI"
 
@@ -36,6 +37,10 @@ typedef struct qm_ai_t
     qm_ai_driver_param_t *driver_handle;
     bool audio_timeout_flag;
 
+    bool mic_mute_flag;
+    bool player_mute_flag;
+    uint32_t player_volume;
+
     qm_ai_rtc_cfg_t rtc_cfg;
 
     qm_ai_event_handler_t event_cb;
@@ -43,6 +48,192 @@ typedef struct qm_ai_t
     qm_task_t audio_task;
 };
 
+static void ai_task(void *arg);
+static void ai_recv_audio_data(void *data, int len, void *user_data);
+static void ai_corpus_request(qm_ai_handle_t handle, uint8_t param);
+
+static void ai_event_callback(qm_input_event_t *input_event, void *arg);
+static void ai_stream_event_callback(qm_ai_stream_event_t *event, void *user_data);
+static void ai_link_event_callback(qm_ai_link_event_type_e event, void *user_data);
+
+static void ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
+{
+    int event_type = input_event->sub_event;
+
+    QM_LOGI(AI_TAG, "inner recv event: %04x", event_type);
+
+    switch (event_type)
+    {
+        case AI_INNER_SUB_EVENT_ID_AGENT_JOINED:
+        break;
+        // case CONFIG_AI_SUB_INNER_EVENT_WAKE_UP:
+        //     if (quit_flag) {
+        //         qm_ai_rtc_join();
+        //         quit_flag = 0;
+        //     }
+        // break;
+
+        // case CONFIG_AI_SUB_EVENT_INTERRUPT:
+        //      qm_ai_rtc_reset_data();
+        // break;
+
+        default:
+        break;
+    }
+}
+
+qm_ai_handle_t qm_ai_open(qm_ai_comm_type_t comm_type, void *arg)
+{
+    qm_ai_handle_t ai_handle = (qm_ai_handle_t)qm_malloc(sizeof(struct qm_ai_t));
+
+    if (ai_handle == NULL) {
+        return NULL;
+    }
+
+    memset(ai_handle, 0, sizeof(struct qm_ai_t));
+
+    return ai_handle;
+}
+
+int32_t qm_ai_init(qm_ai_handle_t handle, void *transport_handle)
+{
+    if (handle == NULL) {
+        return QM_EINIT;
+    }
+
+    qm_event_register(QM_EVENT_QM_AI, ai_event_callback, (void*)handle);
+    qm_event_register(AI_INNER_EVENT_ID, ai_inner_event_callback, NULL);
+
+    // register and start license module
+    handle->transport_handle = transport_handle;
+    qm_ai_set_service_option(handle, QM_AI_MOD_LICENSE, NULL);
+    qm_ai_set_service_option(handle, QM_AI_MOD_VOICE_CONTROL, NULL);
+
+    return QM_EOK;
+}
+
+int32_t qm_ai_set_service_option(qm_ai_handle_t handle, qm_ai_module_t mod, void *arg)
+{
+    qm_ai_license_config_t *config = malloc(sizeof(qm_ai_license_config_t));
+    config->type = QM_LICENSE_RTC_QM_IOT;
+    config->transport_handle = handle->transport_handle;
+    config->ai_handle = handle;
+
+    switch (mod){
+        case QM_AI_MOD_LICENSE:
+            qm_ai_license_init(config);
+            qm_ai_license_start();
+        break;
+
+        case  QM_AI_MOD_VOLUME:
+            qm_ai_volume_init(config);
+            qm_ai_volume_start();
+        break;
+
+        case  QM_AI_MOD_VOICE_CONTROL:
+            qm_ai_voice_control_init(config);
+            qm_ai_voice_control_start();
+        break;
+
+        default:
+            QM_LOGE(AI_TAG, "Error, unsupported module %d", mod);
+            return QM_EINVAL;
+        break;
+    }
+
+    return QM_EOK;
+}
+
+int32_t qm_ai_set_event_register_option(qm_ai_handle_t handle, qm_ai_event_handler_t handler, void *arg)
+{
+    handle->event_cb = handler;
+    return QM_EOK;
+}
+
+int32_t qm_ai_start(qm_ai_handle_t handle)
+{
+    if (handle == NULL) {
+        QM_LOGE(AI_TAG, "SDK not inited, please check and try again");
+        return QM_EINVAL;
+    }
+
+    if (!handle->link_license_ready) {
+        QM_LOGE(AI_TAG, "License not ready, please check and try again");
+        return QM_EINVAL;
+    }
+
+    if (!handle->audio_driver_ready) {
+        QM_LOGE(AI_TAG, "Audio driver not inited, please check and try again");
+        return QM_EINVAL;
+    }
+
+    handle->rtc_cfg.audio_cb = ai_recv_audio_data;
+    handle->rtc_cfg.stream_cb = ai_stream_event_callback;
+    handle->rtc_cfg.event_cb = ai_link_event_callback;
+    handle->rtc_cfg.user_data = handle;
+
+    if (qm_ai_rtc_init(handle->rtc_cfg) != QM_EOK) {
+        goto __exit;
+    }
+
+    if (qm_ai_rtc_connect() != QM_EOK) {
+        goto __exit;
+    }
+
+    if (qm_ai_rtc_join() != QM_EOK) {
+        goto __exit;
+    }
+
+    if (handle->driver_handle != NULL) {
+        if (handle->driver_handle->read) {
+            qm_task_new_to_core(&handle->audio_task, "audio", ai_task, handle, 10 * 1024, 6, 0);
+        }
+    }
+
+    handle->ai_start_flag = 1;
+
+    ai_corpus_request(handle, QM_AI_VOICE_CONTROL_PARAM_CORPUS_OPEN);
+
+    return QM_EOK;
+
+__exit:
+    QM_LOGE(AI_TAG, "Fail to start ai, please check and try again");
+
+    return QM_ERROR;
+}
+
+int32_t qm_ai_stop(qm_ai_handle_t handle)
+{
+    handle->ai_start_flag = 0;
+
+    qm_ai_rtc_leave();
+    qm_ai_rtc_disconnect();
+    qm_ai_rtc_deinit();
+
+    return QM_EOK;
+}
+
+int32_t qm_ai_close(qm_ai_handle_t *handle)
+{
+    qm_free(handle);
+
+    return QM_EOK;
+}
+
+int32_t qm_ai_abort_request(qm_ai_handle_t handle, uint8_t intr_type)
+{
+    qm_ai_voice_control_cmd(QM_AI_VOICE_CONTROL_REQ_ABORT, intr_type);
+    return QM_EOK;
+}
+
+static void ai_corpus_request(qm_ai_handle_t handle, uint8_t param)
+{
+    qm_ai_voice_control_cmd(QM_AI_VOICE_CONTROL_REQ_CORPUS, param);
+}
+
+/*
+    audio driver config functions
+*/
 static bool ai_check_driver_is_null(qm_ai_driver_param_t *driver)
 {
     if (driver->open || driver->close || driver->write || driver->read || driver->ctrl) {
@@ -120,177 +311,84 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
     return QM_EOK;
 }
 
-static void qm_ai_event_callback(qm_input_event_t *input_event, void *arg)
+/*
+    audio driver control functions
+*/
+int32_t qm_ai_audio_set_mic_mute(qm_ai_handle_t handle, bool_t mute)
 {
-    if (input_event->event != QM_EVENT_QM_AI){
-        return;
-    }
-
-    if (input_event->arg == NULL) {
-        return;
-    }
-
-    int event_type = input_event->sub_event;
-    
-    qm_ai_handle_t handle = (qm_ai_handle_t)(input_event->arg);
-
-    QM_LOGI(AI_TAG, "recv event: %04x", event_type);
-
-    switch (event_type)
-    {
-        case QM_AI_EVENT_CLOUD_LICENSE:
-            if (input_event->value != NULL) {
-                char *license = (char*)input_event->value;
-                handle->rtc_cfg.license = (char*)qm_malloc(strlen(license) + 1);
-                memcpy(handle->rtc_cfg.license, license, strlen(license) + 1);
-
-                handle->link_license_ready = 1;
-
-                qm_ai_license_stop();
-                qm_ai_license_deinit();
-            }
-        break;
-
-        // case CONFIG_AI_SUB_EVENT_VOL_REGISTERED:
-        //      volume_registered = 1;
-        // break;
-
-        // case CONFIG_AI_SUB_EVENT_INTERRUPT:
-        //      interrupt_flag = 1;
-        // break;
-
-        // case CONFIG_AI_SUB_EVENT_VOL_CONTROL:
-        //      driver->cmd(volume)
-        // break;
-
-        default:
-        break;
-    }
-
-    if (handle->event_cb) {
-        qm_ai_event_t event = {0};
-        event.type = (qm_ai_event_type_t)event_type;
-        handle->event_cb(handle, &event, NULL);
-    }
-}
-
-/**
- * @brief 初始化IOT句柄
- * 
- * @details 
- * 
- */
-qm_ai_handle_t qm_ai_open(qm_ai_comm_type_t comm_type, void *arg)
-{
-    qm_ai_handle_t ai_handle = (qm_ai_handle_t)qm_malloc(sizeof(struct qm_ai_t));
-
-    if (ai_handle == NULL) {
-        return NULL;
-    }
-
-    memset(ai_handle, 0, sizeof(struct qm_ai_t));
-
-    return ai_handle;
-}
-
-/**
- * @brief 初始化ai模块
- * 
- * @details 
- * 
- */
-int32_t qm_ai_init(qm_ai_handle_t handle, void *transport_handle)
-{
-    if (handle == NULL) {
-        return QM_EINIT;
-    }
-
-    qm_event_register(QM_EVENT_QM_AI, qm_ai_event_callback, (void*)handle);
-
-    // register and start license module
-    handle->transport_handle = transport_handle;
-    qm_ai_register_module(handle, QM_AI_MOD_LICENSE, NULL);
+    handle->mic_mute_flag = mute;
 
     return QM_EOK;
 }
 
-/**
- * @brief 注册模块
- * 
- * @details 
- * 
- */
-int32_t qm_ai_register_module(qm_ai_handle_t handle, qm_ai_module_t mod, void *arg)
+bool_t qm_ai_audio_get_mic_mute_state(qm_ai_handle_t handle)
 {
-    qm_ai_license_config_t *config = malloc(sizeof(qm_ai_license_config_t));
-    config->type = QM_LICENSE_RTC_QM_IOT;
-    config->transport_handle = handle->transport_handle;
-    config->ai_handle = handle;
+    return handle->mic_mute_flag;
+}
 
-    switch (mod){
-        case QM_AI_MOD_LICENSE:
-            qm_ai_license_init(config);
-            qm_ai_license_start();
-        break;
+int32_t qm_ai_audio_set_player_mute(qm_ai_handle_t handle, bool_t mute)
+{
+    handle->driver_handle->ctrl(QM_AI_DRIVER_CTRL_SET_MUTE, &mute);
+    handle->player_mute_flag = mute;
 
-        case  QM_AI_MOD_VOLUME:
-            qm_ai_volume_init(config);
-            qm_ai_volume_start();
-        break;
+    return QM_EOK;
+}
 
-        case  QM_AI_MOD_VOICE_CONTROL:
-            // qm_ai_voice_control_register(arg)
-        break;
+bool_t qm_ai_audio_get_player_mute_state(qm_ai_handle_t handle)
+{
+    return handle->player_mute_flag;
+}
 
-        default:
-            QM_LOGE(AI_TAG, "Error, unsupported module %d", mod);
-            return QM_EINVAL;
-        break;
+int32_t qm_ai_audio_set_local_volume(qm_ai_handle_t handle, uint32_t volume)
+{
+    if (volume < VOLUME_MIN || volume > VOLUME_MAX) {
+        volume = VOLUME_DEFAULT;
     }
 
+    handle->driver_handle->ctrl(QM_AI_DRIVER_CTRL_SET_VOLUME, &volume);
+    handle->player_volume = volume;
+
     return QM_EOK;
 }
 
-/**
- * @brief 注册信息流事件
- * 
- * @details 
- * 
- */
-int32_t qm_ai_set_stream_register_option(qm_ai_handle_t handle, qm_ai_stream_cb_t handler, void *arg)
+int32_t qm_ai_audio_set_local_volume_up(qm_ai_handle_t handle)
 {
-    handle->rtc_cfg.stream_cb = handler;
-    return QM_EOK;
-}
+    uint32_t volume = qm_ai_audio_get_local_volume(handle);
+    volume += VOLUME_DELTA;
 
-int32_t qm_ai_set_event_register_option(qm_ai_handle_t handle, qm_ai_event_handler_t handler, void *arg)
-{
-    handle->event_cb = handler;
-    return QM_EOK;
-}
-
-static void qm_ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
-{
-    int event_type = input_event->sub_event;
-
-    switch (event_type)
-    {
-        // case CONFIG_AI_SUB_INNER_EVENT_WAKE_UP:
-        //     if (quit_flag) {
-        //         qm_ai_rtc_join();
-        //         quit_flag = 0;
-        //     }
-        // break;
-
-        // case CONFIG_AI_SUB_EVENT_INTERRUPT:
-        //      qm_ai_rtc_reset_data();
-        // break;
-
-        default:
-        break;
+    if (volume > VOLUME_MAX) {
+        volume = VOLUME_MAX;
     }
+
+    handle->driver_handle->ctrl(QM_AI_DRIVER_CTRL_SET_VOLUME, &volume);
+    handle->player_volume = volume;
+
+    return QM_EOK;
 }
 
+int32_t qm_ai_audio_set_local_volume_down(qm_ai_handle_t handle)
+{
+    uint32_t volume = qm_ai_audio_get_local_volume(handle);
+    volume -= VOLUME_DELTA;
+
+    if (volume < VOLUME_MIN || volume > VOLUME_MAX) {
+        volume = VOLUME_MIN;
+    }
+
+    handle->driver_handle->ctrl(QM_AI_DRIVER_CTRL_SET_VOLUME, &volume);
+    handle->player_volume = volume;
+
+    return QM_EOK;
+}
+
+uint32_t qm_ai_audio_get_local_volume(qm_ai_handle_t handle)
+{
+    return handle->player_volume;
+}
+
+/*
+    inner functions
+*/
 static void ai_task(void *arg)
 {
     qm_ai_handle_t handle = (qm_ai_handle_t)arg;
@@ -329,67 +427,146 @@ static void ai_recv_audio_data(void *data, int len, void *user_data)
     handle->driver_handle->write(data, len);
 }
 
-/**
- * @brief 启动AI模块
- * 
- * @details 
- * 
- */
-int32_t qm_ai_start(qm_ai_handle_t handle)
+/*
+    callback
+*/
+static void ai_event_callback(qm_input_event_t *input_event, void *arg)
 {
-    if (handle == NULL) {
-        QM_LOGE(AI_TAG, "SDK not inited, please check and try again");
-        return QM_EINVAL;
+    if (input_event->event != QM_EVENT_QM_AI){
+        return;
     }
 
-    if (!handle->link_license_ready) {
-        QM_LOGE(AI_TAG, "License not ready, please check and try again");
-        return QM_EINVAL;
+    if (input_event->arg == NULL) {
+        return;
     }
 
-    if (!handle->audio_driver_ready) {
-        QM_LOGE(AI_TAG, "Audio driver not inited, please check and try again");
-        return QM_EINVAL;
+    int event_type = input_event->sub_event;
+    
+    qm_ai_handle_t handle = (qm_ai_handle_t)(input_event->arg);
+
+    QM_LOGI(AI_TAG, "recv event: %04x", event_type);
+
+    switch (event_type)
+    {
+        case QM_AI_EVENT_CLOUD_LICENSE:
+            if (input_event->value != NULL) {
+                char *license = (char*)input_event->value;
+                handle->rtc_cfg.license = (char*)qm_malloc(strlen(license) + 1);
+                memcpy(handle->rtc_cfg.license, license, strlen(license) + 1);
+
+                handle->link_license_ready = 1;
+
+                qm_ai_license_stop();
+                qm_ai_license_deinit();
+            }
+        break;
+
+        case QM_AI_EVENT_VOLUME_CTRL:
+            if (input_event->value != NULL) {
+                uint32_t volume = (uint32_t)input_event->value;
+
+                qm_ai_audio_set_local_volume(handle, volume);
+            }
+        break;
+
+        case QM_AI_EVENT_VOLUME_ADJUST:
+            if (input_event->value != NULL) {
+                int cmd = (int)input_event->value;
+                switch (cmd) {
+                    case 1: qm_ai_audio_set_local_volume_up(handle);    break;
+                    case 2: qm_ai_audio_set_local_volume_down(handle);  break;
+                    case 3: qm_ai_audio_set_local_volume(handle, VOLUME_MAX);   break;
+                    case 4: qm_ai_audio_set_local_volume(handle, VOLUME_MIN);   break;
+                    default:    break;
+                }
+            }
+        break;
+
+        case QM_AI_EVENT_MUTE_CTRL:
+            if (input_event->value != NULL) {
+                bool_t mute = (bool_t)input_event->value;
+
+                qm_ai_audio_set_player_mute(handle, mute);
+            }
+        break;
+
+        default:
+        break;
     }
 
-    handle->rtc_cfg.audio_cb = ai_recv_audio_data;
-    handle->rtc_cfg.user_data = handle;
-
-    if (qm_ai_rtc_init(handle->rtc_cfg) != QM_EOK) {
-        goto __exit;
+    if (handle->event_cb) {
+        qm_ai_event_t event = {0};
+        event.type = (qm_ai_event_type_t)event_type;
+        handle->event_cb(handle, &event, NULL);
     }
-
-    if (qm_ai_rtc_connect() != QM_EOK) {
-        goto __exit;
-    }
-
-    if (qm_ai_rtc_join() != QM_EOK) {
-        goto __exit;
-    }
-
-    if (handle->driver_handle != NULL) {
-        if (handle->driver_handle->read) {
-            qm_task_new_to_core(&handle->audio_task, "audio", ai_task, handle, 10 * 1024, 6, 0);
-        }
-    }
-
-    handle->ai_start_flag = 1;
-
-    return QM_EOK;
-
-__exit:
-    QM_LOGE(AI_TAG, "Fail to start ai, please check and try again");
-
-    return QM_ERROR;
 }
 
-int32_t qm_ai_stop(qm_ai_handle_t handle)
+static void ai_stream_event_callback(qm_ai_stream_event_t *event, void *user_data)
 {
-    handle->ai_start_flag = 0;
+    if (user_data == NULL) {
+        return;
+    }
 
-    qm_ai_rtc_leave();
-    qm_ai_rtc_disconnect();
-    qm_ai_rtc_deinit();
+    qm_ai_handle_t ai_handle = (qm_ai_handle_t)user_data;
+    qm_ai_event_t event_param = {0};
+    int32_t text_len = 0;
 
-    return QM_EOK;
+    switch (event->type)
+    {
+        case QM_AI_STREAM_TYPE_ASR:
+            text_len = strlen(event->data.stt.text) + 1;
+
+            event_param.type = QM_AI_EVENT_AGENT_ASR;
+            event_param.data.asr.text = (char*)qm_malloc(text_len);
+            memcpy(event_param.data.asr.text, event->data.stt.text, text_len);
+        break;
+
+        case QM_AI_STREAM_TYPE_TTS:
+            text_len = event->data.tts.text_len;
+
+            event_param.type = QM_AI_EVENT_AGENT_TTS;
+            event_param.data.tts.text_len = event->data.tts.text_len;
+            event_param.data.tts.duration_ms = event->data.tts.duration_ms;
+            event_param.data.tts.text = (char*)qm_malloc(text_len);
+            memcpy(event_param.data.tts.text, event->data.tts.text, text_len);
+        break;
+
+        case QM_AI_STREAM_TYPE_AGENT_STATE:
+            text_len = strlen(event->data.agent_state.text) + 1;
+
+            event_param.type = QM_AI_EVENT_AGENT_STATE;
+            event_param.data.agent_state.state = event->data.agent_state.state;
+            event_param.data.agent_state.text = (char*)qm_malloc(text_len);
+            memcpy(event_param.data.agent_state.text, event->data.agent_state.text, text_len);
+        break;
+
+        case QM_AI_STREAM_TYPE_INTERRUPT:
+            // QM_LOGI("1", "user interrupt %d", event->data.interrupt.turn_id);
+        break;
+
+        default:
+        break;
+    }
+
+    if (ai_handle->event_cb) {
+        ai_handle->event_cb(ai_handle, &event_param, NULL);
+    }
+}
+
+static void ai_link_event_callback(qm_ai_link_event_type_e event, void *user_data)
+{
+    if (user_data == NULL) {
+        return;
+    }
+
+    qm_ai_handle_t ai_handle = (qm_ai_handle_t)user_data;
+
+    switch (event) {
+        case QM_AI_LINK_EVENT_TYPE_AGENT_JOINED:
+            qm_event_post(AI_INNER_EVENT_ID, AI_INNER_SUB_EVENT_ID_AGENT_JOINED, NULL, 0);
+        break;
+
+        default:
+        break;
+    }
 }

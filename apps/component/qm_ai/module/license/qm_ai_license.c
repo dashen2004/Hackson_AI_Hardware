@@ -174,80 +174,86 @@ static void lic_iot_service_handler(void *handle, int service_id, qm_iot_service
         return;
     }
 
-    qm_spec_property_t *prop = property_operation->property;
-    while (prop) {
-        uint8_t siid = 0;
-        uint16_t piid = 0;
-        qm_spec_property_unpack_xiid(prop, &siid, &piid);
+    qm_spec_property_t *prop = NULL;
+    uint8_t siid = 0;
+    uint16_t piid = 0;
 
-        if (siid == CONFIG_AUDIO_RTC_LOGIN_SIID) {
-            switch (piid) {
-                case CONFIG_AUDIO_RTC_UID_PIID: {
-                    int val = 0;
-                    qm_spec_property_unpack_number(prop, &val);
-                    g_ctx.uid = val;
-                    g_ctx.has_uid = true;
-                    qm_kv_set(KEY_LIC_UID, &val, sizeof(int), 1);
-                    break;
-                }
-
-                case CONFIG_AUDIO_RTC_APPID_PIID: {
-                    char val[128] = {0};
-                    int len = 0;
-                    qm_spec_property_unpack_string(prop, val, &len);
-                    if (len > 0) {
-                        free_if_not_null(&g_ctx.appid);
-                        g_ctx.appid = strdup(val);
-                        g_ctx.has_appid = true;
-                        qm_kv_set(KEY_LIC_APPID, val, len, 1);
-                    }
-                    break;
-                }
-
-                case CONFIG_AUDIO_RTC_CHANNAL_NAME_PIID: {
-                    char val[128] = {0};
-                    int len = 0;
-                    qm_spec_property_unpack_string(prop, val, &len);
-                    if (len > 0) {
-                        free_if_not_null(&g_ctx.channel_name);
-                        g_ctx.channel_name = strdup(val);
-                        g_ctx.has_channel = true;
-                        qm_kv_set(KEY_LIC_CHANNEL, val, len, 1);
-                    }
-                    break;
-                }
-
-                case CONFIG_AUDIO_RTC_TOKEN_PIID: {
-                    char val[512] = {0};
-                    int len = 0;
-                    qm_spec_property_unpack_string(prop, val, &len);
-                    if (len > 0) {
-                        free_if_not_null(&g_ctx.token);
-                        g_ctx.token = strdup(val);
-                        g_ctx.has_token = true;
-                        qm_kv_set(KEY_LIC_TOKEN, val, len, 1);
-                    }
-                    break;
-                }
-
-                case CONFIG_AUDIO_RTC_LICENSE_VALUE_PIID: {
-                    char val[256] = {0};
-                    int len = 0;
-                    qm_spec_property_unpack_string(prop, val, &len);
-                    if (len > 0) {
-                        free_if_not_null(&g_ctx.license_key);
-                        g_ctx.license_key = strdup(val);
-                        g_ctx.has_license = true;
-                        qm_kv_set(KEY_LIC_KEY, val, len, 1);
-                    }
-                    break;
-                }
-
-                default:
-                    break;
-            }
+    while (1) {
+        prop = qm_spec_property_next(property_operation, prop);
+        if (prop == NULL) {
+            break;
         }
-        prop = prop->next;
+
+        qm_spec_property_unpack_xiid(prop, &siid, &piid);
+        if (siid != CONFIG_AUDIO_RTC_LOGIN_SIID) {
+            break;
+        }
+
+        switch (piid) {
+            case CONFIG_AUDIO_RTC_UID_PIID: {
+                int val = 0;
+                qm_spec_property_unpack_number(prop, &val);
+                g_ctx.uid = val;
+                g_ctx.has_uid = true;
+                qm_kv_set(KEY_LIC_UID, &val, sizeof(int), 1);
+                break;
+            }
+
+            case CONFIG_AUDIO_RTC_APPID_PIID: {
+                char val[128] = {0};
+                int len = 0;
+                qm_spec_property_unpack_string(prop, val, &len);
+                if (len > 0) {
+                    free_if_not_null(&g_ctx.appid);
+                    g_ctx.appid = strdup(val);
+                    g_ctx.has_appid = true;
+                    qm_kv_set(KEY_LIC_APPID, val, len, 1);
+                }
+                break;
+            }
+
+            case CONFIG_AUDIO_RTC_CHANNAL_NAME_PIID: {
+                char val[128] = {0};
+                int len = 0;
+                qm_spec_property_unpack_string(prop, val, &len);
+                if (len > 0) {
+                    free_if_not_null(&g_ctx.channel_name);
+                    g_ctx.channel_name = strdup(val);
+                    g_ctx.has_channel = true;
+                    qm_kv_set(KEY_LIC_CHANNEL, val, len, 1);
+                }
+                break;
+            }
+
+            case CONFIG_AUDIO_RTC_TOKEN_PIID: {
+                char val[512] = {0};
+                int len = 0;
+                qm_spec_property_unpack_string(prop, val, &len);
+                if (len > 0) {
+                    free_if_not_null(&g_ctx.token);
+                    g_ctx.token = strdup(val);
+                    g_ctx.has_token = true;
+                    qm_kv_set(KEY_LIC_TOKEN, val, len, 1);
+                }
+                break;
+            }
+
+            case CONFIG_AUDIO_RTC_LICENSE_VALUE_PIID: {
+                char val[256] = {0};
+                int len = 0;
+                qm_spec_property_unpack_string(prop, val, &len);
+                if (len > 0) {
+                    free_if_not_null(&g_ctx.license_key);
+                    g_ctx.license_key = strdup(val);
+                    g_ctx.has_license = true;
+                    qm_kv_set(KEY_LIC_KEY, val, len, 1);
+                }
+                break;
+            }
+
+            default:
+                break;
+        }
     }
 
     // Check if ready after processing all properties
@@ -316,6 +322,8 @@ int32_t qm_ai_license_deinit(void)
     free_if_not_null(&g_ctx.token);
     free_if_not_null(&g_ctx.license_key);
     free_if_not_null(&g_ctx.secret);
+
+    g_ctx.is_inited = 0;
     
     memset(&g_ctx, 0, sizeof(license_context_t));
     return QM_EOK;

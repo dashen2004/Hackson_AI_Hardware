@@ -7,6 +7,14 @@ extern "C" {
 
 #include "qm.h"
 
+#define AI_INNER_EVENT_ID                     (0xFF22)
+#define AI_INNER_SUB_EVENT_ID_AGENT_JOINED    (0x0001)
+
+#define VOLUME_DEFAULT    (70)
+#define VOLUME_MAX        (100)
+#define VOLUME_MIN        (1)
+#define VOLUME_DELTA      (15)
+
 typedef enum
 {
     QM_AI_COMM_TYPE_RTC = 0,

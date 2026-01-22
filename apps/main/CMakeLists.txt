@@ -12,6 +12,7 @@ set(COMPONENT_SRCS
     "../component/qm_ai/api/qm_ai_api.c"
     "../component/qm_ai/module/license/qm_ai_license.c"
     "../component/qm_ai/module/volume/qm_ai_volume.c"
+    "../component/qm_ai/module/voice_control/qm_ai_voice_control.c"
     "../component/qm_struct_json/src/qm_struct_mapper.c"
 
     "../component/qm_ai/driver/gx8008c_micarray.c"
@@ -150,6 +151,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
 
     "../component/qm_ai/module/license"
     "../component/qm_ai/module/volume"
+    "../component/qm_ai/module/voice_control"
     "../component/qm_struct_json/include"
 
     "../component/qm_audio"

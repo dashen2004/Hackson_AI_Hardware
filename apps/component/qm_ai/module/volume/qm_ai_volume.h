@@ -16,8 +16,6 @@ int32_t qm_ai_volume_deinit(void);
 int32_t qm_ai_volume_start();
 int32_t qm_ai_volume_stop();
 
-
-
 #ifdef __cplusplus
 }
 #endif
