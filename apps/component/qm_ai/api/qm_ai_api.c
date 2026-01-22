@@ -38,15 +38,16 @@ typedef struct qm_ai_t
 
     void *service_handle;
 
-    bool ai_start_flag;
-    bool link_license_ready;
-    bool audio_driver_ready;
+    bool_t ai_start_flag;
+    bool_t link_license_ready;
+    bool_t audio_driver_ready;
 
     qm_ai_driver_param_t *driver_handle;
-    bool audio_timeout_flag;
+    bool_t audio_timeout_flag;
 
-    bool mic_mute_flag;
-    bool player_mute_flag;
+    bool_t mic_upload_flag;
+    bool_t mic_mute_flag;
+    bool_t player_mute_flag;
     uint32_t player_volume;
 
     qm_ai_rtc_cfg_t rtc_cfg;
@@ -114,6 +115,10 @@ qm_ai_handle_t qm_ai_open(qm_ai_comm_type_t comm_type, void *arg)
 
 int32_t qm_ai_set_service_handle_option(qm_ai_handle_t handle, void *service_handle)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     if (service_handle == NULL) {
         return QM_EEMPTY;
     }
@@ -140,6 +145,10 @@ int32_t qm_ai_set_service_handle_option(qm_ai_handle_t handle, void *service_han
 
 int32_t qm_ai_set_event_register_option(qm_ai_handle_t handle, qm_ai_event_handler_t handler, void *arg)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     if (handler == NULL) {
         QM_LOGE(AI_TAG, "Register event fail, handler is null");
         return QM_EEMPTY;
@@ -186,7 +195,7 @@ int32_t qm_ai_start(qm_ai_handle_t handle)
 
     if (handle->driver_handle != NULL) {
         if (handle->driver_handle->read) {
-            qm_task_new_to_core(&handle->audio_task, "audio", ai_task, handle, 10 * 1024, 6, 0);
+            qm_task_new_to_core(&handle->audio_task, "audio", ai_task, handle, 10 * 1024, 6, 1);
         }
     }
 
@@ -202,6 +211,10 @@ __exit:
 
 int32_t qm_ai_stop(qm_ai_handle_t handle)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     handle->ai_start_flag = 0;
 
     qm_ai_rtc_leave();
@@ -220,6 +233,10 @@ int32_t qm_ai_close(qm_ai_handle_t *handle)
 
 int32_t qm_ai_abort_request(qm_ai_handle_t handle, int32_t intr_type)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     qm_ai_voice_control_cmd(QM_AI_VOICE_CONTROL_REQ_ABORT, intr_type);
 
     qm_event_ext_post(AI_INNER_EVENT_ID, AI_INNER_SUB_EVENT_ID_AGENT_ABORT, NULL, 0, handle);
@@ -229,13 +246,17 @@ int32_t qm_ai_abort_request(qm_ai_handle_t handle, int32_t intr_type)
 
 static void ai_corpus_request(qm_ai_handle_t handle, uint8_t param)
 {
+    if (handle == NULL) {
+        return;
+    }
+
     qm_ai_voice_control_cmd(QM_AI_VOICE_CONTROL_REQ_CORPUS, param);
 }
 
 /*
     audio driver config functions
 */
-static bool ai_check_driver_is_null(qm_ai_driver_param_t *driver)
+static bool_t ai_check_driver_is_null(qm_ai_driver_param_t *driver)
 {
     if (driver->open || driver->close || driver->write || driver->read || driver->ctrl) {
         return 0;
@@ -244,7 +265,7 @@ static bool ai_check_driver_is_null(qm_ai_driver_param_t *driver)
     return 1;
 }
 
-static bool ai_check_driver_is_valid(qm_ai_driver_param_t *driver)
+static bool_t ai_check_driver_is_valid(qm_ai_driver_param_t *driver)
 {
     if (driver->open && driver->close && driver->write && driver->ctrl) {
         return 1;
@@ -260,6 +281,10 @@ static void ai_driver_read_cb(qm_ai_driver_type_t type, const void *data, size_t
 
 int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *options)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     if (options == NULL) {
         QM_LOGE(AI_TAG, "Error, options is null.");
         return QM_EINVAL;
@@ -315,6 +340,10 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
 */
 int32_t qm_ai_audio_set_mic_mute(qm_ai_handle_t handle, bool_t mute)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     handle->mic_mute_flag = mute;
 
     return QM_EOK;
@@ -322,11 +351,19 @@ int32_t qm_ai_audio_set_mic_mute(qm_ai_handle_t handle, bool_t mute)
 
 bool_t qm_ai_audio_get_mic_mute_state(qm_ai_handle_t handle)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     return handle->mic_mute_flag;
 }
 
 int32_t qm_ai_audio_set_player_mute(qm_ai_handle_t handle, bool_t mute)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     handle->driver_handle->ctrl(QM_AI_DRIVER_CTRL_SET_MUTE, &mute);
     handle->player_mute_flag = mute;
 
@@ -335,11 +372,19 @@ int32_t qm_ai_audio_set_player_mute(qm_ai_handle_t handle, bool_t mute)
 
 bool_t qm_ai_audio_get_player_mute_state(qm_ai_handle_t handle)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     return handle->player_mute_flag;
 }
 
 int32_t qm_ai_audio_set_local_volume(qm_ai_handle_t handle, uint32_t volume)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     if (volume < VOLUME_MIN || volume > VOLUME_MAX) {
         volume = VOLUME_DEFAULT;
     }
@@ -352,6 +397,10 @@ int32_t qm_ai_audio_set_local_volume(qm_ai_handle_t handle, uint32_t volume)
 
 int32_t qm_ai_audio_set_local_volume_up(qm_ai_handle_t handle)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     uint32_t volume = qm_ai_audio_get_local_volume(handle);
     volume += VOLUME_DELTA;
 
@@ -367,6 +416,10 @@ int32_t qm_ai_audio_set_local_volume_up(qm_ai_handle_t handle)
 
 int32_t qm_ai_audio_set_local_volume_down(qm_ai_handle_t handle)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     uint32_t volume = qm_ai_audio_get_local_volume(handle);
     volume -= VOLUME_DELTA;
 
@@ -382,6 +435,10 @@ int32_t qm_ai_audio_set_local_volume_down(qm_ai_handle_t handle)
 
 uint32_t qm_ai_audio_get_local_volume(qm_ai_handle_t handle)
 {
+    if (handle == NULL) {
+        return QM_EEMPTY;
+    }
+
     return handle->player_volume;
 }
 
@@ -404,7 +461,9 @@ static void ai_task(void *arg)
 
         ret = handle->driver_handle->read((void *)audio_buf, sizeof(audio_buf), 0xFFFF);
         if (ret == QM_EOK) {
-            qm_ai_rtc_send_audio_data(audio_buf, sizeof(audio_buf));
+            if (handle->mic_upload_flag) {
+                qm_ai_rtc_send_audio_data(audio_buf, sizeof(audio_buf));
+            }
         }
 
         if (!handle->ai_start_flag) {
@@ -564,6 +623,10 @@ static void ai_link_event_callback(qm_ai_link_event_type_e event, void *user_dat
     switch (event) {
         case QM_AI_LINK_EVENT_TYPE_AGENT_JOINED:
             qm_event_ext_post(AI_INNER_EVENT_ID, AI_INNER_SUB_EVENT_ID_AGENT_JOINED, NULL, 0, ai_handle);
+        break;
+
+        case QM_AI_LINK_EVENT_TYPE_JOIN_CHANNEL:
+            ai_handle->mic_upload_flag = 1;
         break;
 
         default:

@@ -366,7 +366,7 @@ static void license_register_service_iot(void)
         {CONFIG_AUDIO_RTC_LOGIN_SIID, CONFIG_AUDIO_RTC_LICENSE_VALUE_PIID}
     };
 
-    qm_iot_service_register(g_ctx.config.transport_handle, CONFIG_AUDIO_RTC_LOGIN_SIID, 
+    qm_iot_service_register(g_ctx.config.transport_handle, QM_AI_SERVICE_ID_LICENSE, 
                            iids, sizeof(iids)/sizeof(qm_iot_service_iid_t),
                            lic_iot_service_handler, NULL);
 }
