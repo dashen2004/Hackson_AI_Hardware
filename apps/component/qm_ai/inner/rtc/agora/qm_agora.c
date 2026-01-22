@@ -158,7 +158,7 @@ static void __on_user_joined(connection_id_t conn_id, uint32_t uid, int elapsed_
         return;
     }
     if(qm_agora_handle.event_cb) {
-        qm_agora_handle.event_cb(QM_AGORA_EVENT_TYPE_AGENT_JOINED, (void*)uid);
+        qm_agora_handle.event_cb(QM_AGORA_EVENT_TYPE_AGENT_JOINED, qm_agora_handle.user_data);
     }
 }
 
@@ -461,6 +461,11 @@ int qm_agora_init(qm_agora_cfg_t cfg)
         return QM_ENOMEM;
     }
 
+    return QM_EOK;
+}
+
+int qm_agora_reset_data()
+{
     return QM_EOK;
 }
 

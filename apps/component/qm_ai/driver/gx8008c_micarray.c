@@ -89,7 +89,7 @@ static int bsp_audio_close(void)
  * @details 
  * 
  */
-static int bsp_audio_write(void *data, size_t len)
+static int bsp_audio_write(void *data, int len)
 {
     if (data == NULL || !audio_handle.is_open) {
         return QM_EINVAL;
@@ -108,7 +108,7 @@ static int bsp_audio_write(void *data, size_t len)
  * @details GX8008C采用32bit/双声道输出，右声道为空，只取左声道并截取16位
  * 
  */
-static int bsp_audio_read(void *data, size_t len, uint32_t timeout)
+static int bsp_audio_read(void *data, int len, uint32_t timeout)
 {
     int ret;
     int rx_len = len * 4;                           // 左声道+右声道一共需要接收的长度

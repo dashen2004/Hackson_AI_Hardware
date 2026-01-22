@@ -11,14 +11,6 @@ extern "C" {
 
 typedef struct qm_ai_t *qm_ai_handle_t;
 
-typedef enum {
-    QM_AI_MOD_NONE = 0,
-
-    QM_AI_MOD_LICENSE,
-    QM_AI_MOD_VOLUME,
-    QM_AI_MOD_VOICE_CONTROL,
-} qm_ai_module_t;
-
 typedef enum
 {
     QM_AI_EVENT_NONE = 0,
@@ -46,7 +38,7 @@ typedef enum
     QM_AI_EVENT_AGENT_STOP,
 
 } qm_ai_event_type_t;
-  
+
 typedef enum {
     QM_AI_AGENT_STATE_NONE,
     QM_AI_AGENT_STATE_SILENT,
@@ -75,9 +67,8 @@ typedef struct
             uint32_t duration_ms;
         } tts;
 
-        struct
-        {
-            
+        struct {
+            int turn_id;
         } agent_abort;
 
         struct 
@@ -161,7 +152,7 @@ typedef struct
 }qm_ai_video_options_t;
 
 /**
- * @brief 初始化IOT句柄
+ * @brief 初始化AI句柄
  * 
  * @details 
  * 
@@ -201,12 +192,12 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
 int32_t qm_ai_set_video_option(qm_ai_handle_t handle, qm_ai_video_options_t *options);
 
 /**
- * @brief 配置服务
+ * @brief 配置服务句柄
  * 
  * @details
  * 
  */
-int32_t qm_ai_set_service_option(qm_ai_handle_t handle, qm_ai_module_t mod, void *arg);
+int32_t qm_ai_set_service_handle_option(qm_ai_handle_t handle, void *service_handle);
 
 /**
  * @brief 配置事件回调
@@ -215,9 +206,6 @@ int32_t qm_ai_set_service_option(qm_ai_handle_t handle, qm_ai_module_t mod, void
  * 
  */
 int32_t qm_ai_set_event_register_option(qm_ai_handle_t handle, qm_ai_event_handler_t handler, void *arg);
-
-
-int32_t qm_ai_init(qm_ai_handle_t handle, void *transport_handle);
 
 /**
  * @brief 启动AI模块
@@ -242,7 +230,7 @@ int32_t qm_ai_stop(qm_ai_handle_t handle);
  * @return		函数是否执行成功，具体见参数表
  * 
  */
-int32_t qm_ai_abort_request(qm_ai_handle_t handle, uint8_t intr_type);
+int32_t qm_ai_abort_request(qm_ai_handle_t handle, int32_t intr_type);
 
 
 //音视频接口
@@ -315,55 +303,6 @@ int32_t qm_ai_audio_player_data(qm_ai_handle_t handle, uint8_t *data, uint32_t s
  * 
  */
 int32_t qm_ai_close(qm_ai_handle_t *handle);
-
-
-/*
-    link event enum and struct
-*/
-typedef enum {
-    QM_AI_STREAM_TYPE_TTS = 0,
-    QM_AI_STREAM_TYPE_ASR,
-    QM_AI_STREAM_TYPE_AGENT_STATE,
-    QM_AI_STREAM_TYPE_INTERRUPT,
-} qm_ai_stream_recv_type_t;
-
-typedef struct {
-    qm_ai_stream_recv_type_t type;
-    union {
-        struct {
-            char *text;
-            uint32_t text_len;
-            uint32_t duration_ms;
-        } tts;
-        struct {
-            const char *text;
-        } stt;
-        struct {
-            qm_ai_agent_state_t state;
-            const char *text;
-        } agent_state;
-        struct {
-            int turn_id;
-        } interrupt;
-    } data;
-} qm_ai_stream_event_t;
-
-typedef enum {
-    QM_AI_LINK_EVENT_TYPE_INIT_SUCCESS = 0,
-    QM_AI_LINK_EVENT_TYPE_CONNECTED,
-    QM_AI_LINK_EVENT_TYPE_CONNECT_LOST,
-    QM_AI_LINK_EVENT_TYPE_JOIN_CHANNEL,
-    QM_AI_LINK_EVENT_TYPE_LEAVE_CHANNEL,
-    QM_AI_LINK_EVENT_TYPE_AGENT_JOINED,
-    QM_AI_LINK_EVENT_TYPE_AGENT_LEAVE,
-    QM_AI_LINK_EVENT_TYPE_AUDIO_MUTE,
-    QM_AI_LINK_EVENT_TYPE_AUDIO_UNMUTE,
-    QM_AI_LINK_EVENT_TYPE_ERROR
-} qm_ai_link_event_type_e;
-
-typedef void (*qm_ai_audio_cb_t)(void *data, int len, void *user_data);
-typedef void (*qm_ai_stream_cb_t)(qm_ai_stream_event_t *event, void *user_data);
-typedef void (*qm_ai_link_event_cb_t)(qm_ai_link_event_type_e event, void *user_data);
 
 
 #if defined(__cplusplus)

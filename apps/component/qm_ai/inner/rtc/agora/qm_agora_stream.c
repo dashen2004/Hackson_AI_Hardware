@@ -365,7 +365,7 @@ static qm_err_t qm_stream_assistant_trans_handler(cJSON *root)
 
         qm_stream_assistant_trans_insert(&event);
     } else {
-        QM_LOGW(LOG_TAG, "No new words found");
+        // QM_LOGW(LOG_TAG, "No new words found");
     }
 
     if (cJSON_IsNumber(turn_status) && turn_status->valueint == 1) {

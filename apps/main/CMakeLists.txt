@@ -2,7 +2,6 @@ set(COMPONENT_SRCS
 
     "./apps/main.c"
     "./apps/ai_main.c"
-    "./cloud/xjiang_cloud.c"
 
     "../component/qm_ai/inner/qm_ai_inner_rtc_api.c"
     "../component/qm_ai/inner/rtc/agora/qm_agora.c"
@@ -141,7 +140,6 @@ set(COMPONENT_SRCS
 set(COMPONENT_ADD_INCLUDEDIRS 
     "./apps"
     "./qm_config"
-    "./cloud"
 
     "../component/qm_ai/api"
     "../component/qm_ai/common"

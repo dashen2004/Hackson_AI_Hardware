@@ -22,18 +22,26 @@ extern qm_ai_driver_param_t QM_AI_AUDIO_DRIVER_GX8008C_HANDLE;
 qm_ai_driver_param_t audio_driver_custom;
 #endif
 
+#define AI_INNER_EVENT_ID                       (0xFF22)
+#define AI_INNER_SUB_EVENT_ID_AGENT_JOINED      (0x0001)
+#define AI_INNER_SUB_EVENT_ID_AGENT_ABORT       (0x0002)
+
+#define VOLUME_DEFAULT    (70)
+#define VOLUME_MAX        (100)
+#define VOLUME_MIN        (1)
+#define VOLUME_DELTA      (15)
+
 typedef struct qm_ai_t
 {
     uint32_t handle_id;
     char version[16];
 
-    void* transport_handle;
+    void *service_handle;
 
     bool ai_start_flag;
     bool link_license_ready;
     bool audio_driver_ready;
 
-    qm_ai_driver_type_t drvier_type;
     qm_ai_driver_param_t *driver_handle;
     bool audio_timeout_flag;
 
@@ -58,14 +66,20 @@ static void ai_link_event_callback(qm_ai_link_event_type_e event, void *user_dat
 
 static void ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
 {
-    int event_type = input_event->sub_event;
+    if (input_event->arg == NULL) {
+        return;
+    }
 
-    QM_LOGI(AI_TAG, "inner recv event: %04x", event_type);
+    qm_ai_handle_t handle = (qm_ai_handle_t)(input_event->arg);
 
-    switch (event_type)
+    QM_LOGI(AI_TAG, "inner event recv: %04x", input_event->sub_event);
+
+    switch (input_event->sub_event)
     {
         case AI_INNER_SUB_EVENT_ID_AGENT_JOINED:
+            ai_corpus_request(handle, QM_AI_VOICE_CONTROL_PARAM_CORPUS_OPEN);
         break;
+
         // case CONFIG_AI_SUB_INNER_EVENT_WAKE_UP:
         //     if (quit_flag) {
         //         qm_ai_rtc_join();
@@ -73,9 +87,9 @@ static void ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
         //     }
         // break;
 
-        // case CONFIG_AI_SUB_EVENT_INTERRUPT:
-        //      qm_ai_rtc_reset_data();
-        // break;
+        case AI_INNER_SUB_EVENT_ID_AGENT_ABORT:
+            qm_ai_rtc_clear_buffer_data();
+        break;
 
         default:
         break;
@@ -86,67 +100,53 @@ qm_ai_handle_t qm_ai_open(qm_ai_comm_type_t comm_type, void *arg)
 {
     qm_ai_handle_t ai_handle = (qm_ai_handle_t)qm_malloc(sizeof(struct qm_ai_t));
 
-    if (ai_handle == NULL) {
+    if (ai_handle == NULL || arg == NULL) {
         return NULL;
     }
 
     memset(ai_handle, 0, sizeof(struct qm_ai_t));
 
+    qm_event_register(QM_EVENT_QM_AI, ai_event_callback, (void*)ai_handle);
+    qm_event_register(AI_INNER_EVENT_ID, ai_inner_event_callback, (void*)ai_handle);
+
     return ai_handle;
 }
 
-int32_t qm_ai_init(qm_ai_handle_t handle, void *transport_handle)
+int32_t qm_ai_set_service_handle_option(qm_ai_handle_t handle, void *service_handle)
 {
-    if (handle == NULL) {
-        return QM_EINIT;
+    if (service_handle == NULL) {
+        return QM_EEMPTY;
     }
 
-    qm_event_register(QM_EVENT_QM_AI, ai_event_callback, (void*)handle);
-    qm_event_register(AI_INNER_EVENT_ID, ai_inner_event_callback, NULL);
+    handle->service_handle = service_handle;
 
     // register and start license module
-    handle->transport_handle = transport_handle;
-    qm_ai_set_service_option(handle, QM_AI_MOD_LICENSE, NULL);
-    qm_ai_set_service_option(handle, QM_AI_MOD_VOICE_CONTROL, NULL);
-
-    return QM_EOK;
-}
-
-int32_t qm_ai_set_service_option(qm_ai_handle_t handle, qm_ai_module_t mod, void *arg)
-{
     qm_ai_license_config_t *config = malloc(sizeof(qm_ai_license_config_t));
     config->type = QM_LICENSE_RTC_QM_IOT;
-    config->transport_handle = handle->transport_handle;
+    config->transport_handle = handle->service_handle;
     config->ai_handle = handle;
 
-    switch (mod){
-        case QM_AI_MOD_LICENSE:
-            qm_ai_license_init(config);
-            qm_ai_license_start();
-        break;
+    qm_ai_license_init(config);
+    qm_ai_license_start();
 
-        case  QM_AI_MOD_VOLUME:
-            qm_ai_volume_init(config);
-            qm_ai_volume_start();
-        break;
+    qm_ai_volume_init(config);
+    qm_ai_volume_start();
 
-        case  QM_AI_MOD_VOICE_CONTROL:
-            qm_ai_voice_control_init(config);
-            qm_ai_voice_control_start();
-        break;
-
-        default:
-            QM_LOGE(AI_TAG, "Error, unsupported module %d", mod);
-            return QM_EINVAL;
-        break;
-    }
+    qm_ai_voice_control_init(config);
+    qm_ai_voice_control_start();
 
     return QM_EOK;
 }
 
 int32_t qm_ai_set_event_register_option(qm_ai_handle_t handle, qm_ai_event_handler_t handler, void *arg)
 {
+    if (handler == NULL) {
+        QM_LOGE(AI_TAG, "Register event fail, handler is null");
+        return QM_EEMPTY;
+    }
+
     handle->event_cb = handler;
+
     return QM_EOK;
 }
 
@@ -192,8 +192,6 @@ int32_t qm_ai_start(qm_ai_handle_t handle)
 
     handle->ai_start_flag = 1;
 
-    ai_corpus_request(handle, QM_AI_VOICE_CONTROL_PARAM_CORPUS_OPEN);
-
     return QM_EOK;
 
 __exit:
@@ -220,9 +218,12 @@ int32_t qm_ai_close(qm_ai_handle_t *handle)
     return QM_EOK;
 }
 
-int32_t qm_ai_abort_request(qm_ai_handle_t handle, uint8_t intr_type)
+int32_t qm_ai_abort_request(qm_ai_handle_t handle, int32_t intr_type)
 {
     qm_ai_voice_control_cmd(QM_AI_VOICE_CONTROL_REQ_ABORT, intr_type);
+
+    qm_event_ext_post(AI_INNER_EVENT_ID, AI_INNER_SUB_EVENT_ID_AGENT_ABORT, NULL, 0, handle);
+
     return QM_EOK;
 }
 
@@ -268,7 +269,6 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
     memset(handle->driver_handle, 0, sizeof(qm_ai_driver_param_t));
 
     if (ai_check_driver_is_null(&options->audio_driver)) {
-        handle->drvier_type = QM_AI_DRIVER_TYPE_DEFAULT;
         #if CONFIG_QM_AI_AUDIO_DRIVER_GX8006
             handle->driver_handle = &audio_driver_gx8006;
         #elif CONFIG_QM_AI_AUDIO_DRIVER_GX8008C
@@ -280,7 +280,6 @@ int32_t qm_ai_set_audio_option(qm_ai_handle_t handle, qm_ai_audio_options_t *opt
             return QM_ERROR;
         }
 
-        handle->drvier_type = QM_AI_DRIVER_TYPE_CUSTOM;
         memcpy(handle->driver_handle, &options->audio_driver, sizeof(qm_ai_driver_param_t));
     }
 
@@ -541,7 +540,8 @@ static void ai_stream_event_callback(qm_ai_stream_event_t *event, void *user_dat
         break;
 
         case QM_AI_STREAM_TYPE_INTERRUPT:
-            // QM_LOGI("1", "user interrupt %d", event->data.interrupt.turn_id);
+            event_param.type = QM_AI_EVENT_AGENT_ABORT;
+            event_param.data.agent_abort.turn_id = event->data.interrupt.turn_id;
         break;
 
         default:
@@ -563,7 +563,7 @@ static void ai_link_event_callback(qm_ai_link_event_type_e event, void *user_dat
 
     switch (event) {
         case QM_AI_LINK_EVENT_TYPE_AGENT_JOINED:
-            qm_event_post(AI_INNER_EVENT_ID, AI_INNER_SUB_EVENT_ID_AGENT_JOINED, NULL, 0);
+            qm_event_ext_post(AI_INNER_EVENT_ID, AI_INNER_SUB_EVENT_ID_AGENT_JOINED, NULL, 0, ai_handle);
         break;
 
         default:

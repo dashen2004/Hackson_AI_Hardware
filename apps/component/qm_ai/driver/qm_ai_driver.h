@@ -10,8 +10,8 @@ extern "C" {
 typedef enum
 {
     QM_AI_DRIVER_TYPE_NONE = 0,
-    QM_AI_DRIVER_TYPE_DEFAULT,
-    QM_AI_DRIVER_TYPE_CUSTOM,
+    QM_AI_DRIVER_TYPE_AUDIO,
+    QM_AI_DRIVER_TYPE_VEDIO,     
 }qm_ai_driver_type_t;
 
 typedef enum
@@ -81,8 +81,8 @@ typedef enum
 typedef struct {
     int (*open)(void);
     int (*close)(void);
-    int (*write)(void *data, size_t len);
-    int (*read)(void *data, size_t len, uint32_t timeout);
+    int (*write)(void *data, int len);
+    int (*read)(void *data, int len, uint32_t timeout);
     int (*ctrl) (qm_ai_driver_ctrl_t cmd, void *param);
 } qm_ai_driver_param_t;
 
@@ -121,7 +121,7 @@ typedef union
     }timeout;
 }qm_ai_driver_event_t;
 
-typedef void (*qm_ai_driver_read_handler_t)(qm_ai_driver_type_t type, uint8_t *data, int len);
+typedef void (*qm_ai_driver_read_handler_t)(qm_ai_driver_type_t type, const void *data, size_t len);
 typedef void (*qm_ai_driver_event_handler_t)(qm_ai_driver_type_t type, qm_ai_driver_event_id_t event_id, qm_ai_driver_event_t *param);
 
 #if defined(__cplusplus)
