@@ -162,16 +162,6 @@ typedef enum {
  * @brief 如果设备在线, 用户应用调用云端API后云端下推的消息
  */
 typedef struct {
-    /**
-     * @brief 指向设备影子数据的指针
-     */
-    qm_spec_property_t *spec_property;
-}qm_iot_pub_recv_shadow_set_t;
-
-/**
- * @brief 如果设备在线, 用户应用调用云端API后云端下推的消息
- */
-typedef struct {
     qm_spec_property_operation_t *operation;
 }qm_iot_pub_recv_set_t;
 
@@ -199,8 +189,6 @@ typedef struct {
      * @brief 消息数据联合体, 不同的消息类型将使用不同的消息结构体
      */
     union {
-        qm_iot_pub_recv_shadow_set_t set;
-
         qm_iot_pub_recv_set_t prop_set;
         qm_iot_pub_recv_get_t prop_get;
     } data;

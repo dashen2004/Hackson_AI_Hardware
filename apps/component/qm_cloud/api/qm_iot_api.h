@@ -8,6 +8,7 @@ extern "C" {
 #include "qm.h"
 #include "qm_spec_api.h"
 #include "qm_iot_config.h"
+#include "qm_iot_common.h"
 
 typedef enum 
 {
@@ -107,6 +108,11 @@ typedef enum {
      * 
      */
     QM_IOT_EVENT_WEATHER_NOTIFY,
+
+    /**
+     * @brief 重启通知
+     */
+    QM_IOT_EVENT_REBOOT_NOTIFY,
 
     QM_IOT_EVENT_MAX
 } qm_iot_event_type_t;
