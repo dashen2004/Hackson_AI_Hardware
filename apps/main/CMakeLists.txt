@@ -14,7 +14,9 @@ set(COMPONENT_SRCS
     "../component/qm_ai/module/voice_control/qm_ai_voice_control.c"
     "../component/qm_struct_json/src/qm_struct_mapper.c"
 
-    "../component/qm_ai/driver/gx8008c_micarray.c"
+    "../component/qm_ai/driver/gx8008c_driver.c"
+
+    "../component/qm_audio/qm_audio.c"
 
     "../component/qm_audio/encoder/qm_audio_encoder.c"
     "../component/qm_audio/sr/qm_audio_sr.c"
@@ -276,3 +278,5 @@ set(COMPONENT_ADD_INCLUDEDIRS
     )
 
 register_component()
+
+spiffs_create_partition_image(spiffs_data ../spiffs FLASH_IN_PROJECT)

@@ -10,6 +10,7 @@ typedef struct {
     qm_audio_state_t state;
     qm_queue_t queue;
     qm_audio_param_t audio_param;
+    void *user_data;
 }qm_audio_ctx_t;
 
 typedef struct {
@@ -151,7 +152,7 @@ static void audio_task(void *arg)
                     play_data->play_get(&data, &len);
                     if(data && len){
                         if(audio_ctx->audio_param.audio_play){
-                            audio_ctx->audio_param.audio_play(audio_type, data, len);
+                            audio_ctx->audio_param.audio_play(audio_type, data, len, g_qm_audio_ctx.audio_param.arg);
                         }
                         qm_msleep(audio_ctx->audio_param.duration_ms);
                     }else{
@@ -163,7 +164,7 @@ static void audio_task(void *arg)
                         audio_data = (qm_audio_data_t*)qm_list_node_val_get(node);
                         
                         if(audio_ctx->audio_param.audio_play){
-                            audio_ctx->audio_param.audio_play(audio_type, &audio_data->data[0], audio_data->len);
+                            audio_ctx->audio_param.audio_play(audio_type, &audio_data->data[0], audio_data->len, g_qm_audio_ctx.audio_param.arg);
                         }
                         qm_mutex_lock(&g_qm_audio_ctx.lock, QM_WAIT_FOREVER);
                         qm_list_remove(audio_ctx->list, node);

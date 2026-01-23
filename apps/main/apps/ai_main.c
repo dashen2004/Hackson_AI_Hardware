@@ -15,6 +15,12 @@
 
 #define LOG_TAG "log"
 
+#define DEAFALUT_REPLY_WAV              ("/spiffs/dingding.wav")
+#define NETCONFIG_WAV                   ("/spiffs/1.wav")
+#define CONN_CLOUD_WAV                  ("/spiffs/2.wav")
+#define CONN_ERROR_WAV                  ("/spiffs/3.wav")
+#define XJIANG_TEST_WAV                 ("/spiffs/4.wav")
+
 static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void *userdata);
 static void qm_iot_recv_handler(void *handle, const qm_iot_recv_t *recv, void *userdata);
 
@@ -27,12 +33,25 @@ static int audio_driver_ctrl(qm_ai_driver_ctrl_t cmd, void *param);
 static void *iot_handle = NULL;
 static qm_ai_handle_t ai_handle = NULL;
 
+static void qm_example_play_data(qm_ai_handle_t handle)
+{
+    FILE *fd = fopen(CONN_CLOUD_WAV, "r");
+
+    uint8_t data[256] = {0};
+    int len = 0;
+
+    while ((len = fread(data, 1, sizeof(data), fd)) > 0) {
+        qm_ai_audio_player_data(handle, data, len);
+    }
+}
+
 static void qm_ai_event_cb(qm_ai_handle_t handle, qm_ai_event_t *event, void *user_data)
 {
     switch (event->type)
     {
         case QM_AI_EVENT_CLOUD_LICENSE:
             QM_LOGI("1", "Cloud license success!");
+            qm_example_play_data(ai_handle);
             qm_ai_start(ai_handle);
         break;
 

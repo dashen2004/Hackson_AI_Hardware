@@ -33,7 +33,7 @@ typedef enum{
     QM_AUDIO_EVENT_MAX,
 }qm_audio_event_t;
 
-typedef int (*qm_audio_play_t)(qm_audio_type_t type, uint8_t *data, int len);
+typedef int (*qm_audio_play_t)(qm_audio_type_t type, uint8_t *data, int len, void *user_data);
 typedef int (*qm_audio_mute_t)(void *arg);
 typedef int (*qm_audio_init_t)(void *arg);
 typedef int (*qm_audio_deinit_t)(void *arg);
