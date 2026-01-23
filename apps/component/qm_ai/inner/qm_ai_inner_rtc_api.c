@@ -46,11 +46,18 @@ int qm_ai_rtc_init(qm_ai_rtc_cfg_t cfg)
 
     if (qm_agora_init(agora_cfg) != QM_EOK) {
         QM_LOGE(RTC_TAG, "Fail to init rtc!");
+
+        qm_free(agora_cfg.license);
+        agora_cfg.license = NULL;
+
         return QM_ERROR;
     }
 
     QM_LOGI(RTC_TAG, "Link init success!");
     qm_ai_rtc_handle.rtc_init_flag = QM_TRUE;
+
+    qm_free(agora_cfg.license);
+    agora_cfg.license = NULL;
 
     return QM_EOK;
 }
@@ -96,7 +103,7 @@ int qm_ai_rtc_join(void)
 int qm_ai_rtc_send_audio_data(const void *data, size_t len)
 {
     if (qm_ai_rtc_handle.rtc_join_flag != QM_TRUE) {
-        QM_LOGE(RTC_TAG, "Fail to send audio data, not joined rtc channel!");
+        QM_LOGE(RTC_TAG, "Fail to send audio data, not joined rtc channel");
         return QM_EINIT;
     }
 

@@ -73,7 +73,7 @@ typedef struct
 
         struct 
         {
-            
+            char *emotion;
         } agent_llm;
         
         struct 

@@ -345,9 +345,9 @@ int qm_agora_disconnect(void)
     }
     rval = agora_rtc_destroy_connection(qm_agora_handle.conn_id);
     if(rval < 0) {
-        QM_LOGE(LOG_TAG, "Failed to destroy connection, reason: %s\n", agora_rtc_err_2_str(rval));
+        QM_LOGE(LOG_TAG, "Failed to destroy connection, reason: %s", agora_rtc_err_2_str(rval));
     } else {
-        QM_LOGD(LOG_TAG, "Destroy connection successfully.\n");
+        QM_LOGD(LOG_TAG, "Destroy connection successfully.");
         qm_agora_handle.connect = QM_FALSE;
     }
     return rval;
@@ -424,9 +424,9 @@ int qm_agora_leave(void)
     
     rval =  agora_rtc_leave_channel(qm_agora_handle.conn_id);
     if (rval < 0) {
-        QM_LOGE(LOG_TAG, "Failed to leave the channel, reason: %s\n", agora_rtc_err_2_str(rval));
+        QM_LOGE(LOG_TAG, "Failed to leave the channel, reason: %s", agora_rtc_err_2_str(rval));
     } else {
-        QM_LOGD(LOG_TAG, "Leave the channel successfully.\n");
+        QM_LOGD(LOG_TAG, "Leave the channel successfully.");
         qm_agora_handle.joined = QM_FALSE;
         if (qm_agora_handle.event_cb) {
             qm_agora_handle.event_cb(QM_AGORA_EVENT_TYPE_LEAVE_CHANNEL, qm_agora_handle.user_data);

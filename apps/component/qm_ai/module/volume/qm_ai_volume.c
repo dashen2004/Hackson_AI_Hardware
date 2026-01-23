@@ -39,9 +39,8 @@ typedef struct {
 static volume_context_t g_vol_ctx = {0};
 
 static void vol_iot_service_handler(void *handle, int service_id, qm_iot_service_type_t type, qm_spec_property_operation_t *property_operation, void *userdata) {
-    // if (!property_operation || type != QM_IOT_SERVICE_TYPE_GET_RSP) return;
+    if (!property_operation || type != QM_IOT_SERVICE_TYPE_SET) return;
 
-    QM_LOGI("1", "vol set\n\n\n");
     qm_spec_property_t *prop = NULL;
     uint8_t siid = 0;
     uint16_t piid = 0;
@@ -62,21 +61,21 @@ static void vol_iot_service_handler(void *handle, int service_id, qm_iot_service
                 int val = 0;
                 qm_spec_property_unpack_number(prop, &val);
 
-                qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_VOLUME_CTRL, &val, sizeof(int), g_vol_ctx.config.ai_handle);
+                qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_VOLUME_CTRL, (void*)val, 0, g_vol_ctx.config.ai_handle);
                 break;
             }
             case CONFIG_AUDIO_VOLUME_MUTE_PIID: {
                 bool_t mute = false;
                 qm_spec_property_unpack_bool(prop, &mute);
 
-                qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_MUTE_CTRL, &mute, sizeof(bool_t), g_vol_ctx.config.ai_handle);
+                qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_MUTE_CTRL, (void*)mute, 0, g_vol_ctx.config.ai_handle);
                 break;
             }
             case CONFIG_AUDIO_VOLUME_CMD_PIID: {
                 int cmd = 0;
                 qm_spec_property_unpack_number(prop, &cmd);
 
-                qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_VOLUME_ADJUST, &cmd, sizeof(int), g_vol_ctx.config.ai_handle);
+                qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_VOLUME_ADJUST, (void*)cmd, 0, g_vol_ctx.config.ai_handle);
                 break;
             }
             default: break;

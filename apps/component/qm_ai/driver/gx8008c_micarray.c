@@ -29,6 +29,10 @@ static bsp_audio_t audio_handle;
  */
 static int bsp_audio_open(void)
 {
+    if (audio_handle.is_open) {
+        return QM_EINIT;
+    }
+
     esp_err_t ret = ESP_OK;
     // 初始化pipeline
     audio_handle.player_pipeline = player_pipeline_open();
@@ -153,7 +157,7 @@ static int bsp_audio_ctrl(qm_ai_driver_ctrl_t cmd, void *param)
     switch (cmd) {
         // 设置消音状态
         case QM_AI_DRIVER_CTRL_SET_MUTE:
-            mute_state = *(int *)param;
+            mute_state = (int)param;
             if (mute_state)
                 es8311_set_voice_mute(true);
             else
@@ -168,7 +172,7 @@ static int bsp_audio_ctrl(qm_ai_driver_ctrl_t cmd, void *param)
 
         // 设置音量
         case QM_AI_DRIVER_CTRL_SET_VOLUME:
-            volume = *(int *)param;
+            volume = (int)param;
             es8311_codec_set_voice_volume(volume);
         break;
 
@@ -180,7 +184,7 @@ static int bsp_audio_ctrl(qm_ai_driver_ctrl_t cmd, void *param)
 
         // 使能PA状态
         case QM_AI_DRIVER_CTRL_ENABLE_PA:
-            int pa_state = *(int *)param;
+            int pa_state = (int)param;
             if (pa_state) {
                 es8311_pa_power(true);
             } else {

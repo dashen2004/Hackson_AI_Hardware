@@ -46,8 +46,10 @@ static interaction_context_t g_int_ctx = {0};
 static void voice_control_send_request_iot(uint8_t service_siid, uint8_t service_piid, uint8_t param);
 static void voice_control_register_service_iot(void); 
 
-static void voice_control_iot_service_handler(void *handle, int service_id, qm_iot_service_type_t type, qm_spec_property_operation_t *property_operation, void *userdata) {
-    // if (!property_operation || type != QM_IOT_SERVICE_TYPE_SET) return;
+static void voice_control_iot_service_handler(void *handle, int service_id, qm_iot_service_type_t type, 
+                                                qm_spec_property_operation_t *property_operation, void *userdata) 
+{
+    if (!property_operation || type != QM_IOT_SERVICE_TYPE_SET) return;
 
     qm_spec_property_t *prop = NULL;
     uint8_t siid = 0;
@@ -65,20 +67,31 @@ static void voice_control_iot_service_handler(void *handle, int service_id, qm_i
         }
 
         switch (piid) {
-            case CONFIG_AUDIO_VOICE_CORPUS_PIID: { // 语料
-                int val = 0;
-                qm_spec_property_unpack_number(prop, &val);
-                QM_LOGD(LOG_TAG, "Voice Corpus Action: %d", val);
-                qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_AGENT_TTS, &val, sizeof(int), g_int_ctx.config.ai_handle);
-                break;
-            }
-            case CONFIG_AUDIO_VOICE_ABORT_PIID: { // 打断
-                int val = 0;
-                qm_spec_property_unpack_number(prop, &val);
-                QM_LOGD(LOG_TAG, "Voice Abort Action: %d", val);
-                qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_AGENT_ABORT, &val, sizeof(int), g_int_ctx.config.ai_handle);
-                break;
-            }
+            case CONFIG_AUDIO_VOICE_CORPUS_PIID:
+            case CONFIG_AUDIO_VOICE_ABORT_PIID:
+            break;
+
+            case CONFIG_AUDIO_VOICE_EMOTION_PIID:
+                char *emotion = NULL;
+                int len = 0;
+                if(prop == NULL) {
+                    return;
+                }
+                qm_spec_property_unpack_string(prop, NULL, &len);
+                if(len == 0) {
+                    return;
+                }
+                emotion = (char *)qm_malloc(len);
+                if(emotion == NULL) {
+                    return;
+                }
+                qm_spec_property_unpack_string(prop, emotion, &len);
+                if(emotion == NULL) {
+                    return;
+                }
+
+                qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_AGENT_LLM, emotion, len, g_int_ctx.config.ai_handle);
+            break;
         }
     }
 }
@@ -193,15 +206,15 @@ static void voice_control_register_service_iot(void)
         {CONFIG_AUDIO_VOICE_CONTROL_SIID, CONFIG_AUDIO_VOICE_EMOTION_PIID},
     };
 
-    qm_iot_service_register(g_int_ctx.config.transport_handle, 12, 
+    qm_iot_service_register(g_int_ctx.config.transport_handle, QM_AI_SERVICE_ID_VOICE_CRTL_CORPUS, 
                             service_corpus, 1,
                            voice_control_iot_service_handler, NULL);
 
-    qm_iot_service_register(g_int_ctx.config.transport_handle, 13, 
+    qm_iot_service_register(g_int_ctx.config.transport_handle, QM_AI_SERVICE_ID_VOICE_CRTL_ABORT, 
                             service_abort, 1,
                            voice_control_iot_service_handler, NULL);
 
-    qm_iot_service_register(g_int_ctx.config.transport_handle, 14,
+    qm_iot_service_register(g_int_ctx.config.transport_handle, QM_AI_SERVICE_ID_VOICE_CRTL_EMOTION,
                             service_emotion, 1,
                            voice_control_iot_service_handler, NULL);
 }

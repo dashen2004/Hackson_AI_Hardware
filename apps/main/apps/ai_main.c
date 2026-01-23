@@ -79,7 +79,7 @@ static void qm_example_iot_init()
 
 static void qm_example_ai_init()
 {
-    ai_handle = qm_ai_open(QM_AI_COMM_TYPE_RTC, iot_handle);
+    ai_handle = qm_ai_open(QM_AI_COMM_TYPE_RTC, NULL);
 
     qm_ai_set_service_handle_option(ai_handle, iot_handle);
 
@@ -105,7 +105,7 @@ static void qm_example_ai_init()
     qm_ai_set_audio_option(ai_handle, &audio_op);
     qm_ai_set_event_register_option(ai_handle, qm_ai_event_cb, NULL);
 
-    qm_ai_audio_set_player_mute(ai_handle, 1);
+    // qm_ai_audio_set_player_mute(ai_handle, 1);
 }
 
 void qm_application_start(void)
