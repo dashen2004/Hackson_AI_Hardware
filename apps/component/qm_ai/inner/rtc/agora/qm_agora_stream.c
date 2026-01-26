@@ -796,7 +796,7 @@ int32_t qm_agora_stream_init(void)
     qm_mutex_new(&g_stream_handle.tts_lock);
     qm_sem_new(&g_stream_handle.stream_sem, 0);
     qm_mutex_new(&g_stream_handle.stream_lock);
-    qm_task_new(&g_stream_handle.stream_task, "stream_msg_recv_task", stream_msg_recv_task, &g_stream_handle, 10*1024, 5);
+    qm_task_new(&g_stream_handle.stream_task, "stream_msg_recv_task", stream_msg_recv_task, &g_stream_handle, 3 * 1024, 5);
     return QM_EOK;
 }
 

@@ -264,7 +264,7 @@ int32_t qm_ai_start(qm_ai_handle_t handle)
     handle->ai_start_flag = 1;
 
     if (handle->driver_handle->read) {
-        qm_task_new_to_core(&handle->audio_task, "audio", ai_task, handle, 10 * 1024, 6, 1);
+        qm_task_new_to_core(&handle->audio_task, "ai_read_task", ai_task, handle, 3 * 1024, 6, 1);
     }
 
     return QM_EOK;
@@ -652,7 +652,7 @@ static void ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
         break;
 
         case AI_INNER_SUB_EVENT_ID_WAKE_UP:
-            ai_abort_request(handle, QM_AI_VOICE_CONTROL_PARAM_ABORT);
+            ai_abort_request(handle, QM_AI_VOICE_CONTROL_PARAM_ABORT_WITH_WORD);
         break;
 
         case AI_INNER_SUB_EVENT_ID_AGENT_ABORT:

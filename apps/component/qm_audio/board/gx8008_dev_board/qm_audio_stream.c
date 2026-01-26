@@ -272,7 +272,7 @@ qm_audio_stream_handle_t create_ch1_to_ch2_rsp_stream() // create_audio_player_r
     filter_cfg.stack_in_ext = true;
     filter_cfg.task_core = 1;
     filter_cfg.complexity = 5;
-    filter_cfg.task_prio = 23;
+    filter_cfg.task_prio = 10;
     filter = rsp_filter_init(&filter_cfg);
     return filter;
 }
