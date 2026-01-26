@@ -3,6 +3,8 @@
 
 #include "qm.h"
 
+#define QM_AI_LICENSE_TYPE      0
+
 typedef enum {
     QM_AI_SERVICE_ID_NONE = 0,
 

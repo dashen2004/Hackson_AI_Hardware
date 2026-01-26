@@ -14,7 +14,10 @@ set(COMPONENT_SRCS
     "../component/qm_ai/module/voice_control/qm_ai_voice_control.c"
     "../component/qm_struct_json/src/qm_struct_mapper.c"
 
-    "../component/qm_ai/driver/gx8008c_driver.c"
+    "../component/qm_ai/driver/gx8008c/gx8008c_driver.c"
+
+    "../component/qm_ai/driver/gx8006/gx8006_driver.c"
+    "../component/qm_ai/driver/gx8006/comm/nc_audio.c"
 
     "../component/qm_audio/qm_audio.c"
 
@@ -146,8 +149,12 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_ai/api"
     "../component/qm_ai/common"
     "../component/qm_ai/driver"
+    "../component/qm_ai/driver/gx8008c"
     "../component/qm_ai/inner"
     "../component/qm_ai/inner/rtc/agora"
+
+    "../component/qm_ai/driver/gx8006"
+    "../component/qm_ai/driver/gx8006/comm"
 
     "../component/qm_ai/module/license"
     "../component/qm_ai/module/volume"

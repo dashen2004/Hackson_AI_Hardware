@@ -83,7 +83,7 @@ typedef struct {
     int (*close)(void);
     int (*write)(void *data, int len);
     int (*read)(void *data, int len, uint32_t timeout);
-    int (*ctrl) (qm_ai_driver_ctrl_t cmd, void *param);
+    int (*ctrl) (qm_ai_driver_ctrl_t cmd, void *param, void *user_data);
 } qm_ai_driver_param_t;
 
 typedef enum
@@ -112,7 +112,7 @@ typedef union
 {
     struct 
     {
-        int reserved;
+        void *handle;
     }wakeup;
 
     struct 
@@ -121,7 +121,7 @@ typedef union
     }timeout;
 }qm_ai_driver_event_t;
 
-typedef void (*qm_ai_driver_read_handler_t)(qm_ai_driver_type_t type, const void *data, size_t len);
+typedef void (*qm_ai_driver_read_handler_t)(qm_ai_driver_type_t type, const void *data, int len);
 typedef void (*qm_ai_driver_event_handler_t)(qm_ai_driver_type_t type, qm_ai_driver_event_id_t event_id, qm_ai_driver_event_t *param);
 
 #if defined(__cplusplus)

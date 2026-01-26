@@ -466,6 +466,8 @@ int qm_agora_init(qm_agora_cfg_t cfg)
 
 int qm_agora_reset_data()
 {
+    qm_agora_stream_tts_data_reset();
+
     return QM_EOK;
 }
 

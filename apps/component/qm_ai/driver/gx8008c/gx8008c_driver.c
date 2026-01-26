@@ -15,6 +15,7 @@ typedef struct {
     recorder_pipeline_handle_t recorder_pipeline;
     uint8_t is_open;
     qm_mutex_t mutex;
+    void *user_data;
 } bsp_audio_t;
 
 static int32_t pcm_rxbuf[CONFIG_PCM_RXBUF_SIZE];    // pcm静态缓冲区
@@ -147,11 +148,14 @@ static int bsp_audio_read(void *data, int len, uint32_t timeout)
  * @details 
  * 
  */
-static int bsp_audio_ctrl(qm_ai_driver_ctrl_t cmd, void *param)
+static int bsp_audio_ctrl(qm_ai_driver_ctrl_t cmd, void *param, void *user_data)
 {
     if (!audio_handle.is_open) {
         return QM_EINVAL;
     }
+    
+    audio_handle.user_data = user_data;
+
     int volume = 0;
     int mute_state = 0;
     switch (cmd) {
@@ -190,6 +194,12 @@ static int bsp_audio_ctrl(qm_ai_driver_ctrl_t cmd, void *param)
             } else {
                 es8311_pa_power(false);
             }
+        break;
+
+        case QM_AI_DRIVER_CTRL_EVENT_CALLBACK:
+        break;
+
+        case QM_AI_DRIVER_CTRL_READ_CALLBACK:
         break;
 
         default:

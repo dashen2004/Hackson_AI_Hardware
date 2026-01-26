@@ -35,14 +35,14 @@ static qm_ai_handle_t ai_handle = NULL;
 
 static void qm_example_play_data(qm_ai_handle_t handle)
 {
-    FILE *fd = fopen(CONN_CLOUD_WAV, "r");
+    // FILE *fd = fopen(CONN_CLOUD_WAV, "r");
 
-    uint8_t data[256] = {0};
-    int len = 0;
+    // uint8_t data[256] = {0};
+    // int len = 0;
 
-    while ((len = fread(data, 1, sizeof(data), fd)) > 0) {
-        qm_ai_audio_player_data(handle, data, len);
-    }
+    // while ((len = fread(data, 1, sizeof(data), fd)) > 0) {
+    //     qm_ai_audio_player_data(handle, data, len);
+    // }
 }
 
 static void qm_ai_event_cb(qm_ai_handle_t handle, qm_ai_event_t *event, void *user_data)
@@ -113,8 +113,8 @@ static void qm_example_ai_init()
 
     qm_ai_audio_options_t audio_op = {
         .channel_num = 1,
-        .codec_type = QM_AI_AUDIO_CODEC_TYPE_G722,
-        .data_type = QM_AI_AUDIO_DATA_TYPE_PCM,
+        .codec_type = QM_AI_AUDIO_CODEC_DISABLED,
+        .data_type = QM_AI_AUDIO_DATA_TYPE_OPUS,
         .duration = 40,
         .sample_rate = 16000,
         .audio_driver = driver,
@@ -132,6 +132,12 @@ void qm_application_start(void)
     QM_LOGD("1", "Ver:%s", CONFIG_QM_AI_SDK_VERSION);
 
     qm_example_iot_init();
+
+    // while (1) {
+    //     qm_msleep(20 * 1000);
+    //     QM_LOGD("1", "close ai handle");
+    //     qm_ai_close(&ai_handle);
+    // }
 }
 
 static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void *userdata)

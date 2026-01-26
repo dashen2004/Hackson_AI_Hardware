@@ -6,8 +6,9 @@ extern "C" {
 #endif
 
 #include "qm.h"
+#include "qm_ai_license.h"
 
-#define CONFIG_AGORA_USE_LICENSE    1
+#define CONFIG_AGORA_USE_LICENSE    (QM_AI_LICENSE_TYPE)
 
 typedef enum {
     QM_AGORA_GEN_TYPE_NONE = 0,
