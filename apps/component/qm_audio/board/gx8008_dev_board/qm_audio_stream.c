@@ -159,6 +159,7 @@ qm_audio_stream_handle_t create_record_i2s_stream(void)
     i2s_cfg.std_cfg.slot_cfg.bit_shift = true;
     i2s_cfg.chan_cfg.role = I2S_ROLE_SLAVE;
     i2s_cfg.chan_cfg.dma_desc_num = 6;
+    i2s_cfg.task_prio = 20;
     
     i2s_stream = i2s_stream_init(&i2s_cfg);
 

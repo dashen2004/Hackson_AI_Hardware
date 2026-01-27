@@ -609,6 +609,7 @@ static void ai_task(void *arg)
         if (ret == QM_EOK) {
             if (handle->mic_upload_flag) {
                 qm_ai_rtc_send_audio_data(audio_buf, sizeof(audio_buf));
+                qm_msleep(handle->rtc_cfg.duration);
             }
         }
 

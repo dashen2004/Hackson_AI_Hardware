@@ -99,9 +99,9 @@ static int bsp_audio_write(void *data, int len)
     if (data == NULL || !audio_handle.is_open) {
         return QM_EINVAL;
     }
-    qm_mutex_lock(&audio_handle.mutex, QM_WAIT_FOREVER);
+    // qm_mutex_lock(&audio_handle.mutex, QM_WAIT_FOREVER);
     raw_stream_write(player_pipeline_get_raw_write(audio_handle.player_pipeline), (char *)data, len);
-    qm_mutex_unlock(&audio_handle.mutex);
+    // qm_mutex_unlock(&audio_handle.mutex);
 
     return QM_EOK;
 }
@@ -122,7 +122,7 @@ static int bsp_audio_read(void *data, int len, uint32_t timeout)
         return QM_EINVAL;
     }
 
-    qm_mutex_lock(&audio_handle.mutex, QM_WAIT_FOREVER);
+    // qm_mutex_lock(&audio_handle.mutex, QM_WAIT_FOREVER);
     ret = recorder_pipeline_read(audio_handle.recorder_pipeline, (char *)pcm_rxbuf, rx_len);
     // if (ret != AEL_IO_OK) {
     //     qm_mutex_unlock(&audio_handle.mutex);
@@ -134,7 +134,7 @@ static int bsp_audio_read(void *data, int len, uint32_t timeout)
         left_chan = pcm_rxbuf[i * 2];
         *((int16_t *)data + i) = left_chan >> 16; 
     }
-    qm_mutex_unlock(&audio_handle.mutex);
+    // qm_mutex_unlock(&audio_handle.mutex);
     
     memset(pcm_rxbuf, 0, sizeof(pcm_rxbuf));
 
@@ -230,6 +230,15 @@ static void audio_demo_task_entry(void *arg)
 {
     while(1) {
         if (QM_AI_AUDIO_DRIVER_GX8008C_HANDLE.read((void *)audio_buf, sizeof(audio_buf), 0xFFFF) == QM_EOK) {
+
+            for (int i = 0; i < 16; i++) {
+                printf("audio buf[%d]: %d\n", i, audio_buf[i]);
+            }
+
+            printf("\n");
+
+            qm_msleep(500);
+
             QM_AI_AUDIO_DRIVER_GX8008C_HANDLE.write((void *)audio_buf, sizeof(audio_buf));
         }
     }
