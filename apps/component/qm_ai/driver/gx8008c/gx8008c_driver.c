@@ -115,7 +115,6 @@ static int bsp_audio_write(void *data, int len)
  */
 static int bsp_audio_read(void *data, int len, uint32_t timeout)
 {
-    int ret;
     int rx_len = len * 4;                           // 左声道+右声道一共需要接收的长度
     int32_t left_chan = 0;                          // 左声道PCM数据
     if (data == NULL || !audio_handle.is_open) {
@@ -123,11 +122,10 @@ static int bsp_audio_read(void *data, int len, uint32_t timeout)
     }
 
     // qm_mutex_lock(&audio_handle.mutex, QM_WAIT_FOREVER);
-    ret = recorder_pipeline_read(audio_handle.recorder_pipeline, (char *)pcm_rxbuf, rx_len);
-    // if (ret != AEL_IO_OK) {
-    //     qm_mutex_unlock(&audio_handle.mutex);
-    //     return QM_ERROR;
-    // }
+    int read_size = recorder_pipeline_read(audio_handle.recorder_pipeline, (char *)pcm_rxbuf, rx_len);
+    if (read_size != rx_len) {
+        return QM_ERROR;
+    }
     
     // 取出左声道并截取高16位
     for (int i = 0; i < len/2; i++) {
@@ -230,15 +228,6 @@ static void audio_demo_task_entry(void *arg)
 {
     while(1) {
         if (QM_AI_AUDIO_DRIVER_GX8008C_HANDLE.read((void *)audio_buf, sizeof(audio_buf), 0xFFFF) == QM_EOK) {
-
-            for (int i = 0; i < 16; i++) {
-                printf("audio buf[%d]: %d\n", i, audio_buf[i]);
-            }
-
-            printf("\n");
-
-            qm_msleep(500);
-
             QM_AI_AUDIO_DRIVER_GX8008C_HANDLE.write((void *)audio_buf, sizeof(audio_buf));
         }
     }

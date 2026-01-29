@@ -10,8 +10,8 @@
 
 #define AI_TAG "AI"
 
-#define CONFIG_QM_AI_AUDIO_DRIVER_GX8006    1
-#define CONFIG_QM_AI_AUDIO_DRIVER_GX8008C   0
+#define CONFIG_QM_AI_AUDIO_DRIVER_GX8006    0
+#define CONFIG_QM_AI_AUDIO_DRIVER_GX8008C   1
 
 #if CONFIG_QM_AI_AUDIO_DRIVER_GX8006
 #include "gx8006_driver.h"
@@ -94,7 +94,7 @@ static void ai_event_callback(qm_input_event_t *input_event, void *arg)
     qm_ai_event_t event = {0};
     event.type = (qm_ai_event_type_t)input_event->sub_event;
 
-    QM_LOGI(AI_TAG, "recv event: %04x", input_event->sub_event);
+    QM_LOGD(AI_TAG, "recv event: %04x", input_event->sub_event);
 
     switch (input_event->sub_event)
     {
@@ -579,7 +579,7 @@ int32_t qm_ai_audio_player_data(qm_ai_handle_t handle, uint8_t *data, uint32_t s
     }
 
     if (handle->ai_start_flag) {
-        QM_LOGI(AI_TAG, "this function is not supported after sdk started");
+        QM_LOGE(AI_TAG, "this function is not supported after sdk started");
         return QM_EINVAL;
     }
 
@@ -644,7 +644,7 @@ static void ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
 
     qm_ai_handle_t handle = (qm_ai_handle_t)(input_event->arg);
 
-    QM_LOGI(AI_TAG, "inner event recv: %04x", input_event->sub_event);
+    QM_LOGD(AI_TAG, "inner event recv: %04x", input_event->sub_event);
 
     switch (input_event->sub_event)
     {

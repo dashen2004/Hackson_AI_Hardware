@@ -113,8 +113,8 @@ static void qm_example_ai_init()
 
     qm_ai_audio_options_t audio_op = {
         .channel_num = 1,
-        .codec_type = QM_AI_AUDIO_CODEC_DISABLED,
-        .data_type = QM_AI_AUDIO_DATA_TYPE_OPUS,
+        .codec_type = QM_AI_AUDIO_CODEC_TYPE_G722,
+        .data_type = QM_AI_AUDIO_DATA_TYPE_PCM,
         .duration = 40,
         .sample_rate = 16000,
         .audio_driver = driver,

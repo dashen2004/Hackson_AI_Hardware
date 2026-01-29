@@ -285,7 +285,7 @@ int qm_agora_connect(void)
         rtc_service_option_t service_opt = { 0 };
         service_opt.area_code            = AREA_CODE_GLOB;
         service_opt.log_cfg.log_disable  = false;
-        service_opt.log_cfg.log_level    = RTC_LOG_WARNING;
+        service_opt.log_cfg.log_level    = RTC_LOG_ERROR;
         service_opt.log_cfg.log_path     = DEFAULT_SDK_LOG_PATH;
         service_opt.log_cfg.log_printf   = ag_printf;
         service_opt.license_value[0]     = '\0';
