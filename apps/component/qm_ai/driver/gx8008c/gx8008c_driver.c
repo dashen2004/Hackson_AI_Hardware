@@ -18,9 +18,9 @@ typedef struct {
     void *user_data;
 } bsp_audio_t;
 
-static int32_t pcm_rxbuf[CONFIG_PCM_RXBUF_SIZE];    // pcm静态缓冲区
+static int32_t pcm_rxbuf[CONFIG_PCM_RXBUF_SIZE] = {0};    // pcm静态缓冲区
 
-static bsp_audio_t audio_handle;
+static bsp_audio_t audio_handle = {0};
 
 /**
  * @brief 打开音频设备

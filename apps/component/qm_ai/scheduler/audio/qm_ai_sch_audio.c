@@ -1,4 +1,4 @@
-#include "qm_audio.h"
+#include "qm_ai_sch_audio.h"
 #include "qm.h"
 #include "qm_ringbuf.h"
 #include "qm_utils_list.h"

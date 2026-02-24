@@ -1,12 +1,11 @@
 #include "gx8006_driver.h"
 #include "nc_audio.h"
-#include "qm_audio.h"
 #include "qm_uart.h"
 #include "qm_gpio.h"
 #include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"   
+#include "freertos/queue.h"
 
 #define SERIAL_RECV_LEN  (512)
 

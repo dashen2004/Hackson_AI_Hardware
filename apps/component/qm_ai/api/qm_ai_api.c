@@ -6,7 +6,7 @@
 #include "qm_ai_license.h"
 #include "qm_ai_volume.h"
 #include "qm_ai_voice_control.h"
-#include "qm_audio.h"
+#include "qm_ai_sch_audio.h"
 
 #define AI_TAG "AI"
 
@@ -94,7 +94,7 @@ static void ai_event_callback(qm_input_event_t *input_event, void *arg)
     qm_ai_event_t event = {0};
     event.type = (qm_ai_event_type_t)input_event->sub_event;
 
-    QM_LOGD(AI_TAG, "recv event: %04x", input_event->sub_event);
+    // QM_LOGD(AI_TAG, "recv event: %04x", input_event->sub_event);
 
     switch (input_event->sub_event)
     {
@@ -644,7 +644,7 @@ static void ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
 
     qm_ai_handle_t handle = (qm_ai_handle_t)(input_event->arg);
 
-    QM_LOGD(AI_TAG, "inner event recv: %04x", input_event->sub_event);
+    // QM_LOGD(AI_TAG, "inner event recv: %04x", input_event->sub_event);
 
     switch (input_event->sub_event)
     {
@@ -741,7 +741,7 @@ static void ai_inner_link_event_callback(qm_ai_link_event_type_e event, void *us
 
     qm_ai_handle_t ai_handle = (qm_ai_handle_t)user_data;
 
-    QM_LOGD(AI_TAG, "link recv event: %d", event);
+    // QM_LOGD(AI_TAG, "link recv event: %d", event);
 
     switch (event) {
         case QM_AI_LINK_EVENT_TYPE_AGENT_JOINED:

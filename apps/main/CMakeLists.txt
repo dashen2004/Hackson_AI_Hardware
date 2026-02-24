@@ -12,23 +12,22 @@ set(COMPONENT_SRCS
     "../component/qm_ai/module/license/qm_ai_license.c"
     "../component/qm_ai/module/volume/qm_ai_volume.c"
     "../component/qm_ai/module/voice_control/qm_ai_voice_control.c"
-    "../component/qm_struct_json/src/qm_struct_mapper.c"
 
     "../component/qm_ai/driver/gx8008c/gx8008c_driver.c"
 
     "../component/qm_ai/driver/gx8006/gx8006_driver.c"
     "../component/qm_ai/driver/gx8006/comm/nc_audio.c"
 
-    "../component/qm_audio/qm_audio.c"
+    "../component/qm_ai/scheduler/audio/qm_ai_sch_audio.c"
 
-    "../component/qm_audio/encoder/qm_audio_encoder.c"
-    "../component/qm_audio/sr/qm_audio_sr.c"
-    "../component/qm_audio/vc/qm_audio_vc.c"
-    "../component/qm_audio/recorder/qm_audio_recorder.c"
-    "../component/qm_audio/processor/qm_audio_processor.c"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/encoder/qm_audio_encoder.c"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/sr/qm_audio_sr.c"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/vc/qm_audio_vc.c"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/recorder/qm_audio_recorder.c"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/processor/qm_audio_processor.c"
 
-    "../component/qm_audio/board/gx8008_dev_board/qm_audio_board.c" 
-    "../component/qm_audio/board/gx8008_dev_board/qm_audio_stream.c" 
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/board/gx8008_dev_board/qm_audio_board.c" 
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/board/gx8008_dev_board/qm_audio_stream.c" 
 
     "$ENV{ADF_PATH}/qumi/kernel/init/qm_init.c"
 
@@ -159,16 +158,17 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "../component/qm_ai/module/license"
     "../component/qm_ai/module/volume"
     "../component/qm_ai/module/voice_control"
-    "../component/qm_struct_json/include"
 
-    "../component/qm_audio"
-    "../component/qm_audio/encoder"
-    "../component/qm_audio/board"
-    "../component/qm_audio/board/gx8008_dev_board"
-    "../component/qm_audio/sr"
-    "../component/qm_audio/vc"
-    "../component/qm_audio/recorder"
-    "../component/qm_audio/processor"
+    "../component/qm_ai/scheduler/audio"
+
+    "../component/qm_ai/driver/gx8008c/audio_pipeline"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/encoder"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/board"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/board/gx8008_dev_board"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/sr"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/vc"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/recorder"
+    "../component/qm_ai/driver/gx8008c/audio_pipeline/processor"
 
     "$ENV{ADF_PATH}/components/agora_iot_sdk/include"
 

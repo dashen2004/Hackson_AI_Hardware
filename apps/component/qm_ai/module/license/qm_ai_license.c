@@ -4,7 +4,6 @@
 #include "qm_log.h"
 #include "qm_kv.h"
 #include "cJSON.h"
-#include "qm_struct_mapper.h"
 #include <string.h>
 #include <stdlib.h>
 #include "qm_event.h"
@@ -54,14 +53,6 @@ static license_context_t g_ctx = {0};
 static void license_send_request_iot(void);
 static void license_register_service_iot(void);
 
-QM_STRUCT_BEGIN(qm_ai_rtc_auth_config_t)
-    QM_FIELD_INT(qm_ai_rtc_auth_config_t, uid)
-    QM_FIELD_STRING(qm_ai_rtc_auth_config_t, app_id)
-    QM_FIELD_STRING(qm_ai_rtc_auth_config_t, channel_name)
-    QM_FIELD_STRING(qm_ai_rtc_auth_config_t, token)
-    QM_FIELD_STRING(qm_ai_rtc_auth_config_t, license)
-QM_STRUCT_END(qm_ai_rtc_auth_config_t)
-
 static void free_if_not_null(char **ptr) 
 {
     if (*ptr) {
@@ -104,10 +95,21 @@ static cJSON *license_convert_to_json(void)
         return NULL;
     }
 
-    return qm_struct_to_json(&config, &QM_STRUCT_DESC_NAME(qm_ai_rtc_auth_config_t));
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) {
+        return NULL;
+    }
+
+    cJSON_AddNumberToObject(root, "uid", config.uid);
+    cJSON_AddStringToObject(root, "app_id", config.app_id);
+    cJSON_AddStringToObject(root, "channel_name", config.channel_name);
+    cJSON_AddStringToObject(root, "token", config.token);
+    cJSON_AddStringToObject(root, "license", config.license);
+
+    return root;
 }
 
-static void license_post_ready_event(void) 
+static void license_post_ready_event(void)
 {
     cJSON *json = license_convert_to_json();
     if (json) {
@@ -116,6 +118,7 @@ static void license_post_ready_event(void)
             qm_event_ext_post(QM_EVENT_QM_AI, QM_AI_EVENT_CLOUD_LICENSE, json_str, strlen(json_str) + 1, g_ctx.config.ai_handle);
         }
 
+        cJSON_free(json_str);
         cJSON_Delete(json);
     }
 }

@@ -63,25 +63,25 @@ int32_t rtc_agora_gen_set_data(qm_agora_gen_data_type_t type, void *data, int le
     {
         case QM_AGORA_GEN_TYPE_UID:
             agora_gen_handle->uid = *(int *)data;
-            QM_LOGD(LOG_TAG, "uid:%d", agora_gen_handle->uid);
+            // QM_LOGD(LOG_TAG, "uid:%d", agora_gen_handle->uid);
         break;
         case QM_AGORA_GEN_TYPE_APPID:
             agora_gen_handle->appId = (char *)data;
             agora_gen_handle->appId_len = len;
             agora_gen_handle->appId[agora_gen_handle->appId_len] = '\0';
-            QM_LOGD(LOG_TAG, "appId:%.*s", agora_gen_handle->appId_len, agora_gen_handle->appId);
+            // QM_LOGD(LOG_TAG, "appId:%.*s", agora_gen_handle->appId_len, agora_gen_handle->appId);
         break;
         case QM_AGORA_GEN_TYPE_CHANNEL_NAME:
             agora_gen_handle->channelName = (char *)data;
             agora_gen_handle->channelName_len = len;
             agora_gen_handle->channelName[agora_gen_handle->channelName_len] = '\0';
-            QM_LOGD(LOG_TAG, "channelName:%.*s", agora_gen_handle->channelName_len, agora_gen_handle->channelName);
+            // QM_LOGD(LOG_TAG, "channelName:%.*s", agora_gen_handle->channelName_len, agora_gen_handle->channelName);
         break;
         case QM_AGORA_GEN_TYPE_TOKEN:
             agora_gen_handle->token = (char *)data;
             agora_gen_handle->token_len = len;
             agora_gen_handle->token[agora_gen_handle->token_len] = '\0';
-            QM_LOGD(LOG_TAG, "token:%.*s", agora_gen_handle->token_len, agora_gen_handle->token);
+            // QM_LOGD(LOG_TAG, "token:%.*s", agora_gen_handle->token_len, agora_gen_handle->token);
         break;
         case QM_AGORA_GEN_TYPE_LICENSE_VALUE:
         #if CONFIG_AGORA_USE_LICENSE
@@ -204,7 +204,11 @@ void *qm_agora_gen_init(char *license)
     memset(agora_handle, 0, sizeof(qm_agora_gen_handle_t));
     agora_gen_handle = agora_handle;
 
-    rtc_agora_gen_unpack_license(license);
+    if (rtc_agora_gen_unpack_license(license) != QM_EOK) {
+        QM_LOGE(LOG_TAG, "Failed to unpack license");
+        qm_free(agora_handle);
+        return NULL;
+    }
 
     return agora_handle;
 }
