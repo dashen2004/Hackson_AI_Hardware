@@ -20,6 +20,10 @@
 #define CONFIG_QM_IOT_MQTT_WRITE_MSGLEN   2048
 #endif
 
+#ifndef CONFIG_QM_IOT_MQTT_YIELD_TIME
+#define CONFIG_QM_IOT_MQTT_YIELD_TIME     100
+#endif
+
 #ifndef CONFIG_QM_IOT_MQTT_RETRY_INTERVAL_MAX_MS
 #define CONFIG_QM_IOT_MQTT_RETRY_INTERVAL_MAX_MS  5000
 #endif
@@ -30,6 +34,10 @@
 
 #ifndef CONFIG_QM_IOT_MQTT_TOPIC_SUB_MAX_COUNT
 #define CONFIG_QM_IOT_MQTT_TOPIC_SUB_MAX_COUNT     8
+#endif
+
+#ifndef CONFIG_QM_IOT_MQTT_TOPIC_SUB_RETRY_COUNT
+#define CONFIG_QM_IOT_MQTT_TOPIC_SUB_RETRY_COUNT   3
 #endif
 
 typedef struct 
@@ -812,6 +820,7 @@ static int sub_topic_info_reset(void *handle)
 int32_t qm_iot_mqtt_pre_sub_start(void *handle)
 {
     int ret = 0;
+    int retry = CONFIG_QM_IOT_MQTT_TOPIC_SUB_RETRY_COUNT;
     qm_list_iterator_t self;
     int req_count = 0, every_count = 0, remain_count = 0;
     int count = 0, i = 0, j = 0, sum_count = 0;
@@ -848,7 +857,7 @@ int32_t qm_iot_mqtt_pre_sub_start(void *handle)
     every_count = count;
     remain_count = sum_count;
     for(j = 0; j < req_count; j++){
-
+        retry = CONFIG_QM_IOT_MQTT_TOPIC_SUB_RETRY_COUNT;
         self.next = mqtt_ctx->pre_sub_list.tail;  
         self.direction = LIST_TAIL;
         qm_mutex_lock(&mqtt_ctx->lock, QM_WAIT_FOREVER);
@@ -863,16 +872,25 @@ int32_t qm_iot_mqtt_pre_sub_start(void *handle)
             node = qm_list_iterator_next(&self);
         }  
         qm_mutex_unlock(&mqtt_ctx->lock);
-        ret = iot_mqtt_client_multi_subscribe_wait_ack(mqtt_ctx->mqtt_handle, topic_list, every_count);
-        if(ret != SUCCESS_RETURN){
-            ret = -QM_ETIMEOUT;
-            break;
-        }else{
-            qm_mutex_lock(&mqtt_ctx->lock, QM_WAIT_FOREVER);
-            sub_topic_info_move(mqtt_ctx->sub_list, &mqtt_ctx->pre_sub_list, every_count);
-            qm_mutex_unlock(&mqtt_ctx->lock);
-            ret = QM_EOK;
+        while (retry--)
+        {
+            ret = iot_mqtt_client_multi_subscribe_wait_ack(mqtt_ctx->mqtt_handle, topic_list, every_count);
+            if(ret != SUCCESS_RETURN){
+                QM_LOGW(LOG_TAG, "mqtt sub wait ack error:%d", ret);
+                ret = -QM_ETIMEOUT;
+            }else{
+                qm_mutex_lock(&mqtt_ctx->lock, QM_WAIT_FOREVER);
+                sub_topic_info_move(mqtt_ctx->sub_list, &mqtt_ctx->pre_sub_list, every_count);
+                qm_mutex_unlock(&mqtt_ctx->lock);
+                ret = QM_EOK;
+                break;
+            }
         }
+        
+        if(ret != QM_EOK) {
+            break;
+        }
+
         m_topic_list = NULL;
         remain_count = remain_count - every_count;
         if(remain_count >= CONFIG_QM_IOT_MQTT_TOPIC_SUB_MAX_COUNT){
