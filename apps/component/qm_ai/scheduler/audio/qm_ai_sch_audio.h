@@ -10,7 +10,6 @@ extern "C" {
 
 typedef enum {
     QM_AUDIO_TYPE_NONE = 0,
-    QM_AUDIO_TYPE_LOCAL,
     QM_AUDIO_TYPE_AGENT,
     QM_AUDIO_TYPE_MAX,
 }qm_audio_type_t;
@@ -49,27 +48,13 @@ typedef struct {
     void *arg;
 }qm_audio_param_t;
 
-
-typedef int (*qm_play_get_t)(uint8_t **data, int *len);
-
-typedef struct {
-    qm_play_get_t play_get;
-}qm_play_data_t;
-
-
 int qm_audio_init(qm_audio_param_t *audio_param);
-
-qm_audio_state_t qm_audio_state_get(void);
-
-int qm_audio_play_with_data(qm_audio_type_t type, qm_play_data_t *play_data);
 
 int qm_audio_data_push(qm_audio_type_t type, uint8_t *data, int len);
 
 int qm_audio_play(qm_audio_type_t type);
 
 int qm_audio_mute(void);
-
-int qm_audio_pause(void);
 
 int qm_audio_stop(void);
 

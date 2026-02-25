@@ -10,7 +10,6 @@
 #include "qm_workqueue.h"
 #include "qm_work.h"
 #include "qm_iot_api.h"
-#include "ai_main.h"
 #include "qm_ai_api.h"
 
 #define LOG_TAG "LICENSE"
