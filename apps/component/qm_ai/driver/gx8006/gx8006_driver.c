@@ -40,8 +40,6 @@ static qm_uart_dev_t uart_dev = {
         .flow_ctrl = QM_UART_FLOW_CTRL_NONE,
     },
     .port = 1,
-    .queue = &uart_queue,
-    .qlen = 20,
 };
 
 static qm_gpio_dev_t nc_int_io = {
@@ -106,36 +104,11 @@ int serial_send(uint8_t *data, int len)
 
 void uart_read(void *pvParameters) 
 {
-    uart_event_t event;
-    
-    for(;;) {
-        if (xQueueReceive(uart_queue, (void *)&event, QM_WAIT_FOREVER)) {
-            switch (event.type) {
-                case UART_DATA:
-                    memset(nc_player_handle.recv_buff, 0, SERIAL_RECV_LEN);
-                    int len = uart_read_bytes(uart_dev.port, nc_player_handle.recv_buff, event.size, QM_WAIT_FOREVER);
-                    if (len) {
-                        // QM_HEX_LOGD("1", "recv ", nc_player_handle.recv_buff, len);
-                        nc_audio_recv_push(nc_player_handle.recv_buff, len);
-                    }
-                break;
+    while (1) {
+        int len = uart_read_bytes(uart_dev.port, nc_player_handle.recv_buff, SERIAL_RECV_LEN, pdMS_TO_TICKS(20));
 
-                case UART_FIFO_OVF:
-                    QM_LOGD("1", "hw fifo overflow\n");
-                    uart_flush_input(uart_dev.port);
-                    xQueueReset(uart_queue);
-                break;
-
-                case UART_BUFFER_FULL:
-                    QM_LOGD("1", "ring buffer full\n");
-                    uart_flush_input(uart_dev.port);
-                    xQueueReset(uart_queue);
-                break;
-
-                default:
-                    QM_LOGD("1", "uart event type: %d\n", event.type);
-                break;
-            }
+        if (len > 0) {
+            nc_audio_recv_push(nc_player_handle.recv_buff, len);
         }
     }
 }
