@@ -76,12 +76,20 @@ static int modem_4g_close(void)
 
 static int modem_4g_open(void)
 {
+    char *sn = NULL;
     qm_modem_config_t cfg = {
         .rx_buffer_size = 5*1024,
         .tx_buffer_size = 5*1024,
         .channel = QM_MODEM_CHANNLE_4G,
         .event_handler = modem_4g_event_handler,
     };
+
+
+    sn = qm_iot_sn_get();
+    if(sn[0] == '\0'){
+        QM_LOGE(LOG_TAG, "modem 4g sn is empty");
+        return -QM_EINVAL;  
+    }
 
     modem_4g_handle = (qm_iot_core_4g_t *)qm_malloc(sizeof(qm_iot_core_4g_t));
     if(modem_4g_handle == NULL){
