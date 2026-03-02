@@ -1133,16 +1133,9 @@ static int qm_iot_pub_recv_comm_handler(qm_iot_core_handle_t *core_handle, qm_io
     switch (recv->type)
     {
         case QM_IOT_PUBRECV_SHADOW_SET:
-            iot_recv.type = QM_IOT_RECV_TYPE_SET;
-            iot_recv.siid = recv->data.set.spec_property->siid;
-            iot_recv.piid = recv->data.set.spec_property->piid;
-            iot_recv.data.set.property = recv->data.set.spec_property;
-            if(core_handle->recv_handler){
-                core_handle->recv_handler(core_handle, &iot_recv, core_handle->user_data);
-            }
-        break;
     #if CONFIG_QM_IOT_SPEC_SUPPORT
         case QM_IOT_PUBRECV_PROPERTY_SET:
+    #endif
             while (1)
             {
                 spec_prop = qm_spec_property_next(recv->data.prop_set.operation, spec_prop);
@@ -1159,6 +1152,7 @@ static int qm_iot_pub_recv_comm_handler(qm_iot_core_handle_t *core_handle, qm_io
                 }
             }
         break;
+     #if CONFIG_QM_IOT_SPEC_SUPPORT
         case QM_IOT_PUBRECV_PROPERTY_GET_RSP:
             while (1)
             {
@@ -1249,19 +1243,6 @@ static void qm_iot_core_pub_process(qm_iot_core_handle_t *core_handle)
 #endif
 
 #if CONFIG_QM_IOT_OTA_SUPPORT
-
-#if CONFIG_QM_IOT_OTA_MCU_SUPPORT
-int qm_iot_version_report(void *handle, char *version, qm_iot_mcu_ver_info_t *ver_info)
-{
-    qm_iot_core_handle_t *core_handle = (qm_iot_core_handle_t *)handle;
-    if(core_handle == NULL || core_handle->ota_handle == NULL){
-        return -QM_EINVAL;
-    }
-    return qm_iot_ota_version_report(core_handle->ota_handle, version, ver_info);
-}
-
-#endif
-
 static void qm_iot_ota_event_handler(void *handle, const qm_iot_ota_event_t *event, void *userdata)
 {
     qm_iot_event_t iot_event = {0};
@@ -1275,59 +1256,39 @@ static void qm_iot_ota_event_handler(void *handle, const qm_iot_ota_event_t *eve
     {
         case QM_IOT_OTA_EVENT_READY:
             iot_event.type = QM_IOT_EVENT_OTA_READY;
-            iot_event.data.ota_ready.ota_type = event->ota_type;
-            iot_event.data.ota_ready.version_len = event->data.ready.version_len;
-            iot_event.data.ota_ready.update_version = event->data.ready.update_version;
             qm_iot_event_post(core_handle, &iot_event);
+            ota_event->data.ready.result = (qm_iot_ota_req_result_t)iot_event.data.ota_ready.is_busy;
         break;
 
         case QM_IOT_OTA_EVENT_START:
             iot_event.type = QM_IOT_EVENT_OTA_START;
-            iot_event.data.ota_start.ota_type = event->ota_type;
-            iot_event.data.ota_start.file_size = event->data.start.file_size;
-            iot_event.data.ota_start.extra = event->data.start.extra;
-            iot_event.data.ota_start.extra_len = event->data.start.extra_len;
-            iot_event.data.ota_start.version_len = event->data.start.version_len;
-            iot_event.data.ota_start.update_version = event->data.start.update_version;
             qm_iot_event_post(core_handle, &iot_event);
-            ((qm_iot_ota_event_t *)event)->data.start.code = iot_event.data.ota_start.code;
-            ((qm_iot_ota_event_t *)event)->data.start.block_size = iot_event.data.ota_start.rsp_block_size;
         break;
         
         case QM_IOT_OTA_EVENT_DATA_INSTALLING:
             iot_event.type = QM_IOT_EVENT_OTA_INSTALLING;
-            iot_event.data.data_write.ota_type = event->ota_type;
-            iot_event.data.data_write.id = event->data.data_write.id;
-            iot_event.data.data_write.ota_data = event->data.data_write.ota_data;
-            iot_event.data.data_write.data_len = event->data.data_write.data_len;
             qm_iot_event_post(core_handle, &iot_event);
-            ((qm_iot_ota_event_t *)event)->data.data_write.code = iot_event.data.data_write.code;
         break;
         
         case QM_IOT_OTA_EVENT_PROGRESS_UPADTE:
             iot_event.type = QM_IOT_EVENT_OTA_PROGRESS_UPADTE;
-            iot_event.data.ota_progress_update.ota_type = event->ota_type;
             iot_event.data.ota_progress_update.progress_details = 
                             event->data.progress_update.progress_details;
             qm_iot_event_post(core_handle, &iot_event);
-            ((qm_iot_ota_event_t *)event)->data.progress_update.code = iot_event.data.ota_progress_update.code;
         break;
 
         case QM_IOT_OTA_EVENT_SUCCESS:
             iot_event.type = QM_IOT_EVENT_OTA_SUCCESS;
-            iot_event.data.ota_success.ota_type = event->ota_type;
             qm_iot_event_post(core_handle, &iot_event);
         break;
 
         case QM_IOT_OTA_EVENT_FAILED:
             iot_event.type = QM_IOT_EVENT_OTA_FAILED;
-            iot_event.data.ota_failed.ota_type = event->ota_type;
             qm_iot_event_post(core_handle, &iot_event);
         break;
         
         case QM_IOT_OTA_EVENT_CANCEL:
             iot_event.type = QM_IOT_EVENT_OTA_CANCEL;
-            iot_event.data.ota_cancel.ota_type = event->ota_type;
             qm_iot_event_post(core_handle, &iot_event);
         break;
 
