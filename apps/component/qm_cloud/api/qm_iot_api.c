@@ -193,9 +193,9 @@ static void qm_iot_core_task(void *arg)
         }
     #endif
     
-    core_handle->use_mqtt = QM_TRUE;
-
+    
 #if CONFIG_QM_IOT_MQTT_SUPPORT
+    core_handle->use_mqtt = QM_TRUE;
     while(!core_handle->exit)
     {
         if(!core_handle->use_mqtt){
@@ -282,7 +282,9 @@ static void qm_iot_core_event_handler(qm_input_event_t *input_event, void *arg)
         break;
 
         case QM_IOT_EVENT_LOCAL_DISCONN:
+        #if CONFIG_QM_IOT_MQTT_SUPPORT
             core_handle->use_mqtt = QM_FALSE;
+        #endif
             qm_iot_event_post(core_handle, &event);
         break;
 
@@ -295,6 +297,12 @@ static void qm_iot_core_event_handler(qm_input_event_t *input_event, void *arg)
 
         case QM_IOT_EVENT_CLOUD_CONN:  
         case QM_IOT_EVENT_CONNING_CLOUD:
+        #if CONFIG_QM_IOT_MQTT_SUPPORT
+            core_handle->use_mqtt = QM_TRUE;
+        #endif
+            qm_iot_event_post(core_handle, &event);
+        break;
+        
         case QM_IOT_EVENT_CLOUD_DISCONN:
             qm_iot_event_post(core_handle, &event);
         break;
@@ -562,6 +570,42 @@ int32_t qm_iot_stop(void *handle)
             return ret;
         }
     }
+
+    return QM_EOK;
+}
+
+int32_t qm_iot_change_net_type(void *handle, qm_iot_net_type_t net_type)
+{
+    uint32_t did = 0;
+    int ret = QM_EOK;
+    uint32_t len = 0;
+    qm_iot_core_net_handle_t *net = NULL;
+
+    qm_iot_core_handle_t *core_handle = (qm_iot_core_handle_t *)handle;
+    if(core_handle == NULL){
+        return -QM_EINVAL;
+    }
+
+    if(core_handle->net_type == QM_IOT_NET_TYPE_NONE){
+        #if CONFIG_QM_IOT_NETWORK_TYPE_4G
+            core_handle->net_type = QM_IOT_NET_TYPE_4G;
+        #elif CONFIG_QM_IOT_NETWORK_TYPE_WIFI
+            core_handle->net_type = QM_IOT_NET_TYPE_WIFI_COMBO;
+        #else
+            QM_LOGE(LOG_TAG, "NETWORK TYPE NONE!!");    
+            return -QM_EINVAL;
+        #endif
+    }
+
+    qm_iot_stop(core_handle);
+
+    ret = qm_iot_net_type_set(core_handle, core_handle->net_type);
+    if(ret != QM_EOK){
+        QM_LOGE(LOG_TAG, "NETWORK SET FAILED!!");
+        return ret;
+    }
+
+    qm_iot_start(core_handle);
 
     return QM_EOK;
 }
@@ -1099,7 +1143,6 @@ static int qm_iot_pub_recv_comm_handler(qm_iot_core_handle_t *core_handle, qm_io
         break;
     #if CONFIG_QM_IOT_SPEC_SUPPORT
         case QM_IOT_PUBRECV_PROPERTY_SET:
-    #endif
             while (1)
             {
                 spec_prop = qm_spec_property_next(recv->data.prop_set.operation, spec_prop);
@@ -1116,7 +1159,6 @@ static int qm_iot_pub_recv_comm_handler(qm_iot_core_handle_t *core_handle, qm_io
                 }
             }
         break;
-     #if CONFIG_QM_IOT_SPEC_SUPPORT
         case QM_IOT_PUBRECV_PROPERTY_GET_RSP:
             while (1)
             {

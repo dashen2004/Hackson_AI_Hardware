@@ -353,7 +353,7 @@ static int32_t qm_iot_mqtt_connect(void *handle)
     mqtt_params.username = mqtt_ctx->username;
     mqtt_params.password = mqtt_ctx->password;
 
-    mqtt_params.request_timeout_ms = 1000;
+    mqtt_params.request_timeout_ms = 3000;
     mqtt_params.clean_session = mqtt_ctx->clean_session;
     mqtt_params.keepalive_interval_ms = mqtt_ctx->keep_alive_s * 1000;
     mqtt_params.pread_buf = mqtt_ctx->msg_readbuf;

@@ -45,7 +45,7 @@ typedef struct
     char authcode[CONFIG_QM_IOT_AUTHCODE_MAX_LEN];
 #endif
 
-#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI
+#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI || CONFIG_QM_IOT_NETWORK_TYPE_WIFI_NORMAL
     qm_ip_info_t ip_info;
 #endif
 
@@ -223,7 +223,7 @@ int32_t qm_iot_cloud_info_get(qm_iot_cloud_info_t *cloud_info)
     return qm_kv_get(CLOUD_INFO_KEY, cloud_info, (int *)&len);
 }
 
-#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI
+#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI || CONFIG_QM_IOT_NETWORK_TYPE_WIFI_NORMAL
 int32_t qm_iot_wifi_info_set(qm_iot_wifi_info_t *wifi_info)
 {
     return qm_kv_set(WIFI_INFO_KEY, wifi_info, sizeof(qm_iot_wifi_info_t), 1);

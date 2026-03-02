@@ -7,7 +7,7 @@ extern "C" {
 
 #include "qm.h"
 
-#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI
+#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI || CONFIG_QM_IOT_NETWORK_TYPE_WIFI_NORMAL
 #include "qm_wifi.h"
 #endif
 
@@ -181,7 +181,7 @@ typedef struct {
 int32_t qm_iot_cloud_info_set(qm_iot_cloud_info_t *cloud_info);
 int32_t qm_iot_cloud_info_get(qm_iot_cloud_info_t *cloud_info);
 
-#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI
+#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI || CONFIG_QM_IOT_NETWORK_TYPE_WIFI_NORMAL
 
 typedef struct {
     char ssid[CONFIG_QM_IOT_SSID_MAX_LEN + 1];

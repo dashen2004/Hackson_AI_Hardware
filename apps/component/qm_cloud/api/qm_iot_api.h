@@ -442,6 +442,14 @@ int32_t qm_iot_stop(void *handle);
 
 
 /**
+ * @brief 网络类型设置接口
+ * 
+ * 
+ */
+int32_t qm_iot_change_net_type(void *handle, qm_iot_net_type_t net_type);
+
+
+/**
  * @brief 上报 AWS spec属性 (后续会逐步取消此接口)
  * 
  * @details property_operation调用后，接口内部会qm_free掉该资源

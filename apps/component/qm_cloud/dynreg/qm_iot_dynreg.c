@@ -18,19 +18,6 @@
 #define RSP_PAYLOAD_MAX_STR_LEN    (8 * 1024)
 
 
-
-#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI || CONFIG_QM_IOT_NETWORK_TYPE_WIFI_NORMAL
-#define SHADOW_DYNERG_REQ_FORMAT  "{\"sn\":\"%s\",\"pid\":\"%d\",\"timestamp\":\"%d\",\"signature\":\"%s\",\"nonce\":%d}"
-#endif
-
-#if CONFIG_QM_IOT_NETWORK_TYPE_4G
-#if CONFIG_QM_IOT_DYNREG_4G_V1
-#define SHADOW_DYNERG_REQ_FORMAT  "{\"pid\":%d,\"authCode\":\"%s\"}"
-#else
-#define SHADOW_DYNERG_REQ_FORMAT  "{\"pid\":%d,\"sn\":\"%s\",\"authCode\":\"%s\"}"
-#endif
-#endif
-
 #define SHADOW_SN_KEY           "sn"
 #define SHADOW_STATUS_KEY       "status"
 #define SHADOW_RESULT_KEY       "result"
@@ -255,23 +242,6 @@ int32_t qm_iot_dynreg_start(void *handle, char *params)
     memset(rsp_payload, 0, RSP_PAYLOAD_MAX_STR_LEN);
 
 
-#if 0
-    timestamp = (uint32_t)qm_now_ms();
-    qm_srandom((uint32_t)qm_now_ms());
-
-    req_handle->nonce = qm_random_get(DEVICE_DYNREG_NONCE_MAX);
-
-#if CONFIG_QM_IOT_NETWORK_TYPE_4G
-#if CONFIG_QM_IOT_DYNREG_4G_V1
-    qm_snprintf(post_data, DATA_MAX_STR_LEN, 
-        SHADOW_DYNERG_REQ_FORMAT, req_handle->pid, qm_iot_authcode_get());
-
-#else
-    qm_snprintf(post_data, DATA_MAX_STR_LEN, 
-        SHADOW_DYNERG_REQ_FORMAT, req_handle->pid, qm_iot_sn_get(), qm_iot_authcode_get());
-#endif
-#endif
-#endif
     //链接connect
     backoff_algorithm_init(&backoff_ctx, BACKOFF_BASE_TIME_MS, dynreg_handle->recv_timeout, dynreg_handle->retry_num);
     while (1)

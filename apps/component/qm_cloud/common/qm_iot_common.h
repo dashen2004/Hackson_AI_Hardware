@@ -28,6 +28,10 @@ extern "C" {
 #define QM_IOT_COMMON_PARAMS_IP_TYPE_KEY                 "ip"
 #define QM_IOT_COMMON_PARAMS_MODULE_TYPE_KEY             "moudle"
 
+#define QM_IOT_COMMON_PARAM_LONGITUDE_KEY         "longitude"
+#define QM_IOT_COMMON_PARAM_LATITUDE_KEY          "latitude"
+#define QM_IOT_COMMON_PARAM_ICCID_KEY             "iccId"
+
 typedef enum {
     QM_IOT_CODE_SUCCESS = 0,
     QM_IOT_CODE_ERROR,
