@@ -1,4 +1,5 @@
 #include "qm.h"
+#if CONFIG_QM_IOT_NETWORK_TYPE_WIFI_NORMAL
 #include "qm_work.h"
 #include "qm_iot_api.h"
 #include "qm_iot_core.h"
@@ -300,3 +301,4 @@ __exit:
     }
     return payload;
 }
+#endif

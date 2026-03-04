@@ -36,7 +36,7 @@ extern "C" {
 #if CONFIG_QM_IOT_AUTHCODE_SUPPORT
 
 #ifndef CONFIG_QM_IOT_AUTHCODE_MAX_LEN 
-#define CONFIG_QM_IOT_AUTHCODE_MAX_LEN           32
+#define CONFIG_QM_IOT_AUTHCODE_MAX_LEN           64
 #endif
 
 #endif

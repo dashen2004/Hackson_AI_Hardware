@@ -4,8 +4,6 @@
 #include "qm_iot_core.h"
 #include "qm_iot_config.h"
 
-#include "qm_wifi.h"
-#include "qm_ble_gap.h"
 
 #define LOG_TAG "IOT_WIFI"
 

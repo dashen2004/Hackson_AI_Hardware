@@ -1,4 +1,5 @@
 #include "qm.h"
+#if CONFIG_QM_IOT_NETWORK_TYPE_4G
 #include "qm_work.h"
 #include "qm_iot_api.h"
 #include "qm_iot_core.h"
@@ -41,6 +42,7 @@ static int modem_4g_ctrl(qm_iot_core_ctrl_t cmd, void *param);
 
 static void modem_4g_provision(void);
 static void modem_4g_sta_conn_router(void);
+static void modem_4g_event_handler(qm_modem_event_t event, void *data, int len, void *arg);
 static void qm_comm_conn_handler(qm_input_event_t *input_event, void *arg);
 
 static qm_iot_core_4g_t *modem_4g_handle = NULL;
@@ -85,11 +87,6 @@ static int modem_4g_open(void)
     };
 
 
-    sn = qm_iot_sn_get();
-    if(sn[0] == '\0'){
-        QM_LOGE(LOG_TAG, "modem 4g sn is empty");
-        return -QM_EINVAL;  
-    }
 
     modem_4g_handle = (qm_iot_core_4g_t *)qm_malloc(sizeof(qm_iot_core_4g_t));
     if(modem_4g_handle == NULL){
@@ -234,6 +231,7 @@ static char *qm_iot_dev_modem_4g_reginfo_get(void)
 
 static void modem_4g_event_handler(qm_modem_event_t event, void *data, int len, void *arg)
 {
+    char imsi[CONFIG_QM_IOT_AUTHCODE_MAX_LEN + 1] = {0};
     qm_iot_core_4g_t *core_handle = (qm_iot_core_4g_t *)arg;
 
 #if CONFIG_QM_IOT_DEV_INFO_SUPPORT
@@ -267,6 +265,9 @@ static void modem_4g_event_handler(qm_modem_event_t event, void *data, int len, 
             qm_iot_4g_lbs_info_set(modem_lbs);
             core_handle->get_lbs = QM_TRUE;
 
+            qm_modem_get_imsi(NULL, imsi, CONFIG_QM_IOT_AUTHCODE_MAX_LEN);
+            qm_iot_sn_set(imsi, strlen(imsi));
+
             qm_iot_core_net_handle_event_notify(QM_IOT_NET_TYPE_4G, QM_IOT_CORE_EVENT_CONNECTED_NET);
 
         break;
@@ -291,3 +292,4 @@ static void modem_4g_event_handler(qm_modem_event_t event, void *data, int len, 
             break;
     }
 }
+#endif

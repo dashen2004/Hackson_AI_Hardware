@@ -909,13 +909,18 @@ static void iot_req_action(void *arg)
     
     if(param) {
         qm_iot_dev_send_devinfo(core_handle->dev_handle, param);
-        qm_free(param);
     }
 #endif
 
 #if CONFIG_QM_IOT_NTP_SUPPORT
     if(core_handle->ntp_handle){
         qm_iot_ntp_request(core_handle->ntp_handle);
+    }
+#else
+    qm_iot_reset_info_get(&reset_info);
+    if (reset_info.is_reset == QM_IOT_NOT_RESET){
+        core_handle->status = QM_IOT_EVENT_CLOUD_CONN;
+        qm_iot_event_notify(core_handle, QM_IOT_EVENT_CLOUD_CONN);
     }
 #endif
 
