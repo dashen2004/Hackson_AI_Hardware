@@ -13,6 +13,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "bsp_bat.h"
+#include "bsp_sensor_light.h"
+#include "bsp_sensor_tof.h"
+
 #define LOG_TAG "log"
 
 #define DEAFALUT_REPLY_WAV              ("/spiffs/dingding.wav")
@@ -35,7 +39,7 @@ static qm_ai_handle_t ai_handle = NULL;
 
 static void qm_example_play_data(qm_ai_handle_t handle)
 {
-    // FILE *fd = fopen(CONN_CLOUD_WAV, "r");
+    // FILE *fd = fopen(XJIANG_TEST_WAV, "r");
 
     // uint8_t data[256] = {0};
     // int len = 0;
@@ -51,8 +55,8 @@ static void qm_ai_event_cb(qm_ai_handle_t handle, qm_ai_event_t *event, void *us
     {
         case QM_AI_EVENT_CLOUD_LICENSE:
             QM_LOGI("1", "Cloud license success!");
-            qm_example_play_data(ai_handle);
-            qm_ai_start(ai_handle);
+            // qm_example_play_data(ai_handle);
+            // qm_ai_start(ai_handle);
         break;
 
         case QM_AI_EVENT_AGENT_STATE:
@@ -113,8 +117,8 @@ static void qm_example_ai_init()
 
     qm_ai_audio_options_t audio_op = {
         .channel_num = 1,
-        .codec_type = QM_AI_AUDIO_CODEC_TYPE_G722,
-        .data_type = QM_AI_AUDIO_DATA_TYPE_PCM,
+        .codec_type = QM_AI_AUDIO_CODEC_DISABLED,
+        .data_type = QM_AI_AUDIO_DATA_TYPE_OPUS,
         .duration = 40,
         .sample_rate = 16000,
         .audio_driver = driver,
@@ -129,7 +133,12 @@ static void qm_example_ai_init()
 
 void qm_application_start(void)
 {
-    QM_LOGD("1", "Ver:%s", CONFIG_QM_AI_SDK_VERSION);
+    QM_LOGD("1", "Ver:%s", CONFIG_CT_EYE_PLUSH_VERSION);
+
+    bsp_bat_init();
+
+    bsp_sensor_light_init();
+    bsp_sensor_tof_init();
 
     qm_example_iot_init();
 

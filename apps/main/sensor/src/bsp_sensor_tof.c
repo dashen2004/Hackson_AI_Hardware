@@ -1,58 +1,56 @@
 #include "bsp_sensor_tof.h"
-#include "driver/i2c_master.h"
-
 #include "qm_gpio.h"
+#include "nds03_platform.h"
+#include "nds03_calib.h"
+#include "nds03_comm.h"
+#include "nds03_data.h"
+#include "nds03_dev.h"
 
-#define I2C_MASTER_SCL_IO           8
-#define I2C_MASTER_SDA_IO           9
-#define I2C_MASTER_FREQ_HZ          400 * 1000
-#define I2C_MASTER_PORT             0
-
-#define I2C_DEVICE_ADDR             0x5C
-
-static i2c_master_bus_handle_t bus_handle;
-static i2c_master_dev_handle_t dev_handle;
-
-static qm_gpio_dev_t nc_int_io = {
-    .port = 38,
+static qm_gpio_dev_t tof_int_io = {
+    .port = 12,
     .config = {
         .mode = QM_GPIO_MODE_INPUT,
         .pull_en = QM_GPIO_PULLUP_ONLY,
     },
 };
 
-void i2c_master_init(void)
+static NDS03_Dev_t nds_dev = {
+    .dev_pwr_state = NDS03_DISABLE,
+    .config = {0},
+    .chip_info = {0},
+    .data_cnt = 0,
+    .ranging_data = {{0}},
+    .platform = {
+        .i2c_dev_addr = 0x5C,
+        .xshut_pin = 0,
+    },
+};
+
+
+qm_err_t bsp_sensor_tof_init(void)
 {
-    qm_gpio_init(&nc_int_io);
+    // qm_gpio_init(&tof_int_io);
+    // qm_gpio_enable_irq(&tof_int_io, QM_GPIO_INTR_NEGEDGE, tof_int_handler, NULL);
+    nds03_platform_init(&nds_dev.platform, NULL);
+    
+    QM_LOGI("1", "Waiting for NDS03 boot up...");
+    NDS03_WaitDeviceBootUp(&nds_dev);
 
-    i2c_master_bus_config_t bus_config = {
-        .i2c_port = I2C_MASTER_PORT,
-        .sda_io_num = I2C_MASTER_SDA_IO,
-        .scl_io_num = I2C_MASTER_SCL_IO,
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 7,
-        .intr_priority = 0,
-        .trans_queue_depth = 0,
-        .flags.enable_internal_pullup = true,
-    };
+    QM_LOGI("1", "NDS03 boot up success, fw version: 0x%08x", nds_dev.chip_info.fw_version);
+    NDS03_InitDevice(&nds_dev);
 
-    ESP_ERROR_CHECK(i2c_new_master_bus(&bus_config, &bus_handle));
+    QM_LOGI("1", "NDS03 init success");
 
-    i2c_device_config_t dev_config = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = I2C_DEVICE_ADDR,
-        .scl_speed_hz = I2C_MASTER_FREQ_HZ,
-    };
+    // NDS03_OffsetCalibration(&nds_dev);
 
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle));
-}
+    // while (1) {
+    //     NDS03_GetSingleRangingData(&nds_dev);
 
-esp_err_t i2c_write(uint8_t *data, size_t len)
-{
-    return i2c_master_transmit(dev_handle, data, len, -1);
-}
+    //     QM_LOGI("1", "dist: %d", nds_dev.ranging_data[0].depth);
 
-esp_err_t i2c_read(uint8_t *data, size_t len)
-{
-    return i2c_master_receive(dev_handle, data, len, -1);
+    //     qm_msleep(1000);
+    // }
+    
+
+    return QM_EOK;
 }

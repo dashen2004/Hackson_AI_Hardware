@@ -119,7 +119,7 @@ static int gx8006_open(void)
         .rate = 16000,
         .bits = 16,
         .channel = 1,
-        .spk_gain = 30,
+        .spk_gain = 10,
         .mic_gain = 26,
         .vad_timeout = 10,
         .fmt_type = 2,

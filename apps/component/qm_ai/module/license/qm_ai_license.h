@@ -3,7 +3,7 @@
 
 #include "qm.h"
 
-#define QM_AI_LICENSE_TYPE      1
+#define QM_AI_LICENSE_TYPE      0
 
 //RTC登录信息
 #define CONFIG_AUDIO_RTC_LOGIN_SIID         (7)

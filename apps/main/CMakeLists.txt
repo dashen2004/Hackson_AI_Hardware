@@ -3,8 +3,16 @@ set(COMPONENT_SRCS
     "./apps/main.c"
     "./apps/ai_main.c"
 
+    "./bat/bsp_bat.c"
+    "./sensor/src/bsp_i2c.c"
     "./sensor/src/bsp_sensor_tof.c"
     "./sensor/src/bsp_sensor_light.c"
+
+    "../component/NDS03_SDK/example/nds03_platform.c"
+    "../component/NDS03_SDK/src/nds03_calib.c"
+    "../component/NDS03_SDK/src/nds03_comm.c"
+    "../component/NDS03_SDK/src/nds03_data.c"
+    "../component/NDS03_SDK/src/nds03_dev.c"
 
     "../component/qm_ai/inner/qm_ai_inner_rtc_api.c"
     "../component/qm_ai/inner/rtc/agora/qm_agora.c"
@@ -147,7 +155,11 @@ set(COMPONENT_SRCS
 set(COMPONENT_ADD_INCLUDEDIRS 
     "./apps"
     "./qm_config"
+    "./bat"
     "./sensor/inc"
+
+    "../component/NDS03_SDK/example"
+    "../component/NDS03_SDK/inc"
 
     "../component/qm_ai/api"
     "../component/qm_ai/common"
