@@ -3,18 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "lcd.h"
+#include "bsp_lcd.h"
 
-#include "bsp_light.h"
 #include "qm_kv.h"
-#include "audio_light.h"
-#include "bsp_audio.h"
-#include "nc_player.h"
 #include "esp_lvgl_port.h"
 
 #include "qm_utils_timer.h"
-
-#include "qm_color.h"
 
 // static char var_mode_nightlamp_title[33] = "小夜灯";
 // static char var_mode_read_title[33] = "阅读";
@@ -87,94 +81,99 @@ void set_var_temperature(int8_t value) {
 }
 
 bool get_var_brightness_onoff(void) {
-    return bsp_light_store_get()->on_off;
+    // return bsp_light_store_get()->on_off;
+    return 0;
 }
 
 void set_var_brightness_onoff(bool value) {
-    if (bsp_light_store_get()->on_off != value) {
-        bsp_light_bri_on_off(value);
-        audio_light_snapshot_report();
-        bsp_light_store_update();
-    }
+    // if (bsp_light_store_get()->on_off != value) {
+    //     bsp_light_bri_on_off(value);
+    //     audio_light_snapshot_report();
+    //     bsp_light_store_update();
+    // }
 }
 
 int32_t get_var_brightness() {
-    int32_t bri = bsp_light_store_get()->brightness;
-    return (bsp_light_store_get()->on_off ? bri : 0);
+    // int32_t bri = bsp_light_store_get()->brightness;
+    // return (bsp_light_store_get()->on_off ? bri : 0);
+    return 0;
 }
 
 void set_var_brightness(int32_t value) {
-    bsp_light_bri_set(value);
-    audio_light_snapshot_report();
-    bsp_light_store_update();
+    // bsp_light_bri_set(value);
+    // audio_light_snapshot_report();
+    // bsp_light_store_update();
 }
 
 int32_t get_var_cct() {
-    int32_t cct = bsp_light_store_get()->cct;
+    int32_t cct = 0;//bsp_light_store_get()->cct;
     return cct / 100;
 }
 
 void set_var_cct(int32_t value) {
-    bsp_light_cct_set(value);
-    audio_light_snapshot_report();
-    bsp_light_store_update();
+    // bsp_light_cct_set(value);
+    // audio_light_snapshot_report();
+    // bsp_light_store_update();
 }
 
 int8_t get_var_light_mode(void) {
-    return bsp_light_store_get()->mode;
+    return 0;//bsp_light_store_get()->mode;
 }
 
 void set_var_light_mode(int8_t value, bool flag) {
-    bsp_light_mode(value);
-    audio_light_snapshot_report();
-    bsp_light_store_update();
+    // bsp_light_mode(value);
+    // audio_light_snapshot_report();
+    // bsp_light_store_update();
 }
 
 int8_t get_var_rgb_select(void) {
-    return bsp_light_store_get()->rgb_sel;
+    // return bsp_light_store_get()->rgb_sel;
+    return 0;
 }
 
 void set_var_rgb_select(int8_t value, bool flag) {
-    bsp_light_rgb_select(value);
-    audio_light_snapshot_report();
-    bsp_light_store_update();
+    // bsp_light_rgb_select(value);
+    // audio_light_snapshot_report();
+    // bsp_light_store_update();
 }
 
 uint32_t get_var_rgb_value(void) {
-    return bsp_light_store_get()->rgb_val;
+    // return bsp_light_store_get()->rgb_val;
+    return 0;
 }
 
 void set_var_rgb_value(uint32_t value) {
-    bsp_light_rgb_value_set(value);
-    audio_light_snapshot_report();
-    bsp_light_store_update();
+    // bsp_light_rgb_value_set(value);
+    // audio_light_snapshot_report();
+    // bsp_light_store_update();
 }
 
 int8_t get_var_rgb_on_off(void) {
-    return bsp_light_store_get()->rgb_on_off;
+    // return bsp_light_store_get()->rgb_on_off;
+    return 0;
 }
 
 void set_var_rgb_on_off(int8_t value) {
-    if (bsp_light_store_get()->rgb_on_off != value) {
-        bsp_light_rgb_on_off(value);
-        audio_light_snapshot_report();
-        bsp_light_store_update();
-    }
+    // if (bsp_light_store_get()->rgb_on_off != value) {
+    //     bsp_light_rgb_on_off(value);
+    //     audio_light_snapshot_report();
+    //     bsp_light_store_update();
+    // }
 }
 
 bool get_var_mute_value(void) {
     int mute = 0;
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    mute = bsp_audio_get_voice_mute();
+    // mute = bsp_audio_get_voice_mute();
 #endif
     return ( mute != 0 );
 }
 
 void set_var_mute_value(bool value, bool flag) {
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    bsp_audio_set_voice_mute(value);
+    // bsp_audio_set_voice_mute(value);
     if (flag) {
-        qm_kv_set(MUTE_KEY_NAME, &value, sizeof(bool), 1);
+        // qm_kv_set(MUTE_KEY_NAME, &value, sizeof(bool), 1);
     }
 #endif
 }
@@ -182,16 +181,16 @@ void set_var_mute_value(bool value, bool flag) {
 int32_t get_var_volume_value(void) {
     int32_t val = 0;
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    val = nc_audio_get_volume();
+    // val = nc_audio_get_volume();
 #endif
     return val;
 }
 
 void set_var_volume_value(int32_t value, bool flag) {
 #if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    nc_audio_set_volume(value);
+    // nc_audio_set_volume(value);
     if (flag) {
-        qm_kv_set(VOLUME_KEY_NAME, &value, sizeof(int32_t), 1);
+        // qm_kv_set(VOLUME_KEY_NAME, &value, sizeof(int32_t), 1);
     }
 #endif
 }
@@ -205,7 +204,7 @@ void set_var_scr_tmo_value(int32_t value, bool flag) {
     uint32_t timeout = bsp_lcd_get_turnoff_timeout();
     set_var_turnoff_value(timeout);
     if (flag) {
-        qm_kv_set(SCR_TMO_KEY_NAME, &var_scr_tmo, sizeof(int32_t), 1);
+        // qm_kv_set(SCR_TMO_KEY_NAME, &var_scr_tmo, sizeof(int32_t), 1);
     }
 }
 
@@ -214,11 +213,11 @@ int32_t get_var_language_value() {
 }
 
 void set_var_language_value(int32_t value, bool flag) {
-    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
-    set_var_turnoff_value(timeout);
+    // uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    // set_var_turnoff_value(timeout);
     var_language = value;
     if (flag) {
-        qm_kv_set(LANG_KEY_NAME, &var_language, sizeof(int32_t), 1);
+        // qm_kv_set(LANG_KEY_NAME, &var_language, sizeof(int32_t), 1);
     }
 }
 
@@ -239,7 +238,7 @@ bool get_var_awss_value(void) {
 void set_var_awss_value(bool value, bool flag) {
     var_awss = value;
     if (flag) {
-        qm_kv_set(AWSS_KEY_NAME, &var_awss, sizeof(bool), 1);
+        // qm_kv_set(AWSS_KEY_NAME, &var_awss, sizeof(bool), 1);
     }
 }
 
@@ -284,7 +283,7 @@ void set_var_ota_status(int8_t value, bool need_lock) {
         return;
     }
 
-    bsp_lcd_bl_on();
+    // bsp_lcd_bl_on();
     
     if (need_lock) {
         lvgl_port_lock(0);
@@ -333,15 +332,15 @@ void set_var_ip_addr(char *ip_addr) {
 }
 
 uint32_t conver_slider_value_to_rgb_value(int32_t slider_val, uint32_t start_rgb_val, uint32_t end_rgb_val) {
-    qm_color_rgb_t rgb, start_rgb, end_rgb;
+    // qm_color_rgb_t rgb, start_rgb, end_rgb;
 
-    qm_color_code2rgb(start_rgb_val, &start_rgb);
-    qm_color_code2rgb(end_rgb_val, &end_rgb);
+    // qm_color_code2rgb(start_rgb_val, &start_rgb);
+    // qm_color_code2rgb(end_rgb_val, &end_rgb);
 
-    qm_color_value2rgb(slider_val, 0, 100, start_rgb, end_rgb, &rgb);
+    // qm_color_value2rgb(slider_val, 0, 100, start_rgb, end_rgb, &rgb);
 
     uint32_t val = 0;
-    qm_color_rgb2code(rgb, &val);
+    // qm_color_rgb2code(rgb, &val);
 
     QM_LOGI("1", "rgb value: %08lx", val);
 
@@ -349,14 +348,14 @@ uint32_t conver_slider_value_to_rgb_value(int32_t slider_val, uint32_t start_rgb
 }
 
 int32_t conver_rgb_value_to_slider_value(uint32_t rgb_val, uint32_t start_rgb_val, uint32_t end_rgb_val) {
-    qm_color_rgb_t rgb, start_rgb, end_rgb;
+    // qm_color_rgb_t rgb, start_rgb, end_rgb;
     int32_t slider_val = 0;
 
-    qm_color_code2rgb(rgb_val, &rgb);
-    qm_color_code2rgb(start_rgb_val, &start_rgb);
-    qm_color_code2rgb(end_rgb_val, &end_rgb);
+    // qm_color_code2rgb(rgb_val, &rgb);
+    // qm_color_code2rgb(start_rgb_val, &start_rgb);
+    // qm_color_code2rgb(end_rgb_val, &end_rgb);
 
-    qm_color_rgb2value(&rgb, &start_rgb, &end_rgb, 0, 100, &slider_val);
+    // qm_color_rgb2value(&rgb, &start_rgb, &end_rgb, 0, 100, &slider_val);
 
     QM_LOGI("1", "slider value: %ld", slider_val);
 

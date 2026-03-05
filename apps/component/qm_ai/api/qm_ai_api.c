@@ -250,8 +250,8 @@ int32_t qm_ai_start(qm_ai_handle_t handle)
         goto __exit;
     }
 
-    qm_free(handle->rtc_cfg.license);
-    handle->rtc_cfg.license = NULL;
+    // qm_free(handle->rtc_cfg.license);
+    // handle->rtc_cfg.license = NULL;
 
     if (qm_ai_rtc_connect() != QM_EOK) {
         goto __exit;
@@ -653,7 +653,11 @@ static void ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
         break;
 
         case AI_INNER_SUB_EVENT_ID_WAKE_UP:
-            ai_abort_request(handle, QM_AI_VOICE_CONTROL_PARAM_ABORT_WITH_WORD);
+            if (handle->ai_start_flag) {
+                ai_abort_request(handle, QM_AI_VOICE_CONTROL_PARAM_ABORT_WITH_WORD);
+            } else {
+                qm_ai_start(handle);
+            }
         break;
 
         case AI_INNER_SUB_EVENT_ID_AGENT_ABORT:

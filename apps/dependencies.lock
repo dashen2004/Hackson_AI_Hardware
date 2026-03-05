@@ -29,8 +29,8 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.6.2
-  espressif/esp_lcd_st77916:
-    component_hash: 5fa0f8b1274576d4484e2b8d9358e2a5d09c721511bef0dce6a55b4206b5f0e9
+  espressif/esp_lcd_gc9a01:
+    component_hash: e60bc2b5649c7679bd010797a875ae64b2a57cf9cdbd6a2bf7a0ade66913edc0
     dependencies:
     - name: espressif/cmake_utilities
       registry_url: https://components.espressif.com
@@ -38,13 +38,13 @@ dependencies:
       version: 0.*
     - name: idf
       require: private
-      version: '>5.0.4,!=5.1.1'
+      version: '>=4.4'
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 1.0.1
+    version: 2.0.4
   espressif/esp_lcd_touch:
-    component_hash: 779b4ba2464a3ae85681e4b860caa5fdc35801458c23f3039ee761bae7f442a4
+    component_hash: 3f85a7d95af876f1a6ecca8eb90a81614890d0f03a038390804e5a77e2caf862
     dependencies:
     - name: idf
       require: private
@@ -52,7 +52,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com
       type: service
-    version: 1.1.2
+    version: 1.2.1
   espressif/esp_lcd_touch_cst816s:
     component_hash: 439dc245747394d5eeb15a67f1f51bc2f673c32e52068e75d6b27c1534ee66fd
     dependencies:
@@ -91,20 +91,6 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.1.0
-  espressif/lightbulb_driver:
-    component_hash: 9b96e696a812c4ceda56ec12d829302769c821db5e01815f717d3cf5431bc0cb
-    dependencies:
-    - name: espressif/cmake_utilities
-      registry_url: https://components.espressif.com
-      require: private
-      version: '*'
-    - name: idf
-      require: private
-      version: '>=4.3.2'
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    version: 1.11.0
   espressif/nghttp:
     component_hash: 32e513409ddce0000990ec74b0711f535462726236d72578cd70498e6bd66dc3
     dependencies:
@@ -139,15 +125,14 @@ dependencies:
 direct_dependencies:
 - chmorgan/esp-libhelix-mp3
 - espressif/esp-dsp
-- espressif/esp_lcd_st77916
+- espressif/esp_lcd_gc9a01
 - espressif/esp_lcd_touch_cst816s
 - espressif/esp_lvgl_port
 - espressif/jsmn
-- espressif/lightbulb_driver
 - espressif/nghttp
 - espressif/zlib
 - idf
 - lvgl/lvgl
-manifest_hash: d0af89d46b3f88eb38fdf9147de5f2fe054687b8f95ce2031c525b771c30e4c2
+manifest_hash: 7c76d38f70026f33f32245a1dd1ea564a1525767cf5dd1ff8b474b2ea68a8a89
 target: esp32s3
 version: 2.0.0

@@ -1,9 +1,14 @@
+set(UI_DIR ../ui) 
+file(GLOB UI_SRCS ${UI_DIR}/*.c)
+
 set(COMPONENT_SRCS 
 
-    "./apps/main.c"
-    "./apps/ai_main.c"
+    "./main.c"
+    "./ai_main.c"
 
     "./bat/bsp_bat.c"
+    "./lcd/bsp_lcd.c"
+    "./cloud/xjiang_cloud.c"
     "./sensor/src/bsp_i2c.c"
     "./sensor/src/bsp_sensor_tof.c"
     "./sensor/src/bsp_sensor_light.c"
@@ -153,9 +158,11 @@ set(COMPONENT_SRCS
 
     )
 set(COMPONENT_ADD_INCLUDEDIRS 
-    "./apps"
+    "."
     "./qm_config"
     "./bat"
+    "./lcd"
+    "./cloud"
     "./sensor/inc"
 
     "../component/NDS03_SDK/example"
@@ -298,8 +305,10 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "$ENV{ADF_PATH}/qumi/utility/barcode"
     "$ENV{ADF_PATH}/qumi/utility/sprintf"
     "$ENV{ADF_PATH}/qumi/utility/sscanf"
+
+    ${UI_DIR}
     )
 
 register_component()
 
-spiffs_create_partition_image(spiffs_data ../spiffs FLASH_IN_PROJECT)
+spiffs_create_partition_image(lvgl ../ui/spiffs FLASH_IN_PROJECT)
