@@ -267,7 +267,7 @@ void app_lvgl(void)
 }
 
 static qm_timer_t turnoff_timer = { 0 };
-static int turnoff_timeout_tbl[4] = { 15000, 60000, 300000, 2147483647 }; // 30秒, 1分, 5分, 永不 //  { 15000, 30000, 45000, 60000 };
+static int turnoff_timeout_tbl[4] = { 30000, 60000, 300000, 2147483647 }; // 30秒, 1分, 5分, 永不 //  { 15000, 30000, 45000, 60000 };
 
 uint32_t bsp_lcd_get_turnoff_timeout(void)
 {

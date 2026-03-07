@@ -6,12 +6,13 @@ set(COMPONENT_SRCS
     "./main.c"
     "./ai_main.c"
 
+    "./bsp/src/bsp_i2c.c"
+
     "./bat/bsp_bat.c"
     "./lcd/bsp_lcd.c"
     "./cloud/xjiang_cloud.c"
-    "./sensor/src/bsp_i2c.c"
-    "./sensor/src/bsp_sensor_tof.c"
-    "./sensor/src/bsp_sensor_light.c"
+    "./sensor/bsp_sensor_tof.c"
+    "./sensor/bsp_sensor_light.c"
 
     "../component/NDS03_SDK/example/nds03_platform.c"
     "../component/NDS03_SDK/src/nds03_calib.c"
@@ -160,10 +161,13 @@ set(COMPONENT_SRCS
 set(COMPONENT_ADD_INCLUDEDIRS 
     "."
     "./qm_config"
+
+    "./bsp/inc"
+
     "./bat"
     "./lcd"
     "./cloud"
-    "./sensor/inc"
+    "./sensor"
 
     "../component/NDS03_SDK/example"
     "../component/NDS03_SDK/inc"
