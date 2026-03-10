@@ -163,7 +163,7 @@ static float tcs34083_calculate_lux(tcs34083_t *tcs,
         default: gain_multiplier = pow(2, tcs->gain - 1); break;
     }
 
-    float cpl = (integration_ms * gain_multiplier) / 26.0f;
+    float cpl = (integration_ms * gain_multiplier) / 155.0f;
 
     if (cpl <= 0.01f) {
         return 0;
@@ -195,24 +195,32 @@ static void light_read_task(void *arg)
 {
     static float lux = 0;
 
-    while (1) {    
+    while (1) {
         bsp_sensor_light_read(&lux);
 
+        // QM_LOGD(LOG_TAG, "lux: %.2f", lux);
+
         if (lux > LUX_HIGH_HINT_VALUE) {
-            QM_LOGI(LOG_TAG, "lux too high: %.2f", lux);
             lux_low_cnt = 0;
 
             lux_high_cnt++;
             if (lux_high_cnt > 5) {
+                QM_LOGI(LOG_TAG, "lux too high: %.2f", lux);
+
+                lux_high_cnt = 0;
+
                 lux_high_flag = 1;
                 lux_low_flag = 0;
             }
         } else if (lux < LUX_LOW_HINT_VALUE) {
-            QM_LOGI(LOG_TAG, "lux too low: %.2f", lux);
             lux_high_cnt = 0;
 
             lux_low_cnt++;
             if (lux_low_cnt > 5) {
+                QM_LOGI(LOG_TAG, "lux too low: %.2f", lux);
+
+                lux_low_cnt = 0;
+
                 lux_low_flag = 1;
                 lux_high_flag = 0;
             }

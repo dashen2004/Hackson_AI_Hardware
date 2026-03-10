@@ -40,6 +40,8 @@ static char var_city[64] = {0};
 static int8_t var_weather_id = -1;
 static int8_t var_temperature = 25;
 
+static int8_t var_tomato_state = TOMATO_STATE_IDLE;
+
 static char var_subtitles[512] = { 0 };
 
 static int32_t  var_scr_tmo = 0;
@@ -55,6 +57,18 @@ static bool     var_recog_page_leave = 0; // 从识别页离开
 static qm_utils_time_t var_screen_operation_tick = {0};
 
 static char     var_ip_addr[32];
+
+int8_t lvgl_get_var_tomato_state(void) {
+    return var_tomato_state;
+}
+
+void lvgl_set_var_tomato_state(int8_t state) {
+    if (state <= TOMATO_STATE_NONE || state >= TOMATO_STATE_MAX) {
+        return;
+    }
+
+    var_tomato_state = state;
+}
 
 char *get_var_city(void) {
     return var_city;

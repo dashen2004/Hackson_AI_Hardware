@@ -20,6 +20,28 @@ enum FlowGlobalVariables {
     FLOW_GLOBAL_VARIABLE_EMOTION_IDX = 4,
 };
 
+enum TimerState {
+    TIMER_STATE_NONE = 0,
+    TIMER_STATE_IDLE = 1,
+    TIMER_STATE_RUNNING = 2,
+    TIMER_STATE_PAUSED = 3,
+    TIMER_STATE_MAX
+};
+
+enum TomatoState {
+    TOMATO_STATE_NONE = 0,
+    TOMATO_STATE_IDLE = 1,
+    TOMATO_STATE_RUNNING = 2,
+    TOMATO_STATE_RUNNING_PAUSE = 3,
+    TOMATO_STATE_BREAK = 4,
+    TOMATO_STATE_BREAK_PAUSE = 5,
+    TOMATO_STATE_MAX
+};
+
+// lvgl val
+int8_t lvgl_get_var_tomato_state(void);
+void lvgl_set_var_tomato_state(int8_t state);
+
 // Native global variables
 
 extern bool get_var_mute_value();

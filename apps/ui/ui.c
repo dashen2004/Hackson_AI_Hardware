@@ -44,13 +44,7 @@ enum ScreensEnum get_current_screen(void) {
 }
 
 extern void goto_main_page(void);
-void screen_wakeup_timeout_exit(void)
-{
-    if(get_current_screen() == SCREEN_ID_PAGE_RECOG) {
-        set_var_recog_page_leave(0);
-        goto_main_page();
-    }
-}
+extern void goto_sleep_page(void);
 
 void ui_init() {
     create_screens();

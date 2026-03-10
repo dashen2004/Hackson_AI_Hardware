@@ -9,6 +9,8 @@ extern "C" {
 
 extern void event_all_handler(lv_event_t * e);
 
+extern void action_tomato_opt_click(lv_event_t * e);
+
 extern void action_gesture_handler(lv_event_t * e);
 extern void action_home_click(lv_event_t * e);
 extern void action_recog_click(lv_event_t * e);

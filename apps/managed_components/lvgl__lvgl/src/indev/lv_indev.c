@@ -42,10 +42,10 @@
 #define LV_INDEV_DEF_LONG_PRESS_REP_TIME  100
 
 /*Gesture threshold in pixels*/
-#define LV_INDEV_DEF_GESTURE_LIMIT        50
+#define LV_INDEV_DEF_GESTURE_LIMIT        5
 
 /*Gesture min velocity at release before swipe (pixels)*/
-#define LV_INDEV_DEF_GESTURE_MIN_VELOCITY 3
+#define LV_INDEV_DEF_GESTURE_MIN_VELOCITY 2
 
 /**< Rotary diff count will be multiplied by this and divided by 256 */
 #define LV_INDEV_DEF_ROTARY_SENSITIVITY         256

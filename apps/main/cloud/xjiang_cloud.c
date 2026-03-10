@@ -126,15 +126,15 @@ extern void wifi_set_connected(void);
 extern void wifi_set_blink(void);
 
 static void delay_set_disconnected(void *argv) {
-    wifi_set_disconnected();
+    // wifi_set_disconnected();
 }
 
 static void delay_set_connected(void *argv) {
-    wifi_set_connected();
+    // wifi_set_connected();
 }
 
 static void delay_set_blink(void *argv) {
-    wifi_set_blink();
+    // wifi_set_blink();
 }
 
 static void handle_sta_rssi(char *pwbuf, int blen, int argc, char **argv)

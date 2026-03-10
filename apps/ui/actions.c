@@ -47,112 +47,33 @@ static bool hit_test(lv_event_t * e) {
     return lv_obj_hit_test((lv_obj_t *)lv_event_get_target(e), &pt);
 }
 
-// ******** 首页 ******** //
-static qm_timer_t wifi_blink_timer = { 0 };
-static uint8_t    wifi_level_s = 0;
 extern uint8_t lv_port_init_flag;
 
-static void wifi_blink_timer_handler(qm_timer_t *timer,  void *arg) {
+static enum ScreensEnum cur_screen_index = 0;
+
+void goto_page_by_id(enum ScreensEnum screen_id)
+{
     if(lv_port_init_flag == 0) {
         return;
     }
     lvgl_port_lock(0);
-    switch (wifi_level_s) {
-        case 0: {
-            lv_obj_add_flag  (objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
-            break;
-        }
-        case 1: {
-            lv_obj_add_flag  (objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag  (objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
-            break;
-        }
-        case 2: {
-            lv_obj_add_flag  (objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag  (objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag  (objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
-            break;
-        }
-        case 3: {
-            lv_obj_add_flag  (objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag  (objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag  (objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag  (objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
-            break;
-        }
-        default: {
-            break;
-        }
-    }
+    cur_screen_index = screen_id;
+    loadScreenEx(screen_id);
     lvgl_port_unlock();
-    if (++wifi_level_s > 3) {
-        wifi_level_s = 0;
-    }
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
 }
 
-void wifi_set_disconnected(void) {
-    QM_LOGD("wifi","wifi set disconnected\n");
-    if (qm_timer_is_valid(&wifi_blink_timer)) {
-        qm_timer_stop(&wifi_blink_timer);
-        qm_timer_free(&wifi_blink_timer);
-    }
+void goto_sleep_page(void) {
     if(lv_port_init_flag == 0) {
         return;
     }
     lvgl_port_lock(0);
-    lv_obj_add_flag(objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
-    lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_disconnected.bin");
+    cur_screen_index = SCREEN_ID_PAGE_SLEEP;
+    loadScreenEx(SCREEN_ID_PAGE_SLEEP);
     lvgl_port_unlock();
-}
-
-void wifi_set_connected(void) {
-    QM_LOGD("wifi","wifi set connected\n");
-    if (qm_timer_is_valid(&wifi_blink_timer)) {
-        qm_timer_stop(&wifi_blink_timer);
-        qm_timer_free(&wifi_blink_timer);
-    }
-    if(lv_port_init_flag == 0) {
-        return;
-    }
-    lvgl_port_lock(0);
-    lv_obj_add_flag(objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
-    lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_connected.bin");
-    lvgl_port_unlock();
-}
-
-void wifi_set_blink(void) {
-    QM_LOGD("wifi","wifi set blink\n");
-    if (!qm_timer_is_valid(&wifi_blink_timer)) {
-        qm_timer_new  (&wifi_blink_timer, wifi_blink_timer_handler, NULL, 500, 1);
-        qm_timer_start(&wifi_blink_timer);
-    }
-    wifi_level_s = 1;
-    if(lv_port_init_flag == 0) {
-        return;
-    }
-    lvgl_port_lock(0);
-    lv_img_set_src(objects.image_wifi, "/lvgl/images/wifi_connected.bin");
-    lv_img_set_src(objects.image_wifi_level_s_1, "/lvgl/images/wifi_level_s_1.bin");
-    lv_img_set_src(objects.image_wifi_level_s_2, "/lvgl/images/wifi_level_s_2.bin");
-    lv_img_set_src(objects.image_wifi_level_s_3, "/lvgl/images/wifi_level_s_3.bin");
-    lv_img_set_src(objects.image_wifi_level_s_4, "/lvgl/images/wifi_level_s_4.bin");
-    lv_obj_add_flag(objects.image_wifi_level_s_1, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(objects.image_wifi_level_s_2, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(objects.image_wifi_level_s_3, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(objects.image_wifi_level_s_4, LV_OBJ_FLAG_HIDDEN);
-    lvgl_port_unlock();
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
 }
 
 void goto_main_page(void) {
@@ -160,11 +81,63 @@ void goto_main_page(void) {
         return;
     }
     lvgl_port_lock(0);
+    cur_screen_index = SCREEN_ID_PAGE_MAIN;
     loadScreenEx(SCREEN_ID_PAGE_MAIN);
     lvgl_port_unlock();
     uint32_t timeout = bsp_lcd_get_turnoff_timeout();
     set_var_turnoff_value(timeout);
 }
+
+void goto_alarm_page(void) {
+    if(lv_port_init_flag == 0) {
+        return;
+    }
+    lvgl_port_lock(0);
+    cur_screen_index = SCREEN_ID_PAGE_ALARM;
+    loadScreenEx(SCREEN_ID_PAGE_ALARM);
+    lvgl_port_unlock();
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
+}
+
+void goto_timer_page(void) {
+    if(lv_port_init_flag == 0) {
+        return;
+    }
+    lvgl_port_lock(0);
+    cur_screen_index = SCREEN_ID_PAGE_TIMER;
+    loadScreenEx(SCREEN_ID_PAGE_TIMER);
+    lvgl_port_unlock();
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
+}
+
+void goto_pomodoro_page(void) {
+    if(lv_port_init_flag == 0) {
+        return;
+    }
+    lvgl_port_lock(0);
+    cur_screen_index = SCREEN_ID_PAGE_POMODORO;
+    loadScreenEx(SCREEN_ID_PAGE_POMODORO);
+    lvgl_set_var_tomato_state(TOMATO_STATE_IDLE);
+    lvgl_port_unlock();
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
+}
+
+void goto_weather_page(void) {
+    if(lv_port_init_flag == 0) {
+        return;
+    }
+    lvgl_port_lock(0);
+    cur_screen_index = SCREEN_ID_PAGE_WEATHER;
+    loadScreenEx(SCREEN_ID_PAGE_WEATHER);
+    lvgl_port_unlock();
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
+}
+
+/*  action  */
 
 // ******** 菜单页面 ******** //
 static void goto_menu_page(void) {
@@ -732,6 +705,30 @@ void action_back_click(lv_event_t * e) {
 //     }
 // }
 
+static void goto_next_page(void)
+{
+    switch (cur_screen_index) {
+        case SCREEN_ID_PAGE_MAIN:       goto_alarm_page(); break;
+        case SCREEN_ID_PAGE_ALARM:      goto_timer_page(); break;
+        case SCREEN_ID_PAGE_TIMER:      goto_pomodoro_page(); break;
+        case SCREEN_ID_PAGE_POMODORO:   goto_weather_page(); break;
+        case SCREEN_ID_PAGE_WEATHER:    goto_main_page(); break;
+        default: break;
+    }
+}
+
+static void goto_prev_page(void)
+{
+    switch (cur_screen_index) {
+        case SCREEN_ID_PAGE_MAIN:       goto_weather_page(); break;
+        case SCREEN_ID_PAGE_ALARM:      goto_main_page(); break;
+        case SCREEN_ID_PAGE_TIMER:      goto_alarm_page(); break;
+        case SCREEN_ID_PAGE_POMODORO:   goto_timer_page(); break;
+        case SCREEN_ID_PAGE_WEATHER:    goto_pomodoro_page(); break;
+        default: break;
+    }
+}
+
 // ******** 总体事件(来用亮屏) ******** //
 void event_all_handler(lv_event_t * e) {
     lv_event_code_t event = lv_event_get_code(e);
@@ -739,8 +736,61 @@ void event_all_handler(lv_event_t * e) {
     if (event <= LV_EVENT_HOVER_LEAVE) { // Input device events
         turnoff_timer_reset(0);
     }
-    if (event == LV_EVENT_CLICKED && current_brightness_percent && lv_scr_act() == objects.page_main) {
-        // goto_menu_page();
+
+    if (!current_brightness_percent) {
+        return;
+    }
+
+    if (lv_scr_act() == objects.page_sleep && event == LV_EVENT_CLICKED) {
+        goto_main_page();
+        return;
+    }
+
+    if (event == LV_EVENT_GESTURE && lv_scr_act() != objects.page_sleep) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
+
+        switch (dir) {
+            case LV_DIR_LEFT:
+                goto_next_page();
+            break;
+            
+            case LV_DIR_RIGHT:
+                goto_prev_page();
+            break;
+
+            default:
+            break;
+        }
+
+        return;
+    }
+}
+
+void action_tomato_opt_click(lv_event_t * e) {
+    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
+        switch (lvgl_get_var_tomato_state()) {
+            case TOMATO_STATE_IDLE:
+            case TOMATO_STATE_RUNNING_PAUSE:
+                lvgl_set_var_tomato_state(TOMATO_STATE_RUNNING);
+            break;
+
+            case TOMATO_STATE_BREAK_PAUSE:
+                lvgl_set_var_tomato_state(TOMATO_STATE_BREAK);
+            break;
+
+            case TOMATO_STATE_RUNNING:
+                lvgl_set_var_tomato_state(TOMATO_STATE_RUNNING_PAUSE);
+            break;
+
+            case TOMATO_STATE_BREAK:
+                lvgl_set_var_tomato_state(TOMATO_STATE_BREAK_PAUSE);
+            break;
+
+            default:
+            break;
+        }
+
+        turnoff_timer_reset(0);
     }
 }
 

@@ -114,12 +114,12 @@ void bsp_lcd_bl_off(void) {
 }
 
 void bsp_lcd_bl_dim(void) {
-    if (bl_brightness_percent != 10) {
+    if (bl_brightness_percent != 20) {
         if(lv_port_init_flag == 0) {
             return;
         }
         lvgl_port_lock(0);
-        bsp_lcd_bl_set(10);
+        bsp_lcd_bl_set(20);
         lvgl_port_unlock(); 
     }
 }
@@ -267,7 +267,7 @@ void app_lvgl(void)
 }
 
 static qm_timer_t turnoff_timer = { 0 };
-static int turnoff_timeout_tbl[4] = { 30000, 60000, 300000, 2147483647 }; // 30秒, 1分, 5分, 永不 //  { 15000, 30000, 45000, 60000 };
+static int turnoff_timeout_tbl[4] = { 15000, 60000, 300000, 2147483647 }; // 30秒, 1分, 5分, 永不 //  { 15000, 30000, 45000, 60000 };
 
 uint32_t bsp_lcd_get_turnoff_timeout(void)
 {
@@ -287,6 +287,9 @@ static void turnoff_timer_handler(qm_timer_t *timer,  void *arg)
         if (!bl_brightness_percent) {
             extern void goto_main_page(void);
             goto_main_page();
+        } else {
+            extern void goto_sleep_page(void);
+            goto_sleep_page();
         }
     }
 }

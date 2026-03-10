@@ -10,7 +10,6 @@ extern "C" {
 #include "actions.h"
 #include "fonts.h"
 #include "screens.h"
-#include "styles.h"
 #include "ui.h"
 #include "vars.h"
 

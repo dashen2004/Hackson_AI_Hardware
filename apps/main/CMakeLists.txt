@@ -156,7 +156,14 @@ set(COMPONENT_SRCS
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qm_db/qm_hal_kv.c"
 
     ${UI_SRCS}
-
+    "../ui/fonts/ui_font_misans_8px.c"
+    "../ui/fonts/ui_font_misans_24px.c"
+    "../ui/fonts/ui_font_misans_40px.c"
+    "../ui/fonts/ui_font_misans_64px.c"
+    "../ui/fonts/ui_font_pingfang_sc_regular_12px.c"
+    "../ui/fonts/ui_font_pingfang_sc_regular_14px.c"
+    "../ui/fonts/ui_font_pingfang_sc_regular_20px.c"
+    "../ui/fonts/ui_font_pingfang_sc_regular_24px.c"
     )
 set(COMPONENT_ADD_INCLUDEDIRS 
     "."
@@ -311,6 +318,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "$ENV{ADF_PATH}/qumi/utility/sscanf"
 
     ${UI_DIR}
+    "../ui/fonts"
     )
 
 register_component()
