@@ -278,6 +278,8 @@ uint32_t bsp_lcd_get_turnoff_timeout(void)
     return turnoff_timeout_tbl[scr_tmo];
 }
 
+extern void goto_page_by_id(int8_t screen_id);
+
 static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) 
 {
     uint32_t timeout = bsp_lcd_get_turnoff_timeout();
@@ -285,11 +287,9 @@ static void turnoff_timer_handler(qm_timer_t *timer,  void *arg)
     if (get_var_turnoff_value()) {
         bsp_lcd_bl_dim();
         if (!bl_brightness_percent) {
-            extern void goto_main_page(void);
-            goto_main_page();
+            goto_page_by_id(SCREEN_ID_PAGE_MAIN);
         } else {
-            extern void goto_sleep_page(void);
-            goto_sleep_page();
+            goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
         }
     }
 }

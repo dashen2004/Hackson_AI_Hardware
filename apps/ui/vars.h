@@ -9,11 +9,18 @@ extern "C" {
 #endif
 
 // enum declarations
+enum TimerType {
+    TIMER_TYPE_NONE = 0,
+    TIMER_TYPE_COUNT_UP,
+    TIMER_TYPE_COUNT_DOWN,
+    TIMER_TYPE_MAX,
+};
+
 enum TimerState {
     TIMER_STATE_NONE = 0,
     TIMER_STATE_IDLE = 1,
     TIMER_STATE_RUNNING = 2,
-    TIMER_STATE_PAUSED = 3,
+    TIMER_STATE_PAUSE = 3,
     TIMER_STATE_MAX
 };
 
@@ -28,9 +35,15 @@ enum TomatoState {
 };
 
 // lvgl val
+int8_t lvgl_get_var_timer_type(void);
+void lvgl_set_var_timer_type(int8_t type);
+int8_t lvgl_get_var_timer_state(void);
+void lvgl_set_var_timer_state(int8_t state);
+
 int8_t lvgl_get_var_tomato_state(void);
 void lvgl_set_var_tomato_state(int8_t state);
 
+// original
 extern int32_t get_var_scr_tmo_value(void);
 extern void set_var_scr_tmo_value(int32_t value, bool flag);
 extern uint32_t get_var_turnoff_value(void);
@@ -42,9 +55,6 @@ int8_t get_var_weather_id(void);
 void set_var_weather_id(int8_t value);
 int8_t get_var_temperature(void);
 void set_var_temperature(int8_t value);
-
-extern int8_t get_var_emotion_id(void);
-extern void set_var_emotion_id(int8_t value);
 
 uint32_t get_var_screen_operation_tick(void);
 void set_var_screen_operation_tick(void);

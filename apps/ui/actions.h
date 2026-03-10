@@ -7,7 +7,16 @@
 extern "C" {
 #endif
 
+void goto_page_by_id(int8_t screen_id);
+
 extern void event_all_handler(lv_event_t * e);
+
+extern void action_count_up_click(lv_event_t * e);
+extern void action_count_down_click(lv_event_t * e);
+extern void action_timer_opt_click(lv_event_t * e);
+extern void action_timer_stop_click(lv_event_t * e);
+extern void action_timer_reset_click(lv_event_t * e);
+
 extern void action_tomato_opt_click(lv_event_t * e);
 
 #ifdef __cplusplus

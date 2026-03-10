@@ -43,16 +43,18 @@ enum ScreensEnum get_current_screen(void) {
     return currentScreen + 1;
 }
 
-extern void goto_main_page(void);
-
 void ui_init() {
     create_screens();
 
-    goto_main_page();
+    goto_page_by_id(SCREEN_ID_PAGE_MAIN);
 }
 
 void ui_tick() {
     tick_screen(currentScreen);
+
+    if (lvgl_get_var_timer_state() == TIMER_STATE_RUNNING) {
+        tick_screen(SCREEN_ID_PAGE_TIMER - 1);
+    }
 }
 
 #endif
