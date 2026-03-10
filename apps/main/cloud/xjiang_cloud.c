@@ -121,10 +121,6 @@ static void weather_request_timer_handler(qm_timer_t *timer,  void *arg) {
     qm_post_delayed_action(&weather_request_action, weather_request_action_handler, NULL, 0);
 }
 
-extern void wifi_set_disconnected(void);
-extern void wifi_set_connected(void);
-extern void wifi_set_blink(void);
-
 static void delay_set_disconnected(void *argv) {
     // wifi_set_disconnected();
 }
@@ -212,7 +208,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             qm_post_delayed_action(&set_blink_action, delay_set_blink, NULL, 0);
             if(ota_status_flag) {
                 ota_status_flag = 0;
-                set_var_ota_status(2, true);
+                // set_var_ota_status(2, true);
             }
             break;
 
@@ -222,18 +218,18 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             int ret = esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"), &ip_info);
             char s_ip[32];
             sprintf(s_ip, "%d.%d.%d.%d", IP2STR(&(ip_info.ip)));
-            set_var_ip_addr(s_ip);
+            // set_var_ip_addr(s_ip);
             connect = QM_FALSE;
             break;
 
         case QM_IOT_EVENT_LOCAL_DISCONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_LOCAL_DISCONN");
-            set_var_ip_addr("-");
+            // set_var_ip_addr("-");
             connect = QM_FALSE;
             qm_post_delayed_action(&set_blink_action, delay_set_blink, NULL, 0);
             if(ota_status_flag) {
                 ota_status_flag = 0;
-                set_var_ota_status(2, true);
+                // set_var_ota_status(2, true);
             }
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_NET_ERROR, NULL, 0);
             break;
@@ -269,26 +265,26 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
 
         case QM_IOT_EVENT_OTA_START:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_OTA_START");
-            set_var_ota_status(0, true);
+            // set_var_ota_status(0, true);
             ota_status_flag = 1;
             break;
 
         case QM_IOT_EVENT_OTA_PROGRESS_UPADTE:
-            set_var_ota_status(0, true);
-            set_var_ota_percent(event->data.ota_progress_update.progress_details);
+            // set_var_ota_status(0, true);
+            // set_var_ota_percent(event->data.ota_progress_update.progress_details);
             ota_status_flag = 2;
             break;
 
         case QM_IOT_EVENT_OTA_SUCCESS:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_OTA_SUCCESS");
             qm_set_reset_flag();
-            set_var_ota_status(1, true);
+            // set_var_ota_status(1, true);
             ota_status_flag = 0;
             break;
 
         case QM_IOT_EVENT_OTA_FAILED:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_OTA_FAILED");
-            set_var_ota_status(2, true);
+            // set_var_ota_status(2, true);
             ota_status_flag = 0;
             break;
 

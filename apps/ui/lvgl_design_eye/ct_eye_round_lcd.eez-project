@@ -4562,13 +4562,19 @@
                   "INDICATOR": {
                     "DEFAULT": {
                       "arc_color": "#ff3000",
-                      "arc_width": 14
+                      "arc_width": 14,
+                      "arc_rounded": false
                     }
                   },
                   "KNOB": {
                     "DEFAULT": {
                       "bg_opa": 0,
                       "bg_color": "#000000"
+                    }
+                  },
+                  "MAIN": {
+                    "DEFAULT": {
+                      "arc_width": 14
                     }
                   }
                 }
@@ -4577,9 +4583,9 @@
               "groupIndex": 0,
               "rangeMin": 0,
               "rangeMinType": "literal",
-              "rangeMax": 360,
+              "rangeMax": 720,
               "rangeMaxType": "literal",
-              "value": 360,
+              "value": 720,
               "valueType": "literal",
               "bgStartAngle": 0,
               "bgEndAngle": 360,

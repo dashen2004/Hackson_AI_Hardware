@@ -350,6 +350,7 @@ void create_screen_page_alarm() {
                             lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_radius(obj, 30, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_label_set_text(obj, "五");
                         }
                         {
@@ -477,6 +478,7 @@ void create_screen_page_alarm() {
                             lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_radius(obj, 30, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_label_set_text(obj, "五");
                         }
                         {
@@ -604,6 +606,7 @@ void create_screen_page_alarm() {
                             lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_radius(obj, 30, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_label_set_text(obj, "五");
                         }
                         {
@@ -732,6 +735,7 @@ void create_screen_page_alarm() {
                             lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_radius(obj, 30, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_label_set_text(obj, "五");
                         }
                         {
@@ -1114,13 +1118,13 @@ void create_screen_page_pomodoro() {
         }
     }
     
-    tick_screen_page_pomodoro();
+    // tick_screen_page_pomodoro();
 }
 
 void tick_screen_page_pomodoro() {
     turnoff_timer_reset(0);
 
-    static uint32_t tomato_counter = 10 * 60;
+    static uint32_t tomato_counter = 5 * 60;
     static uint32_t cur_counter = 0;
     uint32_t arc_new_val = 0;
     uint8_t tomato_div = lv_arc_get_max_value(objects.tomato_spinner) / tomato_counter;

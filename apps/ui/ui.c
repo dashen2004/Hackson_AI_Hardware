@@ -44,18 +44,11 @@ enum ScreensEnum get_current_screen(void) {
 }
 
 extern void goto_main_page(void);
-extern void goto_sleep_page(void);
 
 void ui_init() {
     create_screens();
 
-    if (get_var_awss_value()) {
-        // if reboot because of netconfig, go to netconfig page
-        extern void goto_netconfig_process_page(void);
-        goto_netconfig_process_page();
-    } else {
-        goto_main_page();
-    }
+    goto_main_page();
 }
 
 void ui_tick() {

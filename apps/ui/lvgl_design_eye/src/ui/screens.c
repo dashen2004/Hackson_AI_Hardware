@@ -317,6 +317,7 @@ void create_screen_page_alarm() {
                             lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_radius(obj, 30, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_label_set_text(obj, "五");
                         }
                         {
@@ -1048,8 +1049,8 @@ void create_screen_page_pomodoro() {
             objects.tomato_spinner = obj;
             lv_obj_set_pos(obj, 0, 0);
             lv_obj_set_size(obj, 240, 240);
-            lv_arc_set_range(obj, 0, 360);
-            lv_arc_set_value(obj, 270);
+            lv_arc_set_range(obj, 0, 720);
+            lv_arc_set_value(obj, 720);
             lv_arc_set_bg_start_angle(obj, 0);
             lv_arc_set_bg_end_angle(obj, 360);
             lv_arc_set_rotation(obj, -90);

@@ -333,6 +333,8 @@ static void lcd_task(void *arg)
     }
     // bsp_lcd_init();
     bsp_lcd_bl_init();
+    bsp_lcd_bl_off();
+
     app_lvgl();
     lv_port_init_flag = 1;
     

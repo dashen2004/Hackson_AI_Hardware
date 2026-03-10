@@ -9,17 +9,6 @@ extern "C" {
 #endif
 
 // enum declarations
-
-// Flow global variables
-
-enum FlowGlobalVariables {
-    FLOW_GLOBAL_VARIABLE_VOLUME_VALUE = 0,
-    FLOW_GLOBAL_VARIABLE_BRIGHTNESS_TOP = 1,
-    FLOW_GLOBAL_VARIABLE_BRIGHTNESS_BOTTOM = 2,
-    FLOW_GLOBAL_VARIABLE_SUBTITLES = 3,
-    FLOW_GLOBAL_VARIABLE_EMOTION_IDX = 4,
-};
-
 enum TimerState {
     TIMER_STATE_NONE = 0,
     TIMER_STATE_IDLE = 1,
@@ -42,29 +31,10 @@ enum TomatoState {
 int8_t lvgl_get_var_tomato_state(void);
 void lvgl_set_var_tomato_state(int8_t state);
 
-// Native global variables
-
-extern bool get_var_mute_value();
-extern void set_var_mute_value(bool value, bool flag);
-extern int32_t get_var_volume_value();
-extern void set_var_volume_value(int32_t value, bool flag);
-extern bool get_var_brightness_onoff(void);
-extern void set_var_brightness_onoff(bool value);
-extern int32_t get_var_brightness();
-extern void set_var_brightness(int32_t value);
-extern int32_t get_var_cct();
-extern void set_var_cct(int32_t value);
-
 extern int32_t get_var_scr_tmo_value(void);
 extern void set_var_scr_tmo_value(int32_t value, bool flag);
 extern uint32_t get_var_turnoff_value(void);
 extern void set_var_turnoff_value(uint32_t value);
-
-extern int32_t get_var_language_value();
-extern void set_var_language_value(int32_t value, bool flag);
-
-extern bool get_var_awss_value(void);
-extern void set_var_awss_value(bool value, bool flag);
 
 char *get_var_city(void);
 void set_var_city(char *value, size_t size);
@@ -73,37 +43,11 @@ void set_var_weather_id(int8_t value);
 int8_t get_var_temperature(void);
 void set_var_temperature(int8_t value);
 
-int8_t get_var_light_mode(void);
-void set_var_light_mode(int8_t value, bool flag);
-int8_t get_var_rgb_select(void);
-void set_var_rgb_select(int8_t value, bool flag);
-uint32_t get_var_rgb_value(void);
-void set_var_rgb_value(uint32_t value);
-int8_t get_var_rgb_on_off(void);
-void set_var_rgb_on_off(int8_t value);
-// void set_var_weather_info_got(bool timeout, char *__city, int __weather_id, int __temperature);
-// bool get_var_weather_info_got(void);
-
 extern int8_t get_var_emotion_id(void);
 extern void set_var_emotion_id(int8_t value);
-extern char *get_var_subtitles();
-extern void set_var_subtitles(const char *value);
 
-int8_t get_var_ota_status(void);
-void set_var_ota_status(int8_t value, bool need_lock);
-int8_t get_var_ota_percent(void);
-void set_var_ota_percent(int8_t value);
-
-bool get_var_recog_page_leave(void);
-void set_var_recog_page_leave(bool value);
 uint32_t get_var_screen_operation_tick(void);
 void set_var_screen_operation_tick(void);
-
-char *get_var_ip_addr(void);
-void set_var_ip_addr(char *ip_addr);
-
-uint32_t conver_slider_value_to_rgb_value(int32_t slider_val, uint32_t start_rgb_val, uint32_t end_rgb_val);
-int32_t conver_rgb_value_to_slider_value(uint32_t rgb_val, uint32_t start_rgb_val, uint32_t end_rgb_val);
 
 #ifdef __cplusplus
 }

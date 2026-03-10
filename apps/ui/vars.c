@@ -78,6 +78,27 @@ void set_var_city(char *value, size_t size) {
     lv_strncpy(var_city, value, size);
 }
 
+int32_t get_var_scr_tmo_value(void) {
+    return var_scr_tmo;
+}
+
+void set_var_scr_tmo_value(int32_t value, bool flag) {
+    var_scr_tmo = value;
+    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
+    set_var_turnoff_value(timeout);
+    if (flag) {
+        // qm_kv_set(SCR_TMO_KEY_NAME, &var_scr_tmo, sizeof(int32_t), 1);
+    }
+}
+
+uint32_t get_var_turnoff_value(void) {
+    return qm_utils_time_is_expired(&var_turnoff);
+}
+
+void set_var_turnoff_value(uint32_t value) {
+    qm_utils_time_countdown_ms(&var_turnoff, value);
+}
+
 int8_t get_var_weather_id(void) {
     return var_weather_id;
 }
@@ -94,186 +115,6 @@ void set_var_temperature(int8_t value) {
     var_temperature = value;
 }
 
-bool get_var_brightness_onoff(void) {
-    // return bsp_light_store_get()->on_off;
-    return 0;
-}
-
-void set_var_brightness_onoff(bool value) {
-    // if (bsp_light_store_get()->on_off != value) {
-    //     bsp_light_bri_on_off(value);
-    //     audio_light_snapshot_report();
-    //     bsp_light_store_update();
-    // }
-}
-
-int32_t get_var_brightness() {
-    // int32_t bri = bsp_light_store_get()->brightness;
-    // return (bsp_light_store_get()->on_off ? bri : 0);
-    return 0;
-}
-
-void set_var_brightness(int32_t value) {
-    // bsp_light_bri_set(value);
-    // audio_light_snapshot_report();
-    // bsp_light_store_update();
-}
-
-int32_t get_var_cct() {
-    int32_t cct = 0;//bsp_light_store_get()->cct;
-    return cct / 100;
-}
-
-void set_var_cct(int32_t value) {
-    // bsp_light_cct_set(value);
-    // audio_light_snapshot_report();
-    // bsp_light_store_update();
-}
-
-int8_t get_var_light_mode(void) {
-    return 0;//bsp_light_store_get()->mode;
-}
-
-void set_var_light_mode(int8_t value, bool flag) {
-    // bsp_light_mode(value);
-    // audio_light_snapshot_report();
-    // bsp_light_store_update();
-}
-
-int8_t get_var_rgb_select(void) {
-    // return bsp_light_store_get()->rgb_sel;
-    return 0;
-}
-
-void set_var_rgb_select(int8_t value, bool flag) {
-    // bsp_light_rgb_select(value);
-    // audio_light_snapshot_report();
-    // bsp_light_store_update();
-}
-
-uint32_t get_var_rgb_value(void) {
-    // return bsp_light_store_get()->rgb_val;
-    return 0;
-}
-
-void set_var_rgb_value(uint32_t value) {
-    // bsp_light_rgb_value_set(value);
-    // audio_light_snapshot_report();
-    // bsp_light_store_update();
-}
-
-int8_t get_var_rgb_on_off(void) {
-    // return bsp_light_store_get()->rgb_on_off;
-    return 0;
-}
-
-void set_var_rgb_on_off(int8_t value) {
-    // if (bsp_light_store_get()->rgb_on_off != value) {
-    //     bsp_light_rgb_on_off(value);
-    //     audio_light_snapshot_report();
-    //     bsp_light_store_update();
-    // }
-}
-
-bool get_var_mute_value(void) {
-    int mute = 0;
-#if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    // mute = bsp_audio_get_voice_mute();
-#endif
-    return ( mute != 0 );
-}
-
-void set_var_mute_value(bool value, bool flag) {
-#if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    // bsp_audio_set_voice_mute(value);
-    if (flag) {
-        // qm_kv_set(MUTE_KEY_NAME, &value, sizeof(bool), 1);
-    }
-#endif
-}
-
-int32_t get_var_volume_value(void) {
-    int32_t val = 0;
-#if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    // val = nc_audio_get_volume();
-#endif
-    return val;
-}
-
-void set_var_volume_value(int32_t value, bool flag) {
-#if (CONFIG_LCD_DISABLE_AUDIO == 0)
-    // nc_audio_set_volume(value);
-    if (flag) {
-        // qm_kv_set(VOLUME_KEY_NAME, &value, sizeof(int32_t), 1);
-    }
-#endif
-}
-
-int32_t get_var_scr_tmo_value(void) {
-    return var_scr_tmo;
-}
-
-void set_var_scr_tmo_value(int32_t value, bool flag) {
-    var_scr_tmo = value;
-    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
-    set_var_turnoff_value(timeout);
-    if (flag) {
-        // qm_kv_set(SCR_TMO_KEY_NAME, &var_scr_tmo, sizeof(int32_t), 1);
-    }
-}
-
-int32_t get_var_language_value() {
-    return var_language;
-}
-
-void set_var_language_value(int32_t value, bool flag) {
-    // uint32_t timeout = bsp_lcd_get_turnoff_timeout();
-    // set_var_turnoff_value(timeout);
-    var_language = value;
-    if (flag) {
-        // qm_kv_set(LANG_KEY_NAME, &var_language, sizeof(int32_t), 1);
-    }
-}
-
-
-uint32_t get_var_turnoff_value(void) {
-    return qm_utils_time_is_expired(&var_turnoff);
-}
-
-void set_var_turnoff_value(uint32_t value) {
-    // var_turnoff = value;
-    qm_utils_time_countdown_ms(&var_turnoff, value);
-}
-
-bool get_var_awss_value(void) {
-    return var_awss;
-}
-
-void set_var_awss_value(bool value, bool flag) {
-    var_awss = value;
-    if (flag) {
-        // qm_kv_set(AWSS_KEY_NAME, &var_awss, sizeof(bool), 1);
-    }
-}
-
-char *get_var_subtitles() {
-    return var_subtitles;
-}
-
-extern objects_t objects;
-extern uint8_t lv_port_init_flag;
-void set_var_subtitles(const char *value) {
-    if(lv_port_init_flag == 0) {
-        return;
-    }
-    if (value != NULL) {
-        // lv_strcpy(var_subtitles, value);
-        lvgl_port_lock(0);
-        lv_textarea_set_text(objects.text_recog_subtitles, value);
-        lvgl_port_unlock();
-    }
-}
-
 int8_t get_var_emotion_id(void) {
     return var_emotion_id;
 }
@@ -282,96 +123,10 @@ void set_var_emotion_id(int8_t value) {
     var_emotion_id = value;
 }
 
-int8_t get_var_ota_status(void) {
-    return var_ota_status;
-}
-
-
-extern void goto_ota_process_page(void);
-extern void goto_ota_success_page(void);
-extern void goto_ota_failure_page(void);
-extern uint8_t lv_port_init_flag;
-void set_var_ota_status(int8_t value, bool need_lock) {
-    var_ota_status = value;
-    if(lv_port_init_flag == 0) {
-        return;
-    }
-
-    // bsp_lcd_bl_on();
-    
-    if (need_lock) {
-        lvgl_port_lock(0);
-    }
-    switch (value) {
-        case 1: goto_ota_success_page(); break;
-        case 2: goto_ota_failure_page(); break;
-        default: goto_ota_process_page(); break;
-    }
-    if (need_lock) {
-        lvgl_port_unlock();
-    }
-}
-
-int8_t get_var_ota_percent(void) {
-    return var_ota_percent;
-}
-
-void set_var_ota_percent(int8_t value) {
-    var_ota_percent = value;
-}
-
-bool get_var_recog_page_leave(void) {
-    return var_recog_page_leave;
-}
-
-void set_var_recog_page_leave(bool value) {
-    var_recog_page_leave = value;
-    qm_utils_time_countdown_ms(&var_screen_operation_tick, 5 * 1000);
-}
-
 uint32_t get_var_screen_operation_tick(void) {
     return qm_utils_time_is_expired(&var_screen_operation_tick);
 }
 
 void set_var_screen_operation_tick(void) {
     qm_utils_time_countdown_ms(&var_screen_operation_tick, 5 * 1000);
-}
-
-char *get_var_ip_addr(void) {
-    return var_ip_addr;
-}
-
-void set_var_ip_addr(char *ip_addr) {
-    strcpy(var_ip_addr, ip_addr);
-}
-
-uint32_t conver_slider_value_to_rgb_value(int32_t slider_val, uint32_t start_rgb_val, uint32_t end_rgb_val) {
-    // qm_color_rgb_t rgb, start_rgb, end_rgb;
-
-    // qm_color_code2rgb(start_rgb_val, &start_rgb);
-    // qm_color_code2rgb(end_rgb_val, &end_rgb);
-
-    // qm_color_value2rgb(slider_val, 0, 100, start_rgb, end_rgb, &rgb);
-
-    uint32_t val = 0;
-    // qm_color_rgb2code(rgb, &val);
-
-    QM_LOGI("1", "rgb value: %08lx", val);
-
-    return val;
-}
-
-int32_t conver_rgb_value_to_slider_value(uint32_t rgb_val, uint32_t start_rgb_val, uint32_t end_rgb_val) {
-    // qm_color_rgb_t rgb, start_rgb, end_rgb;
-    int32_t slider_val = 0;
-
-    // qm_color_code2rgb(rgb_val, &rgb);
-    // qm_color_code2rgb(start_rgb_val, &start_rgb);
-    // qm_color_code2rgb(end_rgb_val, &end_rgb);
-
-    // qm_color_rgb2value(&rgb, &start_rgb, &end_rgb, 0, 100, &slider_val);
-
-    QM_LOGI("1", "slider value: %ld", slider_val);
-
-    return slider_val;
 }
