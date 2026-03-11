@@ -11,6 +11,7 @@
 
 struct nc_player_handle_t {
     int volume;
+    int mute;
 
     nc_audio_spk_play_header_t spk_play;
     uint8_t recv_buff[SERIAL_RECV_LEN];
@@ -19,6 +20,7 @@ struct nc_player_handle_t {
 static struct nc_player_handle_t nc_player_handle= {0};
 
 static qm_err_t nc_audio_set_volume(int volume);
+static qm_err_t nc_audio_set_mute(int mute);
 
 static gx8006_info_t gx8006_info = {
     .inited      = 0,
@@ -147,9 +149,9 @@ static int gx8006_open(void)
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_WAKEUP_ONOFF, 1);
     nc_audio_cfg(NC_AUDIO_CFG_TYPE_WAKEUP_ONTIFY_ONOFF, 1);
 
+    nc_audio_set_volume(param.spk_gain);
+
     nc_player_handle.spk_play.msg_id = 0;
-    nc_player_handle.spk_play.type = NC_AUDIO_SPK_PLAY_TYPE_START;
-    nc_play_spk_direct_play(&nc_player_handle.spk_play, NULL, 0);
 
     gx8006_info.inited = 1;
 
@@ -172,6 +174,11 @@ static int gx8006_write(void *data, int len)
 
     while(qm_gpio_get_level(&nc_int_io) == 0) {
         qm_msleep(10);
+    }
+
+    if (nc_player_handle.spk_play.msg_id == 0) {
+        nc_player_handle.spk_play.type = NC_AUDIO_SPK_PLAY_TYPE_START;
+        nc_play_spk_direct_play(&nc_player_handle.spk_play, NULL, 0);
     }
 
     nc_player_handle.spk_play.msg_id++;
@@ -202,7 +209,7 @@ static int gx8006_ctrl(qm_ai_driver_ctrl_t cmd, void *param, void *user_data)
             gx8006_info.event_cb = (qm_ai_driver_event_handler_t)param;
             break;
         case QM_AI_DRIVER_CTRL_SET_MUTE:
-            // nc_audio_set_mute(*(bool *)param);
+            nc_audio_set_mute((bool)param);
             break;
         case QM_AI_DRIVER_CTRL_GET_MUTE:
             break;
@@ -233,6 +240,19 @@ static qm_err_t nc_audio_set_volume(int volume)
 {
     nc_player_handle.volume = volume;
     nc_audio_set_spk_volume((uint8_t)volume);
+
+    return QM_EOK;
+}
+
+static qm_err_t nc_audio_set_mute(int mute)
+{
+    nc_player_handle.mute = mute;
+
+    if (mute) {
+        nc_audio_set_spk_volume(0);
+    } else {
+        nc_audio_set_spk_volume(nc_player_handle.volume);
+    }
 
     return QM_EOK;
 }

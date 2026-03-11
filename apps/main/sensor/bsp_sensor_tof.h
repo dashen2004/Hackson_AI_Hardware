@@ -4,6 +4,7 @@
 #include "qm.h"
 
 qm_err_t bsp_sensor_tof_init(void);
-
+qm_err_t bsp_sensor_calib(void);
+qm_err_t bsp_sensor_single_measure(void);
 
 #endif
