@@ -17,7 +17,7 @@ extern void action_timer_opt_click(lv_event_t * e);
 extern void action_timer_stop_click(lv_event_t * e);
 extern void action_timer_reset_click(lv_event_t * e);
 
-extern void action_tomato_opt_click(lv_event_t * e);
+extern void tomato_opt_event_all_handler(lv_event_t * e);
 
 #ifdef __cplusplus
 }

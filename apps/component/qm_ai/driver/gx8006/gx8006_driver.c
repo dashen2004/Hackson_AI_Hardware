@@ -10,11 +10,15 @@
 #define SERIAL_RECV_LEN  (512)
 
 struct nc_player_handle_t {
+    int volume;
+
     nc_audio_spk_play_header_t spk_play;
     uint8_t recv_buff[SERIAL_RECV_LEN];
 };
 
 static struct nc_player_handle_t nc_player_handle= {0};
+
+static qm_err_t nc_audio_set_volume(int volume);
 
 static gx8006_info_t gx8006_info = {
     .inited      = 0,
@@ -119,8 +123,8 @@ static int gx8006_open(void)
         .rate = 16000,
         .bits = 16,
         .channel = 1,
-        .spk_gain = 10,
-        .mic_gain = 26,
+        .spk_gain = 30,
+        .mic_gain = 30,
         .vad_timeout = 10,
         .fmt_type = 2,
         .send = serial_send,
@@ -203,7 +207,7 @@ static int gx8006_ctrl(qm_ai_driver_ctrl_t cmd, void *param, void *user_data)
         case QM_AI_DRIVER_CTRL_GET_MUTE:
             break;
         case QM_AI_DRIVER_CTRL_SET_VOLUME:
-            // nc_audio_set_volume(*(uint32_t *)param);
+            nc_audio_set_volume((int)param);
             break;
         case QM_AI_DRIVER_CTRL_GET_VOLUME:
             break;
@@ -223,3 +227,12 @@ qm_ai_driver_param_t QM_AI_AUDIO_DRIVER_GX8006_HANDLE = {
     .read  = NULL,
     .ctrl  = gx8006_ctrl,
 };
+
+// inner function
+static qm_err_t nc_audio_set_volume(int volume)
+{
+    nc_player_handle.volume = volume;
+    nc_audio_set_spk_volume((uint8_t)volume);
+
+    return QM_EOK;
+}

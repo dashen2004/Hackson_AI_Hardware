@@ -25,6 +25,8 @@
 #include "esp_lvgl_port.h"
 #include "esp_lcd_touch_cst816s.h"
 
+#include "ui.h"
+
 #define TEST_LCD_HOST               SPI3_HOST
 #define TEST_LCD_H_RES              (240)
 #define TEST_LCD_V_RES              (240)
@@ -114,12 +116,12 @@ void bsp_lcd_bl_off(void) {
 }
 
 void bsp_lcd_bl_dim(void) {
-    if (bl_brightness_percent != 20) {
+    if (bl_brightness_percent != 50) {
         if(lv_port_init_flag == 0) {
             return;
         }
         lvgl_port_lock(0);
-        bsp_lcd_bl_set(20);
+        bsp_lcd_bl_set(50);
         lvgl_port_unlock(); 
     }
 }
@@ -282,13 +284,12 @@ extern void goto_page_by_id(int8_t screen_id);
 
 static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) 
 {
-    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
-
     if (get_var_turnoff_value()) {
         bsp_lcd_bl_dim();
-        if (!bl_brightness_percent) {
-            goto_page_by_id(SCREEN_ID_PAGE_MAIN);
-        } else {
+
+        if (get_current_screen() == SCREEN_ID_PAGE_POMODORO) {
+            set_var_turnoff_value(bsp_lcd_get_turnoff_timeout());
+        } else if (get_current_screen() != SCREEN_ID_PAGE_SLEEP) {
             goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
         }
     }

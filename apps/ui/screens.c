@@ -1212,7 +1212,7 @@ void create_screen_page_pomodoro() {
                     objects.container_tomato_opt = obj;
                     lv_obj_set_pos(obj, 35, 99);
                     lv_obj_set_size(obj, 64, 64);
-                    lv_obj_add_event_cb(obj, action_tomato_opt_click, LV_EVENT_CLICKED, (void *)0);
+                    lv_obj_add_event_cb(obj, tomato_opt_event_all_handler, LV_EVENT_ALL, (void *)0);
                     lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -1235,13 +1235,11 @@ void create_screen_page_pomodoro() {
             }
         }
     }
-    
-    // tick_screen_page_pomodoro();
+
+    tick_screen_page_pomodoro();
 }
 
 void tick_screen_page_pomodoro() {
-    turnoff_timer_reset(0);
-
     static uint32_t tomato_counter = 5 * 60;
     static uint32_t cur_counter = 0;
     uint32_t arc_new_val = 0;

@@ -29,6 +29,11 @@
 
 #define loadScreenEx    loadScreen
 
+extern uint8_t lv_port_init_flag;
+
+static enum ScreensEnum cur_screen_index = 0;
+static uint8_t tomato_opt_lock = 0;
+
 extern int bsp_lcd_bl_brightness_percent_get(void);
 
 static bool hit_test(lv_event_t * e) {
@@ -37,10 +42,6 @@ static bool hit_test(lv_event_t * e) {
     return lv_obj_hit_test((lv_obj_t *)lv_event_get_target(e), &pt);
 }
 
-extern uint8_t lv_port_init_flag;
-
-static enum ScreensEnum cur_screen_index = 0;
-
 void goto_page_by_id(int8_t screen_id)
 {
     if(lv_port_init_flag == 0) {
@@ -48,6 +49,8 @@ void goto_page_by_id(int8_t screen_id)
     }
     lvgl_port_lock(0);
     if (cur_screen_index == SCREEN_ID_PAGE_POMODORO) {
+        tomato_opt_lock = 0;
+
         switch (lvgl_get_var_tomato_state()) {
             case TOMATO_STATE_RUNNING:
                 lvgl_set_var_tomato_state(TOMATO_STATE_RUNNING_PAUSE);
@@ -87,17 +90,21 @@ static void goto_prev_page(void)
 void event_all_handler(lv_event_t * e)
 {
     lv_event_code_t event = lv_event_get_code(e);
-    int current_brightness_percent = bsp_lcd_bl_brightness_percent_get();
     if (event <= LV_EVENT_HOVER_LEAVE) { // Input device events
         turnoff_timer_reset(0);
     }
 
-    if (!current_brightness_percent) {
+    if (!bsp_lcd_bl_brightness_percent_get()) {
         return;
     }
 
     if (lv_scr_act() == objects.page_sleep && event == LV_EVENT_CLICKED) {
         goto_page_by_id(SCREEN_ID_PAGE_MAIN);
+        return;
+    }
+
+    if (lv_scr_act() == objects.page_pomodoro && event == LV_EVENT_CLICKED) {
+        bsp_lcd_bl_on();
         return;
     }
 
@@ -175,14 +182,40 @@ void action_timer_reset_click(lv_event_t * e)
     if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
         lvgl_set_var_timer_state(TIMER_STATE_IDLE);
 
+        // reset countdown time
+        if (lvgl_get_var_timer_type() == TIMER_TYPE_COUNT_DOWN) {
+        }
+
         turnoff_timer_reset(0);
     }
 }
 
-void action_tomato_opt_click(lv_event_t * e) 
+void tomato_opt_event_all_handler(lv_event_t * e)
 {
-    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
-        switch (lvgl_get_var_tomato_state()) {
+    lv_event_code_t event = lv_event_get_code(e);
+    if (event <= LV_EVENT_HOVER_LEAVE) {
+        turnoff_timer_reset(0);
+    } else {
+        return;
+    }
+
+    if (!bsp_lcd_bl_brightness_percent_get()) {
+        return;
+    }
+
+    uint8_t state = lvgl_get_var_tomato_state();
+
+    if (event == LV_EVENT_CLICKED) {
+        if (tomato_opt_lock) {
+            tomato_opt_lock = 0;
+            return;
+        }
+
+        if (!hit_test(e)) {
+            return;
+        }
+
+        switch (state) {
             case TOMATO_STATE_IDLE:
             case TOMATO_STATE_RUNNING_PAUSE:
                 lvgl_set_var_tomato_state(TOMATO_STATE_RUNNING);
@@ -203,7 +236,12 @@ void action_tomato_opt_click(lv_event_t * e)
             default:
             break;
         }
-
-        turnoff_timer_reset(0);
+    } else if (event == LV_EVENT_LONG_PRESSED_REPEAT || event == LV_EVENT_LONG_PRESSED) {
+        if (state == TOMATO_STATE_RUNNING || state == TOMATO_STATE_BREAK) {
+            tomato_opt_lock = 1;
+            lvgl_set_var_tomato_state(TOMATO_STATE_IDLE);
+        }
+    } else {
+        // ignore
     }
 }
