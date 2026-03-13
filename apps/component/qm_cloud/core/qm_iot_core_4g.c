@@ -27,7 +27,9 @@
 
 typedef struct 
 {
+    int conn;
     int get_lbs;
+    int get_imsi;
     qm_modem_t modem;
 }qm_iot_core_4g_t;
 
@@ -180,12 +182,12 @@ static char *qm_iot_dev_modem_4g_devinfo_get(void)
     char *payload = NULL;
     qm_modem_lbs_t lbs_info = {0};
     cJSON *root = cJSON_CreateObject();
-    if(root == NULL){
+    if(root == NULL || modem_4g_handle == NULL){
         goto __exit;
     }
     cJSON_AddStringToObject(root, QM_IOT_COMMON_PARAMS_TYPE_KEY, MODEM_4G_TYPE_KEY);
 
-    qm_modem_get_imsi(NULL, imsi, 64);
+    qm_modem_get_imsi(modem_4g_handle->modem, imsi, 64);
     if(imsi[0] == '\0'){
         goto __exit;
     }
@@ -236,14 +238,13 @@ static void modem_4g_event_handler(qm_modem_event_t event, void *data, int len, 
 
 #if CONFIG_QM_IOT_DEV_INFO_SUPPORT
     qm_modem_lbs_t *modem_lbs = NULL;
-    char imsi[CONFIG_QM_IOT_4G_IMSI_MAX_LEN] = {0};
 #endif
   
     switch(event){
 
         case QM_MODEM_EVENT_CONN:
             QM_LOGD(LOG_TAG, "modem event conn");
-            
+            core_handle->conn = QM_TRUE;
         #if CONFIG_QM_IOT_DEV_INFO_SUPPORT
             qm_modem_get_lbs(core_handle->modem);
         #endif
@@ -252,8 +253,8 @@ static void modem_4g_event_handler(qm_modem_event_t event, void *data, int len, 
 
         case QM_MODEM_EVENT_DISCONN:
             QM_LOGD(LOG_TAG, "modem event disconn");
-
-            core_handle->get_lbs = QM_FALSE;;
+            core_handle->conn = QM_FALSE;
+            core_handle->get_lbs = QM_FALSE;
             qm_iot_core_net_handle_event_notify(QM_IOT_NET_TYPE_4G, QM_IOT_CORE_EVENT_DISCONNECT_NET);
         break;
 
@@ -264,11 +265,16 @@ static void modem_4g_event_handler(qm_modem_event_t event, void *data, int len, 
         
             qm_iot_4g_lbs_info_set(modem_lbs);
             core_handle->get_lbs = QM_TRUE;
+            
+            if(!core_handle->get_imsi){
+                core_handle->get_imsi = QM_TRUE;
+                qm_modem_get_imsi(core_handle->modem, imsi, CONFIG_QM_IOT_AUTHCODE_MAX_LEN);
+                qm_iot_sn_set(imsi, strlen(imsi));
+            }
 
-            qm_modem_get_imsi(NULL, imsi, CONFIG_QM_IOT_AUTHCODE_MAX_LEN);
-            qm_iot_sn_set(imsi, strlen(imsi));
-
-            qm_iot_core_net_handle_event_notify(QM_IOT_NET_TYPE_4G, QM_IOT_CORE_EVENT_CONNECTED_NET);
+            if(core_handle->conn){
+                qm_iot_core_net_handle_event_notify(QM_IOT_NET_TYPE_4G, QM_IOT_CORE_EVENT_CONNECTED_NET);
+            }
 
         break;
 

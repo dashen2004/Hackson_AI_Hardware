@@ -54,14 +54,14 @@ static qm_err_t tcs_read(tcs34083_t *tcs, uint8_t reg, uint8_t *data, size_t len
 }
 
 
-static void tcs34083_init(tcs34083_t *tcs)
+static qm_err_t tcs34083_init(tcs34083_t *tcs)
 {
     // 读 ID
-    uint8_t id;
+    uint8_t id = 0;
     tcs_read(tcs, TCS_ID, &id, 1);
     if (id != TCS_CHIP_ID) {
         QM_LOGE(LOG_TAG, "chip id is invalid");
-        return;
+        return -QM_EINIT;
     }
 
     // 上电
@@ -79,7 +79,7 @@ static void tcs34083_init(tcs34083_t *tcs)
     // 启用 ALS
     tcs_write(tcs, TCS_ENABLE, TCS_ENABLE_PON | TCS_ENABLE_AEN);
 
-    return;
+    return QM_EOK;
 }
 
 static void tcs34083_read_rgb(tcs34083_t *tcs,
@@ -243,9 +243,9 @@ qm_err_t bsp_sensor_light_init(void)
     g_tcs_handle.gain = 0;
     g_tcs_handle.atime = 0;
 
-    tcs34083_init(&g_tcs_handle);
-
-    qm_task_new_to_core(&g_tcs_handle.light_task, "light_read_task", light_read_task, &g_tcs_handle, 2 * 1024, 10, 1);
+    if (tcs34083_init(&g_tcs_handle) == QM_EOK) {
+        qm_task_new_to_core(&g_tcs_handle.light_task, "light_read_task", light_read_task, &g_tcs_handle, 2 * 1024, 10, 1);
+    }
 
     return QM_EOK;
 }

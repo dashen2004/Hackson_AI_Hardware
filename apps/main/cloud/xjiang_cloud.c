@@ -25,6 +25,8 @@
 
 #include "qm_ai_api.h"
 
+#include "qm_nw_switch.h"
+
 #define LOG_TAG "APP"
 #define WEATHER_REQ_TIMEOUT_MS      (15 * 1000)
 #define BACKOFF_BASE_TIME_MS        (3 * 1000)
@@ -40,6 +42,7 @@ static qm_work_t weather_request_action = { 0 };
 static qm_work_t set_disconnected_action = { 0 };
 static qm_work_t set_connected_action = { 0 };
 static qm_work_t set_blink_action = { 0 };
+static qm_work_t wifi_disconn_action = {0};
 static uint8_t ota_status_flag = 0;
 backoff_algorithm_ctx_t backoff_ctx = {0};
 backoff_algorithm_status_t backoff_status = BACKOFF_ALGORITHM_SUCCESS;
@@ -133,6 +136,11 @@ static void delay_set_blink(void *argv) {
     // wifi_set_blink();
 }
 
+static void switch_net_type(void *arg)
+{
+    qm_nw_switch_4g();
+}
+
 static void handle_sta_rssi(char *pwbuf, int blen, int argc, char **argv)
 {
     int8_t rssi = 0;
@@ -180,6 +188,8 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             connect = QM_TRUE;
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CEART_WS, NULL, 0);
 
+            qm_cancel_delayed_action(&wifi_disconn_action);
+
             extern void qm_example_ai_init(void *handle);
             qm_example_ai_init(iot_handle);
 
@@ -209,6 +219,9 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             if(ota_status_flag) {
                 ota_status_flag = 0;
                 // set_var_ota_status(2, true);
+            }
+            if (qm_nw_get_net_type() == QM_IOT_NET_TYPE_WIFI_COMBO) {
+                qm_post_delayed_action(&wifi_disconn_action, switch_net_type, NULL, 10 * 1000);
             }
             break;
 
@@ -309,6 +322,7 @@ static void qm_iot_recv_handler(void *handle, const qm_iot_recv_t *recv, void *u
         case QM_IOT_RECV_TYPE_PROPERTY_SET:
             QM_LOGD(LOG_TAG, "app recv prop set did %d siid %d piid %d!!!", recv->did, recv->siid, recv->piid);
             // audio_light_action_and_report(recv->data.set.property);
+            bsp_nw_cmd_action(recv->data.set.property);
         break;
 
         case QM_IOT_RECV_TYPE_PROPERTY_GET_RSP:
@@ -389,6 +403,7 @@ int xjiang_cloud_init(void)
     qm_iot_setopt(iot_handle, QM_IOT_OPT_PRODUCT_SECRET, CONFIG_XJIANG_CLOUD_SECERT);
     qm_iot_setopt(iot_handle, QM_IOT_OPT_RECV_HANDLER, qm_iot_recv_handler);
     qm_iot_setopt(iot_handle, QM_IOT_OPT_EVENT_HANDLER, qm_iot_event_handler);
+    qm_nw_switch_init(iot_handle);
 
     return qm_iot_start(iot_handle);
 }

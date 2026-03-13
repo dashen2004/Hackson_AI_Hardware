@@ -1,6 +1,7 @@
 #include "qm.h"
 #include "qm_work.h"
 #include "qm_gpio.h"
+#include "bsp_bat.h"
 
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
@@ -47,6 +48,22 @@ static qm_gpio_dev_t audio_enable_io = {
     }
 };
 
+static qm_gpio_dev_t nt26_enable_io = {
+    .port = 14,
+    .config = {
+        .mode = QM_GPIO_MODE_OUTPUT,
+        .pull_en = QM_GPIO_PULLUP_ONLY,
+    }
+};
+
+static qm_gpio_dev_t nt26_rst_io = {
+    .port = 21,
+    .config = {
+        .mode = QM_GPIO_MODE_OUTPUT,
+        .pull_en = QM_GPIO_PULLUP_ONLY,
+    }
+};
+
 static void ind_timeout_handle(void *arg);
 
 static void bat_ticks_timeout(qm_timer_t *timer, void *arg)
@@ -81,6 +98,29 @@ qm_err_t bsp_bat_init(void)
 
     qm_gpio_init(&audio_enable_io);
     qm_gpio_set_level(&audio_enable_io, QM_TRUE);
+
+    qm_gpio_init(&nt26_enable_io);
+    
+    qm_gpio_init(&nt26_rst_io);
+    qm_gpio_set_level(&nt26_rst_io, QM_TRUE);
+
+    bsp_bat_enable_4g();
+
+    return QM_EOK;
+}
+
+qm_err_t bsp_bat_enable_4g(void)
+{
+    qm_gpio_set_level(&nt26_enable_io, QM_FALSE);
+
+    return QM_EOK;
+}
+
+qm_err_t bsp_bat_reset_4g(void)
+{
+    qm_gpio_set_level(&nt26_rst_io, QM_FALSE);
+    qm_msleep(500);
+    qm_gpio_set_level(&nt26_rst_io, QM_TRUE);
 
     return QM_EOK;
 }

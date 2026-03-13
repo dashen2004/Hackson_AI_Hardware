@@ -7,6 +7,8 @@
 #include "qm_spec_core.h"
 #include "qm_utils_list.h"
 
+#include "qm_kv.h"
+
 #if CONFIG_QM_IOT_PROV_SUPPORT
 #include "qm_iot_prov.h"
 #endif
@@ -427,6 +429,7 @@ int32_t qm_iot_setopt(void *handle, qm_iot_option_t option, void *data)
 
 int32_t qm_iot_start(void *handle)
 {
+    int kv_len = 1;
     uint32_t did = 0;
     int ret = QM_EOK;
     uint32_t len = 0;
@@ -438,16 +441,22 @@ int32_t qm_iot_start(void *handle)
     }
 
     if(core_handle->net_type == QM_IOT_NET_TYPE_NONE){
-        #if CONFIG_QM_IOT_NETWORK_TYPE_4G
-            core_handle->net_type = QM_IOT_NET_TYPE_4G;
-        #elif CONFIG_QM_IOT_NETWORK_TYPE_WIFI
+        #if CONFIG_QM_IOT_NETWORK_TYPE_WIFI
             core_handle->net_type = QM_IOT_NET_TYPE_WIFI_COMBO;
+        #elif CONFIG_QM_IOT_NETWORK_TYPE_4G
+            core_handle->net_type = QM_IOT_NET_TYPE_4G;
+        // #if CONFIG_QM_IOT_NETWORK_TYPE_4G
+        //     core_handle->net_type = QM_IOT_NET_TYPE_4G;
+        // #elif CONFIG_QM_IOT_NETWORK_TYPE_WIFI
+        //     core_handle->net_type = QM_IOT_NET_TYPE_WIFI_COMBO;
         #else
             QM_LOGE(LOG_TAG, "NETWORK TYPE NONE!!");    
             return -QM_EINVAL;
         #endif
     }
-
+    
+    qm_kv_get("net_type", &core_handle->net_type, &kv_len);
+    QM_LOGD(LOG_TAG, "get nettype local:%d", core_handle->net_type);
     ret = qm_iot_net_type_set(core_handle, core_handle->net_type);
     if(ret != QM_EOK){
         QM_LOGE(LOG_TAG, "NETWORK SET FAILED!!");
@@ -587,10 +596,14 @@ int32_t qm_iot_change_net_type(void *handle, qm_iot_net_type_t net_type)
     }
 
     if(core_handle->net_type == QM_IOT_NET_TYPE_NONE){
-        #if CONFIG_QM_IOT_NETWORK_TYPE_4G
-            core_handle->net_type = QM_IOT_NET_TYPE_4G;
-        #elif CONFIG_QM_IOT_NETWORK_TYPE_WIFI
+        #if CONFIG_QM_IOT_NETWORK_TYPE_WIFI
             core_handle->net_type = QM_IOT_NET_TYPE_WIFI_COMBO;
+        #elif CONFIG_QM_IOT_NETWORK_TYPE_4G
+            core_handle->net_type = QM_IOT_NET_TYPE_4G;
+        // #if CONFIG_QM_IOT_NETWORK_TYPE_4G
+        //     core_handle->net_type = QM_IOT_NET_TYPE_4G;
+        // #elif CONFIG_QM_IOT_NETWORK_TYPE_WIFI
+        //     core_handle->net_type = QM_IOT_NET_TYPE_WIFI_COMBO;
         #else
             QM_LOGE(LOG_TAG, "NETWORK TYPE NONE!!");    
             return -QM_EINVAL;
@@ -599,7 +612,7 @@ int32_t qm_iot_change_net_type(void *handle, qm_iot_net_type_t net_type)
 
     qm_iot_stop(core_handle);
 
-    ret = qm_iot_net_type_set(core_handle, core_handle->net_type);
+    ret = qm_iot_net_type_set(core_handle, net_type);
     if(ret != QM_EOK){
         QM_LOGE(LOG_TAG, "NETWORK SET FAILED!!");
         return ret;
@@ -771,13 +784,14 @@ static int qm_iot_net_type_set(qm_iot_core_handle_t *core_handle, qm_iot_net_typ
         return -QM_EINVAL;
     }
 
-    net_handle = qm_iot_core_net_get_handle(net_type);  
-    if(net_handle == NULL){
-        return -QM_EINVAL;
-    }
-
+ 
     if(last_net_type != QM_IOT_NET_TYPE_NONE)
     {
+        net_handle = qm_iot_core_net_get_handle(last_net_type);  
+        if(net_handle == NULL){
+            return -QM_EINVAL;
+        }
+
         if(net_handle->close){
             ret = net_handle->close();
             if(ret != QM_EOK){
@@ -785,6 +799,11 @@ static int qm_iot_net_type_set(qm_iot_core_handle_t *core_handle, qm_iot_net_typ
                 return ret;
             }
         }
+    }
+
+    net_handle = qm_iot_core_net_get_handle(net_type);  
+    if(net_handle == NULL){
+        return -QM_EINVAL;
     }
 
     if(net_handle->open){

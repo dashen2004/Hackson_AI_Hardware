@@ -16,7 +16,7 @@ dependencies:
       require: private
       version: '>=4.1'
     source:
-      registry_url: https://components.espressif.com
+      registry_url: https://components.espressif.com/
       type: service
     version: 0.5.3
   espressif/esp-dsp:
@@ -115,6 +115,52 @@ dependencies:
     source:
       type: idf
     version: 5.4.1
+  iot_usbh:
+    dependencies:
+    - name: idf
+      version: '>=4.4.1'
+    - name: espressif/cmake_utilities
+      version: 0.*
+    source:
+      path: /home/micro/esp32_combo/qumi/platform/mcu/esp32/hal/modem/usb/iot_usbh
+      type: local
+    targets:
+    - esp32s2
+    - esp32s3
+    version: 0.2.1
+  iot_usbh_cdc:
+    dependencies:
+    - name: idf
+      version: '>=4.4.1'
+    - name: espressif/cmake_utilities
+      version: 0.*
+    - name: iot_usbh
+      override_path: ../iot_usbh
+      public: true
+      version: 0.*
+    source:
+      path: /home/micro/esp32_combo/qumi/platform/mcu/esp32/hal/modem/usb/iot_usbh_cdc
+      type: local
+    targets:
+    - esp32s2
+    - esp32s3
+    version: 0.2.1
+  iot_usbh_modem:
+    dependencies:
+    - name: idf
+      version: '>=4.4.1'
+    - name: espressif/cmake_utilities
+      version: 0.*
+    - name: iot_usbh_cdc
+      override_path: ../iot_usbh_cdc
+      version: 0.*
+    source:
+      path: /home/micro/esp32_combo/qumi/platform/mcu/esp32/hal/modem/usb/iot_usbh_modem
+      type: local
+    targets:
+    - esp32s2
+    - esp32s3
+    version: 0.2.1
   lvgl/lvgl:
     component_hash: 096c69af22eaf8a2b721e3913da91918c5e6bf1a762a113ec01f401aa61337a0
     dependencies: []
@@ -132,7 +178,8 @@ direct_dependencies:
 - espressif/nghttp
 - espressif/zlib
 - idf
+- iot_usbh_modem
 - lvgl/lvgl
-manifest_hash: 7c76d38f70026f33f32245a1dd1ea564a1525767cf5dd1ff8b474b2ea68a8a89
+manifest_hash: e6f5a12ed9c30586599c2bfcd92041cd06df805e2a61001487b7382380d798c5
 target: esp32s3
 version: 2.0.0

@@ -6,6 +6,8 @@ set(COMPONENT_SRCS
     "./main.c"
     "./ai_main.c"
 
+    "./nw_switch/qm_nw_switch.c"
+
     "./bsp/src/bsp_i2c.c"
 
     "./bat/bsp_bat.c"
@@ -81,6 +83,7 @@ set(COMPONENT_SRCS
     "../component/qm_cloud/dynreg/qm_iot_dynreg.c"
     "../component/qm_cloud/api/qm_iot_api.c"
     "../component/qm_cloud/core/qm_iot_core.c"
+    "../component/qm_cloud/core/qm_iot_core_4g.c"
     "../component/qm_cloud/core/qm_iot_core_wifi_combo.c"
     "../component/qm_cloud/mqtt/qm_iot_mqtt.c"
     "../component/qm_cloud/ntp/qm_iot_ntp.c"
@@ -144,6 +147,7 @@ set(COMPONENT_SRCS
     # "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qm_ble/qm_ble_hal_ota.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/qm_ble/qm_ble_hal_sec.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/hal/wifi/qm_wifi.c"
+    "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/hal/modem/qm_modem.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/hal/soc/qm_uart.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/hal/soc/qm_gpio.c"
     "$ENV{ADF_PATH}/qumi/platform/mcu/esp32/hal/soc/qm_pwm.c"
@@ -168,6 +172,8 @@ set(COMPONENT_SRCS
 set(COMPONENT_ADD_INCLUDEDIRS 
     "."
     "./qm_config"
+
+    "./nw_switch"
 
     "./bsp/inc"
 

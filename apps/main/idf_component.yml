@@ -21,3 +21,7 @@ dependencies:
   # 78/esp-opus: ^1.0.5
   # espressif/lightbulb_driver: ^1.11.0
   espressif/esp_lcd_gc9a01: ^2.0.4
+
+  iot_usbh_modem:
+    version: ">=0.2.0"
+    override_path: "../../qumi/platform/mcu/esp32/hal/modem/usb/iot_usbh_modem"
