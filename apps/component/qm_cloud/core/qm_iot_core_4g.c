@@ -187,10 +187,12 @@ static char *qm_iot_dev_modem_4g_devinfo_get(void)
     }
     cJSON_AddStringToObject(root, QM_IOT_COMMON_PARAMS_TYPE_KEY, MODEM_4G_TYPE_KEY);
 
+    #if CONFIG_QM_IOT_NETWORK_TYPE_WIFI_NORMAL
     qm_modem_get_imsi(modem_4g_handle->modem, imsi, 64);
     if(imsi[0] == '\0'){
         goto __exit;
     }
+    #endif
 
     qm_iot_4g_lbs_info_get(&lbs_info);
 
@@ -266,11 +268,13 @@ static void modem_4g_event_handler(qm_modem_event_t event, void *data, int len, 
             qm_iot_4g_lbs_info_set(modem_lbs);
             core_handle->get_lbs = QM_TRUE;
             
+            #if CONFIG_QM_IOT_NETWORK_TYPE_WIFI_NORMAL
             if(!core_handle->get_imsi){
                 core_handle->get_imsi = QM_TRUE;
                 qm_modem_get_imsi(core_handle->modem, imsi, CONFIG_QM_IOT_AUTHCODE_MAX_LEN);
                 qm_iot_sn_set(imsi, strlen(imsi));
             }
+            #endif
 
             if(core_handle->conn){
                 qm_iot_core_net_handle_event_notify(QM_IOT_NET_TYPE_4G, QM_IOT_CORE_EVENT_CONNECTED_NET);

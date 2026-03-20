@@ -65,6 +65,11 @@ typedef struct _objects_t {
     lv_obj_t *obj38;
     lv_obj_t *obj39;
     lv_obj_t *label_count;
+    lv_obj_t *scroll_hour;
+    lv_obj_t *disp_hour;
+    lv_obj_t *label_next_hour;
+    lv_obj_t *label_prev_hour;
+    lv_obj_t *label_cur_hour;
     lv_obj_t *container_start;
     lv_obj_t *img_start;
     lv_obj_t *container_reset;

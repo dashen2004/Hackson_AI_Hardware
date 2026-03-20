@@ -17,6 +17,8 @@
 #include "bsp_sensor_light.h"
 #include "bsp_sensor_tof.h"
 #include "bsp_lcd.h"
+#include "bsp_lcd_touch.h"
+#include "app_lvgl.h"
 
 #include "xjiang_cloud.h"
 
@@ -106,6 +108,8 @@ void qm_application_start(void)
     bsp_sensor_light_init();
     bsp_sensor_tof_init();
     bsp_lcd_init();
+    bsp_lcd_touch_init();
+    app_lvgl_init();
 
     xjiang_cloud_init();
 

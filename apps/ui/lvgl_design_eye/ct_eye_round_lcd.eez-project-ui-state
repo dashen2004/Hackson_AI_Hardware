@@ -1021,7 +1021,7 @@
           "x": -120,
           "y": -120
         },
-        "scale": 2
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1045,7 +1045,7 @@
           "x": -124,
           "y": -120
         },
-        "scale": 2
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1071,10 +1071,10 @@
       },
       "transform": {
         "translate": {
-          "x": -178.3535636428465,
-          "y": -240.4060363307142
+          "x": -204.9264238999936,
+          "y": -194.7293360841428
         },
-        "scale": 2
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1086,32 +1086,24 @@
     "[ct_eye_round_lcd.eez-project]:/userPages/3[flow-state]": {
       "selection": {
         "0": {
-          "0": {},
           "1": {
-            "0": {},
-            "1": {},
-            "2": {}
-          },
-          "2": {
-            "0": {},
-            "1": {
+            "2": {
               "0": {
-                "0": {},
                 "$selected": true
               }
-            },
-            "2": {
-              "0": {}
             }
+          },
+          "2": {
+            "0": {}
           }
         }
       },
       "transform": {
         "translate": {
-          "x": -279.333292643229,
-          "y": -102.66666666666663
+          "x": -245.24599602108893,
+          "y": -165.70370419820142
         },
-        "scale": 2
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1125,7 +1117,8 @@
         "0": {
           "0": {
             "0": {},
-            "2": {}
+            "2": {},
+            "3": {}
           },
           "1": {}
         }
@@ -1135,7 +1128,7 @@
           "x": -180,
           "y": -180
         },
-        "scale": 2
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1155,7 +1148,7 @@
           "x": -120,
           "y": -120
         },
-        "scale": 2
+        "scale": 1.5
       },
       "timeline": {
         "isEditorActive": false,
@@ -1176,13 +1169,14 @@
   "showComponentDescriptions": true,
   "logsPanelFilter": "all",
   "selectedStylePropertyName": "",
-  "lvglPart": "INDICATOR",
-  "lvglState": "CHECKED",
+  "lvglPart": "MAIN",
+  "lvglState": "DEFAULT",
   "lvglExpandedPropertiesGroup": [
-    "TEXT"
+    "TEXT",
+    "MISCELLANEOUS"
   ],
   "showInactiveFlowsInDebugger": true,
   "globalFlowZoom": true,
-  "flowZoom": 2,
+  "flowZoom": 1.5,
   "implementationLanguage": "C"
 }

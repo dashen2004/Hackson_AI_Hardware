@@ -13,6 +13,7 @@
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
 #include "bsp_lcd.h"
+#include "app_lvgl.h"
 
 /*
     有些gif刚加载时会白色闪烁, 所以在lv_gif.c中做一些屏蔽处理
@@ -29,12 +30,8 @@
 
 #define loadScreenEx    loadScreen
 
-extern uint8_t lv_port_init_flag;
-
 static enum ScreensEnum cur_screen_index = 0;
 static uint8_t tomato_opt_lock = 0;
-
-extern int bsp_lcd_bl_brightness_percent_get(void);
 
 static bool hit_test(lv_event_t * e) {
     lv_point_t pt;
@@ -44,9 +41,6 @@ static bool hit_test(lv_event_t * e) {
 
 void goto_page_by_id(int8_t screen_id)
 {
-    if(lv_port_init_flag == 0) {
-        return;
-    }
     lvgl_port_lock(0);
     if (cur_screen_index == SCREEN_ID_PAGE_POMODORO) {
         tomato_opt_lock = 0;
@@ -94,7 +88,7 @@ void event_all_handler(lv_event_t * e)
         turnoff_timer_reset(0);
     }
 
-    if (!bsp_lcd_bl_brightness_percent_get()) {
+    if (!bsp_lcd_is_ready()) {
         return;
     }
 
@@ -131,7 +125,7 @@ void event_all_handler(lv_event_t * e)
 /*  action  */
 void action_count_up_click(lv_event_t * e)
 {
-    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
+    if (hit_test(e) && bsp_lcd_is_ready()) {
         lvgl_set_var_timer_type(TIMER_TYPE_COUNT_UP);
 
         turnoff_timer_reset(0);
@@ -140,7 +134,7 @@ void action_count_up_click(lv_event_t * e)
 
 void action_count_down_click(lv_event_t * e)
 {
-    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
+    if (hit_test(e) && bsp_lcd_is_ready()) {
         lvgl_set_var_timer_type(TIMER_TYPE_COUNT_DOWN);
         
         turnoff_timer_reset(0);
@@ -149,7 +143,7 @@ void action_count_down_click(lv_event_t * e)
 
 void action_timer_opt_click(lv_event_t * e) 
 {
-    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
+    if (hit_test(e) && bsp_lcd_is_ready()) {
         switch (lvgl_get_var_timer_state()) {
             case TIMER_STATE_IDLE:
             case TIMER_STATE_PAUSE:
@@ -170,7 +164,7 @@ void action_timer_opt_click(lv_event_t * e)
 
 void action_timer_stop_click(lv_event_t * e) 
 {
-    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
+    if (hit_test(e) && bsp_lcd_is_ready()) {
         lvgl_set_var_timer_state(TIMER_STATE_IDLE);
 
         turnoff_timer_reset(0);
@@ -179,7 +173,7 @@ void action_timer_stop_click(lv_event_t * e)
 
 void action_timer_reset_click(lv_event_t * e) 
 {
-    if (hit_test(e) && bsp_lcd_bl_brightness_percent_get() != 0) {
+    if (hit_test(e) && bsp_lcd_is_ready()) {
         lvgl_set_var_timer_state(TIMER_STATE_IDLE);
 
         // reset countdown time
@@ -199,7 +193,7 @@ void tomato_opt_event_all_handler(lv_event_t * e)
         return;
     }
 
-    if (!bsp_lcd_bl_brightness_percent_get()) {
+    if (!bsp_lcd_is_ready()) {
         return;
     }
 

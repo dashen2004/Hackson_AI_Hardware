@@ -12,6 +12,8 @@ set(COMPONENT_SRCS
 
     "./bat/bsp_bat.c"
     "./lcd/bsp_lcd.c"
+    "./lcd/bsp_lcd_touch.c"
+    "./lcd/app_lvgl.c"
     "./cloud/xjiang_cloud.c"
     "./sensor/bsp_sensor_tof.c"
     "./sensor/bsp_sensor_light.c"

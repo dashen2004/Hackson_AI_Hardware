@@ -7,20 +7,19 @@ extern "C" {
 
 #include "qm.h"
 
-#include "actions.h"
-#include "fonts.h"
-#include "screens.h"
-#include "ui.h"
-#include "vars.h"
+#define LCD_H_RES   (240)
+#define LCD_V_RES   (240)
+
+#define LCD_BL_BRIGHTNESS_MAX   (100)
+#define LCD_BL_BRIGHTNESS_DIM   (50)
+#define LCD_BL_BRIGHTNESS_MIN   (0)
 
 qm_err_t bsp_lcd_init(void);
+bool_t bsp_lcd_is_ready(void);
 
 void bsp_lcd_bl_on(void);
 void bsp_lcd_bl_off(void);
 void bsp_lcd_bl_dim(void);
-
-uint32_t bsp_lcd_get_turnoff_timeout(void);
-void turnoff_timer_reset(uint8_t flag);
 
 #ifdef __cplusplus
 }

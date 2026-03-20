@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "bsp_lcd.h"
+#include "app_lvgl.h"
 
 #include "qm_kv.h"
 #include "esp_lvgl_port.h"
@@ -61,14 +62,7 @@ void lvgl_set_var_tomato_state(int8_t state) {
     var_tomato_state = state;
 }
 
-char *get_var_city(void) {
-    return var_city;
-}
-
-void set_var_city(char *value, size_t size) {
-    lv_strncpy(var_city, value, size);
-}
-
+// screen
 int32_t get_var_scr_tmo_value(void) {
     return var_scr_tmo;
 }
@@ -90,12 +84,35 @@ void set_var_turnoff_value(uint32_t value) {
     qm_utils_time_countdown_ms(&var_turnoff, value);
 }
 
+uint32_t get_var_screen_operation_tick(void) {
+    return qm_utils_time_is_expired(&var_screen_operation_tick);
+}
+
+void set_var_screen_operation_tick(void) {
+    qm_utils_time_countdown_ms(&var_screen_operation_tick, 5 * 1000);
+}
+
+
+// city weather temperature
+char *get_var_city(void) {
+    return var_city;
+}
+
+void set_var_city(char *value, size_t size) {
+    lv_strncpy(var_city, value, size);
+
+    tick_screen_page_weather();
+}
+
+
 int8_t get_var_weather_id(void) {
     return var_weather_id;
 }
 
 void set_var_weather_id(int8_t value) {
     var_weather_id = value;
+
+    tick_screen_page_weather();
 }
 
 int8_t get_var_temperature(void) {
@@ -104,12 +121,6 @@ int8_t get_var_temperature(void) {
 
 void set_var_temperature(int8_t value) {
     var_temperature = value;
-}
 
-uint32_t get_var_screen_operation_tick(void) {
-    return qm_utils_time_is_expired(&var_screen_operation_tick);
-}
-
-void set_var_screen_operation_tick(void) {
-    qm_utils_time_countdown_ms(&var_screen_operation_tick, 5 * 1000);
+    tick_screen_page_weather();
 }

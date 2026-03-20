@@ -970,8 +970,6 @@ static void qm_iot_mqtt_event_handler(void *handle, const qm_iot_mqtt_event_t *e
     switch (event->type)
     {
         case QM_IOT_MQTTEVT_CONNECT:
-        case QM_IOT_MQTTEVT_RECONNECT:
-            
         #if CONFIG_QM_IOT_DEVMNT_SUPPORT
             qm_iot_core_dev_process(core_handle);
         #endif
@@ -1000,6 +998,10 @@ static void qm_iot_mqtt_event_handler(void *handle, const qm_iot_mqtt_event_t *e
             qm_cancel_delayed_action(&core_handle->core_req);  
             core_handle->status = QM_IOT_EVENT_CLOUD_DISCONN;
             qm_iot_event_notify(core_handle, QM_IOT_EVENT_CLOUD_DISCONN);
+        break;
+
+        case QM_IOT_MQTTEVT_RECONNECT:
+            qm_iot_core_process_start(core_handle);
         break;
 
         default:
