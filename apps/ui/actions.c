@@ -45,14 +45,14 @@ void goto_page_by_id(int8_t screen_id)
     if (cur_screen_index == SCREEN_ID_PAGE_POMODORO) {
         tomato_opt_lock = 0;
 
-        switch (lvgl_get_var_tomato_state()) {
+        switch (lvgl_var_tomato_state_get()) {
             case TOMATO_STATE_RUNNING:
-                lvgl_set_var_tomato_state(TOMATO_STATE_RUNNING_PAUSE);
+                lvgl_var_tomato_state_set(TOMATO_STATE_RUNNING_PAUSE);
                 ui_tick();
             break;
 
             case TOMATO_STATE_BREAK:
-                lvgl_set_var_timer_state(TOMATO_STATE_BREAK_PAUSE);
+                lvgl_var_timer_state_set(TOMATO_STATE_BREAK_PAUSE);
                 ui_tick();
             break;
 
@@ -63,8 +63,8 @@ void goto_page_by_id(int8_t screen_id)
     cur_screen_index = screen_id;
     loadScreenEx(screen_id);
     lvgl_port_unlock();
-    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
-    set_var_turnoff_value(timeout);
+    // uint32_t timeout = app_lvgl_get_turnoff_time();
+    // set_var_turnoff_value(timeout);
 }
 
 static uint8_t page_index[8] = {SCREEN_ID_PAGE_NONE, SCREEN_ID_PAGE_WEATHER, SCREEN_ID_PAGE_MAIN, SCREEN_ID_PAGE_ALARM, 
@@ -85,7 +85,7 @@ void event_all_handler(lv_event_t * e)
 {
     lv_event_code_t event = lv_event_get_code(e);
     if (event <= LV_EVENT_HOVER_LEAVE) { // Input device events
-        turnoff_timer_reset(0);
+        app_lvgl_turnoff_reset(1);
     }
 
     if (!bsp_lcd_is_ready()) {
@@ -126,61 +126,61 @@ void event_all_handler(lv_event_t * e)
 void action_count_up_click(lv_event_t * e)
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
-        lvgl_set_var_timer_type(TIMER_TYPE_COUNT_UP);
+        lvgl_var_timer_type_set(TIMER_TYPE_COUNT_UP);
 
-        turnoff_timer_reset(0);
+        app_lvgl_turnoff_reset(1);
     }
 }
 
 void action_count_down_click(lv_event_t * e)
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
-        lvgl_set_var_timer_type(TIMER_TYPE_COUNT_DOWN);
+        lvgl_var_timer_type_set(TIMER_TYPE_COUNT_DOWN);
         
-        turnoff_timer_reset(0);
+        app_lvgl_turnoff_reset(1);
     }
 }
 
 void action_timer_opt_click(lv_event_t * e) 
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
-        switch (lvgl_get_var_timer_state()) {
+        switch (lvgl_var_timer_state_get()) {
             case TIMER_STATE_IDLE:
             case TIMER_STATE_PAUSE:
-                lvgl_set_var_timer_state(TIMER_STATE_RUNNING);
+                lvgl_var_timer_state_set(TIMER_STATE_RUNNING);
             break;
 
             case TOMATO_STATE_RUNNING:
-                lvgl_set_var_timer_state(TIMER_STATE_PAUSE);
+                lvgl_var_timer_state_set(TIMER_STATE_PAUSE);
             break;
 
             default:
             break;
         }
 
-        turnoff_timer_reset(0);
+        app_lvgl_turnoff_reset(1);
     }
 }
 
 void action_timer_stop_click(lv_event_t * e) 
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
-        lvgl_set_var_timer_state(TIMER_STATE_IDLE);
+        lvgl_var_timer_state_set(TIMER_STATE_IDLE);
 
-        turnoff_timer_reset(0);
+        app_lvgl_turnoff_reset(1);
     }
 }
 
 void action_timer_reset_click(lv_event_t * e) 
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
-        lvgl_set_var_timer_state(TIMER_STATE_IDLE);
+        lvgl_var_timer_state_set(TIMER_STATE_IDLE);
 
         // reset countdown time
-        if (lvgl_get_var_timer_type() == TIMER_TYPE_COUNT_DOWN) {
+        if (lvgl_var_timer_type_get() == TIMER_TYPE_COUNT_DOWN) {
         }
 
-        turnoff_timer_reset(0);
+        app_lvgl_turnoff_reset(1);
     }
 }
 
@@ -188,7 +188,7 @@ void tomato_opt_event_all_handler(lv_event_t * e)
 {
     lv_event_code_t event = lv_event_get_code(e);
     if (event <= LV_EVENT_HOVER_LEAVE) {
-        turnoff_timer_reset(0);
+        app_lvgl_turnoff_reset(1);
     } else {
         return;
     }
@@ -197,7 +197,7 @@ void tomato_opt_event_all_handler(lv_event_t * e)
         return;
     }
 
-    uint8_t state = lvgl_get_var_tomato_state();
+    uint8_t state = lvgl_var_tomato_state_get();
 
     if (event == LV_EVENT_CLICKED) {
         if (tomato_opt_lock) {
@@ -212,19 +212,19 @@ void tomato_opt_event_all_handler(lv_event_t * e)
         switch (state) {
             case TOMATO_STATE_IDLE:
             case TOMATO_STATE_RUNNING_PAUSE:
-                lvgl_set_var_tomato_state(TOMATO_STATE_RUNNING);
+                lvgl_var_tomato_state_set(TOMATO_STATE_RUNNING);
             break;
 
             case TOMATO_STATE_BREAK_PAUSE:
-                lvgl_set_var_tomato_state(TOMATO_STATE_BREAK);
+                lvgl_var_tomato_state_set(TOMATO_STATE_BREAK);
             break;
 
             case TOMATO_STATE_RUNNING:
-                lvgl_set_var_tomato_state(TOMATO_STATE_RUNNING_PAUSE);
+                lvgl_var_tomato_state_set(TOMATO_STATE_RUNNING_PAUSE);
             break;
 
             case TOMATO_STATE_BREAK:
-                lvgl_set_var_tomato_state(TOMATO_STATE_BREAK_PAUSE);
+                lvgl_var_tomato_state_set(TOMATO_STATE_BREAK_PAUSE);
             break;
 
             default:
@@ -233,7 +233,7 @@ void tomato_opt_event_all_handler(lv_event_t * e)
     } else if (event == LV_EVENT_LONG_PRESSED_REPEAT || event == LV_EVENT_LONG_PRESSED) {
         if (state == TOMATO_STATE_RUNNING || state == TOMATO_STATE_BREAK) {
             tomato_opt_lock = 1;
-            lvgl_set_var_tomato_state(TOMATO_STATE_IDLE);
+            lvgl_var_tomato_state_set(TOMATO_STATE_IDLE);
         }
     } else {
         // ignore

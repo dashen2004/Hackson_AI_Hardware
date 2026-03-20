@@ -52,7 +52,7 @@ void ui_init() {
 void ui_tick() {
     tick_screen(currentScreen);
 
-    if (lvgl_get_var_timer_state() == TIMER_STATE_RUNNING) {
+    if (lvgl_var_timer_state_get() == TIMER_STATE_RUNNING) {
         tick_screen(SCREEN_ID_PAGE_TIMER - 1);
     }
 }

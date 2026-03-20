@@ -102,7 +102,7 @@ static void weather_timeout_timer_handler(qm_timer_t *timer,  void *arg) {
 
     if (backoff_ctx.attempts_num == 5) {
         QM_LOGD(LOG_TAG, "weather request retry 5 times!");
-        set_var_weather_id(-1);
+        lvgl_var_weather_id_set(-1);
     }
 
     backoff_status = backoff_algorithm_get_next_delay(&backoff_ctx, &next_backoff);
@@ -268,9 +268,9 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "sunset:%.*s", event->data.weather_notify.sunset_len, event->data.weather_notify.sunset);
             QM_LOGD(LOG_TAG, "sunrise:%.*s", event->data.weather_notify.sunrise_len, event->data.weather_notify.sunrise);
 
-            set_var_city(event->data.weather_notify.secondaryname, event->data.weather_notify.secondaryname_len);
-            set_var_weather_id(event->data.weather_notify.weather_type);
-            set_var_temperature(event->data.weather_notify.temp);
+            lvgl_var_city_set(event->data.weather_notify.secondaryname, event->data.weather_notify.secondaryname_len);
+            lvgl_var_weather_id_set(event->data.weather_notify.weather_type);
+            lvgl_var_temperature_set(event->data.weather_notify.temp);
             qm_timer_stop(&weather_timeout_timer);
             qm_timer_free(&weather_timeout_timer);
             qm_cancel_delayed_action(&weather_request_action);

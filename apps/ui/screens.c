@@ -1031,16 +1031,16 @@ void create_screen_page_timer() {
 
 void tick_screen_page_timer() {
     static int8_t last_timer_state = TIMER_STATE_NONE;
-    int8_t new_timer_state = lvgl_get_var_timer_state();
+    int8_t new_timer_state = lvgl_var_timer_state_get();
 
     static int8_t last_timer_type = TIMER_TYPE_NONE;
-    int8_t new_timer_type = lvgl_get_var_timer_type();
+    int8_t new_timer_type = lvgl_var_timer_type_get();
 
     if (new_timer_type != last_timer_type) {
         last_timer_type = new_timer_type;
 
         last_timer_state = TIMER_STATE_NONE;
-        lvgl_set_var_timer_state(TIMER_STATE_IDLE);
+        lvgl_var_timer_state_set(TIMER_STATE_IDLE);
 
         if (new_timer_type == TIMER_TYPE_COUNT_UP) {
             lv_obj_clear_flag(objects.container_count_up, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
@@ -1090,7 +1090,7 @@ void tick_screen_page_timer() {
             case TIMER_STATE_IDLE:
                 lv_img_set_src(objects.img_start, "/lvgl/images/timer_start.bin");
 
-                if (lvgl_get_var_timer_type() == TIMER_TYPE_COUNT_UP) {
+                if (lvgl_var_timer_type_get() == TIMER_TYPE_COUNT_UP) {
                     lv_label_set_text(objects.label_count, "00:00:00");
                 } else {
                     lv_label_set_text(objects.label_count, "00:30:00");
@@ -1120,17 +1120,17 @@ void tick_screen_page_timer() {
                     cur_hour++;
 
                     if (cur_hour >= 24) {
-                        lvgl_set_var_timer_state(TIMER_STATE_PAUSE);
+                        lvgl_var_timer_state_set(TIMER_STATE_PAUSE);
                     }
                 }
             }
 
-            if (lvgl_get_var_timer_type() == TIMER_TYPE_COUNT_UP) {
+            if (lvgl_var_timer_type_get() == TIMER_TYPE_COUNT_UP) {
                 qm_snprintf(time, 9, "%02d:%02d:%02d", cur_hour, cur_min, cur_sec);
             } else {
                 count_down_rest = count_down_time - (cur_hour * 60 + cur_min * 60 + cur_sec);
                 if (count_down_rest <= 0) {
-                    lvgl_set_var_timer_state(TIMER_STATE_PAUSE);
+                    lvgl_var_timer_state_set(TIMER_STATE_PAUSE);
                 }
 
                 count_down_hour = count_down_rest / 3600;
@@ -1246,7 +1246,7 @@ void tick_screen_page_pomodoro() {
     uint8_t tomato_div = lv_arc_get_max_value(objects.tomato_spinner) / tomato_counter;
 
     static enum TomatoState last_tomato_state = TOMATO_STATE_NONE;
-    enum TomatoState new_tomato_state = lvgl_get_var_tomato_state();
+    enum TomatoState new_tomato_state = lvgl_var_tomato_state_get();
 
     static uint32_t last_time = 0;
 
@@ -1297,7 +1297,7 @@ void tick_screen_page_pomodoro() {
             cur_counter++;
 
             if (cur_counter == tomato_counter) {
-                lvgl_set_var_tomato_state(TOMATO_STATE_IDLE);
+                lvgl_var_tomato_state_set(TOMATO_STATE_IDLE);
             }
         }
     }
@@ -1383,7 +1383,7 @@ const char weather_name_tbl[48][32] = {
 void tick_screen_page_weather() {
     static int8_t weather_id_last = -1;
     static int8_t temperature_last = -128; 
-    int8_t weather_id = get_var_weather_id();
+    int8_t weather_id = lvgl_var_weather_id_get();
     if (weather_id > QM_IOT_WEATHER_TYPE_HAZE_NIGHT) {
         weather_id = QM_IOT_WEATHER_TYPE_HAZE_NIGHT;
     }
@@ -1399,7 +1399,7 @@ void tick_screen_page_weather() {
     if (weather_id != -1) {
         // 更新城市
         {
-            char *new_val = get_var_city();
+            char *new_val = lvgl_var_city_get();
             char *cur_val = lv_label_get_text(objects.label_city);
             if (new_val != cur_val) {
                 lv_label_set_text(objects.label_city, new_val);
@@ -1407,7 +1407,7 @@ void tick_screen_page_weather() {
         }
         // 更新温度
         {
-            int8_t new_val = get_var_temperature();
+            int8_t new_val = lvgl_var_temperature_get();
             if (new_val != temperature_last) {
                 temperature_last = new_val;
                 char s[16];

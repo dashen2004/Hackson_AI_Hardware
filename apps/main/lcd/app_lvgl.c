@@ -1,32 +1,100 @@
 #include "app_lvgl.h"
 #include "bsp_lcd.h"
+#include "qm_work.h"
 
-#include <inttypes.h>
-#include "audio_thread.h"
-#include <esp_mac.h>
-#include <esp_spiffs.h>
-
-#include "esp_log.h"
-#include "esp_lcd_panel_io_interface.h"
-#include "esp_lcd_panel_io.h"
-#include "esp_lcd_panel_ops.h"
-
-#include "esp_lcd_gc9a01.h"
+#include "esp_spiffs.h"
 #include "esp_lvgl_port.h"
-#include "esp_lcd_touch_cst816s.h"
+
+#include "ui.h"
+#include "vars.h"
 
 #define LOG_TAG "app_lvgl"
 
-static lv_disp_t *lvgl_disp = NULL;
-static lv_indev_t *lvgl_touch_indev = NULL;
+#define LVGL_TURNOFF_TIME_MS   (15 * 1000)
 
 typedef struct {
     esp_lcd_panel_io_handle_t lcd_io_handle;
     esp_lcd_panel_handle_t lcd_panel_handle;
     esp_lcd_touch_handle_t lcd_tp_handle;
+
+    qm_task_t lvgl_task;
+    qm_work_t lvgl_turnoff_work;
 } app_lvgl_handle_t;
 
 static app_lvgl_handle_t app_lvgl_handle = { 0 };
+static lv_disp_t *lvgl_disp = NULL;
+static lv_indev_t *lvgl_touch_indev = NULL;
+
+static void app_lvgl_port_init(void);
+
+static void lvgl_turnoff_handler(void *arg)
+{
+    QM_LOGI(LOG_TAG, "lvgl_turnoff_handler");
+
+    bsp_lcd_bl_dim();
+
+    if (get_current_screen() == SCREEN_ID_PAGE_POMODORO) {
+        app_lvgl_turnoff_reset(0);
+    } else if (get_current_screen() != SCREEN_ID_PAGE_SLEEP) {
+        extern void goto_page_by_id(int8_t screen_id);
+        goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
+    }
+}
+
+void app_lvgl_turnoff_reset(uint8_t ctrl_light)
+{
+    if (ctrl_light) {
+        bsp_lcd_bl_on();
+    }
+
+    qm_cancel_delayed_action(&app_lvgl_handle.lvgl_turnoff_work);
+    qm_post_delayed_action(&app_lvgl_handle.lvgl_turnoff_work, lvgl_turnoff_handler, NULL, LVGL_TURNOFF_TIME_MS);
+}
+
+static void lvgl_task(void *arg) 
+{
+    lvgl_port_lock(0); // 锁定lvgl接口 
+    ui_init();
+    lvgl_port_unlock(); // 解锁lvgl接口
+
+    vTaskDelay(500);
+
+    app_lvgl_turnoff_reset(1);
+
+    while (1) {
+        lvgl_port_lock(0);
+        ui_tick();
+        lvgl_port_unlock();
+
+        // 避免过度占用CPU资源
+        vTaskDelay(pdMS_TO_TICKS(50)); 
+    }
+}
+
+void app_lvgl_init(void) 
+{
+    if (app_lvgl_handle.lcd_panel_handle == NULL || app_lvgl_handle.lcd_tp_handle == NULL || app_lvgl_handle.lcd_io_handle == NULL) {
+        return;
+    }
+
+    esp_vfs_spiffs_conf_t spiff_conf = {
+        .base_path = "/lvgl",
+        .partition_label = "lvgl",
+        .max_files = 10,
+        .format_if_mount_failed = true
+    };
+
+    esp_err_t ret = esp_vfs_spiffs_register(&spiff_conf);
+    if (ret != ESP_OK) {
+        QM_LOGW(LOG_TAG, "esp_vfs_spiffs_register init failed");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    app_lvgl_port_init();
+
+    qm_task_new_to_core(&app_lvgl_handle.lvgl_task, "lvgl_task", lvgl_task, &app_lvgl_handle, 10 * 1024, 4, 1);
+}
 
 void app_lvgl_lcd_init(esp_lcd_panel_io_handle_t io_handle, esp_lcd_panel_handle_t panel_handle)
 {
@@ -39,7 +107,7 @@ void app_lvgl_touch_init(esp_lcd_touch_handle_t tp_handle)
     app_lvgl_handle.lcd_tp_handle = tp_handle;
 }
 
-void app_lvgl_port_init(void)
+static void app_lvgl_port_init(void)
 {
     lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
     lvgl_cfg.task_affinity = 0;
@@ -80,95 +148,4 @@ void app_lvgl_port_init(void)
     lvgl_touch_indev = lvgl_port_add_touch(&touch_cfg);
 
     lvgl_port_task_wake(LVGL_PORT_EVENT_DISPLAY, NULL);
-}
-
-static qm_timer_t turnoff_timer = { 0 };
-static int turnoff_timeout_tbl[4] = { 15000, 60000, 300000, 2147483647 }; // 30秒, 1分, 5分, 永不 //  { 15000, 30000, 45000, 60000 };
-
-uint32_t bsp_lcd_get_turnoff_timeout(void)
-{
-    int scr_tmo = get_var_scr_tmo_value(); // 0 - 30秒, 1 - 1分, 2 - 5分, 3 - Never
-    if (scr_tmo < 0 || scr_tmo > 3) {
-        scr_tmo = 0;
-    }
-    return turnoff_timeout_tbl[scr_tmo];
-}
-
-extern void goto_page_by_id(int8_t screen_id);
-
-static void turnoff_timer_handler(qm_timer_t *timer,  void *arg) 
-{
-    if (get_var_turnoff_value()) {
-        bsp_lcd_bl_dim();
-
-        if (get_current_screen() == SCREEN_ID_PAGE_POMODORO) {
-            set_var_turnoff_value(bsp_lcd_get_turnoff_timeout());
-        } else if (get_current_screen() != SCREEN_ID_PAGE_SLEEP) {
-            goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
-        }
-    }
-}
-
-void turnoff_timer_reset(uint8_t flag) { // 0 - screen operation, 1 - audio receive
-
-    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
-    if (flag == 0) {
-        set_var_screen_operation_tick();
-    } else {
-        // if (get_current_screen() != SCREEN_ID_PAGE_RECOG && get_var_screen_operation_tick()) {
-        //     goto_recog_page();
-        // }
-    }
-    set_var_turnoff_value(timeout);
-    bsp_lcd_bl_on();
-}
-
-static void lvgl_task(void *arg) 
-{
-    lvgl_port_lock(0); // 锁定lvgl接口 
-    ui_init();
-    lvgl_port_unlock(); // 解锁lvgl接口
-
-    vTaskDelay(500);
-
-    bsp_lcd_bl_on();
-
-    set_var_scr_tmo_value(0, true);
-    uint32_t timeout = bsp_lcd_get_turnoff_timeout();
-    set_var_turnoff_value(timeout);
-
-    qm_timer_new(&turnoff_timer, turnoff_timer_handler, NULL, 1000, 1);
-    qm_timer_start(&turnoff_timer);
-    
-    while (1) {
-        lvgl_port_lock(0); // 锁定lvgl接口，以保护UI更新过程。
-        ui_tick();
-        lvgl_port_unlock(); // 解锁lvgl接口以允许其他任务访问。 
-        vTaskDelay(pdMS_TO_TICKS(50)); // 函数延迟50毫秒，以避免过度占用CPU资源。
-    }
-}
-
-void app_lvgl_init(void) 
-{
-    if (app_lvgl_handle.lcd_panel_handle == NULL || app_lvgl_handle.lcd_tp_handle == NULL || app_lvgl_handle.lcd_io_handle == NULL) {
-        return;
-    }
-
-    esp_vfs_spiffs_conf_t spiff_conf = {
-        .base_path = "/lvgl",
-        .partition_label = "lvgl",
-        .max_files = 10,
-        .format_if_mount_failed = true
-    };
-
-    esp_err_t ret = esp_vfs_spiffs_register(&spiff_conf);
-    if (ret != ESP_OK) {
-        ESP_LOGW(LOG_TAG, "esp_vfs_spiffs_register init failed");
-        vTaskDelete(NULL);
-        return;
-    }
-
-    app_lvgl_port_init();
-
-    audio_thread_create(NULL, "lvgl_task", lvgl_task, NULL, 10 * 1024, 4, true, 1);
 }

@@ -34,30 +34,20 @@ enum TomatoState {
     TOMATO_STATE_MAX
 };
 
-// lvgl val
-int8_t lvgl_get_var_timer_type(void);
-void lvgl_set_var_timer_type(int8_t type);
-int8_t lvgl_get_var_timer_state(void);
-void lvgl_set_var_timer_state(int8_t state);
+int8_t lvgl_var_timer_type_get(void);
+void lvgl_var_timer_type_set(int8_t type);
+int8_t lvgl_var_timer_state_get(void);
+void lvgl_var_timer_state_set(int8_t state);
 
-int8_t lvgl_get_var_tomato_state(void);
-void lvgl_set_var_tomato_state(int8_t state);
+int8_t lvgl_var_tomato_state_get(void);
+void lvgl_var_tomato_state_set(int8_t state);
 
-// original
-extern int32_t get_var_scr_tmo_value(void);
-extern void set_var_scr_tmo_value(int32_t value, bool flag);
-extern uint32_t get_var_turnoff_value(void);
-extern void set_var_turnoff_value(uint32_t value);
-
-char *get_var_city(void);
-void set_var_city(char *value, size_t size);
-int8_t get_var_weather_id(void);
-void set_var_weather_id(int8_t value);
-int8_t get_var_temperature(void);
-void set_var_temperature(int8_t value);
-
-uint32_t get_var_screen_operation_tick(void);
-void set_var_screen_operation_tick(void);
+char *lvgl_var_city_get(void);
+void lvgl_var_city_set(char *value, int32_t size);
+int8_t lvgl_var_weather_id_get(void);
+void lvgl_var_weather_id_set(int8_t value);
+int8_t lvgl_var_temperature_get(void);
+void lvgl_var_temperature_set(int8_t value);
 
 #ifdef __cplusplus
 }
