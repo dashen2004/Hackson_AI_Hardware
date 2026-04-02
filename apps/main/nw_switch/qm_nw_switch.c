@@ -155,6 +155,8 @@ static void net_switch_action(qm_spec_property_t *property)
     // 更新本地联网方式信息并重启
     qm_kv_set("net_type", &nw_switch.net_type, sizeof(qm_iot_net_type_t), 1);
     qm_reboot();
+    // extern qm_err_t bsp_bat_enable_4g(void);
+    // bsp_bat_enable_4g();
     // qm_iot_change_net_type(nw_switch.iot_handle, nw_switch.net_type);
 }
 
@@ -180,6 +182,9 @@ int qm_nw_switch_init(void *iot_handle)
     qm_mutex_new(&nw_switch.lock);
     // qm_iot_setopt(iot_handle, QM_IOT_OPT_EVENT_HANDLER, qm_iot_event_handler);
 
+    extern qm_err_t qm_nw_switch_wifi(void);
+    qm_nw_switch_wifi();
+
     return QM_EOK;
 }
 
@@ -188,6 +193,14 @@ qm_err_t qm_nw_switch_4g(void)
     nw_switch.net_type = QM_IOT_NET_TYPE_4G;
     qm_kv_set("net_type", &nw_switch.net_type, sizeof(qm_iot_net_type_t), 1);
     qm_reboot();
+
+    return QM_EOK;
+}
+
+qm_err_t qm_nw_switch_wifi(void)
+{
+    nw_switch.net_type = QM_IOT_NET_TYPE_WIFI_COMBO;
+    qm_kv_set("net_type", &nw_switch.net_type, sizeof(qm_iot_net_type_t), 1);
 
     return QM_EOK;
 }

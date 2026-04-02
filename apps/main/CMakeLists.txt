@@ -11,7 +11,7 @@ set(COMPONENT_SRCS
     "./bsp/src/bsp_i2c.c"
 
     "./bat/bsp_bat.c"
-    "./lcd/bsp_lcd.c"
+    "./lcd/bsp_lcd_st77912.c"
     "./lcd/bsp_lcd_touch.c"
     "./lcd/app_lvgl.c"
     "./cloud/xjiang_cloud.c"

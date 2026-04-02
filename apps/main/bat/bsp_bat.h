@@ -16,6 +16,7 @@ extern "C" {
 qm_err_t bsp_bat_init(void);
 
 qm_err_t bsp_bat_enable_4g(void);
+qm_err_t bsp_bat_restart_4g(void);
 qm_err_t bsp_bat_reset_4g(void);
 
 qm_err_t bsp_bat_cancel_standby(void);

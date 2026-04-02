@@ -127,7 +127,7 @@ static void app_lvgl_port_init(void)
         /* Rotation values must be same as used in esp_lcd for initial settings of the screen */
         .rotation = {
             .swap_xy = false,
-            .mirror_x = true,
+            .mirror_x = false,
             .mirror_y = false,
         },
         .flags = {

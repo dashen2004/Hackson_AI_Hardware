@@ -116,6 +116,15 @@ qm_err_t bsp_bat_enable_4g(void)
     return QM_EOK;
 }
 
+qm_err_t bsp_bat_restart_4g(void)
+{
+    qm_gpio_set_level(&nt26_enable_io, QM_TRUE);
+    qm_msleep(2000);
+    qm_gpio_set_level(&nt26_enable_io, QM_FALSE);
+
+    return QM_EOK;
+}
+
 qm_err_t bsp_bat_reset_4g(void)
 {
     qm_gpio_set_level(&nt26_rst_io, QM_FALSE);

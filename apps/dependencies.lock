@@ -9,6 +9,18 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.0.3
+  esp_lcd_st77912:
+    component_hash: e13f34b94e0f974f71bc1ee508f4d03edce5092d829c03f757bc31e3e62b5389
+    dependencies:
+    - name: espressif/cmake_utilities
+      version: 0.*
+    - name: idf
+      version: '>5.0.4,!=5.1.1'
+    source:
+      git: https://github.com/river147/esp_lcd_st77912.git
+      path: .
+      type: git
+    version: f3346be9340887ee00af4087ae48ec5ba8722780
   espressif/cmake_utilities:
     component_hash: 351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f
     dependencies:
@@ -29,20 +41,6 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.6.2
-  espressif/esp_lcd_gc9a01:
-    component_hash: e60bc2b5649c7679bd010797a875ae64b2a57cf9cdbd6a2bf7a0ade66913edc0
-    dependencies:
-    - name: espressif/cmake_utilities
-      registry_url: https://components.espressif.com
-      require: private
-      version: 0.*
-    - name: idf
-      require: private
-      version: '>=4.4'
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    version: 2.0.4
   espressif/esp_lcd_touch:
     component_hash: 3f85a7d95af876f1a6ecca8eb90a81614890d0f03a038390804e5a77e2caf862
     dependencies:
@@ -170,8 +168,8 @@ dependencies:
     version: 9.2.2
 direct_dependencies:
 - chmorgan/esp-libhelix-mp3
+- esp_lcd_st77912
 - espressif/esp-dsp
-- espressif/esp_lcd_gc9a01
 - espressif/esp_lcd_touch_cst816s
 - espressif/esp_lvgl_port
 - espressif/jsmn
@@ -180,6 +178,6 @@ direct_dependencies:
 - idf
 - iot_usbh_modem
 - lvgl/lvgl
-manifest_hash: e6f5a12ed9c30586599c2bfcd92041cd06df805e2a61001487b7382380d798c5
+manifest_hash: 495247aa10b99bcbf7fd148d7f31fba7689a892837d63ae866374a0b93cd6fbc
 target: esp32s3
 version: 2.0.0
