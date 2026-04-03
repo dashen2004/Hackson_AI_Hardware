@@ -79,21 +79,17 @@ qm_err_t bsp_lcd_init(void)
     // ESP_LOGI(TAG, "Install ST77916 panel driver");
     const esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = LCD_PIN_NUM_RST,
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-        .color_space = ESP_LCD_COLOR_SPACE_BGR,
-#elif ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)
-        .rgb_endian = LCD_RGB_ENDIAN_BGR,
-#else
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,
-#endif
+        .rgb_ele_order = 0,
         .bits_per_pixel = LCD_BIT_PER_PIXEL,
+        .vendor_config = NULL,
+        .flags = {
+            .reset_active_high = 0,
+        }
     };
 
     esp_lcd_new_panel_st77912(lcd_io_handle, &panel_config, &lcd_panel_handle);
     esp_lcd_panel_reset(lcd_panel_handle);
     esp_lcd_panel_init(lcd_panel_handle);
-    esp_lcd_panel_invert_color(lcd_panel_handle, true);
-    // esp_lcd_panel_mirror(lcd_panel_handle, true, false);
     esp_lcd_panel_disp_on_off(lcd_panel_handle, true);
 
     lcd_bl_init();
