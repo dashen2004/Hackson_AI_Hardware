@@ -168,6 +168,7 @@ set(COMPONENT_SRCS
     "../ui/fonts/ui_font_misans_64px.c"
     "../ui/fonts/ui_font_pingfang_sc_regular_12px.c"
     "../ui/fonts/ui_font_pingfang_sc_regular_14px.c"
+    "../ui/fonts/ui_font_pingfang_sc_regular_16px.c"
     "../ui/fonts/ui_font_pingfang_sc_regular_20px.c"
     "../ui/fonts/ui_font_pingfang_sc_regular_24px.c"
     )

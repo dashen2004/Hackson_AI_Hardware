@@ -20,8 +20,18 @@ lv_font_t *font_misans_40px = NULL;
 lv_font_t *font_misans_64px = NULL;
 lv_font_t *font_pingfang_12px = NULL;
 lv_font_t *font_pingfang_14px = NULL;
+lv_font_t *font_pingfang_16px = NULL;
 lv_font_t *font_pingfang_20px = NULL;
 lv_font_t *font_pingfang_24px = NULL;
+
+const char weather_name_tbl[48][32] = {
+    "晴", "多云", "阴", "阵雨", "雷阵雨", "雷阵雨伴有冰雹", "雨夹雪", "小雨", 
+    "中雨", "大雨", "暴雨", "未知", "未知", "阵雪", "小雪", "中雪",
+    "大雪", "暴雪", "雾", "冻雨", "沙尘暴", "未知", "未知", "未知",
+    "未知", "未知", "未知", "未知", "未知", "浮尘", "晴", "多云",
+    "雾", "阵雨", "阵雪", "浮尘", "沙尘暴", "未知", "未知", "未知",
+    "未知", "未知", "未知", "未知", "未知", "霾", "霾", "未知",
+};
 
 void create_screen_page_sleep() {
     lv_obj_t *obj = lv_obj_create(0);
@@ -73,88 +83,69 @@ void create_screen_page_main() {
     {
         lv_obj_t *parent_obj = obj;
         {
-            // container wifi_state bat_state
-            lv_obj_t *obj = lv_obj_create(parent_obj);
-            lv_obj_set_pos(obj, 0, 0);
-            lv_obj_set_size(obj, 240, 60);
-            lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
-            {
-                lv_obj_t *parent_obj = obj;
-                {
-                    // wifi_state
-                    lv_obj_t *obj = lv_image_create(parent_obj);
-                    objects.wifi_state = obj;
-                    lv_obj_set_pos(obj, 91, 23);
-                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_image_set_src(obj, "/lvgl/images/wifi.bin");
-                }
-                {
-                    // bat_state
-                    lv_obj_t *obj = lv_image_create(parent_obj);
-                    objects.bat_state = obj;
-                    lv_obj_set_pos(obj, 130, 25);
-                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_image_set_src(obj, "/lvgl/images/bat.bin");
-                }
-            }
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            objects.text_temp = obj;
+            lv_obj_set_pos(obj, 130, 56);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text(obj, "15℃");
         }
-
         {
-            // container time weekday date
-            lv_obj_t *obj = lv_obj_create(parent_obj);
-            lv_obj_set_pos(obj, 0, 60);
-            lv_obj_set_size(obj, 240, 180);
-            lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
-            {
-                lv_obj_t *parent_obj = obj;
-                {
-                    // text_time
-                    lv_obj_t *obj = lv_label_create(parent_obj);
-                    objects.text_time = obj;
-                    lv_obj_set_pos(obj, 0, -50);
-                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_label_set_text(obj, "00:00");
-                    lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_text_font(obj, font_misans_64px, LV_PART_MAIN | LV_STATE_DEFAULT);
-                }
-                {
-                    // text_weekday
-                    lv_obj_t *obj = lv_label_create(parent_obj);
-                    objects.text_weekday = obj;
-                    lv_obj_set_pos(obj, 0, 0);
-                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_label_set_text(obj, "星期三");
-                    lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_text_font(obj, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
-                }
-                {
-                    // text_date
-                    lv_obj_t *obj = lv_label_create(parent_obj);
-                    objects.text_date = obj;
-                    lv_obj_set_pos(obj, 4, 30);
-                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_label_set_text(obj, "2025年01月01日");
-                    lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_text_font(obj, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
-                }
-            }
+            lv_obj_t *obj = lv_image_create(parent_obj);
+            objects.img_weather_main = obj;
+            lv_obj_set_pos(obj, 75, 50);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_image_set_src(obj, "/lvgl/images/w0_s.bin");
+        }
+        {
+            // wifi_state
+            lv_obj_t *obj = lv_image_create(parent_obj);
+            objects.wifi_state = obj;
+            lv_obj_set_pos(obj, 91, 23);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_image_set_src(obj, "/lvgl/images/wifi.bin");
+        }
+        {
+            // bat_state
+            lv_obj_t *obj = lv_image_create(parent_obj);
+            objects.bat_state = obj;
+            lv_obj_set_pos(obj, 130, 25);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_image_set_src(obj, "/lvgl/images/bat.bin");
+        }
+        {
+            // text_time
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            objects.text_time = obj;
+            lv_obj_set_pos(obj, 0, 0);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_label_set_text(obj, "00:00");
+            lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, font_misans_64px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        {
+            // text_weekday
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            objects.text_weekday = obj;
+            lv_obj_set_pos(obj, 0, 55);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_label_set_text(obj, "星期三");
+            lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        {
+            // text_date
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            objects.text_date = obj;
+            lv_obj_set_pos(obj, 0, 80);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_label_set_text(obj, "2025年01月01日");
+            lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
         }
     }
     
@@ -178,6 +169,34 @@ void tick_screen_page_main() {
         sprintf(s, "%04d年%02d月%02d日", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
         if (lv_strcmp(lv_label_get_text(objects.text_date), s)) {
             lv_label_set_text(objects.text_date, s);
+        }
+    }
+
+    static int8_t weather_id_last = -1;
+    static int8_t temperature_last = -128; 
+    int8_t weather_id = lvgl_var_weather_id_get();
+    if (weather_id > QM_IOT_WEATHER_TYPE_HAZE_NIGHT) {
+        weather_id = QM_IOT_WEATHER_TYPE_HAZE_NIGHT;
+    }
+
+    // 更新 天气图标 / 天气
+    if (weather_id != -1) {
+        if (weather_id != weather_id_last) {
+            weather_id_last = weather_id;
+            char s[64];
+            sprintf(s, "/lvgl/images/w%d_s.bin", weather_id);
+            lv_image_set_src(objects.img_weather_main, s);
+        }
+    }
+
+    if (weather_id != -1) {
+        // 更新温度
+        int8_t new_val = lvgl_var_temperature_get();
+        if (new_val != temperature_last) {
+            temperature_last = new_val;
+            char s[16];
+            sprintf(s, "%d℃", new_val);
+            lv_label_set_text(objects.text_temp, s);
         }
     }
 }
@@ -1371,15 +1390,6 @@ void create_screen_page_weather() {
     tick_screen_page_weather();
 }
 
-const char weather_name_tbl[48][32] = {
-    "晴", "多云", "阴", "阵雨", "雷阵雨", "雷阵雨伴有冰雹", "雨夹雪", "小雨", 
-    "中雨", "大雨", "暴雨", "未知", "未知", "阵雪", "小雪", "中雪",
-    "大雪", "暴雪", "雾", "冻雨", "沙尘暴", "未知", "未知", "未知",
-    "未知", "未知", "未知", "未知", "未知", "浮尘", "晴", "多云",
-    "雾", "阵雨", "阵雪", "浮尘", "沙尘暴", "未知", "未知", "未知",
-    "未知", "未知", "未知", "未知", "未知", "霾", "霾", "未知",
-};
-
 void tick_screen_page_weather() {
     static int8_t weather_id_last = -1;
     static int8_t temperature_last = -128; 
@@ -1390,10 +1400,13 @@ void tick_screen_page_weather() {
 
     // 更新 天气图标 / 天气
     if (weather_id != -1) {
-        char s[64];
-        sprintf(s, "/lvgl/images/w%d.bin", weather_id);
-        lv_image_set_src(objects.img_weather, s);
-        lv_label_set_text(objects.label_weather, weather_name_tbl[weather_id]);
+        if (weather_id_last != weather_id) {
+            weather_id_last = weather_id;
+            char s[64];
+            sprintf(s, "/lvgl/images/w%d.bin", weather_id);
+            lv_image_set_src(objects.img_weather, s);
+            lv_label_set_text(objects.label_weather, weather_name_tbl[weather_id]);
+        }
     }
 
     if (weather_id != -1) {
@@ -1457,6 +1470,9 @@ void create_screens() {
     }
     if (font_pingfang_14px == NULL) {
         font_pingfang_14px = (lv_font_t *)&ui_font_pingfang_sc_regular_14px; // lv_binfont_create("/lvgl/fonts/pingfang_20px.bin");
+    }
+    if (font_pingfang_16px == NULL) {
+        font_pingfang_16px = (lv_font_t *)&ui_font_pingfang_sc_regular_16px; // lv_binfont_create("/lvgl/fonts/pingfang_20px.bin");
     }
     if (font_pingfang_20px == NULL) {
         font_pingfang_20px = (lv_font_t *)&ui_font_pingfang_sc_regular_20px; // lv_binfont_create("/lvgl/fonts/pingfang_20px.bin");

@@ -21,6 +21,8 @@ typedef struct _objects_t {
     // main page objs
     lv_obj_t *wifi_state;
     lv_obj_t *bat_state;
+    lv_obj_t *img_weather_main;
+    lv_obj_t *text_temp;
     lv_obj_t *text_time;
     lv_obj_t *text_weekday;
     lv_obj_t *text_date;

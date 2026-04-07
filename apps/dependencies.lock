@@ -10,17 +10,15 @@ dependencies:
       type: service
     version: 1.0.3
   esp_lcd_st77912:
-    component_hash: e13f34b94e0f974f71bc1ee508f4d03edce5092d829c03f757bc31e3e62b5389
     dependencies:
     - name: espressif/cmake_utilities
       version: 0.*
     - name: idf
       version: '>5.0.4,!=5.1.1'
     source:
-      git: https://github.com/river147/esp_lcd_st77912.git
-      path: .
-      type: git
-    version: f3346be9340887ee00af4087ae48ec5ba8722780
+      path: /home/micro/esp32_combo/apps/managed_components/esp_lcd_st77912
+      type: local
+    version: 1.0.0
   espressif/cmake_utilities:
     component_hash: 351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f
     dependencies:
@@ -178,6 +176,6 @@ direct_dependencies:
 - idf
 - iot_usbh_modem
 - lvgl/lvgl
-manifest_hash: 495247aa10b99bcbf7fd148d7f31fba7689a892837d63ae866374a0b93cd6fbc
+manifest_hash: fc8c0bcfbe84d39d3658d8f8a3a2f686daed2326138d27f6d299a30aedd1675a
 target: esp32s3
 version: 2.0.0
