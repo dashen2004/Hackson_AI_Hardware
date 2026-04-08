@@ -4,6 +4,7 @@
 #include "fonts.h"
 #include "screens.h"
 #include "actions.h"
+#include "freertos/idf_additions.h"
 #include "vars.h"
 #include "ui.h"
 
@@ -1276,81 +1277,87 @@ void create_screen_page_pomodoro() {
     {
         lv_obj_t *parent_obj = obj;
         {
-            // tomato_spinner
-            lv_obj_t *obj = lv_arc_create(parent_obj);
-            objects.tomato_spinner = obj;
-            lv_obj_set_pos(obj, 0, 0);
-            lv_obj_set_size(obj, 240, 240);
-            lv_arc_set_range(obj, 0, 10000);
-            lv_arc_set_value(obj, 10000);
-            lv_arc_set_bg_start_angle(obj, 0);
-            lv_arc_set_bg_end_angle(obj, 360);
-            lv_arc_set_rotation(obj, -90);
-            lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_set_style_arc_color(obj, lv_color_hex(0xffff3000), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-            lv_obj_set_style_arc_width(obj, 14, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-            lv_obj_set_style_arc_rounded(obj, false, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_opa(obj, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_KNOB | LV_STATE_DEFAULT);
-            lv_obj_set_style_arc_width(obj, 14, LV_PART_MAIN | LV_STATE_DEFAULT);
-        }
-        {
-            lv_obj_t *obj = lv_obj_create(parent_obj);
-            lv_obj_set_pos(obj, 53, 39);
-            lv_obj_set_size(obj, 133, 163);
-            lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
             {
-                lv_obj_t *parent_obj = obj;
+                // tomato_icon
+                lv_obj_t *obj = lv_image_create(parent_obj);
+                objects.tomato_icon = obj;
+                lv_obj_set_pos(obj, 0, -66);
+                lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                lv_image_set_src(obj, "/lvgl/images/tomato.bin");
+                lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+            }
+            {
+                // tomato_label
+                lv_obj_t *obj = lv_label_create(parent_obj);
+                objects.tomato_label = obj;
+                lv_obj_set_pos(obj, 0, -26);
+                lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                lv_label_set_text(obj, "番茄时钟");
+                lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_text_font(obj, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+            }
+            {
+                // tomato_count
+                lv_obj_t *obj = lv_label_create(parent_obj);
+                objects.tomato_count = obj;
+                lv_obj_set_pos(obj, 0, 12);
+                lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_text_font(obj, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_label_set_text(obj, "25:00");
+            }
+            {
+                // container_tomato_opt
+                lv_obj_t *obj = lv_obj_create(parent_obj);
+                objects.container_tomato_opt = obj;
+                lv_obj_set_pos(obj, 50, 150);
+                lv_obj_set_size(obj, 70, 60);
+                lv_obj_add_event_cb(obj, action_tomato_opt_click, LV_EVENT_CLICKED, (void *)0);
+                lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                 {
-                    // tomato_icon
-                    lv_obj_t *obj = lv_image_create(parent_obj);
-                    objects.tomato_icon = obj;
-                    lv_obj_set_pos(obj, 49, 21);
-                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_image_set_src(obj, "/lvgl/images/tomato.bin");
-                }
-                {
-                    // tomato_label
-                    lv_obj_t *obj = lv_label_create(parent_obj);
-                    objects.tomato_label = obj;
-                    lv_obj_set_pos(obj, 0, 0);
-                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_label_set_text(obj, "番茄时钟");
-                    lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_text_font(obj, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
-                }
-                {
-                    // container_tomato_opt
-                    lv_obj_t *obj = lv_obj_create(parent_obj);
-                    objects.container_tomato_opt = obj;
-                    lv_obj_set_pos(obj, 35, 99);
-                    lv_obj_set_size(obj, 64, 64);
-                    lv_obj_add_event_cb(obj, tomato_opt_event_all_handler, LV_EVENT_ALL, (void *)0);
-                    lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_t *parent_obj = obj;
                     {
-                        lv_obj_t *parent_obj = obj;
-                        {
-                            // tomato_opt
-                            lv_obj_t *obj = lv_image_create(parent_obj);
-                            objects.tomato_opt = obj;
-                            lv_obj_set_pos(obj, 14, 14);
-                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                            lv_image_set_src(obj, "/lvgl/images/timer_start.bin");
-                        }
+                        // tomato_opt
+                        lv_obj_t *obj = lv_image_create(parent_obj);
+                        objects.tomato_opt = obj;
+                        lv_obj_set_pos(obj, 26, 12);
+                        lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                        lv_image_set_src(obj, "/lvgl/images/timer_start.bin");
+                    }
+                }
+            }
+            {
+                // container_tomato_stop
+                lv_obj_t *obj = lv_obj_create(parent_obj);
+                objects.container_tomato_stop = obj;
+                lv_obj_set_pos(obj, 120, 150);
+                lv_obj_set_size(obj, 70, 60);
+                lv_obj_add_event_cb(obj, action_tomato_stop_click, LV_EVENT_CLICKED, (void *)0);
+                lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                {
+                    lv_obj_t *parent_obj = obj;
+                    {
+                        // tomato_stop
+                        lv_obj_t *obj = lv_image_create(parent_obj);
+                        objects.tomato_stop = obj;
+                        lv_obj_set_pos(obj, 8, 12);
+                        lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                        lv_image_set_src(obj, "/lvgl/images/timer_stop.bin");
                     }
                 }
             }
@@ -1361,10 +1368,9 @@ void create_screen_page_pomodoro() {
 }
 
 void tick_screen_page_pomodoro() {
-    static uint32_t tomato_counter = 5 * 60;
+    static uint32_t tomato_counter = 0;
     static uint32_t cur_counter = 0;
-    uint32_t arc_new_val = 0;
-    uint8_t tomato_div = lv_arc_get_max_value(objects.tomato_spinner) / tomato_counter;
+    char time[6];
 
     static enum TomatoState last_tomato_state = TOMATO_STATE_NONE;
     enum TomatoState new_tomato_state = lvgl_var_tomato_state_get();
@@ -1376,9 +1382,27 @@ void tick_screen_page_pomodoro() {
 
         switch (new_tomato_state) {
             case TOMATO_STATE_RUNNING:
-            case TOMATO_STATE_BREAK:
+                tomato_counter = lvgl_var_tomato_focus_get();
+
+                lv_label_set_text(objects.tomato_label, "专注中");
                 lv_image_set_src(objects.tomato_opt, "/lvgl/images/timer_pause.bin");
                 last_time = qm_now_ms();
+
+                qm_snprintf(time, 6, "%02d:%02d", lvgl_var_tomato_focus_get() / 60, lvgl_var_tomato_focus_get() % 60);
+                lv_label_set_text(objects.tomato_count, time);
+            break;
+
+            case TOMATO_STATE_BREAK:
+                tomato_counter = lvgl_var_tomato_break_get();
+
+                printf("tomato_counter = %ld\n", tomato_counter);
+
+                lv_label_set_text(objects.tomato_label, "休息中");
+                lv_image_set_src(objects.tomato_opt, "/lvgl/images/timer_pause.bin");
+                last_time = qm_now_ms();
+
+                qm_snprintf(time, 6, "%02d:%02d", lvgl_var_tomato_break_get() / 60, lvgl_var_tomato_break_get() % 60);
+                lv_label_set_text(objects.tomato_count, time);
             break;
 
             case TOMATO_STATE_RUNNING_PAUSE:
@@ -1387,9 +1411,11 @@ void tick_screen_page_pomodoro() {
             break;
 
             case TOMATO_STATE_IDLE:
-                lv_image_set_src(objects.tomato_opt, "/lvgl/images/timer_start.bin");
                 lv_label_set_text(objects.tomato_label, "番茄时钟");
-                lv_arc_set_value(objects.tomato_spinner, lv_arc_get_max_value(objects.tomato_spinner));
+                lv_image_set_src(objects.tomato_opt, "/lvgl/images/timer_start.bin");
+
+                qm_snprintf(time, 6, "%02d:%02d", lvgl_var_tomato_focus_get() / 60, lvgl_var_tomato_focus_get() % 60);
+                lv_label_set_text(objects.tomato_count, time);
 
                 cur_counter = 0;
             break;
@@ -1399,27 +1425,29 @@ void tick_screen_page_pomodoro() {
         }
     }
 
-    if (new_tomato_state == TOMATO_STATE_RUNNING) {
+    if (new_tomato_state == TOMATO_STATE_RUNNING || new_tomato_state == TOMATO_STATE_BREAK) {
         if (qm_now_ms() - last_time > 1000) {
             last_time = qm_now_ms();
 
-            arc_new_val = lv_arc_get_max_value(objects.tomato_spinner) - cur_counter * tomato_div;
+            if (cur_counter == tomato_counter + 1) {
+                if (new_tomato_state == TOMATO_STATE_RUNNING) {
+                    lvgl_var_tomato_state_set(TOMATO_STATE_BREAK);
+                } else {
+                    lvgl_var_tomato_state_set(TOMATO_STATE_RUNNING);
+                }
 
-            lv_arc_set_value(objects.tomato_spinner, arc_new_val);
+                cur_counter = 0;
 
-            char time[6];
+                return;
+            }
+
             uint8_t cur_min = (tomato_counter - cur_counter) / 60;
             uint8_t cur_sec = (tomato_counter - cur_counter) % 60;
 
             qm_snprintf(time, 6, "%02d:%02d", cur_min, cur_sec);
-
-            lv_label_set_text(objects.tomato_label, time);
+            lv_label_set_text(objects.tomato_count, time);
 
             cur_counter++;
-
-            if (cur_counter == tomato_counter) {
-                lvgl_var_tomato_state_set(TOMATO_STATE_IDLE);
-            }
         }
     }
 }

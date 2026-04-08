@@ -8,9 +8,14 @@
 extern "C" {
 #endif
 
-#define COUNTDOWN_LIMIT_HOUR    23
-#define COUNTDOWN_LIMIT_MINUTE  59
-#define COUNTDOWN_LIMIT_SECOND  59
+#define COUNTDOWN_LIMIT_HOUR    (23)
+#define COUNTDOWN_LIMIT_MINUTE  (59)
+#define COUNTDOWN_LIMIT_SECOND  (59)
+
+#define TOMATO_LIMIT_FOCUS_MAX  (60 * 60)
+#define TOMATO_LIMIT_FOCUS_MIN  (1 * 60)
+#define TOMATO_LIMIT_BREAK_MAX  (60 * 60)
+#define TOMATO_LIMIT_BREAK_MIN  (1 * 60)
 
 // enum declarations
 enum TimerType {
@@ -48,6 +53,10 @@ int32_t lvgl_var_timer_countdown_min_get(void);
 void lvgl_var_timer_countdown_min_set(int32_t min);
 int32_t lvgl_var_timer_countdown_sec_get(void);
 void lvgl_var_timer_countdown_sec_set(int32_t sec);
+int32_t lvgl_var_tomato_focus_get(void);
+void lvgl_var_tomato_focus_set(int32_t value);
+int32_t lvgl_var_tomato_break_get(void);
+void lvgl_var_tomato_break_set(int32_t value);
 
 int8_t lvgl_var_tomato_state_get(void);
 void lvgl_var_tomato_state_set(int8_t state);

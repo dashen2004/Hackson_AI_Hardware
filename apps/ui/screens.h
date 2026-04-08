@@ -92,11 +92,13 @@ typedef struct _objects_t {
     lv_obj_t *label_count_up;
 
     // pomodoro page objs
-    lv_obj_t *tomato_spinner;
     lv_obj_t *tomato_icon;
     lv_obj_t *tomato_label;
+    lv_obj_t *tomato_count;
     lv_obj_t *container_tomato_opt;
     lv_obj_t *tomato_opt;
+    lv_obj_t *container_tomato_stop;
+    lv_obj_t *tomato_stop;
 
     // weather page objs
     lv_obj_t *label_city;

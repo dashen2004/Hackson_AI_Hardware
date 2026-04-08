@@ -84,10 +84,12 @@ typedef struct _objects_t {
     lv_obj_t *btn_count_up;
     lv_obj_t *label_count_up;
     lv_obj_t *tomato_icon;
-    lv_obj_t *tomato_opt;
-    lv_obj_t *tomato_stop;
     lv_obj_t *obj39;
-    lv_obj_t *tomato_spinner;
+    lv_obj_t *obj40;
+    lv_obj_t *container_tomato_opt;
+    lv_obj_t *tomato_opt;
+    lv_obj_t *container_tomato_stop;
+    lv_obj_t *tomato_stop;
     lv_obj_t *label_city;
     lv_obj_t *img_weather;
     lv_obj_t *label_weather;

@@ -217,30 +217,10 @@ void roller_sec_event_cb(lv_event_t * e)
 }
 
 /* pomodoro page action */
-void tomato_opt_event_all_handler(lv_event_t * e)
+void action_tomato_opt_click(lv_event_t * e)
 {
-    lv_event_code_t event = lv_event_get_code(e);
-    if (event <= LV_EVENT_HOVER_LEAVE) {
-        app_lvgl_turnoff_reset(1);
-    } else {
-        return;
-    }
-
-    if (!bsp_lcd_is_ready()) {
-        return;
-    }
-
-    uint8_t state = lvgl_var_tomato_state_get();
-
-    if (event == LV_EVENT_CLICKED) {
-        if (tomato_opt_lock) {
-            tomato_opt_lock = 0;
-            return;
-        }
-
-        if (!hit_test(e)) {
-            return;
-        }
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        uint8_t state = lvgl_var_tomato_state_get();
 
         switch (state) {
             case TOMATO_STATE_IDLE:
@@ -263,12 +243,16 @@ void tomato_opt_event_all_handler(lv_event_t * e)
             default:
             break;
         }
-    } else if (event == LV_EVENT_LONG_PRESSED_REPEAT || event == LV_EVENT_LONG_PRESSED) {
-        if (state == TOMATO_STATE_RUNNING || state == TOMATO_STATE_BREAK) {
-            tomato_opt_lock = 1;
-            lvgl_var_tomato_state_set(TOMATO_STATE_IDLE);
-        }
-    } else {
-        // ignore
+
+        app_lvgl_turnoff_reset(1);
+    }
+}
+
+void action_tomato_stop_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        lvgl_var_tomato_state_set(TOMATO_STATE_IDLE);
+
+        app_lvgl_turnoff_reset(1);
     }
 }

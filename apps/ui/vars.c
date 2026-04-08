@@ -17,6 +17,8 @@ typedef struct {
     int32_t var_timer_countdown_sec;
 
     int8_t var_tomato_state;
+    int32_t var_tomato_focus;
+    int32_t var_tomato_break;
 } lvgl_var_t;
 
 static lvgl_var_t lvgl_vars = {
@@ -31,6 +33,8 @@ static lvgl_var_t lvgl_vars = {
     .var_timer_countdown_sec = 0,
 
     .var_tomato_state = TOMATO_STATE_IDLE,
+    .var_tomato_focus = 25 * 60,
+    .var_tomato_break = 5 * 60,
 };
 
 // timer
@@ -117,6 +121,34 @@ void lvgl_var_tomato_state_set(int8_t state)
     }
 
     lvgl_vars.var_tomato_state = state;
+}
+
+int32_t lvgl_var_tomato_focus_get(void) 
+{
+    return lvgl_vars.var_tomato_focus;
+}
+
+void lvgl_var_tomato_focus_set(int32_t value) 
+{
+    if (value < TOMATO_LIMIT_FOCUS_MIN || value > TOMATO_LIMIT_FOCUS_MAX) {
+        return;
+    }
+
+    lvgl_vars.var_tomato_focus = value;
+}
+
+int32_t lvgl_var_tomato_break_get(void) 
+{
+    return lvgl_vars.var_tomato_break;
+}
+
+void lvgl_var_tomato_break_set(int32_t value) 
+{
+    if (value < TOMATO_LIMIT_BREAK_MIN || value > TOMATO_LIMIT_BREAK_MAX) {
+        return;
+    }
+
+    lvgl_vars.var_tomato_break = value;
 }
 
 // city weather temperature
