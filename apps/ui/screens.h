@@ -71,6 +71,12 @@ typedef struct _objects_t {
 
     // timer page objs
     lv_obj_t *label_count;
+    lv_obj_t *disp_countdown;
+    lv_obj_t *roller_hour;
+    lv_obj_t *roller_min;
+    lv_obj_t *roller_sec;
+    lv_obj_t *commoa1;
+    lv_obj_t *commoa2;
     lv_obj_t *container_start;
     lv_obj_t *img_start;
     lv_obj_t *container_reset;

@@ -1,7 +1,7 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[ct_eye_round_lcd.eez-project]:/userPages/4",
-    "selectedFontObject": "[ct_eye_round_lcd.eez-project]:/fonts/8",
+    "selectedUserPageObject": "[ct_eye_round_lcd.eez-project]:/userPages/1",
+    "selectedFontObject": "[ct_eye_round_lcd.eez-project]:/fonts/10",
     "selectedBitmapObject": "[ct_eye_round_lcd.eez-project]:/bitmaps/52",
     "subnavigationSelectedItems": {
       "variables-tab/sub-navigation/selected-item": "Global"
@@ -25,7 +25,7 @@
           },
           {
             "type": "border",
-            "selected": 0,
+            "selected": 1,
             "size": 240,
             "location": "right",
             "children": [
@@ -73,7 +73,7 @@
           },
           {
             "type": "border",
-            "selected": 0,
+            "selected": 1,
             "location": "bottom",
             "children": [
               {
@@ -168,7 +168,8 @@
                       "enableClose": false,
                       "icon": "svg:hierarchy"
                     }
-                  ]
+                  ],
+                  "active": true
                 },
                 {
                   "type": "tabset",
@@ -192,10 +193,32 @@
               "type": "tabset",
               "id": "EDITORS",
               "weight": 49.552078321304464,
-              "selected": 3,
+              "selected": 5,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
               "children": [
+                {
+                  "type": "tab",
+                  "id": "#7fe33a2c-0599-4e8c-8039-8204a821dcfb",
+                  "name": "page_alarm",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[ct_eye_round_lcd.eez-project]:/userPages/2",
+                    "permanent": false
+                  },
+                  "icon": "svg:page"
+                },
+                {
+                  "type": "tab",
+                  "id": "#9fe4cba7-dcf4-467d-9db8-375dc84f1be0",
+                  "name": "pingfang_sc_regular_16px",
+                  "component": "editor",
+                  "config": {
+                    "objectPath": "[ct_eye_round_lcd.eez-project]:/fonts/10",
+                    "permanent": false
+                  },
+                  "icon": "material:font_download"
+                },
                 {
                   "type": "tab",
                   "id": "#ebb52e6e-d974-4c4d-9c2e-63e910f0a110",
@@ -210,7 +233,7 @@
                 {
                   "type": "tab",
                   "id": "#4b134ec1-4352-48f8-9544-a4618cee9252",
-                  "name": "misans_64px",
+                  "name": "pingfang_sc_regular_12px",
                   "component": "editor",
                   "config": {
                     "objectPath": "[ct_eye_round_lcd.eez-project]:/fonts/6",
@@ -233,16 +256,15 @@
                 {
                   "type": "tab",
                   "id": "#51173d80-f7df-42f8-8d4d-9ea37098d5a8",
-                  "name": "page_pomodoro",
+                  "name": "page_main",
                   "component": "editor",
                   "config": {
-                    "objectPath": "[ct_eye_round_lcd.eez-project]:/userPages/4",
-                    "permanent": false
+                    "objectPath": "[ct_eye_round_lcd.eez-project]:/userPages/1",
+                    "permanent": true
                   },
                   "icon": "svg:page"
                 }
-              ],
-              "active": true
+              ]
             },
             {
               "type": "row",
@@ -1034,8 +1056,8 @@
       "selection": {
         "0": {
           "0": {},
-          "1": {
-            "0": {},
+          "4": {},
+          "6": {
             "$selected": true
           }
         }
@@ -1043,7 +1065,7 @@
       "transform": {
         "translate": {
           "x": -124,
-          "y": -120
+          "y": -220
         },
         "scale": 1.5
       },
@@ -1058,7 +1080,9 @@
       "selection": {
         "0": {
           "0": {
-            "0": {},
+            "0": {
+              "$selected": true
+            },
             "1": {}
           },
           "1": {
@@ -1072,7 +1096,7 @@
       "transform": {
         "translate": {
           "x": -204.9264238999936,
-          "y": -194.7293360841428
+          "y": -95.32933608414282
         },
         "scale": 1.5
       },
@@ -1164,6 +1188,7 @@
   "searchMatchWholeWord": false,
   "replaceEnabled": false,
   "replaceText": "",
+  "pageRuntimeFrontFace": true,
   "breakpoints": {},
   "watchExpressions": [],
   "showComponentDescriptions": true,

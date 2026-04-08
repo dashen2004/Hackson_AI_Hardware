@@ -8,6 +8,10 @@
 extern "C" {
 #endif
 
+#define COUNTDOWN_LIMIT_HOUR    23
+#define COUNTDOWN_LIMIT_MINUTE  59
+#define COUNTDOWN_LIMIT_SECOND  59
+
 // enum declarations
 enum TimerType {
     TIMER_TYPE_NONE = 0,
@@ -38,6 +42,12 @@ int8_t lvgl_var_timer_type_get(void);
 void lvgl_var_timer_type_set(int8_t type);
 int8_t lvgl_var_timer_state_get(void);
 void lvgl_var_timer_state_set(int8_t state);
+int32_t lvgl_var_timer_countdown_hour_get(void);
+void lvgl_var_timer_countdown_hour_set(int32_t hour);
+int32_t lvgl_var_timer_countdown_min_get(void);
+void lvgl_var_timer_countdown_min_set(int32_t min);
+int32_t lvgl_var_timer_countdown_sec_get(void);
+void lvgl_var_timer_countdown_sec_set(int32_t sec);
 
 int8_t lvgl_var_tomato_state_get(void);
 void lvgl_var_tomato_state_set(int8_t state);

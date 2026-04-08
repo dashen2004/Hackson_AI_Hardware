@@ -12,6 +12,10 @@ typedef struct {
 
     int8_t var_timer_type;
     int8_t var_timer_state;
+    int32_t var_timer_countdown_hour;
+    int32_t var_timer_countdown_min;
+    int32_t var_timer_countdown_sec;
+
     int8_t var_tomato_state;
 } lvgl_var_t;
 
@@ -22,6 +26,10 @@ static lvgl_var_t lvgl_vars = {
 
     .var_timer_type = TIMER_TYPE_COUNT_UP,
     .var_timer_state = TIMER_STATE_IDLE,
+    .var_timer_countdown_hour = 0,
+    .var_timer_countdown_min = 30,
+    .var_timer_countdown_sec = 0,
+
     .var_tomato_state = TOMATO_STATE_IDLE,
 };
 
@@ -52,6 +60,48 @@ void lvgl_var_timer_state_set(int8_t state)
     }
 
     lvgl_vars.var_timer_state = state;
+}
+
+int32_t lvgl_var_timer_countdown_hour_get(void) 
+{
+    return lvgl_vars.var_timer_countdown_hour;
+}
+
+void lvgl_var_timer_countdown_hour_set(int32_t hour) 
+{
+    if (hour < 0 || hour > COUNTDOWN_LIMIT_HOUR) {
+        return;
+    }
+
+    lvgl_vars.var_timer_countdown_hour = hour;
+}
+
+int32_t lvgl_var_timer_countdown_min_get(void) 
+{
+    return lvgl_vars.var_timer_countdown_min;
+}
+
+void lvgl_var_timer_countdown_min_set(int32_t min) 
+{
+    if (min < 0 || min > COUNTDOWN_LIMIT_MINUTE) {
+        return;
+    }
+
+    lvgl_vars.var_timer_countdown_min = min;
+}
+
+int32_t lvgl_var_timer_countdown_sec_get(void) 
+{
+    return lvgl_vars.var_timer_countdown_sec;
+}
+
+void lvgl_var_timer_countdown_sec_set(int32_t sec) 
+{
+    if (sec < 0 || sec > COUNTDOWN_LIMIT_SECOND) {
+        return;
+    }
+
+    lvgl_vars.var_timer_countdown_sec = sec;
 }
 
 // tomato

@@ -117,7 +117,7 @@ static void app_lvgl_port_init(void)
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = app_lvgl_handle.lcd_io_handle,
         .panel_handle = app_lvgl_handle.lcd_panel_handle,
-        .buffer_size = LCD_H_RES * LCD_V_RES / 6,
+        .buffer_size = LCD_H_RES * LCD_V_RES / 4,
         .double_buffer = 1,
         .trans_size = 0,
         .hres = LCD_H_RES,

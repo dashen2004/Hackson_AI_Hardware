@@ -122,7 +122,7 @@ void event_all_handler(lv_event_t * e)
     }
 }
 
-/*  action  */
+/*  timer page action  */
 void action_count_up_click(lv_event_t * e)
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
@@ -174,16 +174,49 @@ void action_timer_stop_click(lv_event_t * e)
 void action_timer_reset_click(lv_event_t * e) 
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
-        lvgl_var_timer_state_set(TIMER_STATE_IDLE);
-
         // reset countdown time
         if (lvgl_var_timer_type_get() == TIMER_TYPE_COUNT_DOWN) {
+            lvgl_var_timer_countdown_hour_set(0);
+            lvgl_var_timer_countdown_min_set(30);
+            lvgl_var_timer_countdown_sec_set(0);
+
+            lv_roller_set_selected(objects.roller_hour, lvgl_var_timer_countdown_hour_get(), LV_ANIM_OFF);
+            lv_roller_set_selected(objects.roller_min, lvgl_var_timer_countdown_min_get(), LV_ANIM_OFF);
+            lv_roller_set_selected(objects.roller_sec, lvgl_var_timer_countdown_sec_get(), LV_ANIM_OFF);
         }
+
+        lvgl_var_timer_state_set(TIMER_STATE_IDLE);
 
         app_lvgl_turnoff_reset(1);
     }
 }
 
+/*  timer page callback  */
+void roller_hour_event_cb(lv_event_t * e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        int32_t hour = lv_roller_get_selected(objects.roller_hour);
+        lvgl_var_timer_countdown_hour_set(hour);
+    }
+}
+
+void roller_min_event_cb(lv_event_t * e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        int32_t min = lv_roller_get_selected(objects.roller_min);
+        lvgl_var_timer_countdown_min_set(min);
+    }
+}
+
+void roller_sec_event_cb(lv_event_t * e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        int32_t sec = lv_roller_get_selected(objects.roller_sec);
+        lvgl_var_timer_countdown_sec_set(sec);
+    }
+}
+
+/* pomodoro page action */
 void tomato_opt_event_all_handler(lv_event_t * e)
 {
     lv_event_code_t event = lv_event_get_code(e);
