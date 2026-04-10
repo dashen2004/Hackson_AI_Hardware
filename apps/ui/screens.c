@@ -5,6 +5,7 @@
 #include "screens.h"
 #include "actions.h"
 #include "freertos/idf_additions.h"
+#include "misc/lv_event.h"
 #include "vars.h"
 #include "ui.h"
 
@@ -13,6 +14,7 @@
 
 #include "bsp_lcd.h"
 #include "alarm_manager.h"
+#include "widgets/roller/lv_roller.h"
 
 // alarm
 typedef struct {
@@ -22,14 +24,34 @@ typedef struct {
     lv_obj_t *sw;
 } alarm_item_t;
 
+typedef struct {
+    lv_obj_t *root;
+    uint8_t checked;
+} alarm_weekday_t;
+
+typedef struct {
+    uint8_t opt_type;   // 1:add 2:edit
+    int8_t alarm_index;   // -1: null
+
+    alarm_weekday_t alarm_weekday[7];
+
+    uint8_t hour;
+    uint8_t min;
+} alarm_edit_t;
+
 static alarm_item_t lv_alarms[ALARM_LIST_MAX_COUNT] = {0};
 static int32_t lv_alarm_count = 0;
 
-static const char *repeat_mask_to_string(uint8_t repeat_mask);
+static alarm_edit_t lv_alarm_edit_handle = {0};
+
+static void page_alarm_alarm_list_init(void);
+static void page_timer_countdown_roller_init(void);
+static void page_alarm_edit_init(void);
 
 objects_t objects;
 
 lv_font_t *font_misans_8px = NULL;
+lv_font_t *font_misans_16px = NULL;
 lv_font_t *font_misans_24px = NULL;
 lv_font_t *font_misans_40px = NULL;
 lv_font_t *font_misans_64px = NULL;
@@ -72,11 +94,11 @@ void create_screen_page_sleep() {
             {
                 lv_obj_t *parent_obj = obj;
                 {
-                    lv_obj_t *obj = lv_gif_create(parent_obj);
+                    lv_obj_t *obj = lv_image_create(parent_obj);
                     objects.img_expression = obj;
                     lv_obj_set_pos(obj, 24, 30);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_gif_set_src(obj, "/lvgl/gifs/emotion20.gif");
+                    lv_image_set_src(obj, "/lvgl/images/e19.bin");
                 }
             }
         }
@@ -222,7 +244,7 @@ void create_screen_page_alarm() {
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 240, 240);
     lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
-    lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     {
         lv_obj_t *parent_obj = obj;
@@ -255,6 +277,7 @@ void create_screen_page_alarm() {
                     objects.container_add = obj;
                     lv_obj_set_pos(obj, 130, 0);
                     lv_obj_set_size(obj, 92, 57);
+                    lv_obj_add_event_cb(obj, action_alarm_add_click, LV_EVENT_CLICKED, (void *)0);
                     lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -301,6 +324,374 @@ void create_screen_page_alarm() {
 }
 
 void tick_screen_page_alarm() {
+}
+
+void create_screen_page_alarm_edit() {
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.page_alarm_edit = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 240, 240);
+    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    {
+        lv_obj_t *parent_obj = obj;
+        {
+            // disp_alarm_edit
+            lv_obj_t *obj = lv_obj_create(parent_obj);
+            objects.disp_alarm_edit = obj;
+            lv_obj_set_pos(obj, 0, 0);
+            lv_obj_set_size(obj, 166, 97);
+            lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(obj, lv_color_hex(0xff5d5d5d), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(obj, 100, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(obj, 6, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_color(obj, lv_color_hex(0xfff1b100), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+            {
+                lv_obj_t *parent_obj = obj;
+                {
+                    // roller_alarm_hour
+                    lv_obj_t *obj = lv_roller_create(parent_obj);
+                    objects.roller_alarm_hour = obj;
+                    lv_obj_set_pos(obj, 14, 0);
+                    lv_obj_set_size(obj, 75, 94);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_opa(obj, 100, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_font(obj, font_misans_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_opa(obj, 255, LV_PART_SELECTED | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_font(obj, font_misans_16px, LV_PART_SELECTED | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 10, LV_PART_SELECTED | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff5d5d5d), LV_PART_SELECTED | LV_STATE_DEFAULT);
+                }
+                {
+                    // roller_alarm_min
+                    lv_obj_t *obj = lv_roller_create(parent_obj);
+                    objects.roller_alarm_min = obj;
+                    lv_obj_set_pos(obj, 72, 0);
+                    lv_obj_set_size(obj, 75, 94);
+                    lv_roller_set_selected(obj, 30, LV_ANIM_OFF);
+                    lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_opa(obj, 100, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_font(obj, font_misans_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_opa(obj, 255, LV_PART_SELECTED | LV_STATE_DEFAULT);
+                    lv_obj_set_style_text_font(obj, font_misans_16px, LV_PART_SELECTED | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 10, LV_PART_SELECTED | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff5d5d5d), LV_PART_SELECTED | LV_STATE_DEFAULT);
+                }
+            }
+        }
+        {
+            // label_alarm_edit
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            objects.label_alarm_edit = obj;
+            lv_obj_set_pos(obj, 40, 40);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text(obj, "创建闹钟");
+        }
+        {
+            // btn_alarm_confirm
+            lv_obj_t *obj = lv_obj_create(parent_obj);
+            objects.btn_alarm_confirm = obj;
+            lv_obj_set_pos(obj, 168, 29);
+            lv_obj_set_size(obj, 43, 43);
+            lv_obj_add_event_cb(obj, action_alarm_confirm_click, LV_EVENT_CLICKED, (void *)0);
+            lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            {
+                lv_obj_t *parent_obj = obj;
+                {
+                    lv_obj_t *obj = lv_image_create(parent_obj);
+                    lv_obj_set_pos(obj, 10, 12);
+                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                    lv_image_set_src(obj, "/lvgl/images/alarm_confirm.bin");
+                }
+            }
+        }
+        {
+            // btn_alarm_del
+            lv_obj_t *obj = lv_obj_create(parent_obj);
+            objects.btn_alarm_del = obj;
+            lv_obj_set_pos(obj, 127, 29);
+            lv_obj_set_size(obj, 41, 43);
+            lv_obj_add_event_cb(obj, action_alarm_del_click, LV_EVENT_CLICKED, (void *)0);
+            lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            {
+                lv_obj_t *parent_obj = obj;
+                {
+                    lv_obj_t *obj = lv_image_create(parent_obj);
+                    lv_obj_set_pos(obj, 16, 12);
+                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                    lv_image_set_src(obj, "/lvgl/images/alarm_del.bin");
+                }
+            }
+        }
+        {
+            lv_obj_t *obj = lv_obj_create(parent_obj);
+            lv_obj_set_pos(obj, 0, 89);
+            lv_obj_set_size(obj, 166, 62);
+            lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+            {
+                lv_obj_t *parent_obj = obj;
+                {
+                    // btn_weekday_01
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    objects.btn_weekday_01 = obj;
+                    lv_obj_set_pos(obj, 0, 0);
+                    lv_obj_set_size(obj, 20, 62);
+                    lv_obj_add_event_cb(obj, action_alarm_weekday_01_click, LV_EVENT_CLICKED, (void *)0);
+                    lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            // label_weekday_01
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.label_weekday_01 = obj;
+                            lv_obj_set_pos(obj, 2, 6);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, font_pingfang_12px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_bottom(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_left(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_right(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_radius(obj, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "一");
+                        }
+                    }
+                }
+                {
+                    // btn_weekday_02
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    objects.btn_weekday_02 = obj;
+                    lv_obj_set_pos(obj, 24, 0);
+                    lv_obj_set_size(obj, 20, 62);
+                    lv_obj_add_event_cb(obj, action_alarm_weekday_02_click, LV_EVENT_CLICKED, (void *)0);
+                    lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            // label_weekday_02
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.label_weekday_02 = obj;
+                            lv_obj_set_pos(obj, 2, 6);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, font_pingfang_12px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_bottom(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_left(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_right(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_radius(obj, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "二");
+                        }
+                    }
+                }
+                {
+                    // btn_weekday_03
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    objects.btn_weekday_03 = obj;
+                    lv_obj_set_pos(obj, 48, 0);
+                    lv_obj_set_size(obj, 20, 62);
+                    lv_obj_add_event_cb(obj, action_alarm_weekday_03_click, LV_EVENT_CLICKED, (void *)0);
+                    lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            // label_weekday_03
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.label_weekday_03 = obj;
+                            lv_obj_set_pos(obj, 2, 6);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, font_pingfang_12px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_bottom(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_left(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_right(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_radius(obj, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "三");
+                        }
+                    }
+                }
+                {
+                    // btn_weekday_04
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    objects.btn_weekday_04 = obj;
+                    lv_obj_set_pos(obj, 73, 0);
+                    lv_obj_set_size(obj, 20, 62);
+                    lv_obj_add_event_cb(obj, action_alarm_weekday_04_click, LV_EVENT_CLICKED, (void *)0);
+                    lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            // label_weekday_04
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.label_weekday_04 = obj;
+                            lv_obj_set_pos(obj, 2, 6);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, font_pingfang_12px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_bottom(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_left(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_right(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_radius(obj, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "四");
+                        }
+                    }
+                }
+                {
+                    // btn_weekday_05
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    objects.btn_weekday_05 = obj;
+                    lv_obj_set_pos(obj, 97, 0);
+                    lv_obj_set_size(obj, 20, 62);
+                    lv_obj_add_event_cb(obj, action_alarm_weekday_05_click, LV_EVENT_CLICKED, (void *)0);
+                    lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            // label_weekday_05
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.label_weekday_05 = obj;
+                            lv_obj_set_pos(obj, 2, 6);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, font_pingfang_12px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_bottom(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_left(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_right(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_radius(obj, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "五");
+                        }
+                    }
+                }
+                {
+                    // btn_weekday_06
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    objects.btn_weekday_06 = obj;
+                    lv_obj_set_pos(obj, 121, 0);
+                    lv_obj_set_size(obj, 20, 62);
+                    lv_obj_add_event_cb(obj, action_alarm_weekday_06_click, LV_EVENT_CLICKED, (void *)0);
+                    lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            // label_weekday_06
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.label_weekday_06 = obj;
+                            lv_obj_set_pos(obj, 2, 6);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, font_pingfang_12px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_bottom(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_left(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_right(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_radius(obj, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "六");
+                        }
+                    }
+                }
+                {
+                    // btn_weekday_07
+                    lv_obj_t *obj = lv_obj_create(parent_obj);
+                    objects.btn_weekday_07 = obj;
+                    lv_obj_set_pos(obj, 145, 0);
+                    lv_obj_set_size(obj, 20, 62);
+                    lv_obj_add_event_cb(obj, action_alarm_weekday_07_click, LV_EVENT_CLICKED, (void *)0);
+                    lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    {
+                        lv_obj_t *parent_obj = obj;
+                        {
+                            // label_weekday_07
+                            lv_obj_t *obj = lv_label_create(parent_obj);
+                            objects.label_weekday_07 = obj;
+                            lv_obj_set_pos(obj, 2, 6);
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_obj_set_style_text_font(obj, font_pingfang_12px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_top(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_bottom(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_left(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_pad_right(obj, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_radius(obj, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_label_set_text(obj, "日");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    tick_screen_page_alarm_edit();
+}
+
+void tick_screen_page_alarm_edit() {
 }
 
 void create_screen_page_timer() {
@@ -1066,6 +1457,7 @@ tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_page_timer,
     tick_screen_page_pomodoro,
     tick_screen_page_weather,
+    tick_screen_page_alarm_edit,
 };
 void tick_screen(int screen_index) {
     tick_screen_funcs[screen_index]();
@@ -1081,6 +1473,9 @@ void create_screens() {
 
     if (font_misans_8px == NULL) {
         font_misans_8px = (lv_font_t *)&ui_font_misans_8px;
+    }
+    if (font_misans_16px == NULL) {
+        font_misans_16px = (lv_font_t *)&ui_font_misans_16px;
     }
     if (font_misans_24px == NULL) {
         font_misans_24px = (lv_font_t *)&ui_font_misans_24px;
@@ -1106,17 +1501,80 @@ void create_screens() {
     if (font_pingfang_24px == NULL) {
         font_pingfang_24px = (lv_font_t *)&ui_font_pingfang_sc_regular_24px; // lv_binfont_create("/lvgl/fonts/pingfang_20px.bin");
     }
-    
+
     create_screen_page_sleep();
     create_screen_page_main();
     create_screen_page_alarm();
     create_screen_page_timer();
     create_screen_page_pomodoro();
     create_screen_page_weather();
+    create_screen_page_alarm_edit();
 
+    page_alarm_alarm_list_init();
+    page_timer_countdown_roller_init();
+    page_alarm_edit_init();
+}
+
+/*
+    custom static functions
+    func name: page_* + obj_opt
+*/ 
+static void page_alarm_alarm_list_init(void)
+{
+    int32_t alarm_list_count = 0;
+    alarm_manager_get_count(&alarm_list_count);
+    alarm_t *alarm_list = malloc(sizeof(alarm_t) * alarm_list_count);
+    alarm_manager_get_alarm_list(alarm_list);
+
+    for (int32_t i = 0; i < alarm_list_count; i++) {
+        char time[10];
+        sprintf(time, "%02d:%02d", alarm_list[i].hour, alarm_list[i].min);
+
+        char repeat[50];
+
+        if (alarm_list[i].repeat_mask == 0) {
+            memcpy(repeat, "One-time\0", 9);
+        } else {
+            uint8_t repeat_mask = alarm_list[i].repeat_mask;
+            sprintf(repeat, "%s%s%s%s%s%s%s",
+            repeat_mask & (1 << 0) ? "Mon, " : "",
+            repeat_mask & (1 << 1) ? "Tue, " : "",
+            repeat_mask & (1 << 2) ? "Wed, " : "",
+            repeat_mask & (1 << 3) ? "Thu, " : "",
+            repeat_mask & (1 << 4) ? "Fri, " : "",
+            repeat_mask & (1 << 5) ? "Sat, " : "",
+            repeat_mask & (1 << 6) ? "Sun, " : "");
+
+            // cut last , 
+            repeat[strlen(repeat) - 2] = '\0';
+        }
+
+        scr_add_alarm_item(time, repeat);
+    }
+
+    free(alarm_list);
+
+    lv_alarm_count = alarm_list_count;
+}
+
+static void page_alarm_alarm_list_update(void)
+{
+    for (int i = 0; i < lv_alarm_count; i++) {
+        lv_obj_del(lv_alarms[i].root);
+    }
+
+    lv_alarm_count = 0;
+
+    page_alarm_alarm_list_init();
+
+    lv_obj_scroll_to_y(objects.list_alarm, 0, LV_ANIM_OFF);
+}
+
+static void page_timer_countdown_roller_init(void)
+{
     // add roller options
     char hour_opts[100], minute_opts[200], second_opts[200];
-    
+
     for (int i = 0; i <= COUNTDOWN_LIMIT_HOUR; i++) {
         if (i == COUNTDOWN_LIMIT_HOUR) {
             sprintf(hour_opts + i * 3, "%02d", i);
@@ -1148,44 +1606,72 @@ void create_screens() {
     lv_roller_set_selected(objects.roller_hour, lvgl_var_timer_countdown_hour_get(), LV_ANIM_OFF);
     lv_roller_set_selected(objects.roller_min, lvgl_var_timer_countdown_min_get(), LV_ANIM_OFF);
     lv_roller_set_selected(objects.roller_sec, lvgl_var_timer_countdown_sec_get(), LV_ANIM_OFF);
+}
 
-    // add alarm
-    int32_t alarm_list_count = 0;
-    alarm_manager_get_count(&alarm_list_count);
-    alarm_t *alarm_list = malloc(sizeof(alarm_t) * alarm_list_count);
-    alarm_manager_get_alarm_list(alarm_list);
+static void set_weekday_check_state(int8_t weekday_index, uint8_t checked)
+{
+    lv_obj_t *obj = lv_alarm_edit_handle.alarm_weekday[weekday_index].root;
 
-    for (int32_t i = 0; i < alarm_list_count; i++) {
-        char time[10];
-        sprintf(time, "%02d:%02d", alarm_list[i].hour, alarm_list[i].min);
-        add_alarm_item(time, repeat_mask_to_string(alarm_list[i].repeat_mask));
+    if (checked) {
+        lv_obj_set_style_text_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(obj, lv_color_hex(0xfff1b100), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    } else {
+        lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(obj, lv_color_hex(0xff5d5d5d), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(obj, 100, LV_PART_MAIN | LV_STATE_DEFAULT);
     }
 
-    free(alarm_list);
-
-    lv_alarm_count = alarm_list_count;
+    lv_alarm_edit_handle.alarm_weekday[weekday_index].checked = checked;
 }
 
-// custom functions
-static const char *repeat_mask_to_string(uint8_t repeat_mask)
+static void page_alarm_edit_init(void)
 {
-    static char s[50];
-    sprintf(s, "%s%s%s%s%s%s%s",
-        repeat_mask & (1 << 0) ? "Mon, " : "",
-        repeat_mask & (1 << 1) ? "Tue, " : "",
-        repeat_mask & (1 << 2) ? "Wed, " : "",
-        repeat_mask & (1 << 3) ? "Thu, " : "",
-        repeat_mask & (1 << 4) ? "Fri, " : "",
-        repeat_mask & (1 << 5) ? "Sat, " : "",
-        repeat_mask & (1 << 6) ? "Sun, " : "");
+    lv_alarm_edit_handle.alarm_weekday[0].root = objects.label_weekday_01;
+    lv_alarm_edit_handle.alarm_weekday[1].root = objects.label_weekday_02;
+    lv_alarm_edit_handle.alarm_weekday[2].root = objects.label_weekday_03;
+    lv_alarm_edit_handle.alarm_weekday[3].root = objects.label_weekday_04;
+    lv_alarm_edit_handle.alarm_weekday[4].root = objects.label_weekday_05;
+    lv_alarm_edit_handle.alarm_weekday[5].root = objects.label_weekday_06;
+    lv_alarm_edit_handle.alarm_weekday[6].root = objects.label_weekday_07;
 
-    // cut last , 
-    s[strlen(s) - 2] = '\0';
+    // set weekday check state
+    set_weekday_check_state(0, 0);
+    set_weekday_check_state(1, 0);
+    set_weekday_check_state(2, 0);
+    set_weekday_check_state(3, 0);
+    set_weekday_check_state(4, 0);
+    set_weekday_check_state(5, 0);
+    set_weekday_check_state(6, 0);
 
-    return s;
+    // add roller options
+    char hour_opts[500], minute_opts[500];
+
+    for (int i = 0; i <= COUNTDOWN_LIMIT_HOUR; i++) {
+        if (i == COUNTDOWN_LIMIT_HOUR) {
+            sprintf(hour_opts + i * 7, "    %02d", i);
+        } else {
+            sprintf(hour_opts + i * 7, "    %02d\n", i);
+        }
+    }
+    lv_roller_set_options(objects.roller_alarm_hour, hour_opts, LV_ROLLER_MODE_INFINITE);
+
+    for (int i = 0; i <= COUNTDOWN_LIMIT_MINUTE; i++) {
+        if (i == COUNTDOWN_LIMIT_MINUTE) {
+            sprintf(minute_opts + i * 7, "%02d    ", i);
+        } else {
+            sprintf(minute_opts + i * 7, "%02d    \n", i);
+        }
+    }
+    lv_roller_set_options(objects.roller_alarm_min, minute_opts, LV_ROLLER_MODE_INFINITE);
+
+    // set roller value
+    lv_roller_set_selected(objects.roller_alarm_hour, 8, LV_ANIM_OFF);
+    lv_roller_set_selected(objects.roller_alarm_min, 0, LV_ANIM_OFF);
 }
 
-int32_t add_alarm_item(const char *time, const char *repeat)
+// custom ext functions
+int32_t scr_add_alarm_item(const char *time, const char *repeat)
 {
     alarm_item_t item;
 
@@ -1240,7 +1726,114 @@ int32_t add_alarm_item(const char *time, const char *repeat)
     return 0;
 }
 
-int32_t del_alarm_item(int32_t index)
+int32_t scr_del_alarm_item(int32_t index)
 {
     return 0;
 }
+
+int32_t scr_enter_page_alarm_add(void)
+{
+    lv_label_set_text(objects.label_alarm_edit, "创建闹钟");
+
+    lv_alarm_edit_handle.opt_type = 1;
+
+    set_weekday_check_state(0, 0);
+    set_weekday_check_state(1, 0);
+    set_weekday_check_state(2, 0);
+    set_weekday_check_state(3, 0);
+    set_weekday_check_state(4, 0);
+    set_weekday_check_state(5, 0);
+    set_weekday_check_state(6, 0);
+
+    // current time
+    qm_time_t t = qm_time(NULL);
+    struct qm_tm *tm = qm_localtime(&t);
+
+    lv_roller_set_selected(objects.roller_alarm_hour, tm->tm_hour, LV_ANIM_OFF);
+    lv_roller_set_selected(objects.roller_alarm_min, tm->tm_min, LV_ANIM_OFF);
+
+    return 0;
+}
+
+int32_t scr_enter_page_alarm_edit(int32_t alarm_index)
+{
+    lv_label_set_text(objects.label_alarm_edit, "编辑闹钟");
+
+    lv_alarm_edit_handle.opt_type = 2;
+
+    alarm_t alarm = {0};
+    alarm_manager_get_alarm(&alarm, alarm_index);
+
+    lv_roller_set_selected(objects.roller_alarm_hour, alarm.hour, LV_ANIM_OFF);
+    lv_roller_set_selected(objects.roller_alarm_min, alarm.min, LV_ANIM_OFF);
+
+    // set weekday check state
+    set_weekday_check_state(0, alarm.repeat_mask & (1 << 0));
+    set_weekday_check_state(1, alarm.repeat_mask & (1 << 1));
+    set_weekday_check_state(2, alarm.repeat_mask & (1 << 2));
+    set_weekday_check_state(3, alarm.repeat_mask & (1 << 3));
+    set_weekday_check_state(4, alarm.repeat_mask & (1 << 4));
+    set_weekday_check_state(5, alarm.repeat_mask & (1 << 5));
+    set_weekday_check_state(6, alarm.repeat_mask & (1 << 6));
+
+    return 0;
+}
+
+int32_t scr_weekday_check_state_toggle(int8_t weekday_index)
+{
+    set_weekday_check_state(weekday_index, !lv_alarm_edit_handle.alarm_weekday[weekday_index].checked);
+
+    return 0;
+}
+
+int32_t scr_alarm_edit_confirm(void)
+{
+    if (lv_alarm_edit_handle.opt_type != 1 && lv_alarm_edit_handle.opt_type != 2) {
+        return -1;
+    }
+
+    lv_alarm_edit_handle.hour = lv_roller_get_selected(objects.roller_alarm_hour);
+    lv_alarm_edit_handle.min = lv_roller_get_selected(objects.roller_alarm_min);
+
+    uint8_t repeat_mask = 0;
+    for (int8_t i = 0; i < 7; i++) {
+        if (lv_alarm_edit_handle.alarm_weekday[i].checked) {
+            repeat_mask |= (1 << i);
+        }
+    }
+
+    alarm_t alarm = {
+        .hour = lv_alarm_edit_handle.hour,
+        .min = lv_alarm_edit_handle.min,
+        .repeat_mask = repeat_mask,
+        .enable = 1,
+    };
+
+    if (lv_alarm_edit_handle.opt_type == 1) {
+        alarm_manager_add_alarm(alarm);
+    } else {
+        alarm_manager_mod_alarm(alarm, lv_alarm_edit_handle.alarm_index);
+    }
+
+    page_alarm_alarm_list_update();
+
+    return 0;
+}
+
+int32_t scr_alarm_edit_exit(void)
+{
+    if (lv_alarm_edit_handle.opt_type != 1 && lv_alarm_edit_handle.opt_type != 2) {
+        return -1;
+    }
+
+    if (lv_alarm_edit_handle.opt_type == 1) {
+        // ignore
+    } else {
+        // delete alarm
+    }
+
+    page_alarm_alarm_list_update();
+
+    return 0;
+}
+

@@ -164,6 +164,8 @@ set(COMPONENT_SRCS
 
     ${UI_SRCS}
     "../ui/fonts/ui_font_misans_8px.c"
+    "../ui/fonts/ui_font_misans_16px.c"
+    "../ui/fonts/ui_font_misans_40px.c"
     "../ui/fonts/ui_font_misans_24px.c"
     "../ui/fonts/ui_font_misans_40px.c"
     "../ui/fonts/ui_font_misans_64px.c"

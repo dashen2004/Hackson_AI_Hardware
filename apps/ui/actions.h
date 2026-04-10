@@ -11,6 +11,17 @@ void goto_page_by_id(int8_t screen_id);
 
 extern void event_all_handler(lv_event_t * e);
 
+extern void action_alarm_add_click(lv_event_t * e);
+extern void action_alarm_confirm_click(lv_event_t * e);
+extern void action_alarm_del_click(lv_event_t * e);
+extern void action_alarm_weekday_01_click(lv_event_t * e);
+extern void action_alarm_weekday_02_click(lv_event_t * e);
+extern void action_alarm_weekday_03_click(lv_event_t * e);
+extern void action_alarm_weekday_04_click(lv_event_t * e);
+extern void action_alarm_weekday_05_click(lv_event_t * e);
+extern void action_alarm_weekday_06_click(lv_event_t * e);
+extern void action_alarm_weekday_07_click(lv_event_t * e);
+
 extern void action_count_up_click(lv_event_t * e);
 extern void action_count_down_click(lv_event_t * e);
 extern void roller_hour_event_cb(lv_event_t * e);

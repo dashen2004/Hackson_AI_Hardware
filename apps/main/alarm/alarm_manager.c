@@ -85,23 +85,7 @@ qm_err_t alarm_manager_init(void)
 qm_err_t alarm_manager_update(void)
 {
     // update crc
-    alarm_manager_handle.alarm_store->count = 3;
-
-    alarm_manager_handle.alarm_store->alarm_list[0].hour = 8;
-    alarm_manager_handle.alarm_store->alarm_list[0].min = 0;
-    alarm_manager_handle.alarm_store->alarm_list[0].repeat_mask = 0b01111111;
-    alarm_manager_handle.alarm_store->alarm_list[0].enable = 1;
-
-    alarm_manager_handle.alarm_store->alarm_list[1].hour = 11;
-    alarm_manager_handle.alarm_store->alarm_list[1].min = 2;
-    alarm_manager_handle.alarm_store->alarm_list[1].repeat_mask = 0b01001101;
-    alarm_manager_handle.alarm_store->alarm_list[1].enable = 1;
-
-    alarm_manager_handle.alarm_store->alarm_list[2].hour = 9;
-    alarm_manager_handle.alarm_store->alarm_list[2].min = 10;
-    alarm_manager_handle.alarm_store->alarm_list[2].repeat_mask = 0b01101001;
-    alarm_manager_handle.alarm_store->alarm_list[2].enable = 1;
-    alarm_manager_handle.alarm_store->crc = calc_alarm_store_crc(alarm_manager_handle.alarm_store);
+    alarm_manager_handle.alarm_store->count = 0;
 
     qm_kv_set(KV_TAG_ALARM, alarm_manager_handle.alarm_store, sizeof(alarm_store_t), 1);
     qm_kv_set(KV_TAG_ALARM_BKP, alarm_manager_handle.alarm_store, sizeof(alarm_store_t), 1);
@@ -140,3 +124,92 @@ qm_err_t alarm_manager_get_alarm_list(alarm_t *alarm_list)
     return QM_EOK;
 }
 
+qm_err_t alarm_manager_get_alarm(alarm_t *alarm, uint32_t alarm_index)
+{
+    if (!alarm_manager_handle.is_init) {
+        QM_LOGE(LOG_TAG, "alarm manager not init");
+        return -QM_EINIT;
+    }
+
+    if (alarm_index >= alarm_manager_handle.alarm_store->count) {
+        QM_LOGE(LOG_TAG, "alarm index %d out of range", alarm_index);
+        return -QM_EINVAL;
+    }
+
+    memcpy(alarm, &alarm_manager_handle.alarm_store->alarm_list[alarm_index], sizeof(alarm_t));
+
+    return QM_EOK;
+}
+
+qm_err_t alarm_manager_add_alarm(alarm_t alarm)
+{
+    if (!alarm_manager_handle.is_init) {
+        QM_LOGE(LOG_TAG, "alarm manager not init");
+        return -QM_EINIT;
+    }
+
+    if (alarm_manager_handle.alarm_store->count >= ALARM_LIST_MAX_COUNT) {
+        QM_LOGE(LOG_TAG, "alarm list full");
+        return -QM_EFULL;
+    }
+
+    alarm_store_t *store = alarm_manager_handle.alarm_store;
+
+    memcpy(&store->alarm_list[store->count], &alarm, sizeof(alarm_t));
+    store->count++;
+
+    store->crc = calc_alarm_store_crc(store);
+
+    qm_kv_set(KV_TAG_ALARM, store, sizeof(alarm_store_t), 1);
+    qm_kv_set(KV_TAG_ALARM_BKP, store, sizeof(alarm_store_t), 1);
+
+    return QM_EOK;
+}
+
+qm_err_t alarm_manager_del_alarm(int32_t alarm_index)
+{
+    if (!alarm_manager_handle.is_init) {
+        QM_LOGE(LOG_TAG, "alarm manager not init");
+        return -QM_EINIT;
+    }
+
+    if (alarm_index >= alarm_manager_handle.alarm_store->count) {
+        QM_LOGE(LOG_TAG, "alarm index %d out of range", alarm_index);
+        return -QM_EINVAL;
+    }
+
+    // shift alarm list
+    for (int i = alarm_index; i < alarm_manager_handle.alarm_store->count - 1; i++) {
+        memcpy(&alarm_manager_handle.alarm_store->alarm_list[i], &alarm_manager_handle.alarm_store->alarm_list[i + 1], sizeof(alarm_t));
+    }
+
+    alarm_manager_handle.alarm_store->count--;
+    alarm_manager_handle.alarm_store->crc = calc_alarm_store_crc(alarm_manager_handle.alarm_store);
+
+    qm_kv_set(KV_TAG_ALARM, alarm_manager_handle.alarm_store, sizeof(alarm_store_t), 1);
+    qm_kv_set(KV_TAG_ALARM_BKP, alarm_manager_handle.alarm_store, sizeof(alarm_store_t), 1);
+
+    return QM_EOK;
+}
+
+qm_err_t alarm_manager_mod_alarm(alarm_t alarm, int32_t alarm_index)
+{
+    if (!alarm_manager_handle.is_init) {
+        QM_LOGE(LOG_TAG, "alarm manager not init");
+        return -QM_EINIT;
+    }
+
+    if (alarm_index >= alarm_manager_handle.alarm_store->count) {
+        QM_LOGE(LOG_TAG, "alarm index %d out of range", alarm_index);
+        return -QM_EINVAL;
+    }
+
+    memcpy(&alarm_manager_handle.alarm_store->alarm_list[alarm_index], &alarm, sizeof(alarm_t));
+
+    alarm_manager_handle.alarm_store->crc = calc_alarm_store_crc(alarm_manager_handle.alarm_store);
+
+    qm_kv_set(KV_TAG_ALARM, alarm_manager_handle.alarm_store, sizeof(alarm_store_t), 1);
+    qm_kv_set(KV_TAG_ALARM_BKP, alarm_manager_handle.alarm_store, sizeof(alarm_store_t), 1);
+
+    return QM_EOK;
+}

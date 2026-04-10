@@ -14,6 +14,7 @@ typedef struct _objects_t {
     lv_obj_t *page_timer;
     lv_obj_t *page_pomodoro;
     lv_obj_t *page_weather;
+    lv_obj_t *page_alarm_edit;
     lv_obj_t *img_expression;
     lv_obj_t *wifi_state;
     lv_obj_t *bat_state;
@@ -67,6 +68,26 @@ typedef struct _objects_t {
     lv_obj_t *img_weather;
     lv_obj_t *label_weather;
     lv_obj_t *label_temperature;
+    lv_obj_t *disp_alarm_edit;
+    lv_obj_t *roller_alarm_hour;
+    lv_obj_t *roller_alarm_min;
+    lv_obj_t *label_alarm_edit;
+    lv_obj_t *btn_alarm_confirm;
+    lv_obj_t *btn_alarm_del;
+    lv_obj_t *btn_weekday_01;
+    lv_obj_t *label_weekday_01;
+    lv_obj_t *btn_weekday_02;
+    lv_obj_t *label_weekday_02;
+    lv_obj_t *btn_weekday_03;
+    lv_obj_t *label_weekday_03;
+    lv_obj_t *btn_weekday_04;
+    lv_obj_t *label_weekday_04;
+    lv_obj_t *btn_weekday_05;
+    lv_obj_t *label_weekday_05;
+    lv_obj_t *btn_weekday_06;
+    lv_obj_t *label_weekday_06;
+    lv_obj_t *btn_weekday_07;
+    lv_obj_t *label_weekday_07;
 } objects_t;
 
 extern objects_t objects;
@@ -78,6 +99,7 @@ enum ScreensEnum {
     SCREEN_ID_PAGE_TIMER = 4,
     SCREEN_ID_PAGE_POMODORO = 5,
     SCREEN_ID_PAGE_WEATHER = 6,
+    SCREEN_ID_PAGE_ALARM_EDIT = 7,
 };
 
 void create_screen_page_sleep();
@@ -97,6 +119,9 @@ void tick_screen_page_pomodoro();
 
 void create_screen_page_weather();
 void tick_screen_page_weather();
+
+void create_screen_page_alarm_edit();
+void tick_screen_page_alarm_edit();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

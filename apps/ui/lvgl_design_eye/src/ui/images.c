@@ -1,6 +1,6 @@
 #include "images.h"
 
-const ext_img_desc_t images[53] = {
+const ext_img_desc_t images[55] = {
     { "wifi_connected", &img_wifi_connected },
     { "wifi_disconnected", &img_wifi_disconnected },
     { "weather_blizzard", &img_weather_blizzard },
@@ -54,4 +54,6 @@ const ext_img_desc_t images[53] = {
     { "bat", &img_bat },
     { "wifi", &img_wifi },
     { "timer_stop", &img_timer_stop },
+    { "confirm", &img_confirm },
+    { "del", &img_del },
 };

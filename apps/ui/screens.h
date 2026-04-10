@@ -14,6 +14,7 @@ typedef struct _objects_t {
     lv_obj_t *page_timer;
     lv_obj_t *page_pomodoro;
     lv_obj_t *page_weather;
+    lv_obj_t *page_alarm_edit;
 
     // sleep page objs
     lv_obj_t *img_expression;
@@ -32,18 +33,6 @@ typedef struct _objects_t {
     lv_obj_t *container_add;
     lv_obj_t *img_add;
     lv_obj_t *list_alarm;
-    lv_obj_t *alarm_item_01;
-    lv_obj_t *label_time_01;
-    lv_obj_t *switch_01;
-    lv_obj_t *label_repeat_01;
-    lv_obj_t *alarm_item_02;
-    lv_obj_t *label_time_02;
-    lv_obj_t *switch_02;
-    lv_obj_t *label_repeat_02;
-    lv_obj_t *alarm_item_03;
-    lv_obj_t *label_time_03;
-    lv_obj_t *switch_03;
-    lv_obj_t *label_repeat_03;
 
     // timer page objs
     lv_obj_t *label_count;
@@ -81,6 +70,29 @@ typedef struct _objects_t {
     lv_obj_t *img_weather;
     lv_obj_t *label_weather;
     lv_obj_t *label_temperature;
+
+    // alarm edit page objs
+    lv_obj_t *label_alarm_edit;
+    lv_obj_t *btn_alarm_confirm;
+    lv_obj_t *btn_alarm_del;
+    lv_obj_t *disp_alarm_edit;
+    lv_obj_t *roller_alarm_hour;
+    lv_obj_t *roller_alarm_min;
+    lv_obj_t *btn_weekday_01;
+    lv_obj_t *label_weekday_01;
+    lv_obj_t *btn_weekday_02;
+    lv_obj_t *label_weekday_02;
+    lv_obj_t *btn_weekday_03;
+    lv_obj_t *label_weekday_03;
+    lv_obj_t *btn_weekday_04;
+    lv_obj_t *label_weekday_04;
+    lv_obj_t *btn_weekday_05;
+    lv_obj_t *label_weekday_05;
+    lv_obj_t *btn_weekday_06;
+    lv_obj_t *label_weekday_06;
+    lv_obj_t *btn_weekday_07;
+    lv_obj_t *label_weekday_07;
+
 } objects_t;
 
 extern objects_t objects;
@@ -93,6 +105,9 @@ enum ScreensEnum {
     SCREEN_ID_PAGE_TIMER = 4,
     SCREEN_ID_PAGE_POMODORO = 5,
     SCREEN_ID_PAGE_WEATHER = 6,
+
+    // extra pages
+    SCREEN_ID_PAGE_ALARM_EDIT = 7,
 };
 
 void create_screen_page_sleep();
@@ -113,12 +128,22 @@ void tick_screen_page_pomodoro();
 void create_screen_page_weather();
 void tick_screen_page_weather();
 
+void create_screen_page_alarm_edit();
+void tick_screen_page_alarm_edit();
+
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);
 
 void create_screens();
 
-int32_t add_alarm_item(const char *time, const char *repeat);
+int32_t scr_add_alarm_item(const char *time, const char *repeat);
+
+int32_t scr_enter_page_alarm_add(void);
+int32_t scr_enter_page_alarm_edit(int32_t alarm_index);
+int32_t scr_weekday_check_state_toggle(int8_t weekday_index);
+
+int32_t scr_alarm_edit_confirm(void);
+int32_t scr_alarm_edit_exit(void);
 
 #ifdef __cplusplus
 }

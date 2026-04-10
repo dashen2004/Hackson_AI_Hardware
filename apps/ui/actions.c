@@ -120,11 +120,90 @@ void event_all_handler(lv_event_t * e)
 
         return;
     }
-                
+
     if (event == LV_EVENT_RELEASED) {
         screen_slide_lock = 0;
     }
 }
+
+/* alarm page action */
+void action_alarm_add_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_enter_page_alarm_add();
+
+        goto_page_by_id(SCREEN_ID_PAGE_ALARM_EDIT);
+    }
+}
+
+void action_alarm_confirm_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_alarm_edit_confirm();
+
+        goto_page_by_id(SCREEN_ID_PAGE_ALARM);
+    }
+}
+
+void action_alarm_del_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_alarm_edit_exit();
+
+        goto_page_by_id(SCREEN_ID_PAGE_ALARM);
+    }
+}
+
+void action_alarm_weekday_01_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_weekday_check_state_toggle(0);
+    }
+}
+
+void action_alarm_weekday_02_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_weekday_check_state_toggle(1);
+    }
+}
+
+void action_alarm_weekday_03_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_weekday_check_state_toggle(2);
+    }
+}
+
+void action_alarm_weekday_04_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_weekday_check_state_toggle(3);
+    }
+}
+
+void action_alarm_weekday_05_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_weekday_check_state_toggle(4);
+    }
+}
+
+void action_alarm_weekday_06_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_weekday_check_state_toggle(5);
+    }
+}
+
+void action_alarm_weekday_07_click(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        scr_weekday_check_state_toggle(6);
+    }
+}
+
+
 
 /*  timer page action  */
 void action_count_up_click(lv_event_t * e)

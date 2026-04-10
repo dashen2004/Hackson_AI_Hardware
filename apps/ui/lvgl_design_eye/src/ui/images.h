@@ -60,6 +60,8 @@ extern const lv_img_dsc_t img_tomato;
 extern const lv_img_dsc_t img_bat;
 extern const lv_img_dsc_t img_wifi;
 extern const lv_img_dsc_t img_timer_stop;
+extern const lv_img_dsc_t img_confirm;
+extern const lv_img_dsc_t img_del;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -69,7 +71,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[53];
+extern const ext_img_desc_t images[55];
 
 
 #ifdef __cplusplus
