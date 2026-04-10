@@ -10,6 +10,7 @@ set(COMPONENT_SRCS
 
     "./bsp/src/bsp_i2c.c"
 
+    "./alarm/alarm_manager.c"
     "./bat/bsp_bat.c"
     "./lcd/bsp_lcd_st77912.c"
     "./lcd/bsp_lcd_touch.c"
@@ -184,6 +185,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./lcd"
     "./cloud"
     "./sensor"
+    "./alarm"
 
     "../component/NDS03_SDK/example"
     "../component/NDS03_SDK/inc"

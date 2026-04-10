@@ -21,6 +21,7 @@
 #include "app_lvgl.h"
 
 #include "xjiang_cloud.h"
+#include "alarm_manager.h"
 
 #define LOG_TAG "log"
 
@@ -104,13 +105,13 @@ void qm_application_start(void)
     QM_LOGD("1", "Ver:%s", CONFIG_CT_EYE_PLUSH_VERSION);
 
     bsp_bat_init();
-
     bsp_sensor_light_init();
     bsp_sensor_tof_init();
     bsp_lcd_init();
     bsp_lcd_touch_init();
-    app_lvgl_init();
 
+    alarm_manager_init();
+    app_lvgl_init();
     xjiang_cloud_init();
 
     while (1) {

@@ -31,7 +31,7 @@
 #define loadScreenEx    loadScreen
 
 static enum ScreensEnum cur_screen_index = 0;
-static uint8_t tomato_opt_lock = 0;
+static uint8_t screen_slide_lock = 0;
 
 static bool hit_test(lv_event_t * e) {
     lv_point_t pt;
@@ -43,8 +43,6 @@ void goto_page_by_id(int8_t screen_id)
 {
     lvgl_port_lock(0);
     if (cur_screen_index == SCREEN_ID_PAGE_POMODORO) {
-        tomato_opt_lock = 0;
-
         switch (lvgl_var_tomato_state_get()) {
             case TOMATO_STATE_RUNNING:
                 lvgl_var_tomato_state_set(TOMATO_STATE_RUNNING_PAUSE);
@@ -102,7 +100,9 @@ void event_all_handler(lv_event_t * e)
         return;
     }
 
-    if (event == LV_EVENT_GESTURE && lv_scr_act() != objects.page_sleep) {
+    if (event == LV_EVENT_GESTURE && lv_scr_act() != objects.page_sleep && !screen_slide_lock) {
+        screen_slide_lock = 1;
+
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
 
         switch (dir) {
@@ -119,6 +119,10 @@ void event_all_handler(lv_event_t * e)
         }
 
         return;
+    }
+                
+    if (event == LV_EVENT_RELEASED) {
+        screen_slide_lock = 0;
     }
 }
 
