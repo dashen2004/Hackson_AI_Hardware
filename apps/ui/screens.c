@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "core/lv_obj_event.h"
 #include "fonts.h"
 #include "screens.h"
 #include "actions.h"
@@ -312,11 +313,12 @@ void create_screen_page_alarm() {
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);
             lv_obj_set_scroll_dir(obj, LV_DIR_VER);
             lv_obj_set_style_layout(obj, LV_LAYOUT_FLEX, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_flex_flow(obj, LV_FLEX_FLOW_COLUMN, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
         }
     }
     
@@ -737,13 +739,14 @@ void create_screen_page_timer() {
                     lv_obj_set_size(obj, 55, 94);
                     lv_obj_add_event_cb(obj, roller_hour_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
                     lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_scroll_dir(obj, LV_DIR_VER);
 
                     // main part
                     lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_opa(obj, 100, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_font(obj, font_misans_24px, LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-                    
+
                     // selected part
                     lv_obj_set_style_bg_opa(obj, 0, LV_PART_SELECTED | LV_STATE_DEFAULT);
                     lv_obj_set_style_text_opa(obj, 255, LV_PART_SELECTED | LV_STATE_DEFAULT);
@@ -758,6 +761,7 @@ void create_screen_page_timer() {
                     lv_obj_set_size(obj, 55, 94);
                     lv_obj_add_event_cb(obj, roller_min_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
                     lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_scroll_dir(obj, LV_DIR_VER);
 
                     // main part
                     lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -779,6 +783,7 @@ void create_screen_page_timer() {
                     lv_obj_set_size(obj, 55, 94);
                     lv_obj_add_event_cb(obj, roller_sec_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
                     lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_scroll_dir(obj, LV_DIR_VER);
 
                     // main part
                     lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -1683,6 +1688,7 @@ int32_t scr_add_alarm_item(const char *time, const char *repeat)
 
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 175, 60);
+    lv_obj_add_event_cb(obj, action_alarm_item_long_press, LV_EVENT_LONG_PRESSED, (void*)lv_alarm_count);
     lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT); 
     lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT); 
     lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT); 
@@ -1760,6 +1766,7 @@ int32_t scr_enter_page_alarm_edit(int32_t alarm_index)
     lv_label_set_text(objects.label_alarm_edit, "编辑闹钟");
 
     lv_alarm_edit_handle.opt_type = 2;
+    lv_alarm_edit_handle.alarm_index = alarm_index;
 
     alarm_t alarm = {0};
     alarm_manager_get_alarm(&alarm, alarm_index);
@@ -1830,6 +1837,7 @@ int32_t scr_alarm_edit_exit(void)
         // ignore
     } else {
         // delete alarm
+        alarm_manager_del_alarm(lv_alarm_edit_handle.alarm_index);
     }
 
     page_alarm_alarm_list_update();

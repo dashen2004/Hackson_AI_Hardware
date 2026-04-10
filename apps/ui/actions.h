@@ -12,6 +12,7 @@ void goto_page_by_id(int8_t screen_id);
 extern void event_all_handler(lv_event_t * e);
 
 extern void action_alarm_add_click(lv_event_t * e);
+extern void action_alarm_item_long_press(lv_event_t * e);
 extern void action_alarm_confirm_click(lv_event_t * e);
 extern void action_alarm_del_click(lv_event_t * e);
 extern void action_alarm_weekday_01_click(lv_event_t * e);

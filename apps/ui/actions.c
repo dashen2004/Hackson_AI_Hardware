@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <time.h>
 #include "actions.h"
+#include "misc/lv_event.h"
+#include "qm_kernel.h"
 #include "ui.h"
 #include "vars.h"
 #include "screens.h"
@@ -32,6 +34,7 @@
 
 static enum ScreensEnum cur_screen_index = 0;
 static uint8_t screen_slide_lock = 0;
+static uint32_t sceen_slide_tick = 0;
 
 static bool hit_test(lv_event_t * e) {
     lv_point_t pt;
@@ -100,8 +103,13 @@ void event_all_handler(lv_event_t * e)
         return;
     }
 
+    if (qm_now_ms() > sceen_slide_tick + 300) {
+        screen_slide_lock = 0;
+    }
+
     if (event == LV_EVENT_GESTURE && lv_scr_act() != objects.page_sleep && !screen_slide_lock) {
         screen_slide_lock = 1;
+        sceen_slide_tick = qm_now_ms();
 
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
 
@@ -120,10 +128,6 @@ void event_all_handler(lv_event_t * e)
 
         return;
     }
-
-    if (event == LV_EVENT_RELEASED) {
-        screen_slide_lock = 0;
-    }
 }
 
 /* alarm page action */
@@ -131,7 +135,16 @@ void action_alarm_add_click(lv_event_t * e)
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
         scr_enter_page_alarm_add();
+        goto_page_by_id(SCREEN_ID_PAGE_ALARM_EDIT);
+    }
+}
 
+void action_alarm_item_long_press(lv_event_t * e)
+{
+    if (hit_test(e) && bsp_lcd_is_ready()) {
+        int32_t index = (int32_t)lv_event_get_user_data(e);
+
+        scr_enter_page_alarm_edit(index);
         goto_page_by_id(SCREEN_ID_PAGE_ALARM_EDIT);
     }
 }
@@ -140,7 +153,6 @@ void action_alarm_confirm_click(lv_event_t * e)
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
         scr_alarm_edit_confirm();
-
         goto_page_by_id(SCREEN_ID_PAGE_ALARM);
     }
 }
@@ -149,7 +161,6 @@ void action_alarm_del_click(lv_event_t * e)
 {
     if (hit_test(e) && bsp_lcd_is_ready()) {
         scr_alarm_edit_exit();
-
         goto_page_by_id(SCREEN_ID_PAGE_ALARM);
     }
 }
