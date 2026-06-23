@@ -237,7 +237,7 @@ dependencies:
     - name: idf
       version: '>=5.4'
     source:
-      path: /home/micro/esp32_combo/apps/components/example_video_common
+      path: /home/micro/esp32_combo/apps/component/example_video_common
       type: local
     version: '*'
   idf:
@@ -303,7 +303,6 @@ direct_dependencies:
 - espressif/esp-dsp
 - espressif/esp_lcd_touch_cst816s
 - espressif/esp_lvgl_port
-- espressif/esp_new_jpeg
 - espressif/esp_video
 - espressif/jsmn
 - espressif/nghttp
@@ -312,6 +311,6 @@ direct_dependencies:
 - idf
 - iot_usbh_modem
 - lvgl/lvgl
-manifest_hash: 243478b6f726e5e53e26b236658545e26e253c0b8d0fadf5d078affd67195a18
+manifest_hash: 976c9da3418d0afb2ce09e6e860d443bf06462a68b06faff07f2fc682535c39d
 target: esp32s3
 version: 2.0.0

@@ -185,6 +185,30 @@ void create_screen_page_main() {
             lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_font(obj, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
         }
+        {
+            lv_obj_t *obj = lv_canvas_create(parent_obj);
+            objects.canvas_camera = obj;
+            lv_obj_set_pos(obj, 0, 0);
+            lv_obj_set_size(obj, 240, 240);
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        }
+        {
+            lv_obj_t *obj = lv_button_create(parent_obj);
+            objects.btn_camera = obj;
+            lv_obj_set_pos(obj, 70, 195);
+            lv_obj_set_size(obj, 100, 36);
+            lv_obj_add_event_cb(obj, action_camera_click, LV_EVENT_CLICKED, NULL);
+            lv_obj_set_style_bg_color(obj, lv_color_hex(0xff333333), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(obj, 18, LV_PART_MAIN | LV_STATE_DEFAULT);
+            {
+                lv_obj_t *label = lv_label_create(obj);
+                objects.label_camera = label;
+                lv_obj_set_align(label, LV_ALIGN_CENTER);
+                lv_obj_set_style_text_color(label, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_text_font(label, font_pingfang_14px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_label_set_text(label, "摄像头");
+            }
+        }
     }
     
     tick_screen_page_main();
@@ -1528,36 +1552,41 @@ static void page_alarm_alarm_list_init(void)
 {
     int32_t alarm_list_count = 0;
     alarm_manager_get_count(&alarm_list_count);
-    alarm_t *alarm_list = malloc(sizeof(alarm_t) * alarm_list_count);
-    alarm_manager_get_alarm_list(alarm_list);
 
-    for (int32_t i = 0; i < alarm_list_count; i++) {
-        char time[10];
-        sprintf(time, "%02d:%02d", alarm_list[i].hour, alarm_list[i].min);
+    if (alarm_list_count > 0) {
+        alarm_t *alarm_list = malloc(sizeof(alarm_t) * alarm_list_count);
+        if (alarm_list != NULL) {
+            alarm_manager_get_alarm_list(alarm_list);
 
-        char repeat[50];
+            for (int32_t i = 0; i < alarm_list_count; i++) {
+                char time[10];
+                sprintf(time, "%02d:%02d", alarm_list[i].hour, alarm_list[i].min);
 
-        if (alarm_list[i].repeat_mask == 0) {
-            memcpy(repeat, "One-time\0", 9);
-        } else {
-            uint8_t repeat_mask = alarm_list[i].repeat_mask;
-            sprintf(repeat, "%s%s%s%s%s%s%s",
-            repeat_mask & (1 << 0) ? "Mon, " : "",
-            repeat_mask & (1 << 1) ? "Tue, " : "",
-            repeat_mask & (1 << 2) ? "Wed, " : "",
-            repeat_mask & (1 << 3) ? "Thu, " : "",
-            repeat_mask & (1 << 4) ? "Fri, " : "",
-            repeat_mask & (1 << 5) ? "Sat, " : "",
-            repeat_mask & (1 << 6) ? "Sun, " : "");
+                char repeat[50];
 
-            // cut last , 
-            repeat[strlen(repeat) - 2] = '\0';
+                if (alarm_list[i].repeat_mask == 0) {
+                    memcpy(repeat, "One-time\0", 9);
+                } else {
+                    uint8_t repeat_mask = alarm_list[i].repeat_mask;
+                    sprintf(repeat, "%s%s%s%s%s%s%s",
+                    repeat_mask & (1 << 0) ? "Mon, " : "",
+                    repeat_mask & (1 << 1) ? "Tue, " : "",
+                    repeat_mask & (1 << 2) ? "Wed, " : "",
+                    repeat_mask & (1 << 3) ? "Thu, " : "",
+                    repeat_mask & (1 << 4) ? "Fri, " : "",
+                    repeat_mask & (1 << 5) ? "Sat, " : "",
+                    repeat_mask & (1 << 6) ? "Sun, " : "");
+
+                    // cut last , 
+                    repeat[strlen(repeat) - 2] = '\0';
+                }
+
+                scr_add_alarm_item(time, repeat);
+            }
+
+            free(alarm_list);
         }
-
-        scr_add_alarm_item(time, repeat);
     }
-
-    free(alarm_list);
 
     lv_alarm_count = alarm_list_count;
 }

@@ -27,6 +27,9 @@ typedef struct _objects_t {
     lv_obj_t *text_time;
     lv_obj_t *text_weekday;
     lv_obj_t *text_date;
+    lv_obj_t *canvas_camera;
+    lv_obj_t *btn_camera;
+    lv_obj_t *label_camera;
 
     // alarm page objs
     lv_obj_t *label_alarm;

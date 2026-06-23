@@ -12,6 +12,8 @@ set(COMPONENT_SRCS
 
     "./alarm/alarm_manager.c"
     "./bat/bsp_bat.c"
+    "./camera/bsp_camera.c"
+    "./oss/bsp_oss_upload.c"
     "./lcd/bsp_lcd_st77912.c"
     "./lcd/bsp_lcd_touch.c"
     "./lcd/app_lvgl.c"
@@ -24,6 +26,8 @@ set(COMPONENT_SRCS
     "../component/NDS03_SDK/src/nds03_comm.c"
     "../component/NDS03_SDK/src/nds03_data.c"
     "../component/NDS03_SDK/src/nds03_dev.c"
+
+    "../component/qm_debug/qm_task_psram.c"
 
     "../component/qm_ai/inner/qm_ai_inner_rtc_api.c"
     "../component/qm_ai/inner/rtc/agora/qm_agora.c"
@@ -184,6 +188,8 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./bsp/inc"
 
     "./bat"
+    "./camera"
+    "./oss"
     "./lcd"
     "./cloud"
     "./sensor"
@@ -191,6 +197,8 @@ set(COMPONENT_ADD_INCLUDEDIRS
 
     "../component/NDS03_SDK/example"
     "../component/NDS03_SDK/inc"
+
+    "../component/qm_debug"
 
     "../component/qm_ai/api"
     "../component/qm_ai/common"

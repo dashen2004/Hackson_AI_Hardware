@@ -11,7 +11,7 @@
 
 #define LOG_TAG "bsp_lcd"
 
-#define LCD_HOST               SPI3_HOST
+#define LCD_HOST               SPI2_HOST
 #define LCD_BIT_PER_PIXEL      (16)
 
 #define LCD_PIN_NUM_CS         (GPIO_NUM_18)
@@ -60,6 +60,11 @@ void bsp_lcd_bl_dim(void) {
     lvgl_port_lock(0);
     lcd_bl_set(LCD_BL_BRIGHTNESS_DIM);
     lvgl_port_unlock(); 
+}
+
+esp_lcd_panel_handle_t bsp_lcd_get_panel_handle(void)
+{
+    return lcd_panel_handle;
 }
 
 qm_err_t bsp_lcd_init(void)

@@ -13,6 +13,26 @@ static uint8_t i2c_port_0_inited = 0;
 
 static i2c_master_bus_handle_t iic_bus_handle;
 
+i2c_master_bus_handle_t bsp_i2c_get_bus_handle(void)
+{
+    return iic_bus_handle;
+}
+
+qm_err_t bsp_i2c_adopt_bus(i2c_master_bus_handle_t handle)
+{
+    if (handle == NULL) {
+        return -QM_ERROR;
+    }
+
+    if (i2c_port_0_inited) {
+        return QM_EOK;
+    }
+
+    iic_bus_handle = handle;
+    i2c_port_0_inited = 1;
+    return QM_EOK;
+}
+
 qm_err_t bsp_i2c_init(void)
 {
     if (i2c_port_0_inited) {
@@ -60,6 +80,32 @@ qm_err_t bsp_i2c_master_read(i2c_master_dev_handle_t dev_handle, uint8_t *write_
 {
     if (i2c_master_transmit_receive(dev_handle, write_data, write_size, read_data, read_size, timeout_ms) != ESP_OK) {
         QM_LOGE(LOG_TAG, "I2C read failed");
+        return -QM_ERROR;
+    }
+
+    return QM_EOK;
+}
+
+bool bsp_i2c_probe_device(uint8_t dev_addr, int timeout_ms)
+{
+    esp_log_level_t old_level = esp_log_level_get("i2c.master");
+    esp_log_level_set("i2c.master", ESP_LOG_NONE);
+
+    esp_err_t ret = i2c_master_probe(iic_bus_handle, dev_addr, timeout_ms);
+
+    esp_log_level_set("i2c.master", old_level);
+    return ret == ESP_OK;
+}
+
+qm_err_t bsp_i2c_master_read_quiet(i2c_master_dev_handle_t dev_handle, uint8_t *write_data, size_t write_size, uint8_t *read_data, size_t read_size, int timeout_ms)
+{
+    esp_log_level_t old_level = esp_log_level_get("i2c.master");
+    esp_log_level_set("i2c.master", ESP_LOG_NONE);
+
+    esp_err_t ret = i2c_master_transmit_receive(dev_handle, write_data, write_size, read_data, read_size, timeout_ms);
+
+    esp_log_level_set("i2c.master", old_level);
+    if (ret != ESP_OK) {
         return -QM_ERROR;
     }
 

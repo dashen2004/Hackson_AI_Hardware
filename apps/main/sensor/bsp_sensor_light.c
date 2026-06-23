@@ -21,6 +21,8 @@ typedef struct {
 
 static tcs34083_t g_tcs_handle = {0};
 
+static bool g_light_sensor_ready = false;
+
 static uint8_t lux_high_cnt = 0;
 static uint8_t lux_high_flag = 0;
 static uint8_t lux_low_cnt = 0;
@@ -47,6 +49,12 @@ static qm_err_t tcs_write(tcs34083_t *tcs, uint8_t reg, uint8_t data)
     return bsp_i2c_master_write(tcs->dev, buf, 2, -1);
 }
 
+static qm_err_t tcs_read_chip_id(tcs34083_t *tcs, uint8_t *id)
+{
+    uint8_t buf[1] = { TCS_ID };
+    return bsp_i2c_master_read_quiet(tcs->dev, buf, 1, id, 1, -1);
+}
+
 static qm_err_t tcs_read(tcs34083_t *tcs, uint8_t reg, uint8_t *data, size_t len)
 {
     uint8_t buf[1] = { reg };
@@ -56,11 +64,14 @@ static qm_err_t tcs_read(tcs34083_t *tcs, uint8_t reg, uint8_t *data, size_t len
 
 static qm_err_t tcs34083_init(tcs34083_t *tcs)
 {
-    // 读 ID
     uint8_t id = 0;
-    tcs_read(tcs, TCS_ID, &id, 1);
+
+    if (tcs_read_chip_id(tcs, &id) != QM_EOK) {
+        return -QM_EINIT;
+    }
+
     if (id != TCS_CHIP_ID) {
-        QM_LOGE(LOG_TAG, "chip id is invalid");
+        QM_LOGI(LOG_TAG, "chip id invalid: 0x%02x", id);
         return -QM_EINIT;
     }
 
@@ -235,23 +246,43 @@ static void light_read_task(void *arg)
 
 qm_err_t bsp_sensor_light_init(void)
 {
-    bsp_i2c_init();
-    bsp_i2c_add_device(&tcs_dev_config, &tcs_dev_handle);
+    if (bsp_i2c_init() != QM_EOK) {
+        QM_LOGI(LOG_TAG, "I2C bus init failed, skip light sensor");
+        return -QM_EINIT;
+    }
+
+    if (!bsp_i2c_probe_device(TCS34083_I2C_ADDR, 100)) {
+        QM_LOGI(LOG_TAG, "TCS34083 not found, skip light sensor");
+        return -QM_EINIT;
+    }
+
+    if (bsp_i2c_add_device(&tcs_dev_config, &tcs_dev_handle) != QM_EOK) {
+        QM_LOGI(LOG_TAG, "I2C add device failed, skip light sensor");
+        return -QM_EINIT;
+    }
 
     g_tcs_handle.dev = tcs_dev_handle;
     g_tcs_handle.int_gpio = light_int.port;
     g_tcs_handle.gain = 0;
     g_tcs_handle.atime = 0;
 
-    if (tcs34083_init(&g_tcs_handle) == QM_EOK) {
-        qm_task_new_to_core(&g_tcs_handle.light_task, "light_read_task", light_read_task, &g_tcs_handle, 2 * 1024, 10, 1);
+    if (tcs34083_init(&g_tcs_handle) != QM_EOK) {
+        QM_LOGI(LOG_TAG, "TCS34083 init failed, skip light sensor");
+        return -QM_EINIT;
     }
+
+    g_light_sensor_ready = true;
+    qm_task_new_to_core(&g_tcs_handle.light_task, "light_read_task", light_read_task, &g_tcs_handle, 2 * 1024, 10, 1);
 
     return QM_EOK;
 }
 
 qm_err_t bsp_sensor_light_read(float *lux)
 {
+    if (!g_light_sensor_ready || lux == NULL) {
+        return -QM_ERROR;
+    }
+
     uint16_t r,g,b,c,ir;
 
     tcs34083_read_rgb(&g_tcs_handle,&r,&g,&b,&c,&ir);

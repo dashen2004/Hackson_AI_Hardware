@@ -23,8 +23,11 @@ dependencies:
   # espressif/esp_lcd_gc9a01: ^2.0.4
   esp_lcd_st77912:
     # git: "https://github.com/river147/esp_lcd_st77912.git"
-    override_path: "../managed_components/esp_lcd_st77912"
+    override_path: ../managed_components/esp_lcd_st77912
 
   iot_usbh_modem:
-    version: ">=0.2.0"
-    override_path: "../../qumi/platform/mcu/esp32/hal/modem/usb/iot_usbh_modem"
+    version: '>=0.2.0'
+    override_path: ../../qumi/platform/mcu/esp32/hal/modem/usb/iot_usbh_modem
+  esp_video: {}
+  example_video_common:
+    path: ../component/example_video_common

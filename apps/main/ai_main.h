@@ -44,8 +44,8 @@ extern "C" {
 
 #define CONFIG_HARDWARE_VERSION         (1)
 #define CONFIG_XJIANG_VERSION           (1)
-#define CONFIG_XJIANG_CLOUD_PID         (10493)
-#define CONFIG_XJIANG_CLOUD_SECERT      "C02C923BCB9A48829D3B252FA76353C1"
+#define CONFIG_XJIANG_CLOUD_PID         (11453)
+#define CONFIG_XJIANG_CLOUD_SECERT      "E0EA4B30C19D4BE49AD55973D9B2B971"
 
 #define  CONFIG_CT_EYE_PLUSH_VERSION  "AI.0059.G.101_FW_WB74_0.0.1_0.0.1"
 
@@ -287,6 +287,8 @@ extern "C" {
 #define CONFIG_AUDIO_ALG_PIID       (2)
 #define CONFIG_AUDIO_ALG_TYPE       (QM_SPEC_PROPERTY_FORMAT_STRING)
 
+/** 1: 不初始化 LCD/LVGL，联网后自动拍照上传 OSS */
+#define APP_HEADLESS_CAMERA_OSS     0
 
 int qm_is_crash_reset(void);
 int qm_set_reset_flag(void);

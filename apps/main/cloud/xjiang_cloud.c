@@ -22,10 +22,13 @@
 
 #include "esp_netif.h"
 #include "esp_netif_types.h"
+#include "esp_log.h"
 
 #include "qm_ai_api.h"
 
 #include "qm_nw_switch.h"
+#include "bsp_oss_upload.h"
+#include "bsp_camera.h"
 
 #define LOG_TAG "APP"
 #define WEATHER_REQ_TIMEOUT_MS      (15 * 1000)
@@ -43,6 +46,8 @@ static qm_work_t set_disconnected_action = { 0 };
 static qm_work_t set_connected_action = { 0 };
 static qm_work_t set_blink_action = { 0 };
 static qm_work_t wifi_disconn_action = {0};
+static qm_work_t oss_upload_action = {0};
+static bool oss_upload_done = false;
 static uint8_t ota_status_flag = 0;
 backoff_algorithm_ctx_t backoff_ctx = {0};
 backoff_algorithm_status_t backoff_status = BACKOFF_ALGORITHM_SUCCESS;
@@ -102,7 +107,9 @@ static void weather_timeout_timer_handler(qm_timer_t *timer,  void *arg) {
 
     if (backoff_ctx.attempts_num == 5) {
         QM_LOGD(LOG_TAG, "weather request retry 5 times!");
+#if !APP_HEADLESS_CAMERA_OSS
         lvgl_var_weather_id_set(-1);
+#endif
     }
 
     backoff_status = backoff_algorithm_get_next_delay(&backoff_ctx, &next_backoff);
@@ -139,6 +146,19 @@ static void delay_set_blink(void *argv) {
 static void switch_net_type(void *arg)
 {
     qm_nw_switch_4g();
+}
+
+static void oss_upload_action_handler(void *arg)
+{
+    (void)arg;
+
+    if (oss_upload_done) {
+        return;
+    }
+
+    oss_upload_done = true;
+    ESP_LOGI(LOG_TAG, "cloud connected, trigger camera upload");
+    bsp_camera_capture_upload();
 }
 
 static void handle_sta_rssi(char *pwbuf, int blen, int argc, char **argv)
@@ -193,6 +213,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             extern void qm_example_ai_init(void *handle);
             qm_example_ai_init(iot_handle);
 
+#if !APP_HEADLESS_CAMERA_OSS
             if (!qm_timer_is_valid(&weather_timeout_timer)) {
                 qm_timer_new(&weather_timeout_timer, weather_timeout_timer_handler, NULL, WEATHER_REQ_TIMEOUT_MS, 1);
             }
@@ -206,7 +227,15 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
                 qm_timer_new(&weather_request_timer, weather_request_timer_handler, NULL, 60 * 60 * 1000, 1); // 1小时尝试更新一次
                 qm_timer_start(&weather_request_timer);
             }
+#endif
             qm_post_delayed_action(&set_connected_action, delay_set_connected, NULL, 0);
+
+#if APP_HEADLESS_CAMERA_OSS
+            if (!oss_upload_done) {
+                qm_cancel_delayed_action(&oss_upload_action);
+                qm_post_delayed_action(&oss_upload_action, oss_upload_action_handler, NULL, 5 * 1000);
+            }
+#endif
             break;
         case QM_IOT_EVENT_BIND_NOTIFY:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_BIND_NOTIFY");
@@ -268,9 +297,11 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "sunset:%.*s", event->data.weather_notify.sunset_len, event->data.weather_notify.sunset);
             QM_LOGD(LOG_TAG, "sunrise:%.*s", event->data.weather_notify.sunrise_len, event->data.weather_notify.sunrise);
 
+#if !APP_HEADLESS_CAMERA_OSS
             lvgl_var_city_set(event->data.weather_notify.secondaryname, event->data.weather_notify.secondaryname_len);
             lvgl_var_weather_id_set(event->data.weather_notify.weather_type);
             lvgl_var_temperature_set(event->data.weather_notify.temp);
+#endif
             qm_timer_stop(&weather_timeout_timer);
             qm_timer_free(&weather_timeout_timer);
             qm_cancel_delayed_action(&weather_request_action);

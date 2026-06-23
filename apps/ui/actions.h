@@ -35,6 +35,8 @@ extern void action_timer_reset_click(lv_event_t * e);
 extern void action_tomato_opt_click(lv_event_t * e);
 extern void action_tomato_stop_click(lv_event_t * e);
 
+extern void action_camera_click(lv_event_t * e);
+
 #ifdef __cplusplus
 }
 #endif

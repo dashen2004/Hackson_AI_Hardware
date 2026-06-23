@@ -16,6 +16,7 @@
 #include "lvgl.h"
 #include "bsp_lcd.h"
 #include "app_lvgl.h"
+#include "bsp_camera.h"
 
 /*
     有些gif刚加载时会白色闪烁, 所以在lv_gif.c中做一些屏蔽处理
@@ -117,7 +118,7 @@ void event_all_handler(lv_event_t * e)
             case LV_DIR_LEFT:
                 goto_next_page();
             break;
-            
+
             case LV_DIR_RIGHT:
                 goto_prev_page();
             break;
@@ -349,4 +350,20 @@ void action_tomato_stop_click(lv_event_t * e)
 
         app_lvgl_turnoff_reset(1);
     }
+}
+
+void action_camera_click(lv_event_t * e)
+{
+    if (!hit_test(e) || !bsp_lcd_is_ready()) {
+        return;
+    }
+
+    app_lvgl_turnoff_reset(1);
+
+    if (bsp_camera_capture_busy()) {
+        QM_LOGI("ui", "camera capture in progress");
+        return;
+    }
+
+    bsp_camera_capture_upload();
 }

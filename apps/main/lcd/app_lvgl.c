@@ -1,16 +1,25 @@
 #include "app_lvgl.h"
 #include "bsp_lcd.h"
+#include "bsp_lcd_touch.h"
+#include "bsp_camera.h"
 #include "qm_work.h"
 
 #include "esp_spiffs.h"
 #include "esp_lvgl_port.h"
+#include "esp_lcd_touch.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "esp_heap_caps.h"
+#include "driver/gpio.h"
 
 #include "ui.h"
 #include "vars.h"
+#include "xjiang_cloud.h"
 
 #define LOG_TAG "app_lvgl"
 
 #define LVGL_TURNOFF_TIME_MS   (15 * 1000)
+#define CLOUD_INIT_DELAY_MS    (2000)
 
 typedef struct {
     esp_lcd_panel_io_handle_t lcd_io_handle;
@@ -51,15 +60,32 @@ void app_lvgl_turnoff_reset(uint8_t ctrl_light)
     qm_post_delayed_action(&app_lvgl_handle.lvgl_turnoff_work, lvgl_turnoff_handler, NULL, LVGL_TURNOFF_TIME_MS);
 }
 
+static void app_lvgl_log_heap(const char *stage)
+{
+    ESP_LOGI(LOG_TAG, "heap@%s: free=%u largest_internal=%u largest_spiram=%u",
+             stage,
+             (unsigned)esp_get_free_heap_size(),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+}
+
 static void lvgl_task(void *arg) 
 {
     lvgl_port_lock(0); // 锁定lvgl接口 
     ui_init();
     lvgl_port_unlock(); // 解锁lvgl接口
 
-    vTaskDelay(500);
+    bsp_camera_stream_start();
+
+    vTaskDelay(pdMS_TO_TICKS(500));
 
     app_lvgl_turnoff_reset(1);
+
+    app_lvgl_log_heap("before_cloud_delay");
+    vTaskDelay(pdMS_TO_TICKS(CLOUD_INIT_DELAY_MS));
+    app_lvgl_log_heap("before_cloud_init");
+    xjiang_cloud_init();
+    app_lvgl_log_heap("after_cloud_init");
 
     while (1) {
         lvgl_port_lock(0);
@@ -117,7 +143,7 @@ static void app_lvgl_port_init(void)
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = app_lvgl_handle.lcd_io_handle,
         .panel_handle = app_lvgl_handle.lcd_panel_handle,
-        .buffer_size = LCD_H_RES * LCD_V_RES / 4,
+        .buffer_size = LCD_H_RES * 20,
         .double_buffer = 1,
         .trans_size = 0,
         .hres = LCD_H_RES,
