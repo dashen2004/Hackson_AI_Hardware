@@ -30,14 +30,14 @@
 #include <sys/types.h>
 #ifdef HAVE_SYS_SOCKET_H
 #  include <sys/socket.h>
-#endif // HAVE_SYS_SOCKET_H
+#endif // defined(HAVE_SYS_SOCKET_H)
 #ifdef HAVE_NETDB_H
 #  include <netdb.h>
-#endif // HAVE_NETDB_H
+#endif // defined(HAVE_NETDB_H)
 
 #include <string>
 #include <vector>
-#include <set>
+#include <unordered_set>
 #include <chrono>
 #include <memory>
 
@@ -46,9 +46,9 @@
 #ifdef NGHTTP2_OPENSSL_IS_WOLFSSL
 #  include <wolfssl/options.h>
 #  include <wolfssl/openssl/ssl.h>
-#else // !NGHTTP2_OPENSSL_IS_WOLFSSL
+#else // !defined(NGHTTP2_OPENSSL_IS_WOLFSSL)
 #  include <openssl/ssl.h>
-#endif // !NGHTTP2_OPENSSL_IS_WOLFSSL
+#endif // !defined(NGHTTP2_OPENSSL_IS_WOLFSSL)
 
 #include <ev.h>
 
@@ -164,10 +164,10 @@ struct Request {
   void record_response_end_time();
 
   // Returns scheme taking into account overridden scheme.
-  StringRef get_real_scheme() const;
+  std::string_view get_real_scheme() const;
   // Returns request host, without port, taking into account
   // overridden host.
-  StringRef get_real_host() const;
+  std::string_view get_real_host() const;
   // Returns request port, taking into account overridden host, port,
   // and scheme.
   uint16_t get_real_port() const;
@@ -261,14 +261,14 @@ struct HttpClient {
 
 #ifdef HAVE_JANSSON
   void output_har(FILE *outfile);
-#endif // HAVE_JANSSON
+#endif // defined(HAVE_JANSSON)
 
   MemchunkPool mcpool;
   DefaultMemchunks wb;
   std::vector<std::unique_ptr<Request>> reqvec;
   // Insert path already added in reqvec to prevent multiple request
   // for 1 resource.
-  std::set<std::string> path_cache;
+  std::unordered_set<std::string> path_cache;
   std::string scheme;
   std::string host;
   std::string hostport;
@@ -313,4 +313,4 @@ struct HttpClient {
 
 } // namespace nghttp2
 
-#endif // NGHTTP_H
+#endif // !defined(NGHTTP_H)

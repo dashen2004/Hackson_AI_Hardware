@@ -16,7 +16,9 @@ include_directories(
   ${LIBNGHTTP3_INCLUDE_DIRS}
   ${LIBNGTCP2_INCLUDE_DIRS}
   ${LIBNGTCP2_CRYPTO_QUICTLS_INCLUDE_DIRS}
+  ${LIBNGTCP2_CRYPTO_LIBRESSL_INCLUDE_DIRS}
   ${LIBNGTCP2_CRYPTO_WOLFSSL_INCLUDE_DIRS}
+  ${LIBNGTCP2_CRYPTO_OSSL_INCLUDE_DIRS}
   ${OPENSSL_INCLUDE_DIRS}
   ${WOLFSSL_INCLUDE_DIRS}
   ${LIBCARES_INCLUDE_DIRS}
@@ -36,7 +38,9 @@ link_libraries(
   ${LIBNGHTTP3_LIBRARIES}
   ${LIBNGTCP2_LIBRARIES}
   ${LIBNGTCP2_CRYPTO_QUICTLS_LIBRARIES}
+  ${LIBNGTCP2_CRYPTO_LIBRESSL_LIBRARIES}
   ${LIBNGTCP2_CRYPTO_WOLFSSL_LIBRARIES}
+  ${LIBNGTCP2_CRYPTO_OSSL_LIBRARIES}
   ${OPENSSL_LIBRARIES}
   ${WOLFSSL_LIBRARIES}
   ${LIBCARES_LIBRARIES}
@@ -85,7 +89,6 @@ if(ENABLE_APP)
     list(APPEND H2LOAD_SOURCES
       h2load_http3_session.cc
       h2load_quic.cc
-      quic.cc
     )
   endif()
 
@@ -125,7 +128,6 @@ if(ENABLE_APP)
     shrpx_api_downstream_connection.cc
     shrpx_health_monitor_downstream_connection.cc
     shrpx_null_downstream_connection.cc
-    shrpx_exec.cc
     shrpx_dns_resolver.cc
     shrpx_dual_dns_resolver.cc
     shrpx_dns_tracker.cc
@@ -147,7 +149,6 @@ if(ENABLE_APP)
      shrpx_quic_connection_handler.cc
      shrpx_http3_upstream.cc
      http3.cc
-     quic.cc
      siphash.cc
     )
   endif()

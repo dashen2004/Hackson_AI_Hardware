@@ -1,0 +1,6 @@
+---
+description: 
+alwaysApply: true
+---
+
+编译需要先在项目根目录执行. export.sh，然后再进入apps目录执行idf.py命令
