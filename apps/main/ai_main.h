@@ -6,9 +6,13 @@
 #ifndef _AUDIO_MAIN_H_
 #define _AUDIO_MAIN_H_
 
+#include "qm_ai_api.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+qm_ai_handle_t ai_main_get_handle(void);
 
 #include "qm.h"
 #include "qm_spec_api.h"

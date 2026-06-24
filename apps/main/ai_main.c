@@ -25,6 +25,7 @@
 #include "xjiang_cloud.h"
 
 #include "alarm_manager.h"
+#include "app_audio_prompt.h"
 
 #define LOG_TAG "log"
 
@@ -48,6 +49,11 @@ static void headless_cloud_task(void *arg)
 #define XJIANG_TEST_WAV                 ("/spiffs/4.wav")
 
 static qm_ai_handle_t ai_handle = NULL;
+
+qm_ai_handle_t ai_main_get_handle(void)
+{
+    return ai_handle;
+}
 
 static void qm_example_play_data(qm_ai_handle_t handle)
 {
@@ -132,6 +138,7 @@ void qm_application_start(void)
     bsp_lcd_init();
     bsp_lcd_touch_init();
     alarm_manager_init();
+    app_audio_prompt_init();
     app_lvgl_init();
 #endif
 }

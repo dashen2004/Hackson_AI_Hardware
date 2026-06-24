@@ -19,6 +19,9 @@ typedef struct {
     int8_t var_tomato_state;
     int32_t var_tomato_focus;
     int32_t var_tomato_break;
+
+    int8_t var_eye_state;
+    int32_t var_eye_duration;
 } lvgl_var_t;
 
 static lvgl_var_t lvgl_vars = {
@@ -35,6 +38,9 @@ static lvgl_var_t lvgl_vars = {
     .var_tomato_state = TOMATO_STATE_IDLE,
     .var_tomato_focus = 25 * 60,
     .var_tomato_break = 5 * 60,
+
+    .var_eye_state = EYE_STATE_IDLE,
+    .var_eye_duration = EYE_DURATION_SEC,
 };
 
 // timer
@@ -151,6 +157,34 @@ void lvgl_var_tomato_break_set(int32_t value)
     lvgl_vars.var_tomato_break = value;
 }
 
+int8_t lvgl_var_eye_state_get(void)
+{
+    return lvgl_vars.var_eye_state;
+}
+
+void lvgl_var_eye_state_set(int8_t state)
+{
+    if (state <= EYE_STATE_NONE || state >= EYE_STATE_MAX) {
+        return;
+    }
+
+    lvgl_vars.var_eye_state = state;
+}
+
+int32_t lvgl_var_eye_duration_get(void)
+{
+    return lvgl_vars.var_eye_duration;
+}
+
+void lvgl_var_eye_duration_set(int32_t value)
+{
+    if (value < 1 || value > 60 * 60) {
+        return;
+    }
+
+    lvgl_vars.var_eye_duration = value;
+}
+
 // city weather temperature
 char *lvgl_var_city_get(void) 
 {
@@ -161,7 +195,7 @@ void lvgl_var_city_set(char *value, int32_t size)
 {
     lv_strncpy(lvgl_vars.var_city, value, size);
 
-    tick_screen_page_weather();
+    tick_screen_page_main();
 }
 
 int8_t lvgl_var_weather_id_get(void) 
@@ -173,7 +207,7 @@ void lvgl_var_weather_id_set(int8_t value)
 {
     lvgl_vars.var_weather_id = value;
 
-    tick_screen_page_weather();
+    tick_screen_page_main();
 }
 
 int8_t lvgl_var_temperature_get(void) 
@@ -185,5 +219,5 @@ void lvgl_var_temperature_set(int8_t value)
 {
     lvgl_vars.var_temperature = value;
 
-    tick_screen_page_weather();
+    tick_screen_page_main();
 }

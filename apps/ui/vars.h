@@ -43,6 +43,16 @@ enum TomatoState {
     TOMATO_STATE_MAX
 };
 
+#define EYE_DURATION_SEC        (5 * 60)
+
+enum EyeState {
+    EYE_STATE_NONE = 0,
+    EYE_STATE_IDLE = 1,
+    EYE_STATE_RUNNING = 2,
+    EYE_STATE_PAUSE = 3,
+    EYE_STATE_MAX
+};
+
 int8_t lvgl_var_timer_type_get(void);
 void lvgl_var_timer_type_set(int8_t type);
 int8_t lvgl_var_timer_state_get(void);
@@ -60,6 +70,11 @@ void lvgl_var_tomato_break_set(int32_t value);
 
 int8_t lvgl_var_tomato_state_get(void);
 void lvgl_var_tomato_state_set(int8_t state);
+
+int8_t lvgl_var_eye_state_get(void);
+void lvgl_var_eye_state_set(int8_t state);
+int32_t lvgl_var_eye_duration_get(void);
+void lvgl_var_eye_duration_set(int32_t value);
 
 char *lvgl_var_city_get(void);
 void lvgl_var_city_set(char *value, int32_t size);

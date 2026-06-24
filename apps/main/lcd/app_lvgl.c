@@ -3,6 +3,7 @@
 #include "bsp_lcd_touch.h"
 #include "bsp_camera.h"
 #include "qm_work.h"
+#include "qm_task_psram.h"
 
 #include "esp_spiffs.h"
 #include "esp_lvgl_port.h"
@@ -20,6 +21,9 @@
 
 #define LVGL_TURNOFF_TIME_MS   (15 * 1000)
 #define CLOUD_INIT_DELAY_MS    (2000)
+#define LVGL_TASK_STACK_BYTES  (10 * 1024)
+#define LVGL_DRAW_BUF_LINES    80
+#define LVGL_TRANS_BUF_LINES   10
 
 typedef struct {
     esp_lcd_panel_io_handle_t lcd_io_handle;
@@ -42,7 +46,8 @@ static void lvgl_turnoff_handler(void *arg)
 
     bsp_lcd_bl_dim();
 
-    if (get_current_screen() == SCREEN_ID_PAGE_POMODORO) {
+    if (get_current_screen() == SCREEN_ID_PAGE_POMODORO
+            || get_current_screen() == SCREEN_ID_PAGE_EYE) {
         app_lvgl_turnoff_reset(0);
     } else if (get_current_screen() != SCREEN_ID_PAGE_SLEEP) {
         extern void goto_page_by_id(int8_t screen_id);
@@ -123,7 +128,16 @@ void app_lvgl_init(void)
 
     app_lvgl_port_init();
 
-    qm_task_new_to_core(&app_lvgl_handle.lvgl_task, "lvgl_task", lvgl_task, &app_lvgl_handle, 10 * 1024, 4, 1);
+    TaskHandle_t lvgl_th = NULL;
+    if (qm_task_create_psram_to_core(lvgl_task, "lvgl_task",
+                                     qm_task_stack_bytes_to_words(LVGL_TASK_STACK_BYTES),
+                                     &app_lvgl_handle, 4, 1, &lvgl_th) != pdPASS) {
+        ESP_LOGE(LOG_TAG, "lvgl_task create failed, free=%u largest_internal=%u",
+                 (unsigned)esp_get_free_heap_size(),
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+        return;
+    }
+    app_lvgl_handle.lvgl_task.hdl = lvgl_th;
 }
 
 void app_lvgl_lcd_init(esp_lcd_panel_io_handle_t io_handle, esp_lcd_panel_handle_t panel_handle)
@@ -147,9 +161,9 @@ static void app_lvgl_port_init(void)
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = app_lvgl_handle.lcd_io_handle,
         .panel_handle = app_lvgl_handle.lcd_panel_handle,
-        .buffer_size = LCD_H_RES * 80,
+        .buffer_size = LCD_H_RES * LVGL_DRAW_BUF_LINES,
         .double_buffer = 1,
-        .trans_size = 0,
+        .trans_size = LCD_H_RES * LVGL_TRANS_BUF_LINES,
         .hres = LCD_H_RES,
         .vres = LCD_V_RES,
         .color_format = LV_COLOR_FORMAT_RGB565,
@@ -161,9 +175,9 @@ static void app_lvgl_port_init(void)
             .mirror_y = false,
         },
         .flags = {
-            .buff_spiram = 0,
+            .buff_spiram = 1,
             .swap_bytes = 1,
-            .buff_dma = 1,
+            .buff_dma = 0,
             .full_refresh = 0,
             .direct_mode = 0,
         }

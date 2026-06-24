@@ -25,17 +25,34 @@ void ui_tick() {
 
 static int16_t currentScreen = -1;
 
-static lv_obj_t *getLvglObjectFromIndex(int32_t index) {
-    if (index == -1) {
-        return 0;
+lv_obj_t *ui_get_screen_by_id(enum ScreensEnum screenId)
+{
+    switch (screenId) {
+        case SCREEN_ID_PAGE_SLEEP:           return objects.page_sleep;
+        case SCREEN_ID_PAGE_MAIN:            return objects.page_main;
+        case SCREEN_ID_PAGE_APPS1:           return objects.page_apps1;
+        case SCREEN_ID_PAGE_APPS2:           return objects.page_apps2;
+        case SCREEN_ID_PAGE_ALARM:           return objects.page_alarm;
+        case SCREEN_ID_PAGE_TIMER:           return objects.page_timer;
+        case SCREEN_ID_PAGE_POMODORO:        return objects.page_pomodoro;
+        case SCREEN_ID_PAGE_EYE:             return objects.page_eye;
+        case SCREEN_ID_PAGE_TIMETABLE:       return objects.page_timetable;
+        case SCREEN_ID_PAGE_CHECKIN:         return objects.page_checkin;
+        case SCREEN_ID_PAGE_SETTINGS:        return objects.page_settings;
+        case SCREEN_ID_PAGE_ALARM_EDIT:      return objects.page_alarm_edit;
+        case SCREEN_ID_PAGE_SETTINGS_SOUND:   return objects.page_settings_sound;
+        case SCREEN_ID_PAGE_SETTINGS_NET:     return objects.page_settings_net;
+        default:                             return NULL;
     }
-    return ((lv_obj_t **)&objects)[index];
 }
 
 void loadScreen(enum ScreensEnum screenId) {
+    lv_obj_t *screen = ui_get_screen_by_id(screenId);
+    if (screen == NULL) {
+        return;
+    }
+
     currentScreen = screenId - 1;
-    // printf("currentScreen: %d\n", currentScreen);
-    lv_obj_t *screen = getLvglObjectFromIndex(currentScreen);
     lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
 }
 

@@ -15,7 +15,6 @@ typedef struct _objects_t {
     lv_obj_t *page_pomodoro;
     lv_obj_t *page_weather;
     lv_obj_t *page_alarm_edit;
-    lv_obj_t *img_expression;
     lv_obj_t *wifi_state;
     lv_obj_t *bat_state;
     lv_obj_t *label_time;

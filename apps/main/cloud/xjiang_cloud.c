@@ -42,6 +42,7 @@ static bool_t connect = QM_FALSE;
 static qm_timer_t weather_request_timer = { 0 };
 static qm_timer_t weather_timeout_timer = { 0 };
 static qm_work_t weather_request_action = { 0 };
+static qm_work_t weather_cleanup_action = { 0 };
 static qm_work_t set_disconnected_action = { 0 };
 static qm_work_t set_connected_action = { 0 };
 static qm_work_t set_blink_action = { 0 };
@@ -49,6 +50,9 @@ static qm_work_t wifi_disconn_action = {0};
 static qm_work_t oss_upload_action = {0};
 static bool oss_upload_done = false;
 static uint8_t ota_status_flag = 0;
+static volatile bool_t weather_received = QM_FALSE;
+static volatile uint32_t weather_request_gen = 0;
+static volatile uint32_t weather_request_pending_gen = 0;
 backoff_algorithm_ctx_t backoff_ctx = {0};
 backoff_algorithm_status_t backoff_status = BACKOFF_ALGORITHM_SUCCESS;
 uint16_t next_backoff = 0;
@@ -56,6 +60,9 @@ uint16_t next_backoff = 0;
 static void handle_meminfo(char *pwbuf, int blen, int argc, char **argv);
 static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv);
 static void handle_sta_rssi(char *pwbuf, int blen, int argc, char **argv);
+static void weather_timeout_timer_handler(qm_timer_t *timer, void *arg);
+static void weather_request_action_handler(void *arg);
+static void weather_cleanup_action_handler(void *arg);
 
 bool_t get_connect(void) {
     return connect;
@@ -96,13 +103,78 @@ static void handle_resetinfo(char *pwbuf, int blen, int argc, char **argv)
     qm_iot_reset(iot_handle);
 }
 
-static void weather_request_action_handler(void *arg) {
+static bool_t weather_request_active(void)
+{
+    return !weather_received && (weather_request_pending_gen == weather_request_gen);
+}
+
+static void weather_request_cleanup(void)
+{
+    qm_cancel_delayed_action(&weather_request_action);
+    if (qm_timer_is_valid(&weather_timeout_timer)) {
+        qm_timer_stop(&weather_timeout_timer);
+        qm_timer_free(&weather_timeout_timer);
+    }
+}
+
+static void weather_cleanup_action_handler(void *arg)
+{
+    (void)arg;
+    weather_request_cleanup();
+}
+
+static void weather_request_done(void)
+{
+    weather_received = QM_TRUE;
+    weather_request_gen++;
+    qm_cancel_delayed_action(&weather_cleanup_action);
+    qm_post_delayed_action(&weather_cleanup_action, weather_cleanup_action_handler, NULL, 0);
+}
+
+static void weather_request_start(void)
+{
+    weather_received = QM_FALSE;
+    weather_request_gen++;
+    weather_request_pending_gen = weather_request_gen;
+    backoff_algorithm_init(&backoff_ctx, BACKOFF_BASE_TIME_MS, BACKOFF_RECV_TIMEOUT_MS, BACKOFF_RETRY_NUM);
+    weather_request_cleanup();
+
+    if (!qm_timer_is_valid(&weather_timeout_timer)) {
+        qm_timer_new(&weather_timeout_timer, weather_timeout_timer_handler, NULL, WEATHER_REQ_TIMEOUT_MS, 0);
+    }
+
+    qm_post_delayed_action(&weather_request_action, weather_request_action_handler, NULL, 0);
+}
+
+static void weather_request_action_handler(void *arg)
+{
+    (void)arg;
+
+    if (!weather_request_active()) {
+        QM_LOGD(LOG_TAG, "weather req skip: recv=%d gen=%u pending=%u",
+                weather_received, (unsigned)weather_request_gen, (unsigned)weather_request_pending_gen);
+        return;
+    }
+
+    if (!qm_timer_is_valid(&weather_timeout_timer)) {
+        qm_timer_new(&weather_timeout_timer, weather_timeout_timer_handler, NULL, WEATHER_REQ_TIMEOUT_MS, 0);
+    }
     qm_timer_start(&weather_timeout_timer);
 
     qm_iot_set_weahter_request(iot_handle);
 }
 
-static void weather_timeout_timer_handler(qm_timer_t *timer,  void *arg) {
+static void weather_timeout_timer_handler(qm_timer_t *timer, void *arg)
+{
+    (void)timer;
+    (void)arg;
+
+    if (!weather_request_active()) {
+        QM_LOGD(LOG_TAG, "weather timeout skip: recv=%d gen=%u pending=%u",
+                weather_received, (unsigned)weather_request_gen, (unsigned)weather_request_pending_gen);
+        return;
+    }
+
     qm_timer_stop(&weather_timeout_timer);
 
     if (backoff_ctx.attempts_num == 5) {
@@ -117,18 +189,14 @@ static void weather_timeout_timer_handler(qm_timer_t *timer,  void *arg) {
         next_backoff = BACKOFF_DEFAULT_TIMEOUT_MS;
     }
 
+    weather_request_pending_gen = weather_request_gen;
+    qm_cancel_delayed_action(&weather_request_action);
     qm_post_delayed_action(&weather_request_action, weather_request_action_handler, NULL, next_backoff);
 }
 
-static void weather_request_timer_handler(qm_timer_t *timer,  void *arg) {
-    if (!qm_timer_is_valid(&weather_timeout_timer)) {
-        qm_timer_new(&weather_timeout_timer, weather_timeout_timer_handler, NULL, WEATHER_REQ_TIMEOUT_MS, 1);
-    }
-
-    backoff_algorithm_init(&backoff_ctx, BACKOFF_BASE_TIME_MS, BACKOFF_RECV_TIMEOUT_MS, BACKOFF_RETRY_NUM);
-
-    qm_cancel_delayed_action(&weather_request_action);
-    qm_post_delayed_action(&weather_request_action, weather_request_action_handler, NULL, 0);
+static void weather_request_timer_handler(qm_timer_t *timer, void *arg)
+{
+    weather_request_start();
 }
 
 static void delay_set_disconnected(void *argv) {
@@ -214,14 +282,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             qm_example_ai_init(iot_handle);
 
 #if !APP_HEADLESS_CAMERA_OSS
-            if (!qm_timer_is_valid(&weather_timeout_timer)) {
-                qm_timer_new(&weather_timeout_timer, weather_timeout_timer_handler, NULL, WEATHER_REQ_TIMEOUT_MS, 1);
-            }
-
-            backoff_algorithm_init(&backoff_ctx, BACKOFF_BASE_TIME_MS, BACKOFF_RECV_TIMEOUT_MS, BACKOFF_RETRY_NUM);
-
-            qm_cancel_delayed_action(&weather_request_action);
-            qm_post_delayed_action(&weather_request_action, weather_request_action_handler, NULL, 0);
+            weather_request_start();
 
             if (!qm_timer_is_valid(&weather_request_timer)) {
                 qm_timer_new(&weather_request_timer, weather_request_timer_handler, NULL, 60 * 60 * 1000, 1); // 1小时尝试更新一次
@@ -244,6 +305,11 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
         case QM_IOT_EVENT_CLOUD_DISCONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_DISCONN");
             connect = QM_FALSE;
+#if !APP_HEADLESS_CAMERA_OSS
+            weather_received = QM_FALSE;
+            weather_request_gen++;
+            weather_request_cleanup();
+#endif
             qm_post_delayed_action(&set_blink_action, delay_set_blink, NULL, 0);
             if(ota_status_flag) {
                 ota_status_flag = 0;
@@ -283,6 +349,8 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             break;
 
         case QM_IOT_EVENT_WEATHER_NOTIFY:
+            weather_request_done();
+
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_WEATHER_NOTIFY");
 
             QM_LOGD(LOG_TAG, "weather_type:%d", event->data.weather_notify.weather_type);
@@ -302,9 +370,6 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             lvgl_var_weather_id_set(event->data.weather_notify.weather_type);
             lvgl_var_temperature_set(event->data.weather_notify.temp);
 #endif
-            qm_timer_stop(&weather_timeout_timer);
-            qm_timer_free(&weather_timeout_timer);
-            qm_cancel_delayed_action(&weather_request_action);
             break;
 
         case QM_IOT_EVENT_OTA_START:

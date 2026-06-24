@@ -62,6 +62,7 @@ extern const lv_img_dsc_t img_wifi;
 extern const lv_img_dsc_t img_timer_stop;
 extern const lv_img_dsc_t img_confirm;
 extern const lv_img_dsc_t img_del;
+extern const lv_img_dsc_t img_icon_main;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -71,7 +72,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[55];
+extern const ext_img_desc_t images[56];
 
 
 #ifdef __cplusplus

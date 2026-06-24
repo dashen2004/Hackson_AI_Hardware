@@ -34,8 +34,23 @@ extern void action_timer_reset_click(lv_event_t * e);
 
 extern void action_tomato_opt_click(lv_event_t * e);
 extern void action_tomato_stop_click(lv_event_t * e);
+extern void action_eye_opt_click(lv_event_t * e);
+extern void action_eye_stop_click(lv_event_t * e);
 
-extern void action_camera_click(lv_event_t * e);
+extern void action_open_eye_click(lv_event_t * e);
+extern void action_open_pomodoro_click(lv_event_t * e);
+extern void action_open_alarm_click(lv_event_t * e);
+extern void action_open_timer_click(lv_event_t * e);
+extern void action_open_timetable_click(lv_event_t * e);
+extern void action_open_checkin_click(lv_event_t * e);
+extern void action_open_settings_click(lv_event_t * e);
+
+extern void action_settings_sound_click(lv_event_t * e);
+extern void action_settings_net_click(lv_event_t * e);
+extern void action_settings_mute_changed(lv_event_t * e);
+extern void action_settings_volume_changed(lv_event_t * e);
+extern void action_settings_net_confirm_click(lv_event_t * e);
+extern void action_settings_net_cancel_click(lv_event_t * e);
 
 #ifdef __cplusplus
 }

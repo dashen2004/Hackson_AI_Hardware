@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "esp_log.h"
 #include "bsp_i2c.h"
+#include "qm_task_psram.h"
 
 #define LOG_TAG "TCS34083"
 #define LUX_HIGH_HINT_VALUE (650)
@@ -396,7 +397,15 @@ qm_err_t bsp_sensor_light_init(void)
     }
 
     g_light_sensor_ready = true;
-    qm_task_new_to_core(&g_tcs_handle.light_task, "light_read_task", light_read_task, &g_tcs_handle, 2 * 1024, 10, 1);
+    TaskHandle_t light_th = NULL;
+    if (qm_task_create_psram_to_core(light_read_task, "light_read_task",
+                                     qm_task_stack_bytes_to_words(2 * 1024),
+                                     &g_tcs_handle, 10, 1, &light_th) != pdPASS) {
+        QM_LOGI(LOG_TAG, "light_read_task create failed");
+        tcs34083_stop("task create failed");
+        return -QM_EINIT;
+    }
+    g_tcs_handle.light_task.hdl = light_th;
 
     return QM_EOK;
 }

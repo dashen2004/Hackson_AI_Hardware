@@ -18,6 +18,7 @@ extern const lv_font_t ui_font_pingfang_sc_regular_14px;
 extern const lv_font_t ui_font_pingfang_sc_regular_20px;
 extern const lv_font_t ui_font_pingfang_sc_regular_24px;
 extern const lv_font_t ui_font_misans_16px;
+extern const lv_font_t ui_font_pingfang_sc_regular_16px;
 
 
 #ifdef __cplusplus

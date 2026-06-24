@@ -24,6 +24,19 @@ BaseType_t qm_task_create_psram(TaskFunction_t fn,
                                 UBaseType_t priority,
                                 TaskHandle_t *out_handle);
 
+BaseType_t qm_task_create_psram_to_core(TaskFunction_t fn,
+                                        const char *name,
+                                        uint32_t stack_words,
+                                        void *arg,
+                                        UBaseType_t priority,
+                                        BaseType_t core_id,
+                                        TaskHandle_t *out_handle);
+
+static inline uint32_t qm_task_stack_bytes_to_words(uint32_t stack_bytes)
+{
+    return (stack_bytes + sizeof(StackType_t) - 1) / sizeof(StackType_t);
+}
+
 void qm_task_delete_psram(TaskHandle_t handle);
 
 #ifdef __cplusplus

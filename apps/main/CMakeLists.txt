@@ -18,6 +18,7 @@ set(COMPONENT_SRCS
     "./lcd/bsp_lcd_touch.c"
     "./lcd/app_lvgl.c"
     "./cloud/xjiang_cloud.c"
+    "./audio/app_audio_prompt.c"
     "./sensor/bsp_sensor_tof.c"
     "./sensor/bsp_sensor_light.c"
 
@@ -178,6 +179,13 @@ set(COMPONENT_SRCS
     "../ui/fonts/ui_font_pingfang_sc_regular_16px.c"
     "../ui/fonts/ui_font_pingfang_sc_regular_20px.c"
     "../ui/fonts/ui_font_pingfang_sc_regular_24px.c"
+    "../ui/lvgl_design_eye/src/ui/images/ui_image_setup_volume.c"
+    "../ui/lvgl_design_eye/src/ui/images/ui_image_setup_wifi.c"
+    "../ui/lvgl_design_eye/src/ui/images/ui_image_setup_more.c"
+    "../ui/lvgl_design_eye/src/ui/images/ui_image_setup_volume_mute.c"
+    "../ui/lvgl_design_eye/src/ui/images/ui_image_setup_volume_mute_open.c"
+    "../ui/lvgl_design_eye/src/ui/images/ui_image_setup_volume_mute_close.c"
+    "../ui/lvgl_design_eye/src/ui/images/ui_image_network_config_prepare.c"
     )
 set(COMPONENT_ADD_INCLUDEDIRS 
     "."
@@ -192,6 +200,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./oss"
     "./lcd"
     "./cloud"
+    "./audio"
     "./sensor"
     "./alarm"
 
@@ -345,3 +354,4 @@ set(COMPONENT_ADD_INCLUDEDIRS
 register_component()
 
 spiffs_create_partition_image(lvgl ../ui/spiffs FLASH_IN_PROJECT)
+spiffs_create_partition_image(spiffs_data ../spiffs FLASH_IN_PROJECT)

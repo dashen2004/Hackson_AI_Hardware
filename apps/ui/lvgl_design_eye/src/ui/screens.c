@@ -34,17 +34,6 @@ void create_screen_page_sleep() {
             lv_obj_set_style_bg_opa(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-            {
-                lv_obj_t *parent_obj = obj;
-                {
-                    // img_expression
-                    lv_obj_t *obj = lv_image_create(parent_obj);
-                    objects.img_expression = obj;
-                    lv_obj_set_pos(obj, 24, 30);
-                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_image_set_src(obj, &img_emotion20);
-                }
-            }
         }
     }
     
