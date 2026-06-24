@@ -27,11 +27,20 @@ extern "C" {
 #define TCS_ENABLE_PON              (1 << 0)
 #define TCS_ENABLE_AEN              (1 << 1)
 #define TCS_STATUS2_AVALID          (1 << 6)
+#define TCS_ASTATUS_ASAT_STATUS     (1 << 7)
+
+/* AGC thresholds as % of ADC full scale (ATIME+1)*(ASTEP+1), per datasheet 87.5%/12.5%. */
+#define TCS34083_AGC_HIGH_PCT       (875)
+#define TCS34083_AGC_LOW_PCT        (125)
+#define TCS34083_AGC_GAIN_MAX       (12)    /* 2048x */
 
 #define TCS34083_ASTEP_RECOMMEND    (599)
 #define TCS34083_ATIME_RECOMMEND    (29)
 #define TCS34083_AGAIN_RECOMMEND    (3)     /* 4x */
 #define TCS34083_ALS_DATA_BYTES     (13)    /* ASTATUS + ADATA0..5 */
+
+/* Lux: CPL = (tint_ms * AGAINx) / DGF. Calibrate at known illuminance. */
+#define TCS34083_LUX_DGF            (253.0f)
 
 qm_err_t bsp_sensor_light_init(void);
 qm_err_t bsp_sensor_light_read(float *lux);

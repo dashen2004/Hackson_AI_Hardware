@@ -9,7 +9,8 @@
 #define LOG_TAG "TCS34083"
 #define LUX_HIGH_HINT_VALUE (650)
 #define LUX_LOW_HINT_VALUE  (100)
-#define TCS34083_I2C_HZ     (100000)
+#define TCS34083_I2C_HZ             (100000)
+#define TCS34083_READ_INTERVAL_MS   (10000)
 
 typedef struct {
     i2c_master_dev_handle_t dev;
@@ -91,9 +92,58 @@ static float tcs34083_again_multiplier(uint8_t again)
     return table[again];
 }
 
+static uint32_t tcs34083_adc_fullscale(const tcs34083_t *tcs)
+{
+    return (uint32_t)(tcs->atime + 1) * (tcs->astep + 1);
+}
+
+static qm_err_t tcs34083_set_gain(tcs34083_t *tcs, uint8_t gain)
+{
+    uint8_t cfg1 = 0;
+
+    if (gain > TCS34083_AGC_GAIN_MAX) {
+        gain = TCS34083_AGC_GAIN_MAX;
+    }
+
+    if (tcs_read(tcs, TCS_CFG1, &cfg1, 1) == QM_EOK) {
+        cfg1 = (cfg1 & 0xE0) | (gain & 0x1F);
+    } else {
+        cfg1 = gain;
+    }
+
+    if (tcs_write(tcs, TCS_CFG1, cfg1) != QM_EOK) {
+        return -QM_ERROR;
+    }
+
+    tcs->gain = gain;
+    return QM_EOK;
+}
+
+static bool tcs34083_is_saturated(uint8_t astatus, uint16_t clear, uint32_t fullscale)
+{
+    if (astatus & TCS_ASTATUS_ASAT_STATUS) {
+        return true;
+    }
+
+    if (fullscale == 0) {
+        return false;
+    }
+
+    return clear >= (fullscale * TCS34083_AGC_HIGH_PCT / 1000);
+}
+
+static void tcs34083_auto_gain_for_next(tcs34083_t *tcs, uint16_t clear, uint32_t fullscale)
+{
+    uint32_t lo = fullscale * TCS34083_AGC_LOW_PCT / 1000;
+
+    if (clear < lo && tcs->gain < TCS34083_AGC_GAIN_MAX) {
+        tcs34083_set_gain(tcs, tcs->gain + 1);
+    }
+}
+
 static uint32_t tcs34083_integration_ms(const tcs34083_t *tcs)
 {
-    return (uint32_t)((tcs->atime + 1) * (tcs->astep + 1) / 360);
+    return tcs34083_adc_fullscale(tcs) / 360;
 }
 
 static void tcs34083_wait_integration(const tcs34083_t *tcs)
@@ -223,7 +273,8 @@ static qm_err_t tcs34083_read_als(tcs34083_t *tcs,
                                 uint16_t *red,
                                 uint16_t *green,
                                 uint16_t *blue,
-                                uint16_t *wideband)
+                                uint16_t *wideband,
+                                uint8_t *astatus)
 {
     uint8_t buf[TCS34083_ALS_DATA_BYTES];
 
@@ -236,6 +287,10 @@ static qm_err_t tcs34083_read_als(tcs34083_t *tcs,
         return -QM_ERROR;
     }
 
+    if (astatus != NULL) {
+        *astatus = buf[0];
+    }
+
     *clear = (uint16_t)buf[2] << 8 | buf[1];
     *red = (uint16_t)buf[4] << 8 | buf[3];
     *green = (uint16_t)buf[6] << 8 | buf[5];
@@ -246,7 +301,8 @@ static qm_err_t tcs34083_read_als(tcs34083_t *tcs,
     return QM_EOK;
 }
 
-static float tcs34083_calculate_lux(tcs34083_t *tcs,
+static float tcs34083_calculate_lux(const tcs34083_t *tcs,
+                                    uint8_t latched_gain,
                                     uint16_t red,
                                     uint16_t green,
                                     uint16_t blue,
@@ -256,9 +312,9 @@ static float tcs34083_calculate_lux(tcs34083_t *tcs,
         return 0;
     }
 
-    float integration_ms = (float)(tcs->atime + 1) * (float)(tcs->astep + 1) / 360.0f;
-    float gain_multiplier = tcs34083_again_multiplier(tcs->gain);
-    float cpl = (integration_ms * gain_multiplier) / 155.0f;
+    float integration_ms = (float)tcs34083_integration_ms(tcs);
+    float gain_multiplier = tcs34083_again_multiplier(latched_gain);
+    float cpl = (integration_ms * gain_multiplier) / TCS34083_LUX_DGF;
 
     if (cpl <= 0.01f) {
         return 0;
@@ -289,17 +345,6 @@ static float tcs34083_calculate_lux(tcs34083_t *tcs,
     }
 
     return lux;
-}
-
-static void tcs34083_auto_gain(tcs34083_t *tcs, uint16_t clear)
-{
-    if (clear > 25000 && tcs->gain > 0) {
-        tcs->gain--;
-        tcs_write(tcs, TCS_CFG1, tcs->gain);
-    } else if (clear < 10000 && tcs->gain < 12) {
-        tcs->gain++;
-        tcs_write(tcs, TCS_CFG1, tcs->gain);
-    }
 }
 
 static void light_read_task(void *arg)
@@ -347,7 +392,7 @@ static void light_read_task(void *arg)
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(TCS34083_READ_INTERVAL_MS));
     }
 }
 
@@ -413,18 +458,57 @@ qm_err_t bsp_sensor_light_init(void)
 qm_err_t bsp_sensor_light_read(float *lux)
 {
     uint16_t red, green, blue, clear, wideband;
+    uint8_t astatus = 0;
+    uint8_t latched_gain = 0;
+    uint32_t fullscale;
+    bool saturated = false;
+    int retry;
 
     if (!g_light_sensor_ready || lux == NULL) {
         return -QM_ERROR;
     }
 
-    if (tcs34083_read_als(&g_tcs_handle, &clear, &red, &green, &blue, &wideband) != QM_EOK) {
-        return -QM_ERROR;
+    fullscale = tcs34083_adc_fullscale(&g_tcs_handle);
+
+    for (retry = 0; retry < 8; retry++) {
+        if (tcs34083_read_als(&g_tcs_handle, &clear, &red, &green, &blue, &wideband,
+                              &astatus) != QM_EOK) {
+            return -QM_ERROR;
+        }
+
+        latched_gain = astatus & 0x0F;
+        saturated = tcs34083_is_saturated(astatus, clear, fullscale);
+
+        if (saturated && latched_gain > 0) {
+            QM_LOGI(LOG_TAG, "als saturated C=%u again=%u, reduce gain",
+                    clear, latched_gain);
+            if (tcs34083_set_gain(&g_tcs_handle, latched_gain - 1) != QM_EOK) {
+                return -QM_ERROR;
+            }
+            tcs34083_wait_integration(&g_tcs_handle);
+            continue;
+        }
+
+        break;
     }
 
-    tcs34083_auto_gain(&g_tcs_handle, clear);
+    if (saturated) {
+        QM_LOGI(LOG_TAG, "als saturated at min gain, C=%u", clear);
+    }
 
-    *lux = tcs34083_calculate_lux(&g_tcs_handle, red, green, blue, clear);
+    *lux = tcs34083_calculate_lux(&g_tcs_handle, latched_gain, red, green, blue, clear);
+
+    if (!saturated) {
+        tcs34083_auto_gain_for_next(&g_tcs_handle, clear, fullscale);
+    }
+
+    QM_LOGI(LOG_TAG,
+            "als C=%u R=%u G=%u B=%u WB=%u again=%u tint=%ums lux=%.2f%s",
+            clear, red, green, blue, wideband,
+            latched_gain,
+            (unsigned)tcs34083_integration_ms(&g_tcs_handle),
+            *lux,
+            saturated ? " SAT" : "");
 
     return QM_EOK;
 }
