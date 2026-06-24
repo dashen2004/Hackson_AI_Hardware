@@ -61,8 +61,12 @@ static void monitor_task(void *arg)
 void app_main()
 {
     ESP_ERROR_CHECK(nvs_flash_init());
-    ESP_ERROR_CHECK(bsp_camera_early_init());
-    ESP_ERROR_CHECK(bsp_camera_stream_prepare());
+    if (bsp_camera_early_init() != QM_EOK) {
+        ESP_LOGW(TAG, "camera early init failed, continue without camera");
+    }
+    if (bsp_camera_stream_prepare() != QM_EOK) {
+        ESP_LOGW(TAG, "camera stream prepare failed, continue without camera");
+    }
     ESP_ERROR_CHECK(esp_netif_init());
     log_memory_once("startup");
 

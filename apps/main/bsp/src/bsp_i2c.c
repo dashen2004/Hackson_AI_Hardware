@@ -3,6 +3,7 @@
 #include "qm_gpio.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#include <stdio.h>
 
 #define LOG_TAG "I2C"
 
@@ -95,6 +96,40 @@ bool bsp_i2c_probe_device(uint8_t dev_addr, int timeout_ms)
 
     esp_log_level_set("i2c.master", old_level);
     return ret == ESP_OK;
+}
+
+void bsp_i2c_scan_bus(void)
+{
+    if (!i2c_port_0_inited || iic_bus_handle == NULL) {
+        ESP_LOGW(LOG_TAG, "scan skipped: bus not ready");
+        return;
+    }
+
+    esp_log_level_t old_level = esp_log_level_get("i2c.master");
+    esp_log_level_set("i2c.master", ESP_LOG_NONE);
+
+    char addr_list[192] = {0};
+    int addr_count = 0;
+    int pos = 0;
+
+    for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+        if (i2c_master_probe(iic_bus_handle, addr, 50) != ESP_OK) {
+            continue;
+        }
+
+        addr_count++;
+        if (pos < (int)sizeof(addr_list) - 8) {
+            pos += snprintf(addr_list + pos, sizeof(addr_list) - pos, " 0x%02x", addr);
+        }
+    }
+
+    esp_log_level_set("i2c.master", old_level);
+
+    if (addr_count == 0) {
+        ESP_LOGI(LOG_TAG, "scan: no device found (0x08-0x77)");
+    } else {
+        ESP_LOGI(LOG_TAG, "scan: %d device(s):%s", addr_count, addr_list);
+    }
 }
 
 qm_err_t bsp_i2c_master_read_quiet(i2c_master_dev_handle_t dev_handle, uint8_t *write_data, size_t write_size, uint8_t *read_data, size_t read_size, int timeout_ms)

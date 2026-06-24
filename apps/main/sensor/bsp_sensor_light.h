@@ -11,31 +11,27 @@ extern "C" {
 #include "esp_err.h"
 #include <stdbool.h>
 
-#define TCS_CHIP_ID         (0x18)
-#define TCS34083_I2C_ADDR   (0x39)
+#define TCS_CHIP_ID                 (0x18)
+#define TCS34083_I2C_ADDR           (0x39)
 
-// Registers
-#define TCS_ENABLE          (0x80)
-#define TCS_ATIME           (0x81)
-#define TCS_WTIME           (0x83)
-#define TCS_AILTL           (0x84)
-#define TCS_AILTH           (0x85)
-#define TCS_AIHTL           (0x86)
-#define TCS_AIHTH           (0x87)
-#define TCS_ID              (0x92)
-#define TCS_STATUS          (0x93)
-#define TCS_CDATAL          (0x95)
-#define TCS_RDATAL          (0x97)
-#define TCS_GDATAL          (0x99)
-#define TCS_BDATAL          (0x9B)
-#define TCS_IRDATAL         (0x9D)
-#define TCS_GAIN            (0xAA)
-#define TCS_AGC             (0xB1)
+/* TCS34083 register map (datasheet tcs34083m) */
+#define TCS_ENABLE                  (0x80)
+#define TCS_ATIME                   (0x81)
+#define TCS_ID                      (0x92)
+#define TCS_STATUS2                 (0xA3)
+#define TCS_ASTATUS                 (0x94)
+#define TCS_CFG1                    (0xAA)
+#define TCS_ASTEP_L                 (0xCA)
+#define TCS_ASTEP_H                 (0xCB)
 
-// ENABLE bits
-#define TCS_ENABLE_PON      (1 << 0)
-#define TCS_ENABLE_AEN      (1 << 1)
-#define TCS_ENABLE_FDEN     (1 << 6)
+#define TCS_ENABLE_PON              (1 << 0)
+#define TCS_ENABLE_AEN              (1 << 1)
+#define TCS_STATUS2_AVALID          (1 << 6)
+
+#define TCS34083_ASTEP_RECOMMEND    (599)
+#define TCS34083_ATIME_RECOMMEND    (29)
+#define TCS34083_AGAIN_RECOMMEND    (3)     /* 4x */
+#define TCS34083_ALS_DATA_BYTES     (13)    /* ASTATUS + ADATA0..5 */
 
 qm_err_t bsp_sensor_light_init(void);
 qm_err_t bsp_sensor_light_read(float *lux);

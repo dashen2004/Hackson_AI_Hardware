@@ -73,6 +73,7 @@ static bsp_cam_t s_cam = {
     .fd = -1,
 };
 static bool s_video_ready;
+static bool s_camera_available;
 static volatile bool s_capture_busy;
 static volatile bool s_upload_requested;
 static TaskHandle_t s_camera_task;
@@ -286,6 +287,7 @@ static esp_err_t cam_open_stream(void)
     ESP_LOGI(LOG_TAG, "VIDIOC_STREAMON begin");
     ESP_GOTO_ON_ERROR(ioctl(s_cam.fd, VIDIOC_STREAMON, &type), fail, LOG_TAG, "VIDIOC_STREAMON failed, errno=%d", errno);
     s_cam.stream_on = true;
+    s_camera_available = true;
     ESP_LOGI(LOG_TAG, "VIDIOC_STREAMON ok, spi_port=%d", CONFIG_EXAMPLE_SPI_CAM_0_SPI_PORT);
     ESP_LOGI(LOG_TAG, "wait first frames after streamon");
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -514,12 +516,25 @@ static void cam_stream_task(void *arg)
 qm_err_t bsp_camera_early_init(void)
 {
     cam_pwdn_hold_low();
-    return (cam_video_init_once() == ESP_OK) ? QM_EOK : -QM_ERROR;
+    if (cam_video_init_once() != ESP_OK) {
+        ESP_LOGW(LOG_TAG, "video init failed");
+        return -QM_ERROR;
+    }
+    return QM_EOK;
 }
 
 qm_err_t bsp_camera_stream_prepare(void)
 {
-    return (cam_open_stream() == ESP_OK) ? QM_EOK : -QM_ERROR;
+    if (cam_open_stream() != ESP_OK) {
+        ESP_LOGW(LOG_TAG, "stream open failed");
+        return -QM_ERROR;
+    }
+    return QM_EOK;
+}
+
+bool bsp_camera_is_available(void)
+{
+    return s_camera_available;
 }
 
 qm_err_t bsp_camera_stream_start(void)
@@ -544,6 +559,11 @@ qm_err_t bsp_camera_stream_start(void)
 
 void bsp_camera_capture_upload(void)
 {
+    if (!s_camera_available) {
+        ESP_LOGW(LOG_TAG, "camera not available");
+        return;
+    }
+
     if (s_capture_busy) {
         ESP_LOGW(LOG_TAG, "capture already running");
         return;

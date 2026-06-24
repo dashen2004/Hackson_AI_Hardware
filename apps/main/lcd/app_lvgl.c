@@ -75,7 +75,11 @@ static void lvgl_task(void *arg)
     ui_init();
     lvgl_port_unlock(); // 解锁lvgl接口
 
-    bsp_camera_stream_start();
+    if (bsp_camera_is_available()) {
+        bsp_camera_stream_start();
+    } else {
+        ESP_LOGW(LOG_TAG, "camera not available, skip stream task");
+    }
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
@@ -143,7 +147,7 @@ static void app_lvgl_port_init(void)
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = app_lvgl_handle.lcd_io_handle,
         .panel_handle = app_lvgl_handle.lcd_panel_handle,
-        .buffer_size = LCD_H_RES * 20,
+        .buffer_size = LCD_H_RES * 80,
         .double_buffer = 1,
         .trans_size = 0,
         .hres = LCD_H_RES,

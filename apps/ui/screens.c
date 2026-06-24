@@ -97,9 +97,9 @@ void create_screen_page_sleep() {
                 {
                     lv_obj_t *obj = lv_image_create(parent_obj);
                     objects.img_expression = obj;
-                    lv_obj_set_pos(obj, 24, 30);
+                    lv_obj_set_pos(obj, 0, 0);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                    lv_image_set_src(obj, "/lvgl/images/e19.bin");
+                    lv_image_set_src(obj, "/lvgl/images/icon_main.bin");
                 }
             }
         }
