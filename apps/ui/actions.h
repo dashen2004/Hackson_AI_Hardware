@@ -36,6 +36,8 @@ extern void action_tomato_opt_click(lv_event_t * e);
 extern void action_tomato_stop_click(lv_event_t * e);
 extern void action_eye_opt_click(lv_event_t * e);
 extern void action_eye_stop_click(lv_event_t * e);
+extern void action_study_pause_click(lv_event_t * e);
+extern void action_study_skip_click(lv_event_t * e);
 
 extern void action_open_eye_click(lv_event_t * e);
 extern void action_open_pomodoro_click(lv_event_t * e);
@@ -43,6 +45,7 @@ extern void action_open_alarm_click(lv_event_t * e);
 extern void action_open_timer_click(lv_event_t * e);
 extern void action_open_timetable_click(lv_event_t * e);
 extern void action_open_checkin_click(lv_event_t * e);
+extern void action_open_study_click(lv_event_t * e);
 extern void action_open_settings_click(lv_event_t * e);
 
 extern void action_settings_sound_click(lv_event_t * e);

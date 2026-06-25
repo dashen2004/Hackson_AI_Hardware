@@ -7,8 +7,8 @@
 #include "qm_task_psram.h"
 
 #define LOG_TAG "TCS34083"
-#define LUX_HIGH_HINT_VALUE (650)
-#define LUX_LOW_HINT_VALUE  (100)
+#define LUX_HIGH_HINT_VALUE BSP_SENSOR_LUX_HIGH_HINT
+#define LUX_LOW_HINT_VALUE  BSP_SENSOR_LUX_LOW_HINT
 #define TCS34083_I2C_HZ             (100000)
 #define TCS34083_READ_INTERVAL_MS   (10000)
 

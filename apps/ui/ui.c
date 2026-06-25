@@ -38,6 +38,9 @@ lv_obj_t *ui_get_screen_by_id(enum ScreensEnum screenId)
         case SCREEN_ID_PAGE_EYE:             return objects.page_eye;
         case SCREEN_ID_PAGE_TIMETABLE:       return objects.page_timetable;
         case SCREEN_ID_PAGE_CHECKIN:         return objects.page_checkin;
+        case SCREEN_ID_PAGE_STUDY:           return objects.page_study;
+        case SCREEN_ID_PAGE_STUDY_LIGHT_DETECT: return objects.page_study_light_detect;
+        case SCREEN_ID_PAGE_STUDY_LIGHT_HINT: return objects.page_study_light_hint;
         case SCREEN_ID_PAGE_SETTINGS:        return objects.page_settings;
         case SCREEN_ID_PAGE_ALARM_EDIT:      return objects.page_alarm_edit;
         case SCREEN_ID_PAGE_SETTINGS_SOUND:   return objects.page_settings_sound;
@@ -68,6 +71,10 @@ void ui_init() {
 
 void ui_tick() {
     tick_screen(currentScreen);
+
+    if (scr_study_light_detect_is_active()) {
+        tick_study_light_detect();
+    }
 
     if (lvgl_var_timer_state_get() == TIMER_STATE_RUNNING) {
         tick_screen(SCREEN_ID_PAGE_TIMER - 1);

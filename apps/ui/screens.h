@@ -2,6 +2,7 @@
 #define EEZ_LVGL_UI_SCREENS_H
 
 #include <lvgl.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,6 +19,9 @@ typedef struct _objects_t {
     lv_obj_t *page_eye;
     lv_obj_t *page_timetable;
     lv_obj_t *page_checkin;
+    lv_obj_t *page_study;
+    lv_obj_t *page_study_light_detect;
+    lv_obj_t *page_study_light_hint;
     lv_obj_t *page_settings;
     lv_obj_t *page_alarm_edit;
     lv_obj_t *page_settings_sound;
@@ -81,6 +85,26 @@ typedef struct _objects_t {
     lv_obj_t *container_eye_stop;
     lv_obj_t *eye_stop;
 
+    // study page objs
+    lv_obj_t *study_arc;
+    lv_obj_t *study_count;
+    lv_obj_t *study_btn_pause;
+    lv_obj_t *study_btn_skip;
+
+    // study light detect page objs
+    lv_obj_t *study_light_detect_icon;
+    lv_obj_t *study_light_detect_title;
+    lv_obj_t *study_light_detect_subtitle;
+    lv_obj_t *study_light_detect_score;
+
+    // study light hint page objs
+    lv_obj_t *study_light_hint_icon;
+    lv_obj_t *study_light_hint_title;
+    lv_obj_t *study_light_hint_desc;
+
+    // apps2 hidden entry
+    lv_obj_t *btn_study_entry;
+
     // alarm edit page objs
     lv_obj_t *label_alarm_edit;
     lv_obj_t *btn_alarm_confirm;
@@ -122,10 +146,13 @@ enum ScreensEnum {
     SCREEN_ID_PAGE_EYE = 8,
     SCREEN_ID_PAGE_TIMETABLE = 9,
     SCREEN_ID_PAGE_CHECKIN = 10,
-    SCREEN_ID_PAGE_SETTINGS = 11,
-    SCREEN_ID_PAGE_ALARM_EDIT = 12,
-    SCREEN_ID_PAGE_SETTINGS_SOUND = 13,
-    SCREEN_ID_PAGE_SETTINGS_NET = 14,
+    SCREEN_ID_PAGE_STUDY = 11,
+    SCREEN_ID_PAGE_SETTINGS = 12,
+    SCREEN_ID_PAGE_ALARM_EDIT = 13,
+    SCREEN_ID_PAGE_SETTINGS_SOUND = 14,
+    SCREEN_ID_PAGE_SETTINGS_NET = 15,
+    SCREEN_ID_PAGE_STUDY_LIGHT_HINT = 16,
+    SCREEN_ID_PAGE_STUDY_LIGHT_DETECT = 17,
 };
 
 void create_screen_page_sleep();
@@ -157,6 +184,23 @@ void tick_screen_page_timetable();
 
 void create_screen_page_checkin();
 void tick_screen_page_checkin();
+
+void create_screen_page_study();
+void tick_screen_page_study();
+void scr_study_session_start(void);
+void scr_study_session_pause_toggle(void);
+void scr_study_session_skip(void);
+void scr_study_session_pause_if_running(void);
+void scr_study_entry_btn_set_visible(bool visible);
+
+void create_screen_page_study_light_detect();
+void tick_screen_page_study_light_detect();
+void scr_study_light_detect_start(void);
+bool scr_study_light_detect_is_active(void);
+void tick_study_light_detect(void);
+
+void create_screen_page_study_light_hint();
+void tick_screen_page_study_light_hint();
 
 void create_screen_page_settings();
 void tick_screen_page_settings();

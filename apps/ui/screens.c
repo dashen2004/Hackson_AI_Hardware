@@ -21,6 +21,10 @@
 
 #include "ai_main.h"
 #include "qm_ai_api.h"
+#include "bsp_sensor_light.h"
+#include "esp_log.h"
+
+#define LOG_TAG "ui_study"
 
 // alarm
 typedef struct {
@@ -460,6 +464,15 @@ void create_screen_page_apps2() {
     ui_create_app_tile(obj, APP_COL2_X, APP_ROW1_Y, "/lvgl/images/icon_checklist.bin", "打卡列表", action_open_checkin_click);
     ui_create_app_tile(obj, APP_COL_CENTER_X, APP_ROW2_Y, "/lvgl/images/icon_settings.bin", "系统设置", action_open_settings_click);
     ui_create_page_indicator(obj, 2);
+    {
+        lv_obj_t *btn = lv_obj_create(obj);
+        objects.btn_study_entry = btn;
+        lv_obj_set_pos(btn, APP_GRID_X0, APP_ROW2_Y);
+        lv_obj_set_size(btn, APP_ICON_W, APP_ICON_W + 20);
+        lv_obj_add_event_cb(btn, action_open_study_click, LV_EVENT_CLICKED, NULL);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
     tick_screen_page_apps2();
 }
 
@@ -683,6 +696,704 @@ void create_screen_page_checkin() {
 }
 
 void tick_screen_page_checkin() {
+}
+
+#define STUDY_DURATION_SEC        (20 * 60)
+#define UI_COLOR_STUDY_GREEN      0xff33cc66
+#define UI_STUDY_ARC_X            18
+#define UI_STUDY_ARC_Y            72
+#define UI_STUDY_ARC_SIZE         72
+#define UI_STUDY_TEXT_X           102
+#define UI_STUDY_TEXT_Y           72
+#define UI_STUDY_BTN_Y            164
+#define UI_STUDY_BTN_PAUSE_X      28
+#define UI_STUDY_BTN_SKIP_X       128
+#define UI_STUDY_BTN_W            84
+#define UI_STUDY_BTN_H            36
+#define UI_STUDY_BADGE_Y          38
+#define UI_COLOR_STUDY_RED        0xffe53935
+#define UI_STUDY_HINT_ICON_Y      36
+#define UI_STUDY_HINT_TITLE_Y      8
+#define UI_STUDY_HINT_DESC_Y       40
+#define STUDY_LIGHT_DETECT_TOTAL_MS     (30 * 1000)
+#define STUDY_LIGHT_DETECT_WINDOW_SEC   5
+#define STUDY_LIGHT_DETECT_PAIR_WINDOWS 2
+#define STUDY_LIGHT_SUCCESS_SHOW_MS     3000
+
+typedef enum {
+    STUDY_DETECT_RESULT_NONE = 0,
+    STUDY_DETECT_RESULT_SUCCESS,
+    STUDY_DETECT_RESULT_FAIL,
+} study_detect_result_t;
+#define UI_STUDY_DETECT_ICON_Y        48
+#define UI_STUDY_DETECT_TITLE_Y       24
+#define UI_STUDY_DETECT_SUCC_TITLE_Y  8
+#define UI_STUDY_DETECT_SUBTITLE_Y    32
+#define UI_STUDY_DETECT_SCORE_Y       56
+#define UI_STUDY_DETECT_TITLE_BOUNCE_PX 8
+#define UI_STUDY_DETECT_TITLE_ANIM_MS   450
+#define UI_COLOR_STUDY_HINT_BLUE      0xff5eb8e8
+
+typedef enum {
+    STUDY_STATE_IDLE = 0,
+    STUDY_STATE_RUNNING,
+    STUDY_STATE_PAUSE,
+} study_state_t;
+
+typedef enum {
+    STUDY_LIGHT_HINT_NONE = 0,
+    STUDY_LIGHT_HINT_HIGH,
+    STUDY_LIGHT_HINT_LOW,
+} study_light_hint_type_t;
+
+typedef enum {
+    LIGHT_WINDOW_INVALID = 0,
+    LIGHT_WINDOW_OK,
+    LIGHT_WINDOW_HIGH,
+    LIGHT_WINDOW_LOW,
+} light_window_result_t;
+
+static study_state_t s_study_state = STUDY_STATE_IDLE;
+static uint32_t s_study_remaining = STUDY_DURATION_SEC;
+static uint32_t s_study_last_tick = 0;
+
+static bool s_light_detect_active = false;
+static study_detect_result_t s_light_detect_result = STUDY_DETECT_RESULT_NONE;
+static uint32_t s_light_detect_start_ms = 0;
+static uint32_t s_light_detect_last_sample_ms = 0;
+static uint32_t s_light_detect_result_ms = 0;
+static float s_light_window_sum = 0;
+static uint8_t s_light_window_samples = 0;
+static light_window_result_t s_pair_results[STUDY_LIGHT_DETECT_PAIR_WINDOWS];
+static uint8_t s_pair_result_idx = 0;
+static study_light_hint_type_t s_light_detect_hint = STUDY_LIGHT_HINT_NONE;
+
+static void study_detect_title_y_anim_cb(void *var, int32_t v)
+{
+    lv_obj_set_style_translate_y((lv_obj_t *)var, v, LV_PART_MAIN);
+}
+
+static void study_light_detect_title_anim_stop(void)
+{
+    if (objects.study_light_detect_title == NULL) {
+        return;
+    }
+
+    lv_anim_delete(objects.study_light_detect_title, study_detect_title_y_anim_cb);
+    lv_obj_set_style_translate_y(objects.study_light_detect_title, 0, LV_PART_MAIN);
+}
+
+static void study_light_detect_title_anim_start(void)
+{
+    lv_obj_t *label = objects.study_light_detect_title;
+
+    if (label == NULL) {
+        return;
+    }
+
+    study_light_detect_title_anim_stop();
+
+    lv_anim_t anim;
+    lv_anim_init(&anim);
+    lv_anim_set_var(&anim, label);
+    lv_anim_set_values(&anim, 0, -UI_STUDY_DETECT_TITLE_BOUNCE_PX);
+    lv_anim_set_duration(&anim, UI_STUDY_DETECT_TITLE_ANIM_MS);
+    lv_anim_set_playback_duration(&anim, UI_STUDY_DETECT_TITLE_ANIM_MS);
+    lv_anim_set_repeat_count(&anim, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&anim, lv_anim_path_ease_in_out);
+    lv_anim_set_exec_cb(&anim, study_detect_title_y_anim_cb);
+    lv_anim_start(&anim);
+}
+
+static void study_light_hint_set_content(bool high)
+{
+    if (objects.study_light_hint_icon == NULL) {
+        return;
+    }
+
+    if (high) {
+        lv_image_set_src(objects.study_light_hint_icon, "/lvgl/images/hint_light_high.bin");
+        lv_label_set_text(objects.study_light_hint_title, "光线过亮");
+        lv_obj_set_style_text_color(objects.study_light_hint_title,
+                                    lv_color_hex(UI_COLOR_ORANGE),
+                                    LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_label_set_text(objects.study_light_hint_desc, "光线晃眼睛，记得拉上窗帘哟");
+    } else {
+        lv_image_set_src(objects.study_light_hint_icon, "/lvgl/images/hint_light_low.bin");
+        lv_label_set_text(objects.study_light_hint_title, "光线过暗");
+        lv_obj_set_style_text_color(objects.study_light_hint_title,
+                                    lv_color_hex(UI_COLOR_STUDY_HINT_BLUE),
+                                    LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_label_set_text(objects.study_light_hint_desc, "光线暗暗的，快打开小台灯吧～");
+    }
+}
+
+static void study_light_detect_reset_ui(void)
+{
+    if (objects.study_light_detect_title == NULL) {
+        return;
+    }
+
+    lv_label_set_text(objects.study_light_detect_title, "光线检测中...");
+    lv_obj_set_style_text_color(objects.study_light_detect_title,
+                                lv_color_hex(0xffffffff),
+                                LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(objects.study_light_detect_title,
+                               font_pingfang_16px,
+                               LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_align(objects.study_light_detect_title, LV_ALIGN_CENTER, 0, UI_STUDY_DETECT_TITLE_Y);
+
+    if (objects.study_light_detect_subtitle != NULL) {
+        lv_obj_add_flag(objects.study_light_detect_subtitle, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (objects.study_light_detect_score != NULL) {
+        lv_obj_add_flag(objects.study_light_detect_score, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (objects.study_light_detect_icon != NULL) {
+        lv_image_set_src(objects.study_light_detect_icon, "/lvgl/images/hint_light_succ.bin");
+    }
+
+    study_light_detect_title_anim_start();
+}
+
+static void study_light_detect_show_result(study_detect_result_t result)
+{
+    study_light_detect_title_anim_stop();
+
+    s_light_detect_active = false;
+    s_light_detect_result = result;
+    s_light_detect_result_ms = qm_now_ms();
+
+    if (result == STUDY_DETECT_RESULT_SUCCESS) {
+        if (objects.study_light_detect_icon != NULL) {
+            lv_image_set_src(objects.study_light_detect_icon, "/lvgl/images/hint_light_succ.bin");
+        }
+        if (objects.study_light_detect_title != NULL) {
+            lv_label_set_text(objects.study_light_detect_title, "光线打卡成功");
+            lv_obj_set_style_text_color(objects.study_light_detect_title,
+                                        lv_color_hex(0xffffffff),
+                                        LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(objects.study_light_detect_title,
+                                       font_pingfang_20px,
+                                       LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_align(objects.study_light_detect_title, LV_ALIGN_CENTER, 0, UI_STUDY_DETECT_SUCC_TITLE_Y);
+        }
+        if (objects.study_light_detect_subtitle != NULL) {
+            lv_label_set_text(objects.study_light_detect_subtitle, "光线亮度刚刚好");
+            lv_obj_clear_flag(objects.study_light_detect_subtitle, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (objects.study_light_detect_score != NULL) {
+            lv_label_set_text(objects.study_light_detect_score, "+10分");
+            lv_obj_set_style_text_color(objects.study_light_detect_score,
+                                        lv_color_hex(UI_COLOR_ORANGE),
+                                        LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_clear_flag(objects.study_light_detect_score, LV_OBJ_FLAG_HIDDEN);
+        }
+    } else {
+        if (objects.study_light_detect_icon != NULL) {
+            lv_image_set_src(objects.study_light_detect_icon, "/lvgl/images/hint_light_fail.bin");
+        }
+        if (objects.study_light_detect_title != NULL) {
+            lv_label_set_text(objects.study_light_detect_title, "光线打卡失败");
+            lv_obj_set_style_text_color(objects.study_light_detect_title,
+                                        lv_color_hex(0xffffffff),
+                                        LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(objects.study_light_detect_title,
+                                       font_pingfang_20px,
+                                       LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_align(objects.study_light_detect_title, LV_ALIGN_CENTER, 0, UI_STUDY_DETECT_SUCC_TITLE_Y);
+        }
+        if (objects.study_light_detect_subtitle != NULL) {
+            lv_label_set_text(objects.study_light_detect_subtitle, "光线亮度不太合适哦");
+            lv_obj_clear_flag(objects.study_light_detect_subtitle, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (objects.study_light_detect_score != NULL) {
+            lv_label_set_text(objects.study_light_detect_score, "+0分");
+            lv_obj_set_style_text_color(objects.study_light_detect_score,
+                                        lv_color_hex(UI_COLOR_STUDY_RED),
+                                        LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_clear_flag(objects.study_light_detect_score, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    goto_page_by_id(SCREEN_ID_PAGE_STUDY_LIGHT_DETECT);
+}
+
+static void study_light_detect_show_success(void)
+{
+    study_light_detect_show_result(STUDY_DETECT_RESULT_SUCCESS);
+}
+
+static void study_light_detect_show_failure(void)
+{
+    study_light_detect_show_result(STUDY_DETECT_RESULT_FAIL);
+}
+
+static void study_light_detect_show_hint(bool high)
+{
+    study_light_hint_set_content(high);
+    s_light_detect_hint = high ? STUDY_LIGHT_HINT_HIGH : STUDY_LIGHT_HINT_LOW;
+    if (get_current_screen() != SCREEN_ID_PAGE_STUDY_LIGHT_HINT) {
+        goto_page_by_id(SCREEN_ID_PAGE_STUDY_LIGHT_HINT);
+    }
+}
+
+static void study_light_detect_enter_study(void)
+{
+    study_light_detect_title_anim_stop();
+    s_light_detect_active = false;
+    s_light_detect_result = STUDY_DETECT_RESULT_NONE;
+    scr_study_session_start();
+    goto_page_by_id(SCREEN_ID_PAGE_STUDY);
+}
+
+static void study_light_detect_window_reset(void)
+{
+    s_light_window_sum = 0;
+    s_light_window_samples = 0;
+}
+
+static light_window_result_t study_light_window_classify(float avg, uint8_t samples)
+{
+    if (samples == 0) {
+        return LIGHT_WINDOW_INVALID;
+    }
+    if (avg > BSP_SENSOR_LUX_HIGH_HINT) {
+        return LIGHT_WINDOW_HIGH;
+    }
+    if (avg < BSP_SENSOR_LUX_LOW_HINT) {
+        return LIGHT_WINDOW_LOW;
+    }
+    return LIGHT_WINDOW_OK;
+}
+
+static bool study_light_pick_hint_high(light_window_result_t r0, light_window_result_t r1)
+{
+    if (r1 == LIGHT_WINDOW_HIGH) {
+        return true;
+    }
+    if (r1 == LIGHT_WINDOW_LOW) {
+        return false;
+    }
+    if (r0 == LIGHT_WINDOW_HIGH) {
+        return true;
+    }
+    return false;
+}
+
+static void study_light_detect_pair_reset(void)
+{
+    s_pair_result_idx = 0;
+    s_pair_results[0] = LIGHT_WINDOW_INVALID;
+    s_pair_results[1] = LIGHT_WINDOW_INVALID;
+}
+
+static void study_light_detect_evaluate_pair(void)
+{
+    light_window_result_t r0 = s_pair_results[0];
+    light_window_result_t r1 = s_pair_results[1];
+
+    ESP_LOGI(LOG_TAG, "light pair r0=%d r1=%d", r0, r1);
+
+    study_light_detect_pair_reset();
+
+    if (r0 == LIGHT_WINDOW_OK && r1 == LIGHT_WINDOW_OK) {
+        study_light_detect_show_success();
+        return;
+    }
+
+    if (r0 == LIGHT_WINDOW_INVALID && r1 == LIGHT_WINDOW_INVALID) {
+        return;
+    }
+
+    if (r1 != LIGHT_WINDOW_HIGH && r1 != LIGHT_WINDOW_LOW &&
+        r0 != LIGHT_WINDOW_HIGH && r0 != LIGHT_WINDOW_LOW) {
+        return;
+    }
+
+    study_light_detect_show_hint(study_light_pick_hint_high(r0, r1));
+}
+
+static void study_light_detect_do_settlement(void)
+{
+    float avg = 0;
+    uint8_t samples = s_light_window_samples;
+    light_window_result_t result;
+
+    if (samples > 0) {
+        avg = s_light_window_sum / samples;
+    }
+
+    result = study_light_window_classify(avg, samples);
+    ESP_LOGI(LOG_TAG, "light window[%u] avg=%.1f samples=%u result=%d",
+             s_pair_result_idx, avg, samples, result);
+
+    study_light_detect_window_reset();
+
+    if (s_pair_result_idx >= STUDY_LIGHT_DETECT_PAIR_WINDOWS) {
+        return;
+    }
+
+    s_pair_results[s_pair_result_idx++] = result;
+
+    if (s_pair_result_idx >= STUDY_LIGHT_DETECT_PAIR_WINDOWS) {
+        study_light_detect_evaluate_pair();
+    }
+}
+
+void scr_study_light_detect_start(void)
+{
+    s_light_detect_active = true;
+    s_light_detect_result = STUDY_DETECT_RESULT_NONE;
+    s_light_detect_start_ms = qm_now_ms();
+    s_light_detect_last_sample_ms = 0;
+    s_light_detect_hint = STUDY_LIGHT_HINT_NONE;
+    study_light_detect_window_reset();
+    study_light_detect_pair_reset();
+    study_light_detect_reset_ui();
+    s_study_state = STUDY_STATE_IDLE;
+}
+
+bool scr_study_light_detect_is_active(void)
+{
+    return s_light_detect_active || s_light_detect_result != STUDY_DETECT_RESULT_NONE;
+}
+
+void tick_study_light_detect(void)
+{
+    if (s_light_detect_result != STUDY_DETECT_RESULT_NONE) {
+        if (qm_now_ms() - s_light_detect_result_ms >= STUDY_LIGHT_SUCCESS_SHOW_MS) {
+            study_light_detect_enter_study();
+        }
+        return;
+    }
+
+    if (!s_light_detect_active) {
+        return;
+    }
+
+    if (qm_now_ms() - s_light_detect_start_ms >= STUDY_LIGHT_DETECT_TOTAL_MS) {
+        ESP_LOGI(LOG_TAG, "light detect timeout 30s, show failure");
+        study_light_detect_show_failure();
+        return;
+    }
+
+    if (qm_now_ms() - s_light_detect_last_sample_ms < 1000) {
+        return;
+    }
+    s_light_detect_last_sample_ms = qm_now_ms();
+
+    float lux = 0;
+    if (bsp_sensor_light_read(&lux) == QM_EOK) {
+        s_light_window_sum += lux;
+        s_light_window_samples++;
+        ESP_LOGI(LOG_TAG, "light sample w=%u/%u lux=%.1f",
+                 s_light_window_samples, STUDY_LIGHT_DETECT_WINDOW_SEC, lux);
+    } else {
+        ESP_LOGW(LOG_TAG, "light sample read failed");
+    }
+
+    if (s_light_window_samples >= STUDY_LIGHT_DETECT_WINDOW_SEC) {
+        study_light_detect_do_settlement();
+    }
+}
+
+static void study_ui_update_countdown(void)
+{
+    if (objects.study_count == NULL || objects.study_arc == NULL) {
+        return;
+    }
+
+    uint32_t mins = (s_study_remaining + 59) / 60;
+    if (mins == 0 && s_study_remaining > 0) {
+        mins = 1;
+    }
+
+    char buf[8];
+    qm_snprintf(buf, sizeof(buf), "%u", (unsigned)mins);
+    lv_label_set_text(objects.study_count, buf);
+    lv_arc_set_value(objects.study_arc, (int32_t)s_study_remaining);
+}
+
+void scr_study_session_start(void)
+{
+    s_study_state = STUDY_STATE_RUNNING;
+    s_study_remaining = STUDY_DURATION_SEC;
+    s_study_last_tick = qm_now_ms();
+    study_ui_update_countdown();
+}
+
+void scr_study_session_pause_toggle(void)
+{
+    if (s_study_state == STUDY_STATE_RUNNING) {
+        s_study_state = STUDY_STATE_PAUSE;
+        if (objects.study_btn_pause != NULL) {
+            lv_label_set_text(lv_obj_get_child(objects.study_btn_pause, 0), "继续");
+        }
+    } else if (s_study_state == STUDY_STATE_PAUSE) {
+        s_study_state = STUDY_STATE_RUNNING;
+        s_study_last_tick = qm_now_ms();
+        if (objects.study_btn_pause != NULL) {
+            lv_label_set_text(lv_obj_get_child(objects.study_btn_pause, 0), "暂停");
+        }
+    }
+}
+
+void scr_study_session_pause_if_running(void)
+{
+    if (s_study_state == STUDY_STATE_RUNNING) {
+        s_study_state = STUDY_STATE_PAUSE;
+        if (objects.study_btn_pause != NULL) {
+            lv_label_set_text(lv_obj_get_child(objects.study_btn_pause, 0), "继续");
+        }
+    }
+}
+
+void scr_study_session_skip(void)
+{
+    s_study_state = STUDY_STATE_IDLE;
+    s_study_remaining = STUDY_DURATION_SEC;
+    s_light_detect_active = false;
+    s_light_detect_result = STUDY_DETECT_RESULT_NONE;
+    study_light_detect_title_anim_stop();
+    if (objects.study_btn_pause != NULL) {
+        lv_label_set_text(lv_obj_get_child(objects.study_btn_pause, 0), "暂停");
+    }
+    study_ui_update_countdown();
+}
+
+void scr_study_entry_btn_set_visible(bool visible)
+{
+    if (objects.btn_study_entry == NULL) {
+        return;
+    }
+
+    if (visible) {
+        lv_obj_clear_flag(objects.btn_study_entry, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(objects.btn_study_entry, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static lv_obj_t *ui_create_study_pill_btn(lv_obj_t *parent, int x, int y, int w, int h,
+                                           uint32_t bg_color, uint32_t text_color,
+                                           const char *text, lv_event_cb_t cb)
+{
+    lv_obj_t *btn = lv_button_create(parent);
+    lv_obj_set_pos(btn, x, y);
+    lv_obj_set_size(btn, w, h);
+    lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(bg_color), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(btn, h / 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(btn, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    {
+        lv_obj_t *label = lv_label_create(btn);
+        lv_label_set_text(label, text);
+        lv_obj_set_style_text_color(label, lv_color_hex(text_color), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(label, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_center(label);
+    }
+    return btn;
+}
+
+void create_screen_page_study() {
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.page_study = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 240, 240);
+    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    {
+        lv_obj_t *parent_obj = obj;
+        {
+            lv_obj_t *badge = lv_obj_create(parent_obj);
+            lv_obj_set_size(badge, 124, 24);
+            lv_obj_align(badge, LV_ALIGN_TOP_MID, 0, UI_STUDY_BADGE_Y);
+            lv_obj_set_style_bg_color(badge, lv_color_hex(0xff2a2a2a), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(badge, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(badge, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_left(badge, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_right(badge, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_top(badge, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_bottom(badge, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_add_flag(badge, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+            {
+                lv_obj_t *dot = lv_obj_create(badge);
+                lv_obj_set_size(dot, 6, 6);
+                lv_obj_align(dot, LV_ALIGN_LEFT_MID, 0, 0);
+                lv_obj_set_style_bg_color(dot, lv_color_hex(UI_COLOR_STUDY_RED), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_border_width(dot, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_clear_flag(dot, LV_OBJ_FLAG_SCROLLABLE);
+            }
+            {
+                lv_obj_t *label = lv_label_create(badge);
+                lv_label_set_text(label, "摄像头已开启");
+                lv_obj_set_style_text_color(label, lv_color_hex(UI_COLOR_STUDY_RED), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_text_font(label, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_align(label, LV_ALIGN_LEFT_MID, 10, 0);
+            }
+        }
+        {
+            lv_obj_t *arc = lv_arc_create(parent_obj);
+            objects.study_arc = arc;
+            lv_obj_set_pos(arc, UI_STUDY_ARC_X, UI_STUDY_ARC_Y);
+            lv_obj_set_size(arc, UI_STUDY_ARC_SIZE, UI_STUDY_ARC_SIZE);
+            lv_arc_set_rotation(arc, 270);
+            lv_arc_set_bg_angles(arc, 0, 360);
+            lv_arc_set_range(arc, 0, STUDY_DURATION_SEC);
+            lv_arc_set_value(arc, STUDY_DURATION_SEC);
+            lv_obj_remove_flag(arc, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_set_style_arc_width(arc, 5, LV_PART_MAIN);
+            lv_obj_set_style_arc_width(arc, 5, LV_PART_INDICATOR);
+            lv_obj_set_style_arc_color(arc, lv_color_hex(0xff555555), LV_PART_MAIN);
+            lv_obj_set_style_arc_color(arc, lv_color_hex(UI_COLOR_STUDY_GREEN), LV_PART_INDICATOR);
+            lv_obj_set_style_arc_rounded(arc, true, LV_PART_INDICATOR);
+            lv_obj_remove_style(arc, NULL, LV_PART_KNOB);
+        }
+        {
+            lv_obj_t *label = lv_label_create(parent_obj);
+            objects.study_count = label;
+            lv_label_set_text(label, "20");
+            lv_obj_set_style_text_color(label, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(label, font_misans_40px, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_align_to(label, objects.study_arc, LV_ALIGN_CENTER, 0, 0);
+        }
+        {
+            lv_obj_t *title = lv_label_create(parent_obj);
+            lv_obj_set_pos(title, UI_STUDY_TEXT_X, UI_STUDY_TEXT_Y);
+            lv_obj_set_width(title, 120);
+            lv_label_set_text(title, "居家学习打卡");
+            lv_obj_set_style_text_color(title, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(title, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        {
+            lv_obj_t *desc = lv_label_create(parent_obj);
+            lv_obj_set_pos(desc, UI_STUDY_TEXT_X, UI_STUDY_TEXT_Y + 24);
+            lv_obj_set_width(desc, 120);
+            lv_label_set_text(desc, "坐端正、离书远一点，标准坐姿坚持20分钟");
+            lv_obj_set_style_text_color(desc, lv_color_hex(UI_COLOR_GREY), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(desc, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_line_space(desc, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        objects.study_btn_pause = ui_create_study_pill_btn(parent_obj,
+            UI_STUDY_BTN_PAUSE_X, UI_STUDY_BTN_Y, UI_STUDY_BTN_W, UI_STUDY_BTN_H,
+            UI_COLOR_ORANGE, 0xff000000, "暂停", action_study_pause_click);
+        objects.study_btn_skip = ui_create_study_pill_btn(parent_obj,
+            UI_STUDY_BTN_SKIP_X, UI_STUDY_BTN_Y, UI_STUDY_BTN_W, UI_STUDY_BTN_H,
+            0xff333333, 0xffffffff, "跳过", action_study_skip_click);
+    }
+
+    tick_screen_page_study();
+}
+
+void create_screen_page_study_light_detect() {
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.page_study_light_detect = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 240, 240);
+    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    {
+        lv_obj_t *icon = lv_image_create(obj);
+        objects.study_light_detect_icon = icon;
+        lv_obj_align(icon, LV_ALIGN_TOP_MID, 0, UI_STUDY_DETECT_ICON_Y);
+        lv_image_set_src(icon, "/lvgl/images/hint_light_succ.bin");
+    }
+    {
+        lv_obj_t *title = lv_label_create(obj);
+        objects.study_light_detect_title = title;
+        lv_label_set_text(title, "光线检测中...");
+        lv_obj_set_style_text_color(title, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(title, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align(title, LV_ALIGN_CENTER, 0, UI_STUDY_DETECT_TITLE_Y);
+    }
+    {
+        lv_obj_t *subtitle = lv_label_create(obj);
+        objects.study_light_detect_subtitle = subtitle;
+        lv_label_set_text(subtitle, "光线亮度刚刚好");
+        lv_obj_set_style_text_color(subtitle, lv_color_hex(UI_COLOR_GREY), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(subtitle, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align(subtitle, LV_ALIGN_CENTER, 0, UI_STUDY_DETECT_SUBTITLE_Y);
+        lv_obj_add_flag(subtitle, LV_OBJ_FLAG_HIDDEN);
+    }
+    {
+        lv_obj_t *score = lv_label_create(obj);
+        objects.study_light_detect_score = score;
+        lv_label_set_text(score, "+10分");
+        lv_obj_set_style_text_color(score, lv_color_hex(UI_COLOR_ORANGE), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(score, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align(score, LV_ALIGN_CENTER, 0, UI_STUDY_DETECT_SCORE_Y);
+        lv_obj_add_flag(score, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    tick_screen_page_study_light_detect();
+}
+
+void tick_screen_page_study_light_detect() {
+}
+
+void create_screen_page_study_light_hint() {
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.page_study_light_hint = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 240, 240);
+    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    {
+        lv_obj_t *icon = lv_image_create(obj);
+        objects.study_light_hint_icon = icon;
+        lv_obj_align(icon, LV_ALIGN_TOP_MID, 0, UI_STUDY_HINT_ICON_Y);
+        lv_image_set_src(icon, "/lvgl/images/hint_light_high.bin");
+    }
+    {
+        lv_obj_t *title = lv_label_create(obj);
+        objects.study_light_hint_title = title;
+        lv_label_set_text(title, "光线过亮");
+        lv_obj_set_style_text_color(title, lv_color_hex(UI_COLOR_ORANGE), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(title, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align(title, LV_ALIGN_CENTER, 0, UI_STUDY_HINT_TITLE_Y);
+    }
+    {
+        lv_obj_t *desc = lv_label_create(obj);
+        objects.study_light_hint_desc = desc;
+        lv_obj_set_width(desc, 200);
+        lv_label_set_text(desc, "光线晃眼睛，记得拉上窗帘哟");
+        lv_obj_set_style_text_color(desc, lv_color_hex(UI_COLOR_GREY), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(desc, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_align(desc, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align(desc, LV_ALIGN_CENTER, 0, UI_STUDY_HINT_DESC_Y);
+    }
+
+    tick_screen_page_study_light_hint();
+}
+
+void tick_screen_page_study_light_hint() {
+}
+
+void tick_screen_page_study() {
+    if (get_current_screen() != SCREEN_ID_PAGE_STUDY) {
+        return;
+    }
+
+    if (s_study_state != STUDY_STATE_RUNNING) {
+        return;
+    }
+
+    if (qm_now_ms() - s_study_last_tick < 1000) {
+        return;
+    }
+    s_study_last_tick = qm_now_ms();
+
+    if (s_study_remaining == 0) {
+        s_study_state = STUDY_STATE_IDLE;
+        return;
+    }
+
+    s_study_remaining--;
+    study_ui_update_countdown();
 }
 
 #define UI_SETTINGS_TITLE_Y     30
@@ -2067,10 +2778,13 @@ tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_page_eye,
     tick_screen_page_timetable,
     tick_screen_page_checkin,
+    tick_screen_page_study,
     tick_screen_page_settings,
     tick_screen_page_alarm_edit,
     tick_screen_page_settings_sound,
     tick_screen_page_settings_net,
+    tick_screen_page_study_light_hint,
+    tick_screen_page_study_light_detect,
 };
 void tick_screen(int screen_index) {
     tick_screen_funcs[screen_index]();
@@ -2125,10 +2839,13 @@ void create_screens() {
     create_screen_page_eye();
     create_screen_page_timetable();
     create_screen_page_checkin();
+    create_screen_page_study();
     create_screen_page_settings();
     create_screen_page_alarm_edit();
     create_screen_page_settings_sound();
     create_screen_page_settings_net();
+    create_screen_page_study_light_hint();
+    create_screen_page_study_light_detect();
 
     ui_update_page_indicator(0);
 

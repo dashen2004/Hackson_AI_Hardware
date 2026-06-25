@@ -42,6 +42,9 @@ extern "C" {
 /* Lux: CPL = (tint_ms * AGAINx) / DGF. Calibrate at known illuminance. */
 #define TCS34083_LUX_DGF            (253.0f)
 
+#define BSP_SENSOR_LUX_HIGH_HINT    (650.0f)
+#define BSP_SENSOR_LUX_LOW_HINT     (100.0f)
+
 qm_err_t bsp_sensor_light_init(void);
 qm_err_t bsp_sensor_light_read(float *lux);
 

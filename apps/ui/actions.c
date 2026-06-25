@@ -135,6 +135,16 @@ static void ui_track_touch(lv_event_code_t event)
 void goto_page_by_id(int8_t screen_id)
 {
     lvgl_port_lock(0);
+
+    if (scr_study_light_detect_is_active()) {
+        if (screen_id != SCREEN_ID_PAGE_STUDY
+                && screen_id != SCREEN_ID_PAGE_STUDY_LIGHT_HINT
+                && screen_id != SCREEN_ID_PAGE_STUDY_LIGHT_DETECT) {
+            lvgl_port_unlock();
+            return;
+        }
+    }
+
     if (cur_screen_index == SCREEN_ID_PAGE_POMODORO) {
         switch (lvgl_var_tomato_state_get()) {
             case TOMATO_STATE_RUNNING:
@@ -157,6 +167,11 @@ void goto_page_by_id(int8_t screen_id)
             lvgl_var_eye_state_set(EYE_STATE_PAUSE);
             ui_tick();
         }
+    }
+
+    if (cur_screen_index == SCREEN_ID_PAGE_STUDY) {
+        scr_study_session_pause_if_running();
+        ui_tick();
     }
 
     if (is_level1_page(screen_id)) {
@@ -236,6 +251,14 @@ void action_open_checkin_click(lv_event_t * e)
 {
     if (UI_CLICK_OK(e)) {
         goto_page_by_id(SCREEN_ID_PAGE_CHECKIN);
+    }
+}
+
+void action_open_study_click(lv_event_t * e)
+{
+    if (UI_CLICK_OK(e)) {
+        scr_study_light_detect_start();
+        goto_page_by_id(SCREEN_ID_PAGE_STUDY_LIGHT_DETECT);
     }
 }
 
@@ -340,6 +363,19 @@ void event_all_handler(lv_event_t * e)
         return;
     }
 
+    if (lv_scr_act() == objects.page_study && event == LV_EVENT_CLICKED) {
+        bsp_lcd_bl_on();
+        return;
+    }
+
+    if (scr_study_light_detect_is_active()
+            && (lv_scr_act() == objects.page_study_light_detect
+                || lv_scr_act() == objects.page_study_light_hint)
+            && event == LV_EVENT_CLICKED) {
+        bsp_lcd_bl_on();
+        return;
+    }
+
     if (qm_now_ms() > sceen_slide_tick + 300) {
         screen_slide_lock = 0;
     }
@@ -364,6 +400,11 @@ void event_all_handler(lv_event_t * e)
                 break;
             }
         } else if (is_level2_page(cur_screen_index) && dir == LV_DIR_RIGHT) {
+            if (scr_study_light_detect_is_active()
+                    && (cur_screen_index == SCREEN_ID_PAGE_STUDY_LIGHT_DETECT
+                        || cur_screen_index == SCREEN_ID_PAGE_STUDY_LIGHT_HINT)) {
+                return;
+            }
             if (is_settings_sub_page(cur_screen_index)) {
                 goto_page_by_id(SCREEN_ID_PAGE_SETTINGS);
             } else {
@@ -629,5 +670,21 @@ void action_eye_stop_click(lv_event_t * e)
         lvgl_var_eye_state_set(EYE_STATE_IDLE);
 
         app_lvgl_turnoff_reset(1);
+    }
+}
+
+void action_study_pause_click(lv_event_t * e)
+{
+    if (UI_CLICK_OK(e)) {
+        scr_study_session_pause_toggle();
+        app_lvgl_turnoff_reset(1);
+    }
+}
+
+void action_study_skip_click(lv_event_t * e)
+{
+    if (UI_CLICK_OK(e)) {
+        scr_study_session_skip();
+        goto_page_by_id(cur_level1_page);
     }
 }
