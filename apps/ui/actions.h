@@ -8,6 +8,9 @@ extern "C" {
 #endif
 
 void goto_page_by_id(int8_t screen_id);
+void ui_boot_sleep_enter(void);
+void ui_boot_leave_sleep(void);
+void ui_on_cloud_connected(void);
 
 extern void event_all_handler(lv_event_t * e);
 

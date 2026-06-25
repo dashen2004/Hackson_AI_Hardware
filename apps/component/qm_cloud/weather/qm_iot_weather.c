@@ -143,7 +143,7 @@ static void qm_iot_mqtt_recv_handler(void *handle, const qm_iot_mqtt_recv_t *pac
     if(city == NULL || type != JOBJECT){
         return;
     }
-    QM_LOGD(LOG_TAG, "%s: %.*s",  QM_IOT_WEATHER_CITY_KEY, value_len, value);
+    QM_LOGD(LOG_TAG, "%s: %.*s",  QM_IOT_WEATHER_CITY_KEY, city_len, city);
 
     value = qm_json_get_value_by_name(city, city_len, QM_IOT_WEATHER_CONTRY_NAME_KEY, &value_len, &type);
     if(value == NULL || type != JSTRING){

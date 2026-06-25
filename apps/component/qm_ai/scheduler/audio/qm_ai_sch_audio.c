@@ -1,6 +1,7 @@
 #include "qm_ai_sch_audio.h"
 #include "qm.h"
 #include "qm_utils_list.h"
+#include "qm_task_psram.h"
 
 typedef struct {
     qm_task_t task;
@@ -72,7 +73,7 @@ int qm_audio_init(qm_audio_param_t *audio_param)
         goto __exit;
     }
 
-    ret = qm_task_new_to_core(&g_qm_audio_ctx.task, "audio", audio_task, &g_qm_audio_ctx, CONFIG_QM_AUDIO_TASK_SIZE, CONFIG_QM_AUDIO_TASK_PRIO, 0);
+    ret = qm_task_new_psram_to_core(&g_qm_audio_ctx.task, "audio", audio_task, &g_qm_audio_ctx, CONFIG_QM_AUDIO_TASK_SIZE, CONFIG_QM_AUDIO_TASK_PRIO, 0);
     if(ret != QM_EOK){
         goto __exit;
     }
@@ -223,7 +224,7 @@ __exit:
         qm_queue_free(&audio_ctx->queue);
     }
     
-    qm_task_exit(&task);
+    qm_task_exit_psram(&task);
 }
 
 int qm_audio_data_push(qm_audio_type_t type, uint8_t *data, int len)

@@ -9,6 +9,7 @@
 #include "freertos/task.h"
 
 #include "qm_ai_api.h"
+#include "qm_task_psram.h"
 
 #define LOG_TAG                 "app_audio"
 #define YBJC_START_WAV_PATH     "/spiffs/ybjc_start.wav"
@@ -137,8 +138,8 @@ void app_audio_play_ybjc_start(void)
     }
 
     s_playing = true;
-    if (xTaskCreate(app_audio_play_wav_task, "ybjc_audio", 4096,
-                    (void *)YBJC_START_WAV_PATH, 5, NULL) != pdPASS) {
+    if (qm_task_create_psram(app_audio_play_wav_task, "ybjc_audio", 4096,
+                             (void *)YBJC_START_WAV_PATH, 5, NULL) != pdPASS) {
         s_playing = false;
         ESP_LOGW(LOG_TAG, "create play task failed");
     }

@@ -2921,6 +2921,9 @@ tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_page_study_result,
 };
 void tick_screen(int screen_index) {
+    if (screen_index < 0 || screen_index >= (int)(sizeof(tick_screen_funcs) / sizeof(tick_screen_funcs[0]))) {
+        return;
+    }
     tick_screen_funcs[screen_index]();
 }
 void tick_screen_by_id(enum ScreensEnum screenId) {

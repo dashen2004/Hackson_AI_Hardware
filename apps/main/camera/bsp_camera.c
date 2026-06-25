@@ -11,6 +11,7 @@
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "qm_mem_log.h"
 #if !APP_HEADLESS_CAMERA_OSS
 #include "esp_lvgl_port.h"
 #endif
@@ -86,16 +87,6 @@ static uint32_t cam_stack_bytes_to_words(uint32_t stack_bytes)
     return (stack_bytes + sizeof(StackType_t) - 1) / sizeof(StackType_t);
 }
 
-static void cam_log_heap(const char *stage)
-{
-    ESP_LOGI(LOG_TAG, "heap@%s: free=%u largest_internal=%u largest_dma=%u largest_psram=%u",
-             stage,
-             (unsigned)esp_get_free_heap_size(),
-             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_DMA | MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-}
-
 static void cam_upload_task(void *arg)
 {
     cam_upload_job_t *job = (cam_upload_job_t *)arg;
@@ -107,8 +98,6 @@ static void cam_upload_task(void *arg)
     qret = bsp_oss_upload_jpg(job->data, job->len);
     ESP_LOGI(LOG_TAG, "OSS upload end, ret=%ld", (long)qret);
     cam_ui_unlock(ui_locked);
-
-    cam_log_heap("upload_done");
     free(job->data);
     free(job);
     s_capture_busy = false;
@@ -291,7 +280,6 @@ static esp_err_t cam_open_stream(void)
     ESP_LOGI(LOG_TAG, "VIDIOC_STREAMON ok, spi_port=%d", CONFIG_EXAMPLE_SPI_CAM_0_SPI_PORT);
     ESP_LOGI(LOG_TAG, "wait first frames after streamon");
     vTaskDelay(pdMS_TO_TICKS(500));
-    cam_log_heap("camera_open_ready");
     return ESP_OK;
 
 fail:
@@ -406,7 +394,6 @@ static qm_err_t cam_encode_upload_frame(struct v4l2_buffer *buf)
         }
         jpg = s_cam.jpeg_buf;
         ESP_LOGI(LOG_TAG, "jpeg encode ok, size=%u", (unsigned)jpg_len);
-        cam_log_heap("jpeg_done");
     }
 
     upload_buf = heap_caps_malloc(jpg_len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -428,7 +415,7 @@ static qm_err_t cam_encode_upload_frame(struct v4l2_buffer *buf)
 
     job->data = upload_buf;
     job->len = jpg_len;
-    cam_log_heap("before_upload_task");
+
     if (qm_task_create_psram(cam_upload_task, "cam_upload",
                              cam_stack_bytes_to_words(CAM_UPLOAD_STACK),
                              job, 7, NULL) != pdPASS) {
@@ -505,7 +492,6 @@ static void cam_stream_task(void *arg)
             request_logged = false;
             ESP_LOGI(LOG_TAG, "capture got frame, index=%u bytesused=%u",
                      (unsigned)buf.index, (unsigned)buf.bytesused);
-            cam_log_heap("frame_got");
             if (cam_encode_upload_frame(&buf) != QM_EOK) {
                 s_capture_busy = false;
             }
@@ -547,13 +533,13 @@ qm_err_t bsp_camera_stream_start(void)
                              cam_stack_bytes_to_words(CAM_CAPTURE_STACK),
                              NULL, 8, &s_camera_task) != pdPASS) {
         s_camera_task = NULL;
-        ESP_LOGE(LOG_TAG, "camera stream task create failed, free=%u largest_internal=%u",
-                 (unsigned)esp_get_free_heap_size(),
-                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+        ESP_LOGE(LOG_TAG, "camera stream task create failed");
+        qm_mem_log_print("camera_stream_fail");
         return -QM_ERROR;
     }
 
     ESP_LOGI(LOG_TAG, "camera stream task create ok");
+    qm_mem_log_print("camera_stream");
     return QM_EOK;
 }
 
@@ -571,7 +557,6 @@ void bsp_camera_capture_upload(void)
 
     s_capture_busy = true;
     s_upload_requested = true;
-    cam_log_heap("capture_request");
     if (s_camera_task == NULL) {
         s_capture_busy = false;
         s_upload_requested = false;

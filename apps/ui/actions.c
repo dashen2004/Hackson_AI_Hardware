@@ -26,6 +26,7 @@
 
 static enum ScreensEnum cur_screen_index = SCREEN_ID_PAGE_MAIN;
 static enum ScreensEnum cur_level1_page = SCREEN_ID_PAGE_MAIN;
+static bool s_boot_sleep_waiting = false;
 static uint8_t screen_slide_lock = 0;
 static uint32_t sceen_slide_tick = 0;
 static lv_point_t s_press_pt;
@@ -130,6 +131,28 @@ static void ui_track_touch(lv_event_code_t event)
     if (event == LV_EVENT_GESTURE) {
         s_dragging = true;
     }
+}
+
+void ui_boot_sleep_enter(void)
+{
+    s_boot_sleep_waiting = true;
+    goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
+}
+
+void ui_boot_leave_sleep(void)
+{
+    s_boot_sleep_waiting = false;
+    if (cur_screen_index == SCREEN_ID_PAGE_SLEEP) {
+        goto_page_by_id(SCREEN_ID_PAGE_MAIN);
+    }
+}
+
+void ui_on_cloud_connected(void)
+{
+    if (!s_boot_sleep_waiting) {
+        return;
+    }
+    ui_boot_leave_sleep();
 }
 
 void goto_page_by_id(int8_t screen_id)
@@ -349,7 +372,7 @@ void event_all_handler(lv_event_t * e)
     }
 
     if (lv_scr_act() == objects.page_sleep && event == LV_EVENT_CLICKED) {
-        goto_page_by_id(SCREEN_ID_PAGE_MAIN);
+        ui_boot_leave_sleep();
         return;
     }
 

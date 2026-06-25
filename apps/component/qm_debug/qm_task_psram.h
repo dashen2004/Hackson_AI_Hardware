@@ -5,6 +5,7 @@
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "qmos/qm_kernel.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,6 +39,16 @@ static inline uint32_t qm_task_stack_bytes_to_words(uint32_t stack_bytes)
 }
 
 void qm_task_delete_psram(TaskHandle_t handle);
+
+/**
+ * qm_task_t wrappers: stack_size is bytes (same as qm_task_new).
+ * Use qm_task_exit_psram() to delete tasks created by these functions.
+ */
+int qm_task_new_psram(qm_task_t *task, const char *name, void (*fn)(void *), void *arg,
+                      int stack_size, int prio);
+int qm_task_new_psram_to_core(qm_task_t *task, const char *name, void (*fn)(void *), void *arg,
+                              int stack_size, int prio, int core_id);
+int qm_task_exit_psram(qm_task_t *task);
 
 #ifdef __cplusplus
 }

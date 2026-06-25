@@ -4,13 +4,13 @@
 #include "bsp_camera.h"
 #include "qm_work.h"
 #include "qm_task_psram.h"
+#include "qm_mem_log.h"
 
 #include "esp_spiffs.h"
 #include "esp_lvgl_port.h"
 #include "esp_lcd_touch.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "esp_heap_caps.h"
 #include "driver/gpio.h"
 
 #include "ui.h"
@@ -69,15 +69,6 @@ void app_lvgl_turnoff_reset(uint8_t ctrl_light)
     qm_post_delayed_action(&app_lvgl_handle.lvgl_turnoff_work, lvgl_turnoff_handler, NULL, LVGL_TURNOFF_TIME_MS);
 }
 
-static void app_lvgl_log_heap(const char *stage)
-{
-    ESP_LOGI(LOG_TAG, "heap@%s: free=%u largest_internal=%u largest_spiram=%u",
-             stage,
-             (unsigned)esp_get_free_heap_size(),
-             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-}
-
 static void lvgl_task(void *arg) 
 {
     lvgl_port_lock(0); // 锁定lvgl接口 
@@ -94,11 +85,8 @@ static void lvgl_task(void *arg)
 
     app_lvgl_turnoff_reset(1);
 
-    app_lvgl_log_heap("before_cloud_delay");
     vTaskDelay(pdMS_TO_TICKS(CLOUD_INIT_DELAY_MS));
-    app_lvgl_log_heap("before_cloud_init");
     xjiang_cloud_init();
-    app_lvgl_log_heap("after_cloud_init");
 
     while (1) {
         lvgl_port_lock(0);
@@ -129,16 +117,17 @@ void app_lvgl_init(void)
         vTaskDelete(NULL);
         return;
     }
+    qm_mem_log_print("lvgl_spiffs");
 
     app_lvgl_port_init();
+    qm_mem_log_print("lvgl_port");
 
     TaskHandle_t lvgl_th = NULL;
     if (qm_task_create_psram_to_core(lvgl_task, "lvgl_task",
                                      qm_task_stack_bytes_to_words(LVGL_TASK_STACK_BYTES),
                                      &app_lvgl_handle, 4, 1, &lvgl_th) != pdPASS) {
-        ESP_LOGE(LOG_TAG, "lvgl_task create failed, free=%u largest_internal=%u",
-                 (unsigned)esp_get_free_heap_size(),
-                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+        ESP_LOGE(LOG_TAG, "lvgl_task create failed");
+        qm_mem_log_print("lvgl_task_fail");
         return;
     }
     app_lvgl_handle.lvgl_task.hdl = lvgl_th;

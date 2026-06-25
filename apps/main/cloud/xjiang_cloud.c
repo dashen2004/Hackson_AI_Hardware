@@ -29,6 +29,8 @@
 #include "qm_nw_switch.h"
 #include "bsp_oss_upload.h"
 #include "bsp_camera.h"
+#include "actions.h"
+#include "qm_mem_log.h"
 
 #define LOG_TAG "APP"
 #define WEATHER_REQ_TIMEOUT_MS      (15 * 1000)
@@ -274,6 +276,7 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
         case QM_IOT_EVENT_CLOUD_CONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_CONN");
             connect = QM_TRUE;
+            ui_on_cloud_connected();
             qm_event_post(CONFIG_AUDIO_MAIN_EVENT_ID, CONFIG_AUDIO_SUB_EVENT_CEART_WS, NULL, 0);
 
             qm_cancel_delayed_action(&wifi_disconn_action);
@@ -501,6 +504,10 @@ int xjiang_cloud_init(void)
     qm_iot_setopt(iot_handle, QM_IOT_OPT_EVENT_HANDLER, qm_iot_event_handler);
     qm_nw_switch_init(iot_handle);
 
-    return qm_iot_start(iot_handle);
+    {
+        int ret = qm_iot_start(iot_handle);
+        qm_mem_log_print("xjiang_cloud_start");
+        return ret;
+    }
 }
 

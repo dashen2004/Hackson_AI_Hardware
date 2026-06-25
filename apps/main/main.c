@@ -16,13 +16,10 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_netif_sntp.h"
-#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-// #include "audio_sys.h"
-// #include "audio_thread.h"
-// #include "audio_mem.h"
 
+#include "qm_mem_log.h"
 #include "qm.h"
 #include "ai_main.h"
 #include "bsp_camera.h"
@@ -33,19 +30,6 @@
 // #define ENABLE_TASK_MONITOR
 
 static char *TAG = "main";
-
-static void log_memory_once(const char *stage)
-{
-    ESP_LOGI(TAG,
-             "mem@%s: internal total=%u free=%u largest=%u | psram total=%u free=%u largest=%u",
-             stage,
-             (unsigned)heap_caps_get_total_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_total_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-}
 
 #if defined(ENABLE_TASK_MONITOR)
 static void monitor_task(void *arg)
@@ -61,14 +45,21 @@ static void monitor_task(void *arg)
 void app_main()
 {
     ESP_ERROR_CHECK(nvs_flash_init());
+    qm_mem_log_print("nvs_flash");
+
     if (bsp_camera_early_init() != QM_EOK) {
         ESP_LOGW(TAG, "camera early init failed, continue without camera");
     }
+    qm_mem_log_print("camera_early");
+
     if (bsp_camera_stream_prepare() != QM_EOK) {
         ESP_LOGW(TAG, "camera stream prepare failed, continue without camera");
     }
+    qm_mem_log_print("camera_stream_prepare");
+
     ESP_ERROR_CHECK(esp_netif_init());
-    log_memory_once("startup");
+    qm_mem_log_init();
+    qm_mem_log_print("netif");
 
     esp_log_level_set("AUDIO_THREAD", ESP_LOG_ERROR);
     esp_log_level_set("i2c_bus_v2", ESP_LOG_ERROR);
@@ -87,4 +78,5 @@ void app_main()
 
     // init byte rtc engine
     qm_main();
+    qm_mem_log_print("qm_main");
 }

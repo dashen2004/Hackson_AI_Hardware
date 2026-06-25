@@ -15,6 +15,8 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/event_groups.h"
+#include "esp_heap_caps.h"
+#include "freertos/idf_additions.h"
 #include "esp_lvgl_port.h"
 #include "esp_lvgl_port_priv.h"
 #include "lvgl.h"
@@ -43,6 +45,46 @@ typedef struct lvgl_port_ctx_s {
 * Local variables
 *******************************************************************************/
 static lvgl_port_ctx_t lvgl_port_ctx;
+
+static void lvgl_port_task(void *arg);
+
+#if CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
+#define LVGL_PORT_TASK_STACK_CAPS   (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+static bool s_lvgl_task_ext_stack;
+#endif
+
+static BaseType_t lvgl_port_task_create(const lvgl_port_cfg_t *cfg)
+{
+#if CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
+    const configSTACK_DEPTH_TYPE stack_bytes = (configSTACK_DEPTH_TYPE)cfg->task_stack * sizeof(StackType_t);
+    s_lvgl_task_ext_stack = true;
+    if (cfg->task_affinity < 0) {
+        return xTaskCreateWithCaps(lvgl_port_task, "taskLVGL", stack_bytes, xTaskGetCurrentTaskHandle(),
+                                   cfg->task_priority, &lvgl_port_ctx.lvgl_task, LVGL_PORT_TASK_STACK_CAPS);
+    }
+    return xTaskCreatePinnedToCoreWithCaps(lvgl_port_task, "taskLVGL", stack_bytes, xTaskGetCurrentTaskHandle(),
+                                           cfg->task_priority, &lvgl_port_ctx.lvgl_task, cfg->task_affinity,
+                                           LVGL_PORT_TASK_STACK_CAPS);
+#else
+    if (cfg->task_affinity < 0) {
+        return xTaskCreate(lvgl_port_task, "taskLVGL", cfg->task_stack, xTaskGetCurrentTaskHandle(),
+                         cfg->task_priority, &lvgl_port_ctx.lvgl_task);
+    }
+    return xTaskCreatePinnedToCore(lvgl_port_task, "taskLVGL", cfg->task_stack, xTaskGetCurrentTaskHandle(),
+                                   cfg->task_priority, &lvgl_port_ctx.lvgl_task, cfg->task_affinity);
+#endif
+}
+
+static void lvgl_port_task_delete_self(void)
+{
+#if CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
+    if (s_lvgl_task_ext_stack) {
+        vTaskDeleteWithCaps(NULL);
+        return;
+    }
+#endif
+    vTaskDelete(NULL);
+}
 
 /*******************************************************************************
 * Function definitions
@@ -83,13 +125,11 @@ esp_err_t lvgl_port_init(const lvgl_port_cfg_t *cfg)
     lvgl_port_ctx.lvgl_events = xEventGroupCreate();
     ESP_GOTO_ON_FALSE(lvgl_port_ctx.lvgl_events, ESP_ERR_NO_MEM, err, TAG, "Create LVGL Event Group fail!");
 
-    BaseType_t res;
-    if (cfg->task_affinity < 0) {
-        res = xTaskCreate(lvgl_port_task, "taskLVGL", cfg->task_stack, xTaskGetCurrentTaskHandle(), cfg->task_priority, &lvgl_port_ctx.lvgl_task);
-    } else {
-        res = xTaskCreatePinnedToCore(lvgl_port_task, "taskLVGL", cfg->task_stack, xTaskGetCurrentTaskHandle(), cfg->task_priority, &lvgl_port_ctx.lvgl_task, cfg->task_affinity);
-    }
+    BaseType_t res = lvgl_port_task_create(cfg);
     ESP_GOTO_ON_FALSE(res == pdPASS, ESP_FAIL, err, TAG, "Create LVGL task fail!");
+#if CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
+    ESP_LOGI(TAG, "taskLVGL stack in PSRAM, depth=%d words", cfg->task_stack);
+#endif
 
     // Wait until taskLVGL starts
     if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5000)) == 0) {
@@ -228,7 +268,7 @@ static void lvgl_port_task(void *arg)
     if (xSemaphoreTake(lvgl_port_ctx.task_init_mux, 0) != pdTRUE) {
         ESP_LOGE(TAG, "Failed to take LVGL task sem");
         lvgl_port_task_deinit();
-        vTaskDelete( NULL );
+        lvgl_port_task_delete_self();
     }
 
     /* LVGL init */
@@ -277,7 +317,7 @@ static void lvgl_port_task(void *arg)
     xSemaphoreGive(lvgl_port_ctx.task_init_mux);
 
     /* Close task */
-    vTaskDelete( NULL );
+    lvgl_port_task_delete_self();
 }
 
 static void lvgl_port_task_deinit(void)
@@ -295,6 +335,9 @@ static void lvgl_port_task_deinit(void)
         vEventGroupDelete(lvgl_port_ctx.lvgl_events);
     }
     memset(&lvgl_port_ctx, 0, sizeof(lvgl_port_ctx));
+#if CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
+    s_lvgl_task_ext_stack = false;
+#endif
 #if LV_ENABLE_GC || !LV_MEM_CUSTOM
     /* Deinitialize LVGL */
     lv_deinit();

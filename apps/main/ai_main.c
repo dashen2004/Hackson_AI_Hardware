@@ -26,6 +26,7 @@
 
 #include "alarm_manager.h"
 #include "app_audio_prompt.h"
+#include "qm_mem_log.h"
 
 #define LOG_TAG "log"
 
@@ -125,21 +126,30 @@ void qm_example_ai_init(void *handle)
 void qm_application_start(void)
 {
     QM_LOGD("1", "Ver:%s", CONFIG_CT_EYE_PLUSH_VERSION);
+    qm_mem_log_print("app_start");
 
     bsp_bat_init();
+    qm_mem_log_print("bsp_bat");
 #if !APP_HEADLESS_CAMERA_OSS
     bsp_i2c_adopt_bus(example_video_get_i2c_bus_handle());
+    qm_mem_log_print("bsp_i2c");
     bsp_sensor_light_init();
+    qm_mem_log_print("bsp_sensor_light");
 #endif
 #if APP_HEADLESS_CAMERA_OSS
     xTaskCreate(headless_cloud_task, "cloud_init", 4096, NULL, 5, NULL);
 #else
     // bsp_sensor_tof_init();
     bsp_lcd_init();
+    qm_mem_log_print("bsp_lcd");
     bsp_lcd_touch_init();
+    qm_mem_log_print("bsp_lcd_touch");
     alarm_manager_init();
+    qm_mem_log_print("alarm_manager");
     app_audio_prompt_init();
+    qm_mem_log_print("app_audio_prompt");
     app_lvgl_init();
+    qm_mem_log_print("app_lvgl");
 #endif
 }
 

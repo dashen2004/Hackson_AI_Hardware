@@ -29,6 +29,7 @@ set(COMPONENT_SRCS
     "../component/NDS03_SDK/src/nds03_dev.c"
 
     "../component/qm_debug/qm_task_psram.c"
+    "../component/qm_debug/qm_mem_log.c"
 
     "../component/qm_ai/inner/qm_ai_inner_rtc_api.c"
     "../component/qm_ai/inner/rtc/agora/qm_agora.c"

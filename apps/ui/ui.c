@@ -6,6 +6,8 @@
 #include "screens.h"
 #include "actions.h"
 #include "vars.h"
+#include "ui_image_preload.h"
+#include "qm_mem_log.h"
 
 #if defined(EEZ_FOR_LVGL)
 
@@ -65,9 +67,12 @@ enum ScreensEnum get_current_screen(void) {
 }
 
 void ui_init() {
+    ui_image_cache_use_psram();
     create_screens();
+    ui_preload_level1_images();
+    ui_boot_sleep_enter();
 
-    goto_page_by_id(SCREEN_ID_PAGE_MAIN);
+    qm_mem_log_print("ui_init");
 }
 
 void ui_tick() {

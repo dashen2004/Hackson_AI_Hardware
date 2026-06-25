@@ -7,6 +7,7 @@
 #include "qm_ai_volume.h"
 #include "qm_ai_voice_control.h"
 #include "qm_ai_sch_audio.h"
+#include "qm_task_psram.h"
 
 #define AI_TAG "AI"
 
@@ -264,7 +265,7 @@ int32_t qm_ai_start(qm_ai_handle_t handle)
     handle->ai_start_flag = 1;
 
     if (handle->driver_handle->read) {
-        qm_task_new_to_core(&handle->audio_task, "ai_read_task", ai_task, handle, 3 * 1024, 6, 1);
+        qm_task_new_psram_to_core(&handle->audio_task, "ai_read_task", ai_task, handle, 3 * 1024, 6, 1);
     }
 
     return QM_EOK;
@@ -621,7 +622,7 @@ static void ai_task(void *arg)
 
     qm_sem_signal(&handle->audio_task_quit_sem);
 
-    qm_task_exit(&handle->audio_task);
+    qm_task_exit_psram(&handle->audio_task);
 }
 
 static void ai_recv_audio_data(void *data, int len, void *user_data)
