@@ -511,3 +511,22 @@ int xjiang_cloud_init(void)
     }
 }
 
+qm_err_t iot_func_req_corpus(uint8_t value)
+{
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+    qm_spec_property_t *property_pre = NULL;
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return -QM_ENOMEM;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, 8, 2);
+    qm_spec_property_pack_number(property_pre, value);
+    property_pre->did = qm_iot_did_get();
+
+    qm_spec_property_add(property_operation, property_pre);
+    return qm_iot_property_report(iot_handle, property_operation);
+}

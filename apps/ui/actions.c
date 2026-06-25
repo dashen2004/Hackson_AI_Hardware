@@ -16,7 +16,6 @@
 #include "lvgl.h"
 #include "bsp_lcd.h"
 #include "app_lvgl.h"
-#include "app_audio_prompt.h"
 #include "ai_main.h"
 #include "qm_ai_api.h"
 #include "xjiang_cloud.h"
@@ -193,6 +192,9 @@ void goto_page_by_id(int8_t screen_id)
     }
 
     if (cur_screen_index == SCREEN_ID_PAGE_STUDY) {
+        if (screen_id != SCREEN_ID_PAGE_STUDY) {
+            scr_study_capture_stop();
+        }
         scr_study_session_pause_if_running();
         ui_tick();
     }
@@ -673,7 +675,6 @@ void action_eye_opt_click(lv_event_t * e)
         switch (state) {
             case EYE_STATE_IDLE:
                 lvgl_var_eye_state_set(EYE_STATE_RUNNING);
-                app_audio_play_ybjc_start();
             break;
 
             case EYE_STATE_PAUSE:

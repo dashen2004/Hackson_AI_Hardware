@@ -18,7 +18,6 @@ set(COMPONENT_SRCS
     "./lcd/bsp_lcd_touch.c"
     "./lcd/app_lvgl.c"
     "./cloud/xjiang_cloud.c"
-    "./audio/app_audio_prompt.c"
     "./sensor/bsp_sensor_tof.c"
     "./sensor/bsp_sensor_light.c"
 

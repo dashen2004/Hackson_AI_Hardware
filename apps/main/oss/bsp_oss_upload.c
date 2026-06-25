@@ -95,13 +95,14 @@ static int oss_build_gmt_date(char *date_buf, size_t date_buf_len)
     return 0;
 }
 
-static int oss_build_signature(const char *date_gmt, char *sig_b64, size_t sig_b64_len)
+static int oss_build_signature(const char *date_gmt, const char *object_key,
+                               char *sig_b64, size_t sig_b64_len)
 {
     char canonical[256];
     char resource[128];
     int canonical_len;
 
-    snprintf(resource, sizeof(resource), "/%s/%s", BSP_OSS_BUCKET, BSP_OSS_OBJECT_KEY);
+    snprintf(resource, sizeof(resource), "/%s/%s", BSP_OSS_BUCKET, object_key);
     canonical_len = snprintf(canonical, sizeof(canonical),
                              "PUT\n\n%s\n%s\n%s",
                              BSP_OSS_CONTENT_TYPE, date_gmt, resource);
@@ -169,6 +170,7 @@ static int oss_recv_header(int fd, char *buf, size_t buf_len)
 }
 
 static int oss_raw_put_jpg(const uint8_t *data, size_t data_len,
+                           const char *object_key,
                            const char *date_gmt, const char *sig_b64,
                            int *status_code, char *resp, size_t resp_len)
 {
@@ -194,7 +196,7 @@ static int oss_raw_put_jpg(const uint8_t *data, size_t data_len,
                        "Content-Length: %u\r\n"
                        "Connection: close\r\n"
                        "\r\n",
-                       BSP_OSS_OBJECT_KEY, host,
+                       object_key, host,
                        BSP_OSS_ACCESS_KEY_ID, sig_b64,
                        date_gmt, BSP_OSS_CONTENT_TYPE,
                        (unsigned)data_len);
@@ -256,7 +258,7 @@ out:
     return ret;
 }
 
-qm_err_t bsp_oss_upload_jpg(const uint8_t *data, size_t data_len)
+qm_err_t bsp_oss_upload_jpg_named(const uint8_t *data, size_t data_len, const char *object_key)
 {
     char date_gmt[40];
     char sig_b64[48];
@@ -269,8 +271,8 @@ qm_err_t bsp_oss_upload_jpg(const uint8_t *data, size_t data_len)
         return -QM_EINVAL;
     }
 
-    if (data == NULL || data_len == 0) {
-        ESP_LOGE(LOG_TAG, "invalid jpg buffer");
+    if (data == NULL || data_len == 0 || object_key == NULL || object_key[0] == '\0') {
+        ESP_LOGE(LOG_TAG, "invalid jpg buffer or object key");
         return -QM_EINVAL;
     }
 
@@ -279,15 +281,15 @@ qm_err_t bsp_oss_upload_jpg(const uint8_t *data, size_t data_len)
         return -QM_EIO;
     }
 
-    if (oss_build_signature(date_gmt, sig_b64, sizeof(sig_b64)) != 0) {
+    if (oss_build_signature(date_gmt, object_key, sig_b64, sizeof(sig_b64)) != 0) {
         ESP_LOGE(LOG_TAG, "build OSS signature failed");
         return -QM_ERROR;
     }
 
     ESP_LOGI(LOG_TAG, "uploading jpg (%u bytes) -> http://%s.%s/%s",
-             (unsigned)data_len, BSP_OSS_BUCKET, BSP_OSS_ENDPOINT, BSP_OSS_OBJECT_KEY);
+             (unsigned)data_len, BSP_OSS_BUCKET, BSP_OSS_ENDPOINT, object_key);
 
-    ret = oss_raw_put_jpg(data, data_len, date_gmt, sig_b64,
+    ret = oss_raw_put_jpg(data, data_len, object_key, date_gmt, sig_b64,
                           &status_code, response_buf, sizeof(response_buf));
 
     if (ret != 0) {
@@ -297,6 +299,11 @@ qm_err_t bsp_oss_upload_jpg(const uint8_t *data, size_t data_len)
 
     ESP_LOGI(LOG_TAG, "upload done, HTTP %d", status_code);
     return (status_code == 200) ? QM_EOK : -QM_EIO;
+}
+
+qm_err_t bsp_oss_upload_jpg(const uint8_t *data, size_t data_len)
+{
+    return bsp_oss_upload_jpg_named(data, data_len, BSP_OSS_OBJECT_KEY);
 }
 
 qm_err_t bsp_oss_upload_test_jpg(void)
@@ -311,6 +318,14 @@ qm_err_t bsp_oss_upload_jpg(const uint8_t *data, size_t len)
 {
     (void)data;
     (void)len;
+    return -QM_ENOSYS;
+}
+
+qm_err_t bsp_oss_upload_jpg_named(const uint8_t *data, size_t len, const char *object_key)
+{
+    (void)data;
+    (void)len;
+    (void)object_key;
     return -QM_ENOSYS;
 }
 

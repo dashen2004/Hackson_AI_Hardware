@@ -25,7 +25,6 @@
 #include "xjiang_cloud.h"
 
 #include "alarm_manager.h"
-#include "app_audio_prompt.h"
 #include "qm_mem_log.h"
 
 #define LOG_TAG "log"
@@ -146,8 +145,6 @@ void qm_application_start(void)
     qm_mem_log_print("bsp_lcd_touch");
     alarm_manager_init();
     qm_mem_log_print("alarm_manager");
-    app_audio_prompt_init();
-    qm_mem_log_print("app_audio_prompt");
     app_lvgl_init();
     qm_mem_log_print("app_lvgl");
 #endif

@@ -4,13 +4,9 @@
 #include "freertos/FreeRTOS.h"
 #include "esp_log.h"
 #include "bsp_i2c.h"
-#include "qm_task_psram.h"
 
 #define LOG_TAG "TCS34083"
-#define LUX_HIGH_HINT_VALUE BSP_SENSOR_LUX_HIGH_HINT
-#define LUX_LOW_HINT_VALUE  BSP_SENSOR_LUX_LOW_HINT
 #define TCS34083_I2C_HZ             (100000)
-#define TCS34083_READ_INTERVAL_MS   (10000)
 
 typedef struct {
     i2c_master_dev_handle_t dev;
@@ -19,18 +15,11 @@ typedef struct {
     uint8_t gain;
     uint8_t atime;
     uint16_t astep;
-
-    qm_task_t light_task;
 } tcs34083_t;
 
 static tcs34083_t g_tcs_handle = {0};
 
 static bool g_light_sensor_ready = false;
-
-static uint8_t lux_high_cnt = 0;
-static uint8_t lux_high_flag = 0;
-static uint8_t lux_low_cnt = 0;
-static uint8_t lux_low_flag = 0;
 
 static i2c_master_dev_handle_t tcs_dev_handle;
 static i2c_device_config_t tcs_dev_config = {
@@ -58,13 +47,6 @@ static void tcs34083_disable(tcs34083_t *tcs)
     if (tcs != NULL && tcs->dev != NULL) {
         tcs_write(tcs, TCS_ENABLE, 0);
     }
-}
-
-static void tcs34083_stop(const char *reason)
-{
-    g_light_sensor_ready = false;
-    tcs34083_disable(&g_tcs_handle);
-    QM_LOGI(LOG_TAG, "stop: %s", reason);
 }
 
 static qm_err_t tcs_read(tcs34083_t *tcs, uint8_t reg, uint8_t *data, size_t len)
@@ -347,55 +329,6 @@ static float tcs34083_calculate_lux(const tcs34083_t *tcs,
     return lux;
 }
 
-static void light_read_task(void *arg)
-{
-    static float lux = 0;
-    uint8_t fail_cnt = 0;
-
-    while (g_light_sensor_ready) {
-        if (bsp_sensor_light_read(&lux) != QM_EOK) {
-            fail_cnt++;
-            if (fail_cnt >= 3) {
-                tcs34083_stop("als read failed");
-                break;
-            }
-        } else {
-            fail_cnt = 0;
-
-            if (lux > LUX_HIGH_HINT_VALUE) {
-                lux_low_cnt = 0;
-
-                lux_high_cnt++;
-                if (lux_high_cnt > 5) {
-                    QM_LOGI(LOG_TAG, "lux too high: %.2f", lux);
-
-                    lux_high_cnt = 0;
-
-                    lux_high_flag = 1;
-                    lux_low_flag = 0;
-                }
-            } else if (lux < LUX_LOW_HINT_VALUE) {
-                lux_high_cnt = 0;
-
-                lux_low_cnt++;
-                if (lux_low_cnt > 5) {
-                    QM_LOGI(LOG_TAG, "lux too low: %.2f", lux);
-
-                    lux_low_cnt = 0;
-
-                    lux_low_flag = 1;
-                    lux_high_flag = 0;
-                }
-            } else {
-                lux_high_cnt = 0;
-                lux_low_cnt = 0;
-            }
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(TCS34083_READ_INTERVAL_MS));
-    }
-}
-
 qm_err_t bsp_sensor_light_init(void)
 {
     if (bsp_i2c_init() != QM_EOK) {
@@ -442,15 +375,6 @@ qm_err_t bsp_sensor_light_init(void)
     }
 
     g_light_sensor_ready = true;
-    TaskHandle_t light_th = NULL;
-    if (qm_task_create_psram_to_core(light_read_task, "light_read_task",
-                                     qm_task_stack_bytes_to_words(2 * 1024),
-                                     &g_tcs_handle, 10, 1, &light_th) != pdPASS) {
-        QM_LOGI(LOG_TAG, "light_read_task create failed");
-        tcs34083_stop("task create failed");
-        return -QM_EINIT;
-    }
-    g_tcs_handle.light_task.hdl = light_th;
 
     return QM_EOK;
 }
@@ -501,14 +425,6 @@ qm_err_t bsp_sensor_light_read(float *lux)
     if (!saturated) {
         tcs34083_auto_gain_for_next(&g_tcs_handle, clear, fullscale);
     }
-
-    QM_LOGI(LOG_TAG,
-            "als C=%u R=%u G=%u B=%u WB=%u again=%u tint=%ums lux=%.2f%s",
-            clear, red, green, blue, wideband,
-            latched_gain,
-            (unsigned)tcs34083_integration_ms(&g_tcs_handle),
-            *lux,
-            saturated ? " SAT" : "");
 
     return QM_EOK;
 }

@@ -22,7 +22,9 @@
 #include "ai_main.h"
 #include "qm_ai_api.h"
 #include "bsp_sensor_light.h"
+#include "bsp_camera.h"
 #include "esp_log.h"
+#include "xjiang_cloud.h"
 
 #define LOG_TAG "ui_study"
 
@@ -719,6 +721,7 @@ void tick_screen_page_checkin() {
 #define STUDY_LIGHT_DETECT_WINDOW_SEC   5
 #define STUDY_LIGHT_DETECT_PAIR_WINDOWS 2
 #define STUDY_LIGHT_SUCCESS_SHOW_MS     3000
+#define STUDY_CAPTURE_INTERVAL_MS       5000
 
 typedef enum {
     STUDY_DETECT_RESULT_NONE = 0,
@@ -774,7 +777,13 @@ static light_window_result_t s_pair_results[STUDY_LIGHT_DETECT_PAIR_WINDOWS];
 static uint8_t s_pair_result_idx = 0;
 static study_light_hint_type_t s_light_detect_hint = STUDY_LIGHT_HINT_NONE;
 
+static bool s_study_capture_active = false;
+static uint32_t s_study_capture_seq = 0;
+static uint32_t s_study_capture_last_ms = 0;
+
 static void scr_study_show_result(bool success);
+static void scr_study_capture_start(void);
+static void scr_study_capture_tick(void);
 
 static void study_result_layout_refresh(void)
 {
@@ -953,6 +962,7 @@ static void study_light_detect_show_failure(void)
 
 static void study_light_detect_show_hint(bool high)
 {
+    iot_func_req_corpus(high ? 6 : 5);
     study_light_hint_set_content(high);
     s_light_detect_hint = high ? STUDY_LIGHT_HINT_HIGH : STUDY_LIGHT_HINT_LOW;
     if (get_current_screen() != SCREEN_ID_PAGE_STUDY_LIGHT_HINT) {
@@ -1144,6 +1154,47 @@ void scr_study_session_start(void)
     s_study_remaining = STUDY_DURATION_SEC;
     s_study_last_tick = qm_now_ms();
     study_ui_update_countdown();
+    scr_study_capture_start();
+}
+
+static void scr_study_capture_start(void)
+{
+    s_study_capture_active = true;
+    s_study_capture_seq = 0;
+    s_study_capture_last_ms = qm_now_ms();
+    ESP_LOGI(LOG_TAG, "study capture started");
+}
+
+void scr_study_capture_stop(void)
+{
+    if (!s_study_capture_active) {
+        return;
+    }
+    s_study_capture_active = false;
+    ESP_LOGI(LOG_TAG, "study capture stopped, total=%u", (unsigned)s_study_capture_seq);
+}
+
+static void scr_study_capture_tick(void)
+{
+    char name[16];
+
+    if (!s_study_capture_active) {
+        return;
+    }
+
+    if (qm_now_ms() - s_study_capture_last_ms < STUDY_CAPTURE_INTERVAL_MS) {
+        return;
+    }
+
+    if (bsp_camera_capture_busy()) {
+        return;
+    }
+
+    s_study_capture_last_ms = qm_now_ms();
+    s_study_capture_seq++;
+    qm_snprintf(name, sizeof(name), "%u", (unsigned)s_study_capture_seq);
+    ESP_LOGI(LOG_TAG, "study capture #%u", (unsigned)s_study_capture_seq);
+    bsp_camera_capture_upload_named(name);
 }
 
 void scr_study_session_pause_toggle(void)
@@ -1175,6 +1226,7 @@ void scr_study_session_pause_if_running(void)
 void scr_study_session_skip(void)
 {
     s_study_state = STUDY_STATE_IDLE;
+    scr_study_capture_stop();
     scr_study_show_result(false);
 }
 
@@ -1193,6 +1245,8 @@ static void scr_study_show_result(bool success)
     if (objects.study_result_icon == NULL) {
         return;
     }
+
+    scr_study_capture_stop();
 
     if (success) {
         lv_image_set_src(objects.study_result_icon, "/lvgl/images/hint_light_succ.bin");
@@ -1506,6 +1560,8 @@ void tick_screen_page_study() {
     if (get_current_screen() != SCREEN_ID_PAGE_STUDY) {
         return;
     }
+
+    scr_study_capture_tick();
 
     if (s_study_state != STUDY_STATE_RUNNING) {
         return;

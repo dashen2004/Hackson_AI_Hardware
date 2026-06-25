@@ -201,6 +201,7 @@ void scr_study_session_pause_toggle(void);
 void scr_study_session_skip(void);
 void scr_study_session_pause_if_running(void);
 void scr_study_entry_btn_set_visible(bool visible);
+void scr_study_capture_stop(void);
 
 void create_screen_page_study_light_detect();
 void tick_screen_page_study_light_detect();
