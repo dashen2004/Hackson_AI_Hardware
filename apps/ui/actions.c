@@ -368,6 +368,11 @@ void event_all_handler(lv_event_t * e)
         return;
     }
 
+    if (lv_scr_act() == objects.page_study_result && event == LV_EVENT_CLICKED) {
+        bsp_lcd_bl_on();
+        return;
+    }
+
     if (scr_study_light_detect_is_active()
             && (lv_scr_act() == objects.page_study_light_detect
                 || lv_scr_act() == objects.page_study_light_hint)
@@ -685,6 +690,15 @@ void action_study_skip_click(lv_event_t * e)
 {
     if (UI_CLICK_OK(e)) {
         scr_study_session_skip();
+        app_lvgl_turnoff_reset(1);
+    }
+}
+
+void action_study_result_confirm_click(lv_event_t * e)
+{
+    if (UI_CLICK_OK(e)) {
+        scr_study_result_confirm();
         goto_page_by_id(cur_level1_page);
+        app_lvgl_turnoff_reset(1);
     }
 }

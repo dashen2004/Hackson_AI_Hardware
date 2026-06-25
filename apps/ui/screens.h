@@ -22,6 +22,7 @@ typedef struct _objects_t {
     lv_obj_t *page_study;
     lv_obj_t *page_study_light_detect;
     lv_obj_t *page_study_light_hint;
+    lv_obj_t *page_study_result;
     lv_obj_t *page_settings;
     lv_obj_t *page_alarm_edit;
     lv_obj_t *page_settings_sound;
@@ -102,6 +103,13 @@ typedef struct _objects_t {
     lv_obj_t *study_light_hint_title;
     lv_obj_t *study_light_hint_desc;
 
+    // study result page objs
+    lv_obj_t *study_result_icon;
+    lv_obj_t *study_result_title;
+    lv_obj_t *study_result_subtitle;
+    lv_obj_t *study_result_extra;
+    lv_obj_t *study_result_btn;
+
     // apps2 hidden entry
     lv_obj_t *btn_study_entry;
 
@@ -153,6 +161,7 @@ enum ScreensEnum {
     SCREEN_ID_PAGE_SETTINGS_NET = 15,
     SCREEN_ID_PAGE_STUDY_LIGHT_HINT = 16,
     SCREEN_ID_PAGE_STUDY_LIGHT_DETECT = 17,
+    SCREEN_ID_PAGE_STUDY_RESULT = 18,
 };
 
 void create_screen_page_sleep();
@@ -201,6 +210,10 @@ void tick_study_light_detect(void);
 
 void create_screen_page_study_light_hint();
 void tick_screen_page_study_light_hint();
+
+void create_screen_page_study_result();
+void tick_screen_page_study_result();
+void scr_study_result_confirm(void);
 
 void create_screen_page_settings();
 void tick_screen_page_settings();

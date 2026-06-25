@@ -50,7 +50,8 @@ static void lvgl_turnoff_handler(void *arg)
             || get_current_screen() == SCREEN_ID_PAGE_EYE
             || get_current_screen() == SCREEN_ID_PAGE_STUDY
             || get_current_screen() == SCREEN_ID_PAGE_STUDY_LIGHT_DETECT
-            || get_current_screen() == SCREEN_ID_PAGE_STUDY_LIGHT_HINT) {
+            || get_current_screen() == SCREEN_ID_PAGE_STUDY_LIGHT_HINT
+            || get_current_screen() == SCREEN_ID_PAGE_STUDY_RESULT) {
         app_lvgl_turnoff_reset(0);
     } else if (get_current_screen() != SCREEN_ID_PAGE_SLEEP) {
         extern void goto_page_by_id(int8_t screen_id);

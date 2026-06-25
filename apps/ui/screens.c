@@ -733,6 +733,12 @@ typedef enum {
 #define UI_STUDY_DETECT_TITLE_BOUNCE_PX 8
 #define UI_STUDY_DETECT_TITLE_ANIM_MS   450
 #define UI_COLOR_STUDY_HINT_BLUE      0xff5eb8e8
+#define UI_STUDY_RESULT_ICON_Y        28
+#define UI_STUDY_RESULT_ICON_TITLE_GAP 10
+#define UI_STUDY_RESULT_TEXT_GAP         8
+#define UI_STUDY_RESULT_BTN_W        120
+#define UI_STUDY_RESULT_BTN_H         36
+#define UI_STUDY_RESULT_BTN_BOTTOM_PAD 24
 
 typedef enum {
     STUDY_STATE_IDLE = 0,
@@ -767,6 +773,22 @@ static uint8_t s_light_window_samples = 0;
 static light_window_result_t s_pair_results[STUDY_LIGHT_DETECT_PAIR_WINDOWS];
 static uint8_t s_pair_result_idx = 0;
 static study_light_hint_type_t s_light_detect_hint = STUDY_LIGHT_HINT_NONE;
+
+static void scr_study_show_result(bool success);
+
+static void study_result_layout_refresh(void)
+{
+    if (objects.study_result_title == NULL
+            || objects.study_result_subtitle == NULL
+            || objects.study_result_extra == NULL) {
+        return;
+    }
+
+    lv_obj_align_to(objects.study_result_subtitle, objects.study_result_title,
+                    LV_ALIGN_OUT_BOTTOM_MID, 0, UI_STUDY_RESULT_TEXT_GAP);
+    lv_obj_align_to(objects.study_result_extra, objects.study_result_subtitle,
+                    LV_ALIGN_OUT_BOTTOM_MID, 0, UI_STUDY_RESULT_TEXT_GAP);
+}
 
 static void study_detect_title_y_anim_cb(void *var, int32_t v)
 {
@@ -1112,6 +1134,7 @@ static void study_ui_update_countdown(void)
     char buf[8];
     qm_snprintf(buf, sizeof(buf), "%u", (unsigned)mins);
     lv_label_set_text(objects.study_count, buf);
+    lv_obj_align_to(objects.study_count, objects.study_arc, LV_ALIGN_CENTER, 0, 0);
     lv_arc_set_value(objects.study_arc, (int32_t)s_study_remaining);
 }
 
@@ -1152,14 +1175,61 @@ void scr_study_session_pause_if_running(void)
 void scr_study_session_skip(void)
 {
     s_study_state = STUDY_STATE_IDLE;
+    scr_study_show_result(false);
+}
+
+void scr_study_result_confirm(void)
+{
     s_study_remaining = STUDY_DURATION_SEC;
-    s_light_detect_active = false;
-    s_light_detect_result = STUDY_DETECT_RESULT_NONE;
-    study_light_detect_title_anim_stop();
+    s_study_state = STUDY_STATE_IDLE;
     if (objects.study_btn_pause != NULL) {
         lv_label_set_text(lv_obj_get_child(objects.study_btn_pause, 0), "暂停");
     }
     study_ui_update_countdown();
+}
+
+static void scr_study_show_result(bool success)
+{
+    if (objects.study_result_icon == NULL) {
+        return;
+    }
+
+    if (success) {
+        lv_image_set_src(objects.study_result_icon, "/lvgl/images/hint_light_succ.bin");
+        lv_label_set_text(objects.study_result_title, "坐姿打卡成功");
+        lv_label_set_text(objects.study_result_subtitle, "累计合格20分钟");
+        lv_label_set_text(objects.study_result_extra, "+10分");
+        lv_obj_set_style_text_color(objects.study_result_extra,
+                                    lv_color_hex(UI_COLOR_ORANGE),
+                                    LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(objects.study_result_extra,
+                                   font_pingfang_20px,
+                                   LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_line_space(objects.study_result_extra, 0,
+                                         LV_PART_MAIN | LV_STATE_DEFAULT);
+        if (objects.study_result_btn != NULL) {
+            lv_label_set_text(lv_obj_get_child(objects.study_result_btn, 0), "确认");
+        }
+    } else {
+        lv_image_set_src(objects.study_result_icon, "/lvgl/images/hint_light_fail.bin");
+        lv_label_set_text(objects.study_result_title, "坐姿打卡失败");
+        lv_label_set_text(objects.study_result_subtitle, "合格时长不足20分钟");
+        lv_label_set_text(objects.study_result_extra, "再坚持一下就能打卡啦");
+        lv_obj_set_style_text_color(objects.study_result_extra,
+                                    lv_color_hex(UI_COLOR_ORANGE),
+                                    LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(objects.study_result_extra,
+                                   font_pingfang_16px,
+                                   LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_line_space(objects.study_result_extra, 2,
+                                         LV_PART_MAIN | LV_STATE_DEFAULT);
+        if (objects.study_result_btn != NULL) {
+            lv_label_set_text(lv_obj_get_child(objects.study_result_btn, 0), "知道了");
+        }
+    }
+
+    study_result_layout_refresh();
+    goto_page_by_id(SCREEN_ID_PAGE_STUDY_RESULT);
 }
 
 void scr_study_entry_btn_set_visible(bool visible)
@@ -1257,8 +1327,10 @@ void create_screen_page_study() {
             lv_obj_t *label = lv_label_create(parent_obj);
             objects.study_count = label;
             lv_label_set_text(label, "20");
+            lv_obj_set_width(label, UI_STUDY_ARC_SIZE);
             lv_obj_set_style_text_color(label, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_font(label, font_misans_40px, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_align_to(label, objects.study_arc, LV_ALIGN_CENTER, 0, 0);
         }
         {
@@ -1373,6 +1445,63 @@ void create_screen_page_study_light_hint() {
 void tick_screen_page_study_light_hint() {
 }
 
+void create_screen_page_study_result() {
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.page_study_result = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 240, 240);
+    lv_obj_add_event_cb(obj, event_all_handler, LV_EVENT_ALL, (void *)0);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    {
+        lv_obj_t *icon = lv_image_create(obj);
+        objects.study_result_icon = icon;
+        lv_obj_align(icon, LV_ALIGN_TOP_MID, 0, UI_STUDY_RESULT_ICON_Y);
+        lv_image_set_src(icon, "/lvgl/images/hint_light_succ.bin");
+    }
+    {
+        lv_obj_t *title = lv_label_create(obj);
+        objects.study_result_title = title;
+        lv_label_set_text(title, "坐姿打卡成功");
+        lv_obj_set_style_text_color(title, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(title, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align_to(title, objects.study_result_icon,
+                        LV_ALIGN_OUT_BOTTOM_MID, 0, UI_STUDY_RESULT_ICON_TITLE_GAP);
+    }
+    {
+        lv_obj_t *subtitle = lv_label_create(obj);
+        objects.study_result_subtitle = subtitle;
+        lv_obj_set_width(subtitle, 200);
+        lv_label_set_text(subtitle, "累计合格20分钟");
+        lv_obj_set_style_text_color(subtitle, lv_color_hex(UI_COLOR_GREY), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(subtitle, font_pingfang_16px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_align(subtitle, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align_to(subtitle, objects.study_result_title,
+                        LV_ALIGN_OUT_BOTTOM_MID, 0, UI_STUDY_RESULT_TEXT_GAP);
+    }
+    {
+        lv_obj_t *extra = lv_label_create(obj);
+        objects.study_result_extra = extra;
+        lv_obj_set_width(extra, 200);
+        lv_label_set_text(extra, "+10分");
+        lv_obj_set_style_text_color(extra, lv_color_hex(UI_COLOR_ORANGE), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(extra, font_pingfang_20px, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_align(extra, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_align_to(extra, objects.study_result_subtitle,
+                        LV_ALIGN_OUT_BOTTOM_MID, 0, UI_STUDY_RESULT_TEXT_GAP);
+    }
+    {
+        objects.study_result_btn = ui_create_study_pill_btn(obj,
+            0, 0, UI_STUDY_RESULT_BTN_W, UI_STUDY_RESULT_BTN_H,
+            UI_COLOR_ORANGE, 0xff000000, "确认", action_study_result_confirm_click);
+        lv_obj_align(objects.study_result_btn, LV_ALIGN_BOTTOM_MID, 0, -UI_STUDY_RESULT_BTN_BOTTOM_PAD);
+    }
+
+    tick_screen_page_study_result();
+}
+
+void tick_screen_page_study_result() {
+}
+
 void tick_screen_page_study() {
     if (get_current_screen() != SCREEN_ID_PAGE_STUDY) {
         return;
@@ -1388,12 +1517,16 @@ void tick_screen_page_study() {
     s_study_last_tick = qm_now_ms();
 
     if (s_study_remaining == 0) {
-        s_study_state = STUDY_STATE_IDLE;
         return;
     }
 
     s_study_remaining--;
     study_ui_update_countdown();
+
+    if (s_study_remaining == 0) {
+        s_study_state = STUDY_STATE_IDLE;
+        scr_study_show_result(true);
+    }
 }
 
 #define UI_SETTINGS_TITLE_Y     30
@@ -2785,6 +2918,7 @@ tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_page_settings_net,
     tick_screen_page_study_light_hint,
     tick_screen_page_study_light_detect,
+    tick_screen_page_study_result,
 };
 void tick_screen(int screen_index) {
     tick_screen_funcs[screen_index]();
@@ -2846,6 +2980,7 @@ void create_screens() {
     create_screen_page_settings_net();
     create_screen_page_study_light_hint();
     create_screen_page_study_light_detect();
+    create_screen_page_study_result();
 
     ui_update_page_indicator(0);
 

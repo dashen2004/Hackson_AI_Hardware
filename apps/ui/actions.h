@@ -38,6 +38,7 @@ extern void action_eye_opt_click(lv_event_t * e);
 extern void action_eye_stop_click(lv_event_t * e);
 extern void action_study_pause_click(lv_event_t * e);
 extern void action_study_skip_click(lv_event_t * e);
+extern void action_study_result_confirm_click(lv_event_t * e);
 
 extern void action_open_eye_click(lv_event_t * e);
 extern void action_open_pomodoro_click(lv_event_t * e);

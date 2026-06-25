@@ -1,8 +1,8 @@
 {
   "navigation": {
-    "selectedUserPageObject": "[ct_eye_round_lcd.eez-project]:/userPages/1",
-    "selectedFontObject": "[ct_eye_round_lcd.eez-project]:/fonts/10",
-    "selectedBitmapObject": "[ct_eye_round_lcd.eez-project]:/bitmaps/52",
+    "selectedUserPageObject": "[ct_eye_round_lcd.eez-project]:/userPages/2",
+    "selectedFontObject": "[ct_eye_round_lcd.eez-project]:/fonts/11",
+    "selectedBitmapObject": "[ct_eye_round_lcd.eez-project]:/bitmaps/55",
     "subnavigationSelectedItems": {
       "variables-tab/sub-navigation/selected-item": "Global"
     }
@@ -73,7 +73,7 @@
           },
           {
             "type": "border",
-            "selected": 1,
+            "selected": 0,
             "location": "bottom",
             "children": [
               {
@@ -168,8 +168,7 @@
                       "enableClose": false,
                       "icon": "svg:hierarchy"
                     }
-                  ],
-                  "active": true
+                  ]
                 },
                 {
                   "type": "tabset",
@@ -193,7 +192,7 @@
               "type": "tabset",
               "id": "EDITORS",
               "weight": 49.552078321304464,
-              "selected": 5,
+              "selected": 1,
               "enableDeleteWhenEmpty": false,
               "enableClose": false,
               "children": [
@@ -214,7 +213,7 @@
                   "name": "pingfang_sc_regular_16px",
                   "component": "editor",
                   "config": {
-                    "objectPath": "[ct_eye_round_lcd.eez-project]:/fonts/10",
+                    "objectPath": "[ct_eye_round_lcd.eez-project]:/fonts/11",
                     "permanent": false
                   },
                   "icon": "material:font_download"
@@ -264,7 +263,8 @@
                   },
                   "icon": "svg:page"
                 }
-              ]
+              ],
+              "active": true
             },
             {
               "type": "row",
@@ -648,8 +648,7 @@
                   "component": "glyphs",
                   "enableClose": false
                 }
-              ],
-              "active": true
+              ]
             },
             {
               "type": "tabset",
@@ -665,7 +664,8 @@
                   "component": "editor",
                   "enableClose": false
                 }
-              ]
+              ],
+              "active": true
             }
           ]
         }
@@ -1055,11 +1055,7 @@
     "[ct_eye_round_lcd.eez-project]:/userPages/1[flow-state]": {
       "selection": {
         "0": {
-          "0": {},
-          "4": {},
-          "6": {
-            "$selected": true
-          }
+          "0": {}
         }
       },
       "transform": {
@@ -1080,16 +1076,13 @@
       "selection": {
         "0": {
           "0": {
-            "0": {
-              "$selected": true
-            },
+            "0": {},
             "1": {}
           },
           "1": {
             "0": {},
             "1": {},
-            "2": {},
-            "3": {}
+            "2": {}
           }
         }
       },
@@ -1111,11 +1104,7 @@
       "selection": {
         "0": {
           "1": {
-            "2": {
-              "0": {
-                "$selected": true
-              }
-            }
+            "2": {}
           },
           "2": {
             "0": {}
@@ -1139,11 +1128,7 @@
     "[ct_eye_round_lcd.eez-project]:/userPages/4[flow-state]": {
       "selection": {
         "0": {
-          "0": {
-            "0": {},
-            "2": {},
-            "3": {}
-          },
+          "0": {},
           "1": {}
         }
       },
@@ -1167,6 +1152,22 @@
           "0": {}
         }
       },
+      "transform": {
+        "translate": {
+          "x": -120,
+          "y": -120
+        },
+        "scale": 1.5
+      },
+      "timeline": {
+        "isEditorActive": false,
+        "position": 0,
+        "secondToPx": 200,
+        "scrollLeft": 0
+      }
+    },
+    "[ct_eye_round_lcd.eez-project]:/userPages/6[flow-state]": {
+      "selection": {},
       "transform": {
         "translate": {
           "x": -120,
