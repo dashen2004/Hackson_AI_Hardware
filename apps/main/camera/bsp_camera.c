@@ -42,6 +42,7 @@
 #define CAM_UPLOAD_STACK        (8 * 1024)
 #define CAM_DQBUF_TIMEOUT_MS    10000
 #define CAM_DQBUF_POLL_MS       20
+#define CAM_CAPTURE_FLUSH_FRAMES 4
 
 typedef struct {
     uint8_t *data;
@@ -100,6 +101,17 @@ static void cam_upload_task(void *arg)
     qm_err_t qret;
 
     if (job->run_pose) {
+        uint8_t *rotated_jpg = NULL;
+        size_t rotated_len = 0;
+        esp_err_t rotate_ret = yolo11_pose_rotate_jpg_cw90(job->data, job->len, &rotated_jpg, &rotated_len);
+        if (rotate_ret == ESP_OK) {
+            free(job->data);
+            job->data = rotated_jpg;
+            job->len = (uint32_t)rotated_len;
+        } else {
+            ESP_LOGW(LOG_TAG, "rotate jpg failed, key=%s ret=%s", job->object_key, esp_err_to_name(rotate_ret));
+        }
+
         esp_err_t pose_ret = yolo11_pose_run_jpg_named(job->data, job->len, job->object_key);
         if (pose_ret != ESP_OK) {
             ESP_LOGW(LOG_TAG, "pose run failed, key=%s ret=%s", job->object_key, esp_err_to_name(pose_ret));
@@ -330,6 +342,31 @@ static void cam_queue_frame(struct v4l2_buffer *buf)
     }
 }
 
+static void cam_flush_old_frames(void)
+{
+    struct v4l2_buffer flush_buf;
+    int flushed = 0;
+
+    for (int i = 0; i < CAM_CAPTURE_FLUSH_FRAMES; i++) {
+        esp_err_t ret = cam_dequeue_frame(&flush_buf);
+        if (ret == ESP_OK) {
+            cam_queue_frame(&flush_buf);
+            flushed++;
+            continue;
+        }
+
+        if (ret == ESP_ERR_TIMEOUT) {
+            vTaskDelay(pdMS_TO_TICKS(CAM_DQBUF_POLL_MS));
+            continue;
+        }
+
+        ESP_LOGW(LOG_TAG, "flush old frame failed: %s", esp_err_to_name(ret));
+        break;
+    }
+
+    ESP_LOGI(LOG_TAG, "capture flush old frames=%d", flushed);
+}
+
 static void cam_log_y_stats(const uint8_t *buf, uint32_t len)
 {
     uint32_t min_y = 255;
@@ -453,6 +490,7 @@ static void cam_stream_task(void *arg)
     TickType_t next_idle_log = xTaskGetTickCount() + pdMS_TO_TICKS(5000);
     TickType_t request_start = 0;
     bool request_logged = false;
+    bool request_flushed = false;
 
     (void)arg;
 
@@ -462,6 +500,7 @@ static void cam_stream_task(void *arg)
             if (!request_logged) {
                 ESP_LOGI(LOG_TAG, "capture dequeue frame begin");
                 request_logged = true;
+                request_flushed = false;
                 request_start = xTaskGetTickCount();
             }
             if (cam_open_stream() != ESP_OK) {
@@ -470,8 +509,13 @@ static void cam_stream_task(void *arg)
                 s_upload_run_pose = false;
                 s_capture_busy = false;
                 request_logged = false;
+                request_flushed = false;
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 continue;
+            }
+            if (!request_flushed) {
+                cam_flush_old_frames();
+                request_flushed = true;
             }
         } else {
             TickType_t now = xTaskGetTickCount();
@@ -492,6 +536,7 @@ static void cam_stream_task(void *arg)
                 s_upload_run_pose = false;
                 s_capture_busy = false;
                 request_logged = false;
+                request_flushed = false;
             }
             vTaskDelay(pdMS_TO_TICKS(CAM_DQBUF_POLL_MS));
             continue;
@@ -503,6 +548,7 @@ static void cam_stream_task(void *arg)
             s_upload_run_pose = false;
             s_capture_busy = false;
             request_logged = false;
+            request_flushed = false;
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
@@ -512,6 +558,7 @@ static void cam_stream_task(void *arg)
         } else {
             s_upload_requested = false;
             request_logged = false;
+            request_flushed = false;
             ESP_LOGI(LOG_TAG, "capture got frame, index=%u bytesused=%u",
                      (unsigned)buf.index, (unsigned)buf.bytesused);
             if (cam_encode_upload_frame(&buf, s_upload_object_key, s_upload_run_pose) != QM_EOK) {

@@ -10,6 +10,10 @@ extern "C" {
 #endif
 
 esp_err_t yolo11_pose_init(void);
+esp_err_t yolo11_pose_rotate_jpg_cw90(const uint8_t *jpg_data,
+                                      size_t jpg_len,
+                                      uint8_t **out_jpg,
+                                      size_t *out_len);
 esp_err_t yolo11_pose_run_jpg_named(const uint8_t *jpg_data, size_t jpg_len, const char *image_name);
 
 #ifdef __cplusplus
