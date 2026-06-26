@@ -1,6 +1,7 @@
 #include "bsp_camera.h"
 #include "bsp_oss_upload.h"
 #include "example_video_common.h"
+#include "yolo11_pose.h"
 
 #include "ai_main.h"
 
@@ -38,7 +39,7 @@
 
 #define CAM_BUF_NUM             CONFIG_EXAMPLE_CAMERA_VIDEO_BUFFER_NUMBER
 #define CAM_CAPTURE_STACK       (6 * 1024)
-#define CAM_UPLOAD_STACK        (5 * 1024)
+#define CAM_UPLOAD_STACK        (8 * 1024)
 #define CAM_DQBUF_TIMEOUT_MS    10000
 #define CAM_DQBUF_POLL_MS       20
 
@@ -46,6 +47,7 @@ typedef struct {
     uint8_t *data;
     uint32_t len;
     char object_key[32];
+    bool run_pose;
 } cam_upload_job_t;
 
 extern BaseType_t qm_task_create_psram(TaskFunction_t fn,
@@ -78,11 +80,13 @@ static bool s_video_ready;
 static bool s_camera_available;
 static volatile bool s_capture_busy;
 static volatile bool s_upload_requested;
+static volatile bool s_upload_run_pose;
 static char s_upload_object_key[32];
 static TaskHandle_t s_camera_task;
 
 static bool cam_ui_lock(void);
 static void cam_ui_unlock(bool locked);
+static void bsp_camera_capture_upload_named_internal(const char *object_key, bool run_pose);
 
 static uint32_t cam_stack_bytes_to_words(uint32_t stack_bytes)
 {
@@ -94,6 +98,13 @@ static void cam_upload_task(void *arg)
     cam_upload_job_t *job = (cam_upload_job_t *)arg;
     bool ui_locked = false;
     qm_err_t qret;
+
+    if (job->run_pose) {
+        esp_err_t pose_ret = yolo11_pose_run_jpg_named(job->data, job->len, job->object_key);
+        if (pose_ret != ESP_OK) {
+            ESP_LOGW(LOG_TAG, "pose run failed, key=%s ret=%s", job->object_key, esp_err_to_name(pose_ret));
+        }
+    }
 
     ui_locked = cam_ui_lock();
     ESP_LOGI(LOG_TAG, "OSS upload begin, key=%s", job->object_key);
@@ -357,7 +368,7 @@ static void cam_log_y_stats(const uint8_t *buf, uint32_t len)
              (unsigned)count);
 }
 
-static qm_err_t cam_encode_upload_frame(struct v4l2_buffer *buf, const char *object_key)
+static qm_err_t cam_encode_upload_frame(struct v4l2_buffer *buf, const char *object_key, bool run_pose)
 {
     uint8_t *jpg = NULL;
     uint8_t *upload_buf = NULL;
@@ -417,6 +428,7 @@ static qm_err_t cam_encode_upload_frame(struct v4l2_buffer *buf, const char *obj
 
     job->data = upload_buf;
     job->len = jpg_len;
+    job->run_pose = run_pose;
     if (object_key != NULL && object_key[0] != '\0') {
         qm_snprintf(job->object_key, sizeof(job->object_key), "%s", object_key);
     } else {
@@ -455,6 +467,7 @@ static void cam_stream_task(void *arg)
             if (cam_open_stream() != ESP_OK) {
                 ESP_LOGE(LOG_TAG, "camera stream open failed");
                 s_upload_requested = false;
+                s_upload_run_pose = false;
                 s_capture_busy = false;
                 request_logged = false;
                 vTaskDelay(pdMS_TO_TICKS(1000));
@@ -476,6 +489,7 @@ static void cam_stream_task(void *arg)
             if (request_logged && (xTaskGetTickCount() - request_start) >= pdMS_TO_TICKS(CAM_DQBUF_TIMEOUT_MS)) {
                 ESP_LOGE(LOG_TAG, "capture wait frame timeout");
                 s_upload_requested = false;
+                s_upload_run_pose = false;
                 s_capture_busy = false;
                 request_logged = false;
             }
@@ -486,6 +500,7 @@ static void cam_stream_task(void *arg)
             ESP_LOGE(LOG_TAG, "camera dequeue failed");
             cam_close_stream();
             s_upload_requested = false;
+            s_upload_run_pose = false;
             s_capture_busy = false;
             request_logged = false;
             vTaskDelay(pdMS_TO_TICKS(1000));
@@ -499,9 +514,10 @@ static void cam_stream_task(void *arg)
             request_logged = false;
             ESP_LOGI(LOG_TAG, "capture got frame, index=%u bytesused=%u",
                      (unsigned)buf.index, (unsigned)buf.bytesused);
-            if (cam_encode_upload_frame(&buf, s_upload_object_key) != QM_EOK) {
+            if (cam_encode_upload_frame(&buf, s_upload_object_key, s_upload_run_pose) != QM_EOK) {
                 s_capture_busy = false;
             }
+            s_upload_run_pose = false;
         }
     }
 }
@@ -557,6 +573,16 @@ void bsp_camera_capture_upload(void)
 
 void bsp_camera_capture_upload_named(const char *object_key)
 {
+    bsp_camera_capture_upload_named_internal(object_key, false);
+}
+
+void bsp_camera_capture_upload_named_with_pose(const char *object_key)
+{
+    bsp_camera_capture_upload_named_internal(object_key, true);
+}
+
+static void bsp_camera_capture_upload_named_internal(const char *object_key, bool run_pose)
+{
     if (!s_camera_available) {
         ESP_LOGW(LOG_TAG, "camera not available");
         return;
@@ -574,13 +600,15 @@ void bsp_camera_capture_upload_named(const char *object_key)
     }
 
     s_capture_busy = true;
+    s_upload_run_pose = run_pose;
     s_upload_requested = true;
     if (s_camera_task == NULL) {
         s_capture_busy = false;
+        s_upload_run_pose = false;
         s_upload_requested = false;
         ESP_LOGE(LOG_TAG, "camera stream task not running");
     } else {
-        ESP_LOGI(LOG_TAG, "capture upload requested, key=%s", s_upload_object_key);
+        ESP_LOGI(LOG_TAG, "capture upload requested, key=%s pose=%d", s_upload_object_key, run_pose ? 1 : 0);
     }
 }
 

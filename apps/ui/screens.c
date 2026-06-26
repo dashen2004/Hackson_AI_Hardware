@@ -1217,10 +1217,10 @@ static void scr_study_capture_tick(void)
 
     s_study_capture_last_ms = qm_now_ms();
     s_study_capture_seq++;
-    qm_snprintf(name, sizeof(name), "%u", (unsigned)s_study_capture_seq);
+    qm_snprintf(name, sizeof(name), "%03u.jpg", (unsigned)s_study_capture_seq);
     ESP_LOGI(LOG_TAG, "study capture #%u trigger, name=%s avail=%d",
              (unsigned)s_study_capture_seq, name, bsp_camera_is_available() ? 1 : 0);
-    bsp_camera_capture_upload_named(name);
+    bsp_camera_capture_upload_named_with_pose(name);
 }
 
 void scr_study_session_pause_toggle(void)

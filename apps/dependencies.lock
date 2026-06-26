@@ -9,6 +9,15 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.0.3
+  coco_pose:
+    dependencies:
+    - name: espressif/esp-dl
+      override_path: ../esp-dl
+      version: ~3.2.0
+    source:
+      path: /home/micro/esp32_combo/apps/component/coco_pose
+      type: local
+    version: 0.3.0
   esp_lcd_st77912:
     dependencies:
     - name: espressif/cmake_utilities
@@ -29,15 +38,42 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 0.5.3
-  espressif/esp-dsp:
-    component_hash: ed9ac175b14e0414399a2b33c525579414b5bad19a2a67b12ea212def96f9a98
+  espressif/dl_fft:
     dependencies:
     - name: idf
-      require: private
+      version: '>=5.0'
+    source:
+      path: /home/micro/esp32_combo/apps/component/dl_fft
+      type: local
+    version: 0.3.1
+  espressif/esp-dl:
+    dependencies:
+    - name: idf
+      version: '>=5.3'
+    - name: espressif/esp_new_jpeg
+      override_path: ../../managed_components/espressif__esp_new_jpeg
+      version: '>=0.6.1'
+    - name: espressif/dl_fft
+      override_path: ../dl_fft
+      version: '>=0.3.1'
+    - name: espressif/esp-dsp
+      override_path: ../../managed_components/espressif__esp-dsp
+      version: '>=1.7.0'
+    source:
+      path: /home/micro/esp32_combo/apps/component/esp-dl
+      type: local
+    targets:
+    - esp32
+    - esp32s3
+    - esp32p4
+    version: 3.2.4
+  espressif/esp-dsp:
+    dependencies:
+    - name: idf
       version: '>=4.2'
     source:
-      registry_url: https://components.espressif.com/
-      type: service
+      path: /home/micro/esp32_combo/apps/managed_components/espressif__esp-dsp
+      type: local
     version: 1.8.2
   espressif/esp_cam_sensor:
     component_hash: 0a2775d95fae99449bb4c044feab6d887e9db309602fad8df6c3fc58bc6e1b6d
@@ -297,6 +333,14 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 9.2.2
+  yolo11_pose:
+    dependencies:
+    - name: coco_pose
+      path: ../coco_pose
+    source:
+      path: /home/micro/esp32_combo/apps/component/yolo11_pose
+      type: local
+    version: '*'
 direct_dependencies:
 - chmorgan/esp-libhelix-mp3
 - esp_lcd_st77912
@@ -311,6 +355,7 @@ direct_dependencies:
 - idf
 - iot_usbh_modem
 - lvgl/lvgl
-manifest_hash: 976c9da3418d0afb2ce09e6e860d443bf06462a68b06faff07f2fc682535c39d
+- yolo11_pose
+manifest_hash: 4d0e9af247d7f3e0b0dd1814855ac61df8fd80ae414d3bb8b572c49369c11ea6
 target: esp32s3
 version: 2.0.0

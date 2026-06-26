@@ -31,3 +31,5 @@ dependencies:
   esp_video: {}
   example_video_common:
     path: ../component/example_video_common
+  yolo11_pose:
+    path: ../component/yolo11_pose

@@ -1,0 +1,3 @@
+dependencies:
+  coco_pose:
+    path: ../coco_pose

@@ -21,6 +21,7 @@
 #define KEY_LIC_KEY         "lic_key"
 
 #define LICENSE_RETRY_DELAY_MS  (5 * 1000)
+#define LICENSE_RETRY_MAX       5
 
 typedef struct {
     // Credentials
@@ -363,6 +364,11 @@ static void license_retry_work_handler(void *arg)
     (void)arg;
 
     if (!g_ctx.is_inited || license_is_ready()) {
+        return;
+    }
+
+    if (g_ctx.retry_count >= LICENSE_RETRY_MAX) {
+        QM_LOGW(LOG_TAG, "license request retry %u times, stop", (unsigned int)g_ctx.retry_count);
         return;
     }
 

@@ -17,6 +17,7 @@ qm_err_t bsp_camera_stream_start(void);
 bool bsp_camera_is_available(void);
 void bsp_camera_capture_upload(void);
 void bsp_camera_capture_upload_named(const char *object_key);
+void bsp_camera_capture_upload_named_with_pose(const char *object_key);
 bool bsp_camera_capture_busy(void);
 
 #ifdef __cplusplus

@@ -2,6 +2,7 @@
 #include "qm.h"
 #include "qm_kv.h"
 
+#include "esp_err.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "qm_iot_api.h"
@@ -23,6 +24,7 @@
 #include "bsp_camera.h"
 #include "app_lvgl.h"
 #include "xjiang_cloud.h"
+#include "yolo11_pose.h"
 
 #include "alarm_manager.h"
 #include "qm_mem_log.h"
@@ -148,6 +150,12 @@ void qm_application_start(void)
     app_lvgl_init();
     qm_mem_log_print("app_lvgl");
 #endif
+
+    esp_err_t pose_ret = yolo11_pose_init();
+    if (pose_ret != ESP_OK) {
+        ESP_LOGW(LOG_TAG, "yolo11_pose_init failed: %s", esp_err_to_name(pose_ret));
+    }
+    qm_mem_log_print("yolo11_pose");
 }
 
 int qm_set_reset_flag(void)
