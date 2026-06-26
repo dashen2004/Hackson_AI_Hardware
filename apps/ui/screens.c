@@ -471,6 +471,9 @@ void create_screen_page_apps2() {
         objects.btn_study_entry = btn;
         lv_obj_set_pos(btn, APP_GRID_X0, APP_ROW2_Y);
         lv_obj_set_size(btn, APP_ICON_W, APP_ICON_W + 20);
+        lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_remove_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(btn, LV_OBJ_FLAG_EVENT_BUBBLE);
         lv_obj_add_event_cb(btn, action_open_study_click, LV_EVENT_CLICKED, NULL);
         lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -771,7 +774,7 @@ static study_detect_result_t s_light_detect_result = STUDY_DETECT_RESULT_NONE;
 static uint32_t s_light_detect_start_ms = 0;
 static uint32_t s_light_detect_last_sample_ms = 0;
 static uint32_t s_light_detect_result_ms = 0;
-static float s_light_window_sum = 0;
+static float s_light_window_buf[STUDY_LIGHT_DETECT_WINDOW_SEC];
 static uint8_t s_light_window_samples = 0;
 static light_window_result_t s_pair_results[STUDY_LIGHT_DETECT_PAIR_WINDOWS];
 static uint8_t s_pair_result_idx = 0;
@@ -981,7 +984,6 @@ static void study_light_detect_enter_study(void)
 
 static void study_light_detect_window_reset(void)
 {
-    s_light_window_sum = 0;
     s_light_window_samples = 0;
 }
 
@@ -1052,8 +1054,29 @@ static void study_light_detect_do_settlement(void)
     uint8_t samples = s_light_window_samples;
     light_window_result_t result;
 
-    if (samples > 0) {
-        avg = s_light_window_sum / samples;
+    if (samples >= 3) {
+        float min_val = s_light_window_buf[0];
+        float max_val = s_light_window_buf[0];
+        float sum = 0;
+        for (uint8_t i = 0; i < samples; i++) {
+            float val = s_light_window_buf[i];
+            if (val < min_val) {
+                min_val = val;
+            }
+            if (val > max_val) {
+                max_val = val;
+            }
+            sum += val;
+        }
+        sum -= min_val;
+        sum -= max_val;
+        avg = sum / (samples - 2);
+    } else if (samples > 0) {
+        float sum = 0;
+        for (uint8_t i = 0; i < samples; i++) {
+            sum += s_light_window_buf[i];
+        }
+        avg = sum / samples;
     }
 
     result = study_light_window_classify(avg, samples);
@@ -1117,7 +1140,7 @@ void tick_study_light_detect(void)
 
     float lux = 0;
     if (bsp_sensor_light_read(&lux) == QM_EOK) {
-        s_light_window_sum += lux;
+        s_light_window_buf[s_light_window_samples] = lux;
         s_light_window_samples++;
         ESP_LOGI(LOG_TAG, "light sample w=%u/%u lux=%.1f",
                  s_light_window_samples, STUDY_LIGHT_DETECT_WINDOW_SEC, lux);
@@ -1187,13 +1210,16 @@ static void scr_study_capture_tick(void)
     }
 
     if (bsp_camera_capture_busy()) {
+        ESP_LOGI(LOG_TAG, "study capture #%u skipped, camera busy",
+                 (unsigned)(s_study_capture_seq + 1));
         return;
     }
 
     s_study_capture_last_ms = qm_now_ms();
     s_study_capture_seq++;
     qm_snprintf(name, sizeof(name), "%u", (unsigned)s_study_capture_seq);
-    ESP_LOGI(LOG_TAG, "study capture #%u", (unsigned)s_study_capture_seq);
+    ESP_LOGI(LOG_TAG, "study capture #%u trigger, name=%s avail=%d",
+             (unsigned)s_study_capture_seq, name, bsp_camera_is_available() ? 1 : 0);
     bsp_camera_capture_upload_named(name);
 }
 

@@ -49,7 +49,7 @@ static lvgl_port_ctx_t lvgl_port_ctx;
 static void lvgl_port_task(void *arg);
 
 #if CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
-#define LVGL_PORT_TASK_STACK_CAPS   (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+#define LVGL_PORT_TASK_STACK_CAPS   (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
 static bool s_lvgl_task_ext_stack;
 #endif
 
@@ -128,7 +128,7 @@ esp_err_t lvgl_port_init(const lvgl_port_cfg_t *cfg)
     BaseType_t res = lvgl_port_task_create(cfg);
     ESP_GOTO_ON_FALSE(res == pdPASS, ESP_FAIL, err, TAG, "Create LVGL task fail!");
 #if CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM
-    ESP_LOGI(TAG, "taskLVGL stack in PSRAM, depth=%d words", cfg->task_stack);
+    ESP_LOGI(TAG, "taskLVGL stack in internal RAM, depth=%d words", cfg->task_stack);
 #endif
 
     // Wait until taskLVGL starts

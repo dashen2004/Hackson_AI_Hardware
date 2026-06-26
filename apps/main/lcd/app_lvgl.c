@@ -123,9 +123,9 @@ void app_lvgl_init(void)
     qm_mem_log_print("lvgl_port");
 
     TaskHandle_t lvgl_th = NULL;
-    if (qm_task_create_psram_to_core(lvgl_task, "lvgl_task",
-                                     qm_task_stack_bytes_to_words(LVGL_TASK_STACK_BYTES),
-                                     &app_lvgl_handle, 4, 1, &lvgl_th) != pdPASS) {
+    if (xTaskCreatePinnedToCore(lvgl_task, "lvgl_task",
+                                qm_task_stack_bytes_to_words(LVGL_TASK_STACK_BYTES),
+                                &app_lvgl_handle, 4, &lvgl_th, 1) != pdPASS) {
         ESP_LOGE(LOG_TAG, "lvgl_task create failed");
         qm_mem_log_print("lvgl_task_fail");
         return;

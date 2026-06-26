@@ -6,7 +6,7 @@ set(COMPONENT_SRCS
     "./main.c"
     "./ai_main.c"
 
-    "./nw_switch/qm_nw_switch.c"
+    # "./nw_switch/qm_nw_switch.c"
 
     "./bsp/src/bsp_i2c.c"
 
@@ -191,7 +191,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "."
     "./qm_config"
 
-    "./nw_switch"
+    # "./nw_switch"
 
     "./bsp/inc"
 
@@ -200,7 +200,6 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./oss"
     "./lcd"
     "./cloud"
-    "./audio"
     "./sensor"
     "./alarm"
 

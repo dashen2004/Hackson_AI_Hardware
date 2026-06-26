@@ -26,11 +26,13 @@
 
 #include "qm_ai_api.h"
 
-#include "qm_nw_switch.h"
 #include "bsp_oss_upload.h"
 #include "bsp_camera.h"
 #include "actions.h"
 #include "qm_mem_log.h"
+#include "ui.h"
+#include "screens.h"
+#include "app_lvgl.h"
 
 #define LOG_TAG "APP"
 #define WEATHER_REQ_TIMEOUT_MS      (15 * 1000)
@@ -215,7 +217,7 @@ static void delay_set_blink(void *argv) {
 
 static void switch_net_type(void *arg)
 {
-    qm_nw_switch_4g();
+    // qm_nw_switch_4g();
 }
 
 static void oss_upload_action_handler(void *arg)
@@ -318,9 +320,9 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
                 ota_status_flag = 0;
                 // set_var_ota_status(2, true);
             }
-            if (qm_nw_get_net_type() == QM_IOT_NET_TYPE_WIFI_COMBO) {
-                qm_post_delayed_action(&wifi_disconn_action, switch_net_type, NULL, 10 * 1000);
-            }
+            // if (qm_nw_get_net_type() == QM_IOT_NET_TYPE_WIFI_COMBO) {
+            //     qm_post_delayed_action(&wifi_disconn_action, switch_net_type, NULL, 10 * 1000);
+            // }
             break;
 
         case QM_IOT_EVENT_LOCAL_CONN:
@@ -420,8 +422,23 @@ static void qm_iot_recv_handler(void *handle, const qm_iot_recv_t *recv, void *u
         
         case QM_IOT_RECV_TYPE_PROPERTY_SET:
             QM_LOGD(LOG_TAG, "app recv prop set did %d siid %d piid %d!!!", recv->did, recv->siid, recv->piid);
-            // audio_light_action_and_report(recv->data.set.property);
-            bsp_nw_cmd_action(recv->data.set.property);
+            
+            if (recv->siid == 8 && recv->piid == 1) {
+                int value = 0;
+                qm_spec_property_unpack_number(recv->data.set.property, &value);
+
+                if (value == 1) {
+                    QM_LOGD(LOG_TAG, "cloud trigger light detect");
+                    scr_study_light_detect_start();
+                    goto_page_by_id(SCREEN_ID_PAGE_STUDY_LIGHT_DETECT);
+                } else if (value == 2) {
+                    QM_LOGD(LOG_TAG, "cloud trigger study skip, cur_screen=%d", get_current_screen());
+                    if (get_current_screen() == SCREEN_ID_PAGE_STUDY) {
+                        scr_study_session_skip();
+                        app_lvgl_turnoff_reset(1);
+                    }
+                }
+            }
         break;
 
         case QM_IOT_RECV_TYPE_PROPERTY_GET_RSP:
@@ -502,7 +519,7 @@ int xjiang_cloud_init(void)
     qm_iot_setopt(iot_handle, QM_IOT_OPT_PRODUCT_SECRET, CONFIG_XJIANG_CLOUD_SECERT);
     qm_iot_setopt(iot_handle, QM_IOT_OPT_RECV_HANDLER, qm_iot_recv_handler);
     qm_iot_setopt(iot_handle, QM_IOT_OPT_EVENT_HANDLER, qm_iot_event_handler);
-    qm_nw_switch_init(iot_handle);
+    // qm_nw_switch_init(iot_handle);
 
     {
         int ret = qm_iot_start(iot_handle);
