@@ -99,12 +99,12 @@ qm_err_t bsp_bat_init(void)
     qm_gpio_init(&audio_enable_io);
     qm_gpio_set_level(&audio_enable_io, QM_TRUE);
 
-    qm_gpio_init(&nt26_enable_io);
+    // qm_gpio_init(&nt26_enable_io);
     
     qm_gpio_init(&nt26_rst_io);
     qm_gpio_set_level(&nt26_rst_io, QM_TRUE);
 
-    bsp_bat_enable_4g();
+    // bsp_bat_enable_4g();
 
     return QM_EOK;
 }
