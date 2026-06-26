@@ -20,6 +20,8 @@
 #define KEY_LIC_TOKEN       "lic_token"
 #define KEY_LIC_KEY         "lic_key"
 
+#define LICENSE_RETRY_DELAY_MS  (5 * 1000)
+
 typedef struct {
     // Credentials
     int uid;
@@ -44,6 +46,8 @@ typedef struct {
 
     // Config & Context
     qm_ai_license_config_t config;
+    qm_work_t retry_work;
+    uint32_t retry_count;
 
 } license_context_t;
 
@@ -51,6 +55,7 @@ static license_context_t g_ctx = {0};
 
 static void license_send_request_iot(void);
 static void license_register_service_iot(void);
+static void license_retry_work_handler(void *arg);
 
 static void free_if_not_null(char **ptr) 
 {
@@ -69,6 +74,22 @@ static bool license_is_ready(void)
     }
 
     return true;
+}
+
+static void license_stop_retry(void)
+{
+    qm_cancel_delayed_action(&g_ctx.retry_work);
+    g_ctx.retry_count = 0;
+}
+
+static void license_schedule_retry(void)
+{
+    if (!g_ctx.is_inited || license_is_ready()) {
+        return;
+    }
+
+    qm_cancel_delayed_action(&g_ctx.retry_work);
+    qm_post_delayed_action(&g_ctx.retry_work, license_retry_work_handler, NULL, LICENSE_RETRY_DELAY_MS);
 }
 
 static int license_get_config(qm_ai_rtc_auth_config_t *config_out) 
@@ -110,6 +131,8 @@ static cJSON *license_convert_to_json(void)
 
 static void license_post_ready_event(void)
 {
+    license_stop_retry();
+
     cJSON *json = license_convert_to_json();
     if (json) {
         char *json_str = cJSON_PrintUnformatted(json);
@@ -302,6 +325,7 @@ int32_t qm_ai_license_start(void)
         license_post_ready_event();
     } else {
         if (g_ctx.config.type == QM_LICENSE_RTC_QM_IOT) {
+            g_ctx.retry_count = 0;
             license_send_request_iot();
         } else if (g_ctx.config.type == QM_LICENSE_RTC_HTTP) {
             QM_LOGW(LOG_TAG, "Not supported now");
@@ -314,11 +338,14 @@ int32_t qm_ai_license_start(void)
 
 int32_t qm_ai_license_stop(void)
 {
+    license_stop_retry();
     return QM_EOK;
 }
 
 int32_t qm_ai_license_deinit(void) 
 {
+    license_stop_retry();
+
     free_if_not_null(&g_ctx.appid);
     free_if_not_null(&g_ctx.channel_name);
     free_if_not_null(&g_ctx.token);
@@ -329,6 +356,19 @@ int32_t qm_ai_license_deinit(void)
     
     memset(&g_ctx, 0, sizeof(license_context_t));
     return QM_EOK;
+}
+
+static void license_retry_work_handler(void *arg)
+{
+    (void)arg;
+
+    if (!g_ctx.is_inited || license_is_ready()) {
+        return;
+    }
+
+    g_ctx.retry_count++;
+    QM_LOGW(LOG_TAG, "license request timeout, retry %u", (unsigned int)g_ctx.retry_count);
+    license_send_request_iot();
 }
 
 // use iot to get license
@@ -352,6 +392,7 @@ static void license_send_request_iot(void)
     qm_spec_property_add(op, prop);
     
     qm_iot_property_get_request(g_ctx.config.transport_handle, op);
+    license_schedule_retry();
 }
 
 static void license_register_service_iot(void)
