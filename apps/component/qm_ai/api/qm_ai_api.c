@@ -651,6 +651,9 @@ static void ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
     {
         case AI_INNER_SUB_EVENT_ID_AGENT_JOINED:
             ai_corpus_request(handle, QM_AI_VOICE_CONTROL_PARAM_CORPUS_OPEN);
+
+            extern qm_err_t iot_func_req_pose_monitor(uint8_t value);
+            iot_func_req_pose_monitor(3);
         break;
 
         case AI_INNER_SUB_EVENT_ID_WAKE_UP:
@@ -658,9 +661,6 @@ static void ai_inner_event_callback(qm_input_event_t *input_event, void *arg)
                 ai_abort_request(handle, QM_AI_VOICE_CONTROL_PARAM_ABORT_WITH_WORD);
             } else {
                 qm_ai_start(handle);
-
-                extern qm_err_t iot_func_req_pose_monitor(uint8_t value);
-                iot_func_req_pose_monitor(5);
             }
         break;
 

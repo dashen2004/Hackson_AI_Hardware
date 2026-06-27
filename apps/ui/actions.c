@@ -726,7 +726,7 @@ void action_study_skip_click(lv_event_t * e)
 {
     if (UI_CLICK_OK(e)) {
         scr_study_session_skip();
-        iot_func_req_pose_monitor(4);
+        iot_func_req_pose_monitor(3);
         app_lvgl_turnoff_reset(1);
     }
 }
