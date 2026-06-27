@@ -27,7 +27,6 @@
 #include "qm_ai_api.h"
 
 #include "bsp_oss_upload.h"
-#include "bsp_camera.h"
 #include "actions.h"
 #include "qm_mem_log.h"
 #include "ui.h"
@@ -51,8 +50,6 @@ static qm_work_t set_disconnected_action = { 0 };
 static qm_work_t set_connected_action = { 0 };
 static qm_work_t set_blink_action = { 0 };
 static qm_work_t wifi_disconn_action = {0};
-static qm_work_t oss_upload_action = {0};
-static bool oss_upload_done = false;
 static uint8_t ota_status_flag = 0;
 static volatile bool_t weather_received = QM_FALSE;
 static volatile uint32_t weather_request_gen = 0;
@@ -183,9 +180,7 @@ static void weather_timeout_timer_handler(qm_timer_t *timer, void *arg)
 
     if (backoff_ctx.attempts_num == 5) {
         QM_LOGD(LOG_TAG, "weather request retry 5 times!");
-#if !APP_HEADLESS_CAMERA_OSS
         lvgl_var_weather_id_set(-1);
-#endif
     }
 
     backoff_status = backoff_algorithm_get_next_delay(&backoff_ctx, &next_backoff);
@@ -218,19 +213,6 @@ static void delay_set_blink(void *argv) {
 static void switch_net_type(void *arg)
 {
     // qm_nw_switch_4g();
-}
-
-static void oss_upload_action_handler(void *arg)
-{
-    (void)arg;
-
-    if (oss_upload_done) {
-        return;
-    }
-
-    oss_upload_done = true;
-    ESP_LOGI(LOG_TAG, "cloud connected, trigger camera upload");
-    bsp_camera_capture_upload();
 }
 
 static void handle_sta_rssi(char *pwbuf, int blen, int argc, char **argv)
@@ -288,22 +270,13 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             extern void qm_example_ai_init(void *handle);
             qm_example_ai_init(iot_handle);
 
-#if !APP_HEADLESS_CAMERA_OSS
             weather_request_start();
 
             if (!qm_timer_is_valid(&weather_request_timer)) {
                 qm_timer_new(&weather_request_timer, weather_request_timer_handler, NULL, 60 * 60 * 1000, 1); // 1小时尝试更新一次
                 qm_timer_start(&weather_request_timer);
             }
-#endif
             qm_post_delayed_action(&set_connected_action, delay_set_connected, NULL, 0);
-
-#if APP_HEADLESS_CAMERA_OSS
-            if (!oss_upload_done) {
-                qm_cancel_delayed_action(&oss_upload_action);
-                qm_post_delayed_action(&oss_upload_action, oss_upload_action_handler, NULL, 5 * 1000);
-            }
-#endif
             break;
         case QM_IOT_EVENT_BIND_NOTIFY:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_BIND_NOTIFY");
@@ -312,11 +285,9 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
         case QM_IOT_EVENT_CLOUD_DISCONN:
             QM_LOGD(LOG_TAG, "QM_IOT_EVENT_CLOUD_DISCONN");
             connect = QM_FALSE;
-#if !APP_HEADLESS_CAMERA_OSS
             weather_received = QM_FALSE;
             weather_request_gen++;
             weather_request_cleanup();
-#endif
             qm_post_delayed_action(&set_blink_action, delay_set_blink, NULL, 0);
             if(ota_status_flag) {
                 ota_status_flag = 0;
@@ -372,11 +343,9 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
             QM_LOGD(LOG_TAG, "sunset:%.*s", event->data.weather_notify.sunset_len, event->data.weather_notify.sunset);
             QM_LOGD(LOG_TAG, "sunrise:%.*s", event->data.weather_notify.sunrise_len, event->data.weather_notify.sunrise);
 
-#if !APP_HEADLESS_CAMERA_OSS
             lvgl_var_city_set(event->data.weather_notify.secondaryname, event->data.weather_notify.secondaryname_len);
             lvgl_var_weather_id_set(event->data.weather_notify.weather_type);
             lvgl_var_temperature_set(event->data.weather_notify.temp);
-#endif
             break;
 
         case QM_IOT_EVENT_OTA_START:
@@ -543,6 +512,26 @@ qm_err_t iot_func_req_corpus(uint8_t value)
     }
 
     qm_spec_property_pack_xiid(property_pre, 8, 2);
+    qm_spec_property_pack_number(property_pre, value);
+    property_pre->did = qm_iot_did_get();
+
+    qm_spec_property_add(property_operation, property_pre);
+    return qm_iot_property_report(iot_handle, property_operation);
+}
+
+qm_err_t iot_func_req_pose_monitor(uint8_t value)
+{
+    qm_spec_property_operation_t *property_operation = qm_spec_property_operation_creat();
+    if(property_operation == NULL){
+        return -QM_ENOMEM;
+    }
+    qm_spec_property_t *property_pre = NULL;
+    property_pre = qm_spec_property_creat();
+    if(property_pre == NULL){
+        return -QM_ENOMEM;
+    }
+
+    qm_spec_property_pack_xiid(property_pre, 8, 1);
     qm_spec_property_pack_number(property_pre, value);
     property_pre->did = qm_iot_did_get();
 

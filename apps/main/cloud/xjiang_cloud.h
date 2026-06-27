@@ -23,6 +23,7 @@ void qm_iot_user_report(uint8_t pid, int value);
 qm_err_t xjiang_cloud_report(qm_spec_property_t *property);
 
 qm_err_t iot_func_req_corpus(uint8_t value);
+qm_err_t iot_func_req_pose_monitor(uint8_t value);
 
 uint8_t get_ota_status_flag(void);
 #ifdef __cplusplus

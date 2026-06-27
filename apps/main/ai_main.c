@@ -11,9 +11,6 @@
 #include "qm_ai_inner_rtc_api.h"
 #include "qm_ai_api.h"
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
 #include "bsp_bat.h"
 #include "bsp_i2c.h"
 #include "bsp_sensor_light.h"
@@ -22,26 +19,12 @@
 #include "bsp_lcd_touch.h"
 #include "bsp_camera.h"
 #include "app_lvgl.h"
-#include "xjiang_cloud.h"
 #include "yolo11_pose.h"
 
 #include "alarm_manager.h"
 #include "qm_mem_log.h"
 
 #define LOG_TAG "log"
-
-#if APP_HEADLESS_CAMERA_OSS
-#define HEADLESS_CLOUD_DELAY_MS  2000
-
-static void headless_cloud_task(void *arg)
-{
-    (void)arg;
-    vTaskDelay(pdMS_TO_TICKS(HEADLESS_CLOUD_DELAY_MS));
-    ESP_LOGI(LOG_TAG, "headless: start cloud");
-    xjiang_cloud_init();
-    vTaskDelete(NULL);
-}
-#endif
 
 #define DEAFALUT_REPLY_WAV              ("/spiffs/dingding.wav")
 #define NETCONFIG_WAV                   ("/spiffs/1.wav")
@@ -130,15 +113,10 @@ void qm_application_start(void)
 
     bsp_bat_init();
     qm_mem_log_print("bsp_bat");
-#if !APP_HEADLESS_CAMERA_OSS
     bsp_i2c_adopt_bus(example_video_get_i2c_bus_handle());
     qm_mem_log_print("bsp_i2c");
     bsp_sensor_light_init();
     qm_mem_log_print("bsp_sensor_light");
-#endif
-#if APP_HEADLESS_CAMERA_OSS
-    xTaskCreate(headless_cloud_task, "cloud_init", 4096, NULL, 5, NULL);
-#else
     // bsp_sensor_tof_init();
     bsp_lcd_init();
     qm_mem_log_print("bsp_lcd");
@@ -148,7 +126,6 @@ void qm_application_start(void)
     qm_mem_log_print("alarm_manager");
     app_lvgl_init();
     qm_mem_log_print("app_lvgl");
-#endif
 
     esp_err_t pose_ret = yolo11_pose_init();
     if (pose_ret != ESP_OK) {

@@ -291,9 +291,6 @@ qm_ai_handle_t ai_main_get_handle(void);
 #define CONFIG_AUDIO_ALG_PIID       (2)
 #define CONFIG_AUDIO_ALG_TYPE       (QM_SPEC_PROPERTY_FORMAT_STRING)
 
-/** 1: 不初始化 LCD/LVGL，联网后自动拍照上传 OSS */
-#define APP_HEADLESS_CAMERA_OSS     0
-
 int qm_is_crash_reset(void);
 int qm_set_reset_flag(void);
 

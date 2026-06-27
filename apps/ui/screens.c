@@ -465,18 +465,6 @@ void create_screen_page_apps2() {
     ui_create_app_tile(obj, APP_COL2_X, APP_ROW1_Y, "/lvgl/images/icon_checklist.bin", "打卡列表", action_open_checkin_click);
     ui_create_app_tile(obj, APP_COL_CENTER_X, APP_ROW2_Y, "/lvgl/images/icon_settings.bin", "系统设置", action_open_settings_click);
     ui_create_page_indicator(obj, 2);
-    {
-        lv_obj_t *btn = lv_obj_create(obj);
-        objects.btn_study_entry = btn;
-        lv_obj_set_pos(btn, APP_GRID_X0, APP_ROW2_Y);
-        lv_obj_set_size(btn, APP_ICON_W, APP_ICON_W + 20);
-        lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_remove_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_add_flag(btn, LV_OBJ_FLAG_EVENT_BUBBLE);
-        lv_obj_add_event_cb(btn, action_open_study_click, LV_EVENT_CLICKED, NULL);
-        lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    }
     tick_screen_page_apps2();
 }
 
@@ -1453,19 +1441,6 @@ static void scr_study_show_result(bool success)
 
     study_result_layout_refresh();
     goto_page_by_id(SCREEN_ID_PAGE_STUDY_RESULT);
-}
-
-void scr_study_entry_btn_set_visible(bool visible)
-{
-    if (objects.btn_study_entry == NULL) {
-        return;
-    }
-
-    if (visible) {
-        lv_obj_clear_flag(objects.btn_study_entry, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(objects.btn_study_entry, LV_OBJ_FLAG_HIDDEN);
-    }
 }
 
 static lv_obj_t *ui_create_study_pill_btn(lv_obj_t *parent, int x, int y, int w, int h,

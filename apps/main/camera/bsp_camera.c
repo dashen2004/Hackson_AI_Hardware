@@ -3,8 +3,6 @@
 #include "example_video_common.h"
 #include "yolo11_pose.h"
 
-#include "ai_main.h"
-
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -13,10 +11,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "qm_mem_log.h"
-#if !APP_HEADLESS_CAMERA_OSS
 #include "esp_lvgl_port.h"
 #include "screens.h"
-#endif
 
 #include <errno.h>
 #include <fcntl.h>
@@ -118,13 +114,11 @@ static void cam_upload_task(void *arg)
         if (pose_ret != ESP_OK) {
             ESP_LOGW(LOG_TAG, "pose run failed, key=%s ret=%s", job->object_key, esp_err_to_name(pose_ret));
         }
-#if !APP_HEADLESS_CAMERA_OSS
         if (pose_ret == ESP_OK && scr_study_capture_is_active()) {
             bool ui_locked_pose = cam_ui_lock();
             scr_study_pose_on_frame_result(&pose_result);
             cam_ui_unlock(ui_locked_pose);
         }
-#endif
     }
 
     ui_locked = cam_ui_lock();
@@ -140,22 +134,14 @@ static void cam_upload_task(void *arg)
 
 static bool cam_ui_lock(void)
 {
-#if !APP_HEADLESS_CAMERA_OSS
     return lvgl_port_lock(0);
-#else
-    return false;
-#endif
 }
 
 static void cam_ui_unlock(bool locked)
 {
-#if !APP_HEADLESS_CAMERA_OSS
     if (locked) {
         lvgl_port_unlock();
     }
-#else
-    (void)locked;
-#endif
 }
 
 static void cam_pwdn_hold_low(void)

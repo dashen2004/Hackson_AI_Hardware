@@ -111,9 +111,6 @@ typedef struct _objects_t {
     lv_obj_t *study_result_extra;
     lv_obj_t *study_result_btn;
 
-    // apps2 hidden entry
-    lv_obj_t *btn_study_entry;
-
     // alarm edit page objs
     lv_obj_t *label_alarm_edit;
     lv_obj_t *btn_alarm_confirm;
@@ -201,7 +198,6 @@ void scr_study_session_start(void);
 void scr_study_session_pause_toggle(void);
 void scr_study_session_skip(void);
 void scr_study_session_pause_if_running(void);
-void scr_study_entry_btn_set_visible(bool visible);
 void scr_study_capture_stop(void);
 bool scr_study_capture_is_active(void);
 void scr_study_pose_on_frame_result(const yolo11_pose_frame_result_t *result);
