@@ -67,7 +67,6 @@ lv_font_t *font_pingfang_12px = NULL;
 lv_font_t *font_pingfang_14px = NULL;
 lv_font_t *font_pingfang_16px = NULL;
 lv_font_t *font_pingfang_20px = NULL;
-lv_font_t *font_pingfang_24px = NULL;
 
 static void page_alarm_alarm_list_init(void);
 static void page_timer_countdown_roller_init(void);
@@ -1993,6 +1992,7 @@ void create_screen_page_settings_sound() {
     ui_settings_mute_switch_style(objects.settings_mute_sw);
     lv_obj_add_event_cb(objects.settings_mute_sw, action_settings_mute_changed,
                         LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_flag(objects.settings_mute_sw, LV_OBJ_FLAG_EVENT_BUBBLE);
 
     lv_obj_t *divider = lv_obj_create(panel);
     lv_obj_set_pos(divider, 12, UI_SOUND_MUTE_ROW_H - 1);
@@ -2006,6 +2006,7 @@ void create_screen_page_settings_sound() {
     ui_settings_volume_slider_style(objects.settings_volume_slider);
     lv_obj_add_event_cb(objects.settings_volume_slider, action_settings_volume_changed,
                         LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_flag(objects.settings_volume_slider, LV_OBJ_FLAG_EVENT_BUBBLE);
 
     tick_screen_page_settings_sound();
 }
@@ -2169,6 +2170,7 @@ void create_screen_page_alarm_edit() {
                     lv_obj_set_style_text_font(obj, font_misans_16px, LV_PART_SELECTED | LV_STATE_DEFAULT);
                     lv_obj_set_style_radius(obj, 10, LV_PART_SELECTED | LV_STATE_DEFAULT);
                     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff5d5d5d), LV_PART_SELECTED | LV_STATE_DEFAULT);
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
                 }
                 {
                     // roller_alarm_min
@@ -2186,6 +2188,7 @@ void create_screen_page_alarm_edit() {
                     lv_obj_set_style_text_font(obj, font_misans_16px, LV_PART_SELECTED | LV_STATE_DEFAULT);
                     lv_obj_set_style_radius(obj, 10, LV_PART_SELECTED | LV_STATE_DEFAULT);
                     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff5d5d5d), LV_PART_SELECTED | LV_STATE_DEFAULT);
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
                 }
             }
         }
@@ -2537,6 +2540,7 @@ void create_screen_page_timer() {
                     lv_obj_set_pos(obj, 26, 0);
                     lv_obj_set_size(obj, 55, 94);
                     lv_obj_add_event_cb(obj, roller_hour_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
                     lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_scroll_dir(obj, LV_DIR_VER);
 
@@ -2559,6 +2563,7 @@ void create_screen_page_timer() {
                     lv_obj_set_pos(obj, 92, 0);
                     lv_obj_set_size(obj, 55, 94);
                     lv_obj_add_event_cb(obj, roller_min_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
                     lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_scroll_dir(obj, LV_DIR_VER);
 
@@ -2581,6 +2586,7 @@ void create_screen_page_timer() {
                     lv_obj_set_pos(obj, 158, 0);
                     lv_obj_set_size(obj, 55, 94);
                     lv_obj_add_event_cb(obj, roller_sec_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+                    lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
                     lv_obj_set_style_text_color(obj, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_obj_set_scroll_dir(obj, LV_DIR_VER);
 
@@ -3190,9 +3196,6 @@ void create_screens() {
     }
     if (font_pingfang_20px == NULL) {
         font_pingfang_20px = (lv_font_t *)&ui_font_pingfang_sc_regular_20px; // lv_binfont_create("/lvgl/fonts/pingfang_20px.bin");
-    }
-    if (font_pingfang_24px == NULL) {
-        font_pingfang_24px = (lv_font_t *)&ui_font_pingfang_sc_regular_24px; // lv_binfont_create("/lvgl/fonts/pingfang_20px.bin");
     }
 
     create_screen_page_sleep();

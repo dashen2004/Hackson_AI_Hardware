@@ -23,9 +23,8 @@
 
 #define loadScreenEx    loadScreen
 
-static enum ScreensEnum cur_screen_index = SCREEN_ID_PAGE_MAIN;
+static enum ScreensEnum cur_screen_index = SCREEN_ID_PAGE_SLEEP;
 static enum ScreensEnum cur_level1_page = SCREEN_ID_PAGE_MAIN;
-static bool s_boot_sleep_waiting = false;
 static uint8_t screen_slide_lock = 0;
 static uint32_t sceen_slide_tick = 0;
 static lv_point_t s_press_pt;
@@ -64,9 +63,15 @@ static bool is_level1_page(enum ScreensEnum screen_id)
         || screen_id == SCREEN_ID_PAGE_APPS2;
 }
 
+static bool is_swipe_carousel_page(enum ScreensEnum screen_id)
+{
+    return screen_id == SCREEN_ID_PAGE_SLEEP
+        || is_level1_page(screen_id);
+}
+
 static bool is_level2_page(enum ScreensEnum screen_id)
 {
-    return !is_level1_page(screen_id) && screen_id != SCREEN_ID_PAGE_SLEEP
+    return !is_swipe_carousel_page(screen_id)
         && screen_id != SCREEN_ID_PAGE_NONE;
 }
 
@@ -134,24 +139,15 @@ static void ui_track_touch(lv_event_code_t event)
 
 void ui_boot_sleep_enter(void)
 {
-    s_boot_sleep_waiting = true;
     goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
 }
 
 void ui_boot_leave_sleep(void)
 {
-    s_boot_sleep_waiting = false;
-    if (cur_screen_index == SCREEN_ID_PAGE_SLEEP) {
-        goto_page_by_id(SCREEN_ID_PAGE_MAIN);
-    }
 }
 
 void ui_on_cloud_connected(void)
 {
-    if (!s_boot_sleep_waiting) {
-        return;
-    }
-    ui_boot_leave_sleep();
 }
 
 void goto_page_by_id(int8_t screen_id)
@@ -210,28 +206,40 @@ void goto_page_by_id(int8_t screen_id)
     lvgl_port_unlock();
 }
 
-static void goto_next_level1_page(void)
+static void goto_next_swipe_page(void)
 {
     switch (cur_screen_index) {
+        case SCREEN_ID_PAGE_SLEEP:
+            goto_page_by_id(SCREEN_ID_PAGE_MAIN);
+        break;
         case SCREEN_ID_PAGE_MAIN:
             goto_page_by_id(SCREEN_ID_PAGE_APPS1);
         break;
         case SCREEN_ID_PAGE_APPS1:
             goto_page_by_id(SCREEN_ID_PAGE_APPS2);
         break;
+        case SCREEN_ID_PAGE_APPS2:
+            goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
+        break;
         default:
         break;
     }
 }
 
-static void goto_prev_level1_page(void)
+static void goto_prev_swipe_page(void)
 {
     switch (cur_screen_index) {
-        case SCREEN_ID_PAGE_APPS2:
-            goto_page_by_id(SCREEN_ID_PAGE_APPS1);
+        case SCREEN_ID_PAGE_SLEEP:
+            goto_page_by_id(SCREEN_ID_PAGE_APPS2);
+        break;
+        case SCREEN_ID_PAGE_MAIN:
+            goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
         break;
         case SCREEN_ID_PAGE_APPS1:
             goto_page_by_id(SCREEN_ID_PAGE_MAIN);
+        break;
+        case SCREEN_ID_PAGE_APPS2:
+            goto_page_by_id(SCREEN_ID_PAGE_APPS1);
         break;
         default:
         break;
@@ -323,6 +331,7 @@ void action_settings_mute_changed(lv_event_t * e)
 
     bool muted = lv_obj_has_state(objects.settings_mute_sw, LV_STATE_CHECKED);
     qm_ai_audio_set_player_mute(handle, muted ? 1 : 0);
+    app_lvgl_turnoff_reset(1);
 }
 
 void action_settings_volume_changed(lv_event_t * e)
@@ -342,6 +351,7 @@ void action_settings_volume_changed(lv_event_t * e)
     if (lv_obj_has_state(objects.settings_mute_sw, LV_STATE_CHECKED)) {
         lv_obj_remove_state(objects.settings_mute_sw, LV_STATE_CHECKED);
     }
+    app_lvgl_turnoff_reset(1);
 }
 
 void action_settings_net_confirm_click(lv_event_t * e)
@@ -371,11 +381,6 @@ void event_all_handler(lv_event_t * e)
     }
 
     if (!bsp_lcd_is_ready()) {
-        return;
-    }
-
-    if (lv_scr_act() == objects.page_sleep && event == LV_EVENT_CLICKED) {
-        ui_boot_leave_sleep();
         return;
     }
 
@@ -412,20 +417,20 @@ void event_all_handler(lv_event_t * e)
         screen_slide_lock = 0;
     }
 
-    if (event == LV_EVENT_GESTURE && lv_scr_act() != objects.page_sleep && !screen_slide_lock) {
+    if (event == LV_EVENT_GESTURE && !screen_slide_lock) {
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
 
         screen_slide_lock = 1;
         sceen_slide_tick = qm_now_ms();
 
-        if (is_level1_page(cur_screen_index)) {
+        if (is_swipe_carousel_page(cur_screen_index)) {
             switch (dir) {
                 case LV_DIR_LEFT:
-                    goto_next_level1_page();
+                    goto_next_swipe_page();
                 break;
 
                 case LV_DIR_RIGHT:
-                    goto_prev_level1_page();
+                    goto_prev_swipe_page();
                 break;
 
                 default:
@@ -609,6 +614,7 @@ void roller_hour_event_cb(lv_event_t * e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
         int32_t hour = lv_roller_get_selected(objects.roller_hour);
         lvgl_var_timer_countdown_hour_set(hour);
+        app_lvgl_turnoff_reset(1);
     }
 }
 
@@ -617,6 +623,7 @@ void roller_min_event_cb(lv_event_t * e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
         int32_t min = lv_roller_get_selected(objects.roller_min);
         lvgl_var_timer_countdown_min_set(min);
+        app_lvgl_turnoff_reset(1);
     }
 }
 
@@ -625,6 +632,7 @@ void roller_sec_event_cb(lv_event_t * e)
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
         int32_t sec = lv_roller_get_selected(objects.roller_sec);
         lvgl_var_timer_countdown_sec_set(sec);
+        app_lvgl_turnoff_reset(1);
     }
 }
 

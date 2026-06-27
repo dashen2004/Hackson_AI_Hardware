@@ -19,7 +19,7 @@
 
 #define LOG_TAG "app_lvgl"
 
-#define LVGL_TURNOFF_TIME_MS   (15 * 1000)
+#define LVGL_TURNOFF_TIME_MS   (30 * 1000)
 #define CLOUD_INIT_DELAY_MS    (2000)
 #define LVGL_TASK_STACK_BYTES  (10 * 1024)
 #define LVGL_DRAW_BUF_LINES    80
@@ -44,18 +44,20 @@ static void lvgl_turnoff_handler(void *arg)
 {
     QM_LOGI(LOG_TAG, "lvgl_turnoff_handler");
 
-    bsp_lcd_bl_dim();
-
     if (get_current_screen() == SCREEN_ID_PAGE_POMODORO
             || get_current_screen() == SCREEN_ID_PAGE_EYE
             || get_current_screen() == SCREEN_ID_PAGE_STUDY
             || get_current_screen() == SCREEN_ID_PAGE_STUDY_LIGHT_DETECT
             || get_current_screen() == SCREEN_ID_PAGE_STUDY_LIGHT_HINT
             || get_current_screen() == SCREEN_ID_PAGE_STUDY_RESULT) {
+        bsp_lcd_bl_dim();
         app_lvgl_turnoff_reset(0);
-    } else if (get_current_screen() != SCREEN_ID_PAGE_SLEEP) {
+    } else if (get_current_screen() == SCREEN_ID_PAGE_SLEEP) {
+        bsp_lcd_bl_dim();
+    } else {
         extern void goto_page_by_id(int8_t screen_id);
         goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
+        app_lvgl_turnoff_reset(0);
     }
 }
 

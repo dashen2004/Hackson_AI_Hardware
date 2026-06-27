@@ -12,7 +12,7 @@ extern "C" {
 #define LCD_V_RES   (240)
 
 #define LCD_BL_BRIGHTNESS_MAX   (100)
-#define LCD_BL_BRIGHTNESS_DIM   (100)
+#define LCD_BL_BRIGHTNESS_DIM   (30)
 #define LCD_BL_BRIGHTNESS_MIN   (0)
 
 qm_err_t bsp_lcd_init(void);

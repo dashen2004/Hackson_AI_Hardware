@@ -13,7 +13,6 @@ typedef struct _objects_t {
     lv_obj_t *page_alarm;
     lv_obj_t *page_timer;
     lv_obj_t *page_pomodoro;
-    lv_obj_t *page_weather;
     lv_obj_t *page_alarm_edit;
     lv_obj_t *wifi_state;
     lv_obj_t *bat_state;
@@ -63,10 +62,6 @@ typedef struct _objects_t {
     lv_obj_t *tomato_opt;
     lv_obj_t *container_tomato_stop;
     lv_obj_t *tomato_stop;
-    lv_obj_t *label_city;
-    lv_obj_t *img_weather;
-    lv_obj_t *label_weather;
-    lv_obj_t *label_temperature;
     lv_obj_t *disp_alarm_edit;
     lv_obj_t *roller_alarm_hour;
     lv_obj_t *roller_alarm_min;
@@ -97,8 +92,7 @@ enum ScreensEnum {
     SCREEN_ID_PAGE_ALARM = 3,
     SCREEN_ID_PAGE_TIMER = 4,
     SCREEN_ID_PAGE_POMODORO = 5,
-    SCREEN_ID_PAGE_WEATHER = 6,
-    SCREEN_ID_PAGE_ALARM_EDIT = 7,
+    SCREEN_ID_PAGE_ALARM_EDIT = 6,
 };
 
 void create_screen_page_sleep();
@@ -115,9 +109,6 @@ void tick_screen_page_timer();
 
 void create_screen_page_pomodoro();
 void tick_screen_page_pomodoro();
-
-void create_screen_page_weather();
-void tick_screen_page_weather();
 
 void create_screen_page_alarm_edit();
 void tick_screen_page_alarm_edit();
