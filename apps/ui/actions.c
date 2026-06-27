@@ -192,11 +192,12 @@ void goto_page_by_id(int8_t screen_id)
     }
 
     if (cur_screen_index == SCREEN_ID_PAGE_STUDY) {
-        if (screen_id != SCREEN_ID_PAGE_STUDY) {
+        if (screen_id != SCREEN_ID_PAGE_STUDY
+                && screen_id != SCREEN_ID_PAGE_STUDY_LIGHT_HINT) {
             scr_study_capture_stop();
+            scr_study_session_pause_if_running();
+            ui_tick();
         }
-        scr_study_session_pause_if_running();
-        ui_tick();
     }
 
     if (is_level1_page(screen_id)) {
@@ -398,7 +399,8 @@ void event_all_handler(lv_event_t * e)
         return;
     }
 
-    if (scr_study_light_detect_is_active()
+    if ((scr_study_light_detect_is_active()
+                || scr_study_pose_hint_is_showing())
             && (lv_scr_act() == objects.page_study_light_detect
                 || lv_scr_act() == objects.page_study_light_hint)
             && event == LV_EVENT_CLICKED) {
@@ -430,7 +432,7 @@ void event_all_handler(lv_event_t * e)
                 break;
             }
         } else if (is_level2_page(cur_screen_index) && dir == LV_DIR_RIGHT) {
-            if (scr_study_light_detect_is_active()
+            if ((scr_study_light_detect_is_active() || scr_study_pose_hint_is_showing())
                     && (cur_screen_index == SCREEN_ID_PAGE_STUDY_LIGHT_DETECT
                         || cur_screen_index == SCREEN_ID_PAGE_STUDY_LIGHT_HINT)) {
                 return;

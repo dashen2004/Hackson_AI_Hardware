@@ -15,6 +15,7 @@
 #include "qm_mem_log.h"
 #if !APP_HEADLESS_CAMERA_OSS
 #include "esp_lvgl_port.h"
+#include "screens.h"
 #endif
 
 #include <errno.h>
@@ -112,10 +113,18 @@ static void cam_upload_task(void *arg)
             ESP_LOGW(LOG_TAG, "rotate jpg failed, key=%s ret=%s", job->object_key, esp_err_to_name(rotate_ret));
         }
 
-        esp_err_t pose_ret = yolo11_pose_run_jpg_named(job->data, job->len, job->object_key);
+        yolo11_pose_frame_result_t pose_result;
+        esp_err_t pose_ret = yolo11_pose_analyze_jpg_named(job->data, job->len, job->object_key, &pose_result);
         if (pose_ret != ESP_OK) {
             ESP_LOGW(LOG_TAG, "pose run failed, key=%s ret=%s", job->object_key, esp_err_to_name(pose_ret));
         }
+#if !APP_HEADLESS_CAMERA_OSS
+        if (pose_ret == ESP_OK && scr_study_capture_is_active()) {
+            bool ui_locked_pose = cam_ui_lock();
+            scr_study_pose_on_frame_result(pose_result.status);
+            cam_ui_unlock(ui_locked_pose);
+        }
+#endif
     }
 
     ui_locked = cam_ui_lock();

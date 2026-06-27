@@ -3,14 +3,123 @@
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <new>
 
 #include "yolo11_pose.h"
 
 static const char *TAG = "yolo11n-pose";
 static COCOPose *s_pose = nullptr;
+
+static const char *kKptNames[17] = {"nose",
+                                    "left eye",
+                                    "right eye",
+                                    "left ear",
+                                    "right ear",
+                                    "left shoulder",
+                                    "right shoulder",
+                                    "left elbow",
+                                    "right elbow",
+                                    "left wrist",
+                                    "right wrist",
+                                    "left hip",
+                                    "right hip",
+                                    "left knee",
+                                    "right knee",
+                                    "left ankle",
+                                    "right ankle"};
+
+static bool kpt_valid(int x, int y)
+{
+    return x != 0 || y != 0;
+}
+
+static void log_pose_keypoints(const char *name, const dl::detect::result_t &res)
+{
+    char log_buf[512];
+    char *p = log_buf;
+    char *end = log_buf + sizeof(log_buf);
+
+    for (int i = 0; i < 17; ++i) {
+        size_t left = (size_t)(end - p);
+        int written = snprintf(p,
+                               left,
+                               "%s: [%d, %d] ",
+                               kKptNames[i],
+                               res.keypoint[2 * i],
+                               res.keypoint[2 * i + 1]);
+        if (written < 0 || written >= (int)left) {
+            break;
+        }
+        p += written;
+    }
+    ESP_LOGI(TAG, "%s %s", name, log_buf);
+}
+
+static void analyze_pose_result(const dl::detect::result_t &res,
+                                int img_w,
+                                int img_h,
+                                yolo11_pose_frame_result_t *out)
+{
+    const auto &kp = res.keypoint;
+    int nose_x = kp[0];
+    int nose_y = kp[1];
+    int le_x = kp[2];
+    int le_y = kp[3];
+    int re_x = kp[4];
+    int re_y = kp[5];
+    int ls_x = kp[10];
+    int ls_y = kp[11];
+    int rs_x = kp[12];
+    int rs_y = kp[13];
+
+    out->status = YOLO11_POSE_FRAME_OK;
+    out->yaw = 0.0f;
+    out->roll = 0.0f;
+    out->shoulder_diff = 0.0f;
+    out->lean = 0.0f;
+
+    if (img_w <= 0 || img_h <= 0) {
+        return;
+    }
+
+    bool bad = false;
+
+    if (kpt_valid(le_x, le_y) && kpt_valid(re_x, re_y)) {
+        float dx = (float)(re_x - le_x);
+        float dy = (float)(re_y - le_y);
+        float eye_w = sqrtf(dx * dx + dy * dy);
+        if (eye_w >= 1.0f) {
+            out->yaw = fabsf((float)(le_x - re_x)) / eye_w;
+            out->roll = fabsf((float)(le_y - re_y)) / eye_w;
+            if (out->yaw < 0.90f || out->roll > 0.10f) {
+                bad = true;
+            }
+        }
+    }
+
+    if (kpt_valid(ls_x, ls_y) && kpt_valid(rs_x, rs_y)) {
+        out->shoulder_diff = fabsf((float)(ls_y - rs_y)) / (float)img_h;
+        if (out->shoulder_diff > 0.03f) {
+            bad = true;
+        }
+    }
+
+    if (kpt_valid(nose_x, nose_y) && kpt_valid(ls_x, ls_y) && kpt_valid(rs_x, rs_y)) {
+        float shoulder_mid_x = ((float)ls_x + (float)rs_x) * 0.5f;
+        out->lean = fabsf((float)nose_x - shoulder_mid_x) / (float)img_w;
+        if (out->lean > 0.50f) {
+            bad = true;
+        }
+    }
+
+    if (bad) {
+        out->status = YOLO11_POSE_FRAME_BAD_POSTURE;
+    }
+}
 
 extern "C" esp_err_t yolo11_pose_init(void)
 {
@@ -98,30 +207,21 @@ extern "C" esp_err_t yolo11_pose_rotate_jpg_cw90(const uint8_t *jpg_data,
     return ESP_OK;
 }
 
-extern "C" esp_err_t yolo11_pose_run_jpg_named(const uint8_t *jpg_data, size_t jpg_len, const char *image_name)
+extern "C" esp_err_t yolo11_pose_analyze_jpg_named(const uint8_t *jpg_data,
+                                                   size_t jpg_len,
+                                                   const char *image_name,
+                                                   yolo11_pose_frame_result_t *out)
 {
 #if CONFIG_COCO_POSE_MODEL_IN_SDCARD
     ESP_LOGE(TAG, "SD card model loading is not wired in this project");
     return ESP_ERR_NOT_SUPPORTED;
 #else
     const char *name = (image_name != nullptr && image_name[0] != '\0') ? image_name : "-";
-    const char *kpt_names[17] = {"nose",
-                                 "left eye",
-                                 "right eye",
-                                 "left ear",
-                                 "right ear",
-                                 "left shoulder",
-                                 "right shoulder",
-                                 "left elbow",
-                                 "right elbow",
-                                 "left wrist",
-                                 "right wrist",
-                                 "left hip",
-                                 "right hip",
-                                 "left knee",
-                                 "right knee",
-                                 "left ankle",
-                                 "right ankle"};
+
+    if (out != nullptr) {
+        memset(out, 0, sizeof(*out));
+        out->status = YOLO11_POSE_FRAME_NO_PERSON;
+    }
 
     if (jpg_data == nullptr || jpg_len == 0) {
         ESP_LOGE(TAG, "%s invalid jpg", name);
@@ -143,32 +243,39 @@ extern "C" esp_err_t yolo11_pose_run_jpg_named(const uint8_t *jpg_data, size_t j
     auto &pose_results = s_pose->run(img);
     if (pose_results.empty()) {
         ESP_LOGI(TAG, "%s no pose detected", name);
+        heap_caps_free(img.data);
+        return ESP_OK;
     }
-    for (const auto &res : pose_results) {
+
+    const auto &res = pose_results.front();
+    ESP_LOGI(TAG,
+             "%s [score: %f, x1: %d, y1: %d, x2: %d, y2: %d]",
+             name,
+             res.score,
+             res.box[0],
+             res.box[1],
+             res.box[2],
+             res.box[3]);
+    log_pose_keypoints(name, res);
+
+    if (out != nullptr) {
+        analyze_pose_result(res, (int)img.width, (int)img.height, out);
         ESP_LOGI(TAG,
-                 "%s [score: %f, x1: %d, y1: %d, x2: %d, y2: %d]",
+                 "%s pose metrics yaw=%.3f roll=%.3f shoulder=%.3f lean=%.3f status=%d",
                  name,
-                 res.score,
-                 res.box[0],
-                 res.box[1],
-                 res.box[2],
-                 res.box[3]);
-
-        char log_buf[512];
-        char *p = log_buf;
-        char *end = log_buf + sizeof(log_buf);
-        for (int i = 0; i < 17; ++i) {
-            size_t left = (size_t)(end - p);
-            int written = snprintf(p, left, "%s: [%d, %d] ", kpt_names[i], res.keypoint[2 * i], res.keypoint[2 * i + 1]);
-            if (written < 0 || written >= (int)left) {
-                break;
-            }
-            p += written;
-        }
-        ESP_LOGI(TAG, "%s %s", name, log_buf);
+                 out->yaw,
+                 out->roll,
+                 out->shoulder_diff,
+                 out->lean,
+                 (int)out->status);
     }
-    heap_caps_free(img.data);
 
+    heap_caps_free(img.data);
     return ESP_OK;
 #endif
+}
+
+extern "C" esp_err_t yolo11_pose_run_jpg_named(const uint8_t *jpg_data, size_t jpg_len, const char *image_name)
+{
+    return yolo11_pose_analyze_jpg_named(jpg_data, jpg_len, image_name, nullptr);
 }

@@ -725,6 +725,11 @@ void tick_screen_page_checkin() {
 #define STUDY_LIGHT_DETECT_PAIR_WINDOWS 2
 #define STUDY_LIGHT_SUCCESS_SHOW_MS     3000
 #define STUDY_CAPTURE_INTERVAL_MS       5000
+#define STUDY_POSE_BAD_CONSEC_FRAMES      2
+#define STUDY_POSE_NOBODY_CONSEC_FRAMES   3
+#define STUDY_POSE_HINT_SHOW_MS         5000
+#define STUDY_POSE_HINT_WINDOW_MS       (5 * 60 * 1000)
+#define STUDY_POSE_HINT_MAX_PER_WINDOW   3
 
 typedef enum {
     STUDY_DETECT_RESULT_NONE = 0,
@@ -756,6 +761,8 @@ typedef enum {
     STUDY_LIGHT_HINT_NONE = 0,
     STUDY_LIGHT_HINT_HIGH,
     STUDY_LIGHT_HINT_LOW,
+    STUDY_LIGHT_HINT_POSE_WRONG,
+    STUDY_LIGHT_HINT_CAMERA_BLOCK,
 } study_light_hint_type_t;
 
 typedef enum {
@@ -784,9 +791,24 @@ static bool s_study_capture_active = false;
 static uint32_t s_study_capture_seq = 0;
 static uint32_t s_study_capture_last_ms = 0;
 
+static uint8_t s_pose_bad_consec = 0;
+static uint8_t s_pose_nobody_consec = 0;
+static bool s_study_pose_hint_showing = false;
+static uint32_t s_study_pose_hint_until_ms = 0;
+static uint32_t s_pose_bad_hint_window_ms = 0;
+static uint8_t s_pose_bad_hint_count = 0;
+static uint32_t s_pose_block_hint_window_ms = 0;
+static uint8_t s_pose_block_hint_count = 0;
+
 static void scr_study_show_result(bool success);
 static void scr_study_capture_start(void);
 static void scr_study_capture_tick(void);
+static void scr_study_session_tick(void);
+static void study_hint_set_content(study_light_hint_type_t type);
+static void study_pose_reset_counters(void);
+static bool study_pose_hint_rate_ok(uint32_t *window_ms, uint8_t *count);
+static void study_pose_hint_count_inc(uint32_t *window_ms, uint8_t *count);
+static void study_pose_show_hint(study_light_hint_type_t type);
 
 static void study_result_layout_refresh(void)
 {
@@ -839,26 +861,47 @@ static void study_light_detect_title_anim_start(void)
     lv_anim_start(&anim);
 }
 
-static void study_light_hint_set_content(bool high)
+static void study_hint_set_content(study_light_hint_type_t type)
 {
     if (objects.study_light_hint_icon == NULL) {
         return;
     }
 
-    if (high) {
-        lv_image_set_src(objects.study_light_hint_icon, "/lvgl/images/hint_light_high.bin");
-        lv_label_set_text(objects.study_light_hint_title, "光线过亮");
-        lv_obj_set_style_text_color(objects.study_light_hint_title,
-                                    lv_color_hex(UI_COLOR_ORANGE),
-                                    LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_label_set_text(objects.study_light_hint_desc, "光线晃眼睛，记得拉上窗帘哟");
-    } else {
-        lv_image_set_src(objects.study_light_hint_icon, "/lvgl/images/hint_light_low.bin");
-        lv_label_set_text(objects.study_light_hint_title, "光线过暗");
-        lv_obj_set_style_text_color(objects.study_light_hint_title,
-                                    lv_color_hex(UI_COLOR_STUDY_HINT_BLUE),
-                                    LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_label_set_text(objects.study_light_hint_desc, "光线暗暗的，快打开小台灯吧～");
+    switch (type) {
+        case STUDY_LIGHT_HINT_HIGH:
+            lv_image_set_src(objects.study_light_hint_icon, "/lvgl/images/hint_light_high.bin");
+            lv_label_set_text(objects.study_light_hint_title, "光线过亮");
+            lv_obj_set_style_text_color(objects.study_light_hint_title,
+                                        lv_color_hex(UI_COLOR_ORANGE),
+                                        LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text(objects.study_light_hint_desc, "光线晃眼睛，记得拉上窗帘哟");
+            break;
+        case STUDY_LIGHT_HINT_LOW:
+            lv_image_set_src(objects.study_light_hint_icon, "/lvgl/images/hint_light_low.bin");
+            lv_label_set_text(objects.study_light_hint_title, "光线过暗");
+            lv_obj_set_style_text_color(objects.study_light_hint_title,
+                                        lv_color_hex(UI_COLOR_STUDY_HINT_BLUE),
+                                        LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text(objects.study_light_hint_desc, "光线暗暗的，快打开小台灯吧～");
+            break;
+        case STUDY_LIGHT_HINT_POSE_WRONG:
+            lv_image_set_src(objects.study_light_hint_icon, "/lvgl/images/hint_pose_wrong.bin");
+            lv_label_set_text(objects.study_light_hint_title, "坐姿不正确");
+            lv_obj_set_style_text_color(objects.study_light_hint_title,
+                                        lv_color_hex(UI_COLOR_ORANGE),
+                                        LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text(objects.study_light_hint_desc, "身体坐直一点，小卫士看到你快歪啦");
+            break;
+        case STUDY_LIGHT_HINT_CAMERA_BLOCK:
+            lv_image_set_src(objects.study_light_hint_icon, "/lvgl/images/hint_camera_block.bin");
+            lv_label_set_text(objects.study_light_hint_title, "摄像头遮挡");
+            lv_obj_set_style_text_color(objects.study_light_hint_title,
+                                        lv_color_hex(UI_COLOR_ORANGE),
+                                        LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text(objects.study_light_hint_desc, "我好像看不清啦，请帮我调整一下位置");
+            break;
+        default:
+            break;
     }
 }
 
@@ -966,7 +1009,7 @@ static void study_light_detect_show_failure(void)
 static void study_light_detect_show_hint(bool high)
 {
     iot_func_req_corpus(high ? 6 : 5);
-    study_light_hint_set_content(high);
+    study_hint_set_content(high ? STUDY_LIGHT_HINT_HIGH : STUDY_LIGHT_HINT_LOW);
     s_light_detect_hint = high ? STUDY_LIGHT_HINT_HIGH : STUDY_LIGHT_HINT_LOW;
     if (get_current_screen() != SCREEN_ID_PAGE_STUDY_LIGHT_HINT) {
         goto_page_by_id(SCREEN_ID_PAGE_STUDY_LIGHT_HINT);
@@ -1185,6 +1228,8 @@ static void scr_study_capture_start(void)
     s_study_capture_active = true;
     s_study_capture_seq = 0;
     s_study_capture_last_ms = qm_now_ms();
+    s_study_pose_hint_showing = false;
+    study_pose_reset_counters();
     ESP_LOGI(LOG_TAG, "study capture started");
 }
 
@@ -1194,7 +1239,92 @@ void scr_study_capture_stop(void)
         return;
     }
     s_study_capture_active = false;
+    s_study_pose_hint_showing = false;
+    study_pose_reset_counters();
     ESP_LOGI(LOG_TAG, "study capture stopped, total=%u", (unsigned)s_study_capture_seq);
+}
+
+bool scr_study_capture_is_active(void)
+{
+    return s_study_capture_active;
+}
+
+bool scr_study_pose_hint_is_showing(void)
+{
+    return s_study_pose_hint_showing;
+}
+
+static void study_pose_reset_counters(void)
+{
+    s_pose_bad_consec = 0;
+    s_pose_nobody_consec = 0;
+}
+
+static bool study_pose_hint_rate_ok(uint32_t *window_ms, uint8_t *count)
+{
+    uint32_t now = qm_now_ms();
+
+    if (*window_ms == 0 || now - *window_ms >= STUDY_POSE_HINT_WINDOW_MS) {
+        *window_ms = now;
+        *count = 0;
+    }
+    return *count < STUDY_POSE_HINT_MAX_PER_WINDOW;
+}
+
+static void study_pose_hint_count_inc(uint32_t *window_ms, uint8_t *count)
+{
+    uint32_t now = qm_now_ms();
+
+    if (*window_ms == 0 || now - *window_ms >= STUDY_POSE_HINT_WINDOW_MS) {
+        *window_ms = now;
+        *count = 0;
+    }
+    (*count)++;
+}
+
+static void study_pose_show_hint(study_light_hint_type_t type)
+{
+    study_hint_set_content(type);
+    s_light_detect_hint = type;
+    s_study_pose_hint_showing = true;
+    s_study_pose_hint_until_ms = qm_now_ms() + STUDY_POSE_HINT_SHOW_MS;
+    study_pose_reset_counters();
+    if (get_current_screen() != SCREEN_ID_PAGE_STUDY_LIGHT_HINT) {
+        goto_page_by_id(SCREEN_ID_PAGE_STUDY_LIGHT_HINT);
+    }
+    ESP_LOGI(LOG_TAG, "study pose hint show type=%d", (int)type);
+}
+
+void scr_study_pose_on_frame_result(yolo11_pose_frame_status_t status)
+{
+    if (!s_study_capture_active || s_study_pose_hint_showing) {
+        return;
+    }
+
+    if (status == YOLO11_POSE_FRAME_NO_PERSON) {
+        s_pose_nobody_consec++;
+        s_pose_bad_consec = 0;
+        if (s_pose_nobody_consec >= STUDY_POSE_NOBODY_CONSEC_FRAMES
+                && study_pose_hint_rate_ok(&s_pose_block_hint_window_ms, &s_pose_block_hint_count)) {
+            study_pose_hint_count_inc(&s_pose_block_hint_window_ms, &s_pose_block_hint_count);
+            study_pose_show_hint(STUDY_LIGHT_HINT_CAMERA_BLOCK);
+        }
+        return;
+    }
+
+    s_pose_nobody_consec = 0;
+
+    if (status == YOLO11_POSE_FRAME_BAD_POSTURE) {
+        s_pose_bad_consec++;
+        if (s_pose_bad_consec >= STUDY_POSE_BAD_CONSEC_FRAMES
+                && study_pose_hint_rate_ok(&s_pose_bad_hint_window_ms, &s_pose_bad_hint_count)) {
+            study_pose_hint_count_inc(&s_pose_bad_hint_window_ms, &s_pose_bad_hint_count);
+            study_pose_show_hint(STUDY_LIGHT_HINT_POSE_WRONG);
+        }
+        return;
+    }
+
+    s_pose_bad_consec = 0;
 }
 
 static void scr_study_capture_tick(void)
@@ -1523,6 +1653,43 @@ void create_screen_page_study_light_hint() {
 }
 
 void tick_screen_page_study_light_hint() {
+    if (!s_study_pose_hint_showing) {
+        return;
+    }
+
+    if (qm_now_ms() >= s_study_pose_hint_until_ms) {
+        s_study_pose_hint_showing = false;
+        s_light_detect_hint = STUDY_LIGHT_HINT_NONE;
+        goto_page_by_id(SCREEN_ID_PAGE_STUDY);
+        return;
+    }
+
+    scr_study_capture_tick();
+    scr_study_session_tick();
+}
+
+static void scr_study_session_tick(void)
+{
+    if (s_study_state != STUDY_STATE_RUNNING) {
+        return;
+    }
+
+    if (qm_now_ms() - s_study_last_tick < 1000) {
+        return;
+    }
+    s_study_last_tick = qm_now_ms();
+
+    if (s_study_remaining == 0) {
+        return;
+    }
+
+    s_study_remaining--;
+    study_ui_update_countdown();
+
+    if (s_study_remaining == 0) {
+        s_study_state = STUDY_STATE_IDLE;
+        scr_study_show_result(true);
+    }
 }
 
 void create_screen_page_study_result() {
@@ -1588,27 +1755,7 @@ void tick_screen_page_study() {
     }
 
     scr_study_capture_tick();
-
-    if (s_study_state != STUDY_STATE_RUNNING) {
-        return;
-    }
-
-    if (qm_now_ms() - s_study_last_tick < 1000) {
-        return;
-    }
-    s_study_last_tick = qm_now_ms();
-
-    if (s_study_remaining == 0) {
-        return;
-    }
-
-    s_study_remaining--;
-    study_ui_update_countdown();
-
-    if (s_study_remaining == 0) {
-        s_study_state = STUDY_STATE_IDLE;
-        scr_study_show_result(true);
-    }
+    scr_study_session_tick();
 }
 
 #define UI_SETTINGS_TITLE_Y     30
