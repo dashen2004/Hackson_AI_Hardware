@@ -10,6 +10,14 @@ extern "C" {
 #endif
 
 typedef enum {
+    YOLO11_POSE_ERR_NONE = 0,
+    YOLO11_POSE_ERR_YAW = 1,         /* 歪头 */
+    YOLO11_POSE_ERR_BODY_TILT = 2,   /* 身体倾斜 */
+    YOLO11_POSE_ERR_TOO_CLOSE = 3,   /* 距离过近 */
+    YOLO11_POSE_ERR_HEAD_DOWN = 4,   /* 趴下/低头过多 */
+} yolo11_pose_err_type_t;
+
+typedef enum {
     YOLO11_POSE_FRAME_NO_PERSON = 0,
     YOLO11_POSE_FRAME_OK,
     YOLO11_POSE_FRAME_BAD_POSTURE,
@@ -17,10 +25,13 @@ typedef enum {
 
 typedef struct {
     yolo11_pose_frame_status_t status;
+    yolo11_pose_err_type_t err_type;
     float yaw;
     float roll;
     float shoulder_diff;
     float lean;
+    float eye_w_ratio;
+    float head_down_ratio;
 } yolo11_pose_frame_result_t;
 
 esp_err_t yolo11_pose_init(void);

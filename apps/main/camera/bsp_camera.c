@@ -121,7 +121,7 @@ static void cam_upload_task(void *arg)
 #if !APP_HEADLESS_CAMERA_OSS
         if (pose_ret == ESP_OK && scr_study_capture_is_active()) {
             bool ui_locked_pose = cam_ui_lock();
-            scr_study_pose_on_frame_result(pose_result.status);
+            scr_study_pose_on_frame_result(&pose_result);
             cam_ui_unlock(ui_locked_pose);
         }
 #endif

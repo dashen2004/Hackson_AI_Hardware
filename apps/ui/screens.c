@@ -807,7 +807,8 @@ static void study_hint_set_content(study_light_hint_type_t type);
 static void study_pose_reset_counters(void);
 static bool study_pose_hint_rate_ok(uint32_t *window_ms, uint8_t *count);
 static void study_pose_hint_count_inc(uint32_t *window_ms, uint8_t *count);
-static void study_pose_show_hint(study_light_hint_type_t type);
+static uint8_t s_pose_last_corpus = 0;
+static void study_pose_show_hint(study_light_hint_type_t type, uint8_t corpus_value);
 
 static void study_result_layout_refresh(void)
 {
@@ -1257,6 +1258,7 @@ static void study_pose_reset_counters(void)
 {
     s_pose_bad_consec = 0;
     s_pose_nobody_consec = 0;
+    s_pose_last_corpus = 0;
 }
 
 static bool study_pose_hint_rate_ok(uint32_t *window_ms, uint8_t *count)
@@ -1281,49 +1283,57 @@ static void study_pose_hint_count_inc(uint32_t *window_ms, uint8_t *count)
     (*count)++;
 }
 
-static void study_pose_show_hint(study_light_hint_type_t type)
+static void study_pose_show_hint(study_light_hint_type_t type, uint8_t corpus_value)
 {
     study_hint_set_content(type);
     s_light_detect_hint = type;
     s_study_pose_hint_showing = true;
     s_study_pose_hint_until_ms = qm_now_ms() + STUDY_POSE_HINT_SHOW_MS;
     study_pose_reset_counters();
+    if (corpus_value != 0) {
+        iot_func_req_corpus(corpus_value);
+    }
     if (get_current_screen() != SCREEN_ID_PAGE_STUDY_LIGHT_HINT) {
         goto_page_by_id(SCREEN_ID_PAGE_STUDY_LIGHT_HINT);
     }
-    ESP_LOGI(LOG_TAG, "study pose hint show type=%d", (int)type);
+    ESP_LOGI(LOG_TAG, "study pose hint show type=%d corpus=%u", (int)type, (unsigned)corpus_value);
 }
 
-void scr_study_pose_on_frame_result(yolo11_pose_frame_status_t status)
+void scr_study_pose_on_frame_result(const yolo11_pose_frame_result_t *result)
 {
-    if (!s_study_capture_active || s_study_pose_hint_showing) {
+    if (!s_study_capture_active || s_study_pose_hint_showing || result == NULL) {
         return;
     }
 
-    if (status == YOLO11_POSE_FRAME_NO_PERSON) {
-        s_pose_nobody_consec++;
+    if (result->status == YOLO11_POSE_FRAME_NO_PERSON) {
         s_pose_bad_consec = 0;
+        s_pose_last_corpus = 0;
+        s_pose_nobody_consec++;
         if (s_pose_nobody_consec >= STUDY_POSE_NOBODY_CONSEC_FRAMES
                 && study_pose_hint_rate_ok(&s_pose_block_hint_window_ms, &s_pose_block_hint_count)) {
             study_pose_hint_count_inc(&s_pose_block_hint_window_ms, &s_pose_block_hint_count);
-            study_pose_show_hint(STUDY_LIGHT_HINT_CAMERA_BLOCK);
+            study_pose_show_hint(STUDY_LIGHT_HINT_CAMERA_BLOCK, 7);
         }
         return;
     }
 
     s_pose_nobody_consec = 0;
 
-    if (status == YOLO11_POSE_FRAME_BAD_POSTURE) {
+    if (result->status == YOLO11_POSE_FRAME_BAD_POSTURE) {
+        if (result->err_type != YOLO11_POSE_ERR_NONE) {
+            s_pose_last_corpus = (uint8_t)result->err_type;
+        }
         s_pose_bad_consec++;
         if (s_pose_bad_consec >= STUDY_POSE_BAD_CONSEC_FRAMES
                 && study_pose_hint_rate_ok(&s_pose_bad_hint_window_ms, &s_pose_bad_hint_count)) {
             study_pose_hint_count_inc(&s_pose_bad_hint_window_ms, &s_pose_bad_hint_count);
-            study_pose_show_hint(STUDY_LIGHT_HINT_POSE_WRONG);
+            study_pose_show_hint(STUDY_LIGHT_HINT_POSE_WRONG, s_pose_last_corpus);
         }
         return;
     }
 
     s_pose_bad_consec = 0;
+    s_pose_last_corpus = 0;
 }
 
 static void scr_study_capture_tick(void)

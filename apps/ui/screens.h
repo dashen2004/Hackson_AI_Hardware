@@ -204,7 +204,7 @@ void scr_study_session_pause_if_running(void);
 void scr_study_entry_btn_set_visible(bool visible);
 void scr_study_capture_stop(void);
 bool scr_study_capture_is_active(void);
-void scr_study_pose_on_frame_result(yolo11_pose_frame_status_t status);
+void scr_study_pose_on_frame_result(const yolo11_pose_frame_result_t *result);
 bool scr_study_pose_hint_is_showing(void);
 
 void create_screen_page_study_light_detect();

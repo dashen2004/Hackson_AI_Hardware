@@ -14,6 +14,13 @@
 static const char *TAG = "yolo11n-pose";
 static COCOPose *s_pose = nullptr;
 
+#define POSE_YAW_BAD_MAX        0.90f
+#define POSE_ROLL_BAD_MIN       0.10f
+#define POSE_SHOULDER_BAD_MIN   0.03f
+#define POSE_LEAN_BAD_MIN       0.50f
+#define POSE_CLOSE_EYE_RATIO    0.20f
+#define POSE_HEAD_DOWN_RATIO    -0.05f
+
 static const char *kKptNames[17] = {"nose",
                                     "left eye",
                                     "right eye",
@@ -59,6 +66,26 @@ static void log_pose_keypoints(const char *name, const dl::detect::result_t &res
     ESP_LOGI(TAG, "%s %s", name, log_buf);
 }
 
+static yolo11_pose_err_type_t pick_primary_pose_err(bool yaw_bad,
+                                                    bool tilt_bad,
+                                                    bool close_bad,
+                                                    bool head_down_bad)
+{
+    if (head_down_bad) {
+        return YOLO11_POSE_ERR_HEAD_DOWN;
+    }
+    if (close_bad) {
+        return YOLO11_POSE_ERR_TOO_CLOSE;
+    }
+    if (yaw_bad) {
+        return YOLO11_POSE_ERR_YAW;
+    }
+    if (tilt_bad) {
+        return YOLO11_POSE_ERR_BODY_TILT;
+    }
+    return YOLO11_POSE_ERR_NONE;
+}
+
 static void analyze_pose_result(const dl::detect::result_t &res,
                                 int img_w,
                                 int img_h,
@@ -77,46 +104,65 @@ static void analyze_pose_result(const dl::detect::result_t &res,
     int rs_y = kp[13];
 
     out->status = YOLO11_POSE_FRAME_OK;
+    out->err_type = YOLO11_POSE_ERR_NONE;
     out->yaw = 0.0f;
     out->roll = 0.0f;
     out->shoulder_diff = 0.0f;
     out->lean = 0.0f;
+    out->eye_w_ratio = 0.0f;
+    out->head_down_ratio = 0.0f;
 
     if (img_w <= 0 || img_h <= 0) {
         return;
     }
 
-    bool bad = false;
+    bool yaw_bad = false;
+    bool tilt_bad = false;
+    bool close_bad = false;
+    bool head_down_bad = false;
 
     if (kpt_valid(le_x, le_y) && kpt_valid(re_x, re_y)) {
         float dx = (float)(re_x - le_x);
         float dy = (float)(re_y - le_y);
         float eye_w = sqrtf(dx * dx + dy * dy);
         if (eye_w >= 1.0f) {
+            out->eye_w_ratio = eye_w / (float)img_w;
             out->yaw = fabsf((float)(le_x - re_x)) / eye_w;
             out->roll = fabsf((float)(le_y - re_y)) / eye_w;
-            if (out->yaw < 0.90f || out->roll > 0.10f) {
-                bad = true;
+            if (out->yaw < POSE_YAW_BAD_MAX) {
+                yaw_bad = true;
+            }
+            if (out->roll > POSE_ROLL_BAD_MIN) {
+                tilt_bad = true;
+            }
+            if (out->eye_w_ratio > POSE_CLOSE_EYE_RATIO) {
+                close_bad = true;
             }
         }
     }
 
     if (kpt_valid(ls_x, ls_y) && kpt_valid(rs_x, rs_y)) {
         out->shoulder_diff = fabsf((float)(ls_y - rs_y)) / (float)img_h;
-        if (out->shoulder_diff > 0.03f) {
-            bad = true;
+        if (out->shoulder_diff > POSE_SHOULDER_BAD_MIN) {
+            tilt_bad = true;
         }
     }
 
     if (kpt_valid(nose_x, nose_y) && kpt_valid(ls_x, ls_y) && kpt_valid(rs_x, rs_y)) {
         float shoulder_mid_x = ((float)ls_x + (float)rs_x) * 0.5f;
+        float shoulder_mid_y = ((float)ls_y + (float)rs_y) * 0.5f;
         out->lean = fabsf((float)nose_x - shoulder_mid_x) / (float)img_w;
-        if (out->lean > 0.50f) {
-            bad = true;
+        out->head_down_ratio = ((float)nose_y - shoulder_mid_y) / (float)img_h;
+        if (out->lean > POSE_LEAN_BAD_MIN) {
+            tilt_bad = true;
+        }
+        if (out->head_down_ratio > POSE_HEAD_DOWN_RATIO) {
+            head_down_bad = true;
         }
     }
 
-    if (bad) {
+    out->err_type = pick_primary_pose_err(yaw_bad, tilt_bad, close_bad, head_down_bad);
+    if (out->err_type != YOLO11_POSE_ERR_NONE) {
         out->status = YOLO11_POSE_FRAME_BAD_POSTURE;
     }
 }
@@ -261,13 +307,16 @@ extern "C" esp_err_t yolo11_pose_analyze_jpg_named(const uint8_t *jpg_data,
     if (out != nullptr) {
         analyze_pose_result(res, (int)img.width, (int)img.height, out);
         ESP_LOGI(TAG,
-                 "%s pose metrics yaw=%.3f roll=%.3f shoulder=%.3f lean=%.3f status=%d",
+                 "%s pose metrics yaw=%.3f roll=%.3f shoulder=%.3f lean=%.3f eye=%.3f head=%.3f status=%d err=%d",
                  name,
                  out->yaw,
                  out->roll,
                  out->shoulder_diff,
                  out->lean,
-                 (int)out->status);
+                 out->eye_w_ratio,
+                 out->head_down_ratio,
+                 (int)out->status,
+                 (int)out->err_type);
     }
 
     heap_caps_free(img.data);
