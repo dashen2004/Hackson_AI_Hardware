@@ -283,6 +283,8 @@ static void qm_iot_event_handler(void *handle, const qm_iot_event_t *event, void
 
             qm_cancel_delayed_action(&wifi_disconn_action);
 
+            bsp_oss_upload_init();
+
             extern void qm_example_ai_init(void *handle);
             qm_example_ai_init(iot_handle);
 
@@ -513,7 +515,7 @@ int xjiang_cloud_init(void)
         QM_LOGE(LOG_TAG, "qm_api_init failed !!!");
         return -QM_EIO;
     }
-  
+
     qm_iot_setopt(iot_handle, QM_IOT_OPT_PRODUCT_ID, &pid);
     qm_iot_setopt(iot_handle, QM_IOT_OPT_VERSION, &version);
     qm_iot_setopt(iot_handle, QM_IOT_OPT_PRODUCT_SECRET, CONFIG_XJIANG_CLOUD_SECERT);

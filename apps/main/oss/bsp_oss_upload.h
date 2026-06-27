@@ -19,6 +19,7 @@ extern "C" {
 #define BSP_OSS_ACCESS_KEY_ID           "LTAI5t9zos2KMkM4Lurhsp11"
 #define BSP_OSS_ACCESS_KEY_SECRET       "mvum79Gmk25IqehQ9wYi0doL9h7PI3"
 
+qm_err_t bsp_oss_upload_init(void);
 qm_err_t bsp_oss_upload_jpg(const uint8_t *data, size_t len);
 qm_err_t bsp_oss_upload_jpg_named(const uint8_t *data, size_t len, const char *object_key);
 qm_err_t bsp_oss_upload_test_jpg(void);

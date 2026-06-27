@@ -71,8 +71,10 @@ qm_err_t bsp_lcd_init(void)
 {
     // init lcd panel
     // ESP_LOGI(TAG, "Initialize SPI bus");
+    // LVGL9 port 会先把 PSRAM draw buffer 分块复制到固定的内部 DMA trans_buf。
+    // 这里限制 SPI 单次传输块，避免后续改动绕过 trans_buf 时再次申请大块临时 DMA 内存。
     const spi_bus_config_t buscfg = ST77912_PANEL_BUS_SPI_CONFIG(LCD_PIN_NUM_PCLK, LCD_PIN_NUM_DATA0,
-                                    LCD_H_RES * 80 * LCD_BIT_PER_PIXEL / 16);
+                                    LCD_H_RES * 16 * LCD_BIT_PER_PIXEL / 16);
     spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO);
 
     // ESP_LOGI(TAG, "Install panel IO");

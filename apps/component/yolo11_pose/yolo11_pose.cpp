@@ -120,12 +120,14 @@ static void analyze_pose_result(const dl::detect::result_t &res,
     bool tilt_bad = false;
     bool close_bad = false;
     bool head_down_bad = false;
+    bool measured = false;
 
     if (kpt_valid(le_x, le_y) && kpt_valid(re_x, re_y)) {
         float dx = (float)(re_x - le_x);
         float dy = (float)(re_y - le_y);
         float eye_w = sqrtf(dx * dx + dy * dy);
         if (eye_w >= 1.0f) {
+            measured = true;
             out->eye_w_ratio = eye_w / (float)img_w;
             out->yaw = fabsf((float)(le_x - re_x)) / eye_w;
             out->roll = fabsf((float)(le_y - re_y)) / eye_w;
@@ -142,6 +144,7 @@ static void analyze_pose_result(const dl::detect::result_t &res,
     }
 
     if (kpt_valid(ls_x, ls_y) && kpt_valid(rs_x, rs_y)) {
+        measured = true;
         out->shoulder_diff = fabsf((float)(ls_y - rs_y)) / (float)img_h;
         if (out->shoulder_diff > POSE_SHOULDER_BAD_MIN) {
             tilt_bad = true;
@@ -149,6 +152,7 @@ static void analyze_pose_result(const dl::detect::result_t &res,
     }
 
     if (kpt_valid(nose_x, nose_y) && kpt_valid(ls_x, ls_y) && kpt_valid(rs_x, rs_y)) {
+        measured = true;
         float shoulder_mid_x = ((float)ls_x + (float)rs_x) * 0.5f;
         float shoulder_mid_y = ((float)ls_y + (float)rs_y) * 0.5f;
         out->lean = fabsf((float)nose_x - shoulder_mid_x) / (float)img_w;
@@ -164,6 +168,10 @@ static void analyze_pose_result(const dl::detect::result_t &res,
     out->err_type = pick_primary_pose_err(yaw_bad, tilt_bad, close_bad, head_down_bad);
     if (out->err_type != YOLO11_POSE_ERR_NONE) {
         out->status = YOLO11_POSE_FRAME_BAD_POSTURE;
+    } else if (!measured) {
+        out->status = YOLO11_POSE_FRAME_UNKNOWN;
+    } else {
+        out->status = YOLO11_POSE_FRAME_OK;
     }
 }
 

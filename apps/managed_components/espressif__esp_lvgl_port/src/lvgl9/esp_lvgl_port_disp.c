@@ -56,10 +56,14 @@ typedef struct {
     esp_lcd_panel_handle_t    control_handle; /* LCD panel control handle */
     lvgl_port_rotation_cfg_t  rotation;       /* Default values of the screen rotation */
     lv_color_t                *draw_buffs[3]; /* Display draw buffers */
+    lv_color_t                *trans_buf;      /* Internal DMA buffer used to flush PSRAM draw buffers */
+    uint32_t                  trans_size;      /* Transport buffer size in pixels */
+    uint8_t                   color_bytes;     /* Bytes per pixel for current color format */
     uint8_t                   *oled_buffer;
     lv_display_t              *disp_drv;      /* LVGL display driver */
     lv_display_rotation_t     current_rotation;
     SemaphoreHandle_t         trans_sem;      /* Idle transfer mutex */
+    volatile bool             trans_in_progress;
 #if LVGL_PORT_PPA
     lvgl_port_ppa_handle_t    ppa_handle;
 #endif //LVGL_PORT_PPA
@@ -223,6 +227,10 @@ esp_err_t lvgl_port_remove_disp(lv_display_t *disp)
         free(disp_ctx->draw_buffs[2]);
     }
 
+    if (disp_ctx->trans_buf) {
+        free(disp_ctx->trans_buf);
+    }
+
     if (disp_ctx->oled_buffer) {
         free(disp_ctx->oled_buffer);
     }
@@ -295,6 +303,7 @@ static lv_display_t *lvgl_port_add_disp_priv(const lvgl_port_display_cfg_t *disp
     disp_ctx->flags.swap_bytes = disp_cfg->flags.swap_bytes;
     disp_ctx->flags.sw_rotate = disp_cfg->flags.sw_rotate;
     disp_ctx->current_rotation = LV_DISPLAY_ROTATION_0;
+    disp_ctx->color_bytes = color_bytes;
 
     uint32_t buff_caps = 0;
 #if SOC_PSRAM_DMA_CAPABLE == 0
@@ -337,6 +346,17 @@ static lv_display_t *lvgl_port_add_disp_priv(const lvgl_port_display_cfg_t *disp
 
         disp_ctx->draw_buffs[0] = buf1;
         disp_ctx->draw_buffs[1] = buf2;
+    }
+
+    if (priv_cfg == NULL && disp_cfg->flags.buff_spiram && !disp_cfg->monochrome && disp_cfg->trans_size > 0) {
+        ESP_GOTO_ON_FALSE(disp_cfg->trans_size >= disp_cfg->hres, ESP_ERR_INVALID_ARG, err, TAG, "Transport buffer must be at least one display line");
+        disp_ctx->trans_buf = heap_caps_aligned_alloc(CONFIG_LV_DRAW_BUF_ALIGN, disp_cfg->trans_size * color_bytes,
+                                                      MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+        ESP_GOTO_ON_FALSE(disp_ctx->trans_buf, ESP_ERR_NO_MEM, err, TAG, "Not enough memory for LVGL transport buffer allocation!");
+        trans_sem = xSemaphoreCreateCounting(1, 0);
+        ESP_GOTO_ON_FALSE(trans_sem, ESP_ERR_NO_MEM, err, TAG, "Failed to create transport counting Semaphore");
+        disp_ctx->trans_sem = trans_sem;
+        disp_ctx->trans_size = disp_cfg->trans_size;
     }
 
     disp = lv_display_create(disp_cfg->hres, disp_cfg->vres);
@@ -430,6 +450,9 @@ err:
         if (disp_ctx->draw_buffs[2]) {
             free(disp_ctx->draw_buffs[2]);
         }
+        if (disp_ctx->trans_buf) {
+            free(disp_ctx->trans_buf);
+        }
         if (disp_ctx->oled_buffer) {
             free(disp_ctx->oled_buffer);
         }
@@ -447,8 +470,16 @@ err:
 #if LVGL_PORT_HANDLE_FLUSH_READY
 static bool lvgl_port_flush_io_ready_callback(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
+    BaseType_t need_yield = pdFALSE;
     lv_display_t *disp_drv = (lv_display_t *)user_ctx;
     assert(disp_drv != NULL);
+    lvgl_port_display_ctx_t *disp_ctx = (lvgl_port_display_ctx_t *)lv_display_get_driver_data(disp_drv);
+
+    if (disp_ctx && disp_ctx->trans_in_progress && disp_ctx->trans_sem) {
+        xSemaphoreGiveFromISR(disp_ctx->trans_sem, &need_yield);
+        return (need_yield == pdTRUE);
+    }
+
     lv_disp_flush_ready(disp_drv);
     return false;
 }
@@ -668,7 +699,7 @@ static void lvgl_port_flush_callback(lv_display_t *drv, const lv_area_t *area, u
 #endif //LVGL_PORT_PPA
     }
 
-    if (disp_ctx->flags.swap_bytes) {
+    if (disp_ctx->flags.swap_bytes && disp_ctx->trans_buf == NULL) {
         size_t len = lv_area_get_size(area);
         lv_draw_sw_rgb565_swap(color_map, len);
     }
@@ -685,8 +716,54 @@ static void lvgl_port_flush_callback(lv_display_t *drv, const lv_area_t *area, u
             xSemaphoreTake(disp_ctx->trans_sem, 0);
             xSemaphoreTake(disp_ctx->trans_sem, portMAX_DELAY);
         }
+    } else if (disp_ctx->trans_buf && disp_ctx->trans_sem) {
+        const int width = offsetx2 - offsetx1 + 1;
+        const int height = offsety2 - offsety1 + 1;
+        const uint32_t max_lines = disp_ctx->trans_size / width;
+        const uint32_t bytes_per_line = width * disp_ctx->color_bytes;
+        const uint8_t *src = color_map;
+        int y_start = offsety1;
+        int remaining = height;
+
+        if (max_lines == 0) {
+            ESP_LOGE(TAG, "transport buffer too small, force flush ready");
+            lv_disp_flush_ready(drv);
+            return;
+        }
+
+        while (remaining > 0) {
+            const int lines = (remaining > (int)max_lines) ? (int)max_lines : remaining;
+            const size_t chunk_bytes = lines * bytes_per_line;
+
+            memcpy(disp_ctx->trans_buf, src, chunk_bytes);
+            if (disp_ctx->flags.swap_bytes) {
+                lv_draw_sw_rgb565_swap(disp_ctx->trans_buf, lines * width);
+            }
+
+            xSemaphoreTake(disp_ctx->trans_sem, 0);
+            disp_ctx->trans_in_progress = true;
+            if (esp_lcd_panel_draw_bitmap(disp_ctx->panel_handle, offsetx1, y_start, offsetx2 + 1, y_start + lines, disp_ctx->trans_buf) != ESP_OK) {
+                disp_ctx->trans_in_progress = false;
+                ESP_LOGE(TAG, "draw_bitmap failed, force flush ready to avoid LVGL stall");
+                lv_disp_flush_ready(drv);
+                return;
+            }
+            xSemaphoreTake(disp_ctx->trans_sem, portMAX_DELAY);
+            disp_ctx->trans_in_progress = false;
+
+            src += chunk_bytes;
+            y_start += lines;
+            remaining -= lines;
+        }
+
+        lv_disp_flush_ready(drv);
     } else {
-        esp_lcd_panel_draw_bitmap(disp_ctx->panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map);
+        if (esp_lcd_panel_draw_bitmap(disp_ctx->panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map) != ESP_OK) {
+            /* Draw failed (e.g. SPI queue error): release LVGL so it does not hang in wait_for_flushing -> WDT */
+            ESP_LOGE(TAG, "draw_bitmap failed, force flush ready to avoid LVGL stall");
+            lv_disp_flush_ready(drv);
+            return;
+        }
     }
 
     if (disp_ctx->disp_type == LVGL_PORT_DISP_TYPE_RGB || (disp_ctx->disp_type == LVGL_PORT_DISP_TYPE_DSI && (disp_ctx->flags.direct_mode || disp_ctx->flags.full_refresh))) {

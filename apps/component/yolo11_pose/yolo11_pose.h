@@ -21,6 +21,7 @@ typedef enum {
     YOLO11_POSE_FRAME_NO_PERSON = 0,
     YOLO11_POSE_FRAME_OK,
     YOLO11_POSE_FRAME_BAD_POSTURE,
+    YOLO11_POSE_FRAME_UNKNOWN,   /* 检出人体但关键点不足，无法判定坐姿 */
 } yolo11_pose_frame_status_t;
 
 typedef struct {

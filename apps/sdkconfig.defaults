@@ -38,6 +38,19 @@ CONFIG_BT_CTRL_BLE_MAX_ACT=4
 # Keep enough internal heap for WiFi static RX buffers after PSRAM-heavy init
 CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=49152
 
+# TLS: free SSL TX/RX buffers when idle to save internal RAM
+CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
+
+# Fewer WiFi static RX DMA buffers; dynamic RX (PSRAM) covers the rest
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=12
+
+# Debug-only; meminfo CLI loses task run-time stats without this
+# CONFIG_FREERTOS_USE_TRACE_FACILITY is not set
+
+# LVGL draw buffer must be cache-line (64B) aligned, else SPI master allocates
+# a 38KB internal DMA bounce buffer per flush and fails (NO_MEM) when heap is fragmented
+CONFIG_LV_DRAW_BUF_ALIGN=64
+
 # Preload SPIFFS UI images into PSRAM cache (apps1/apps2/sleep page icons)
 CONFIG_LV_CACHE_DEF_SIZE=524288
 CONFIG_LV_BIN_DECODER_RAM_LOAD=y
@@ -46,3 +59,6 @@ CONFIG_LV_BIN_DECODER_RAM_LOAD=y
 
 # NVS cache in PSRAM saves internal RAM; keep WiFi/LwIP IRAM opts enabled (required for stable WiFi)
 CONFIG_NVS_ALLOCATE_CACHE_IN_SPIRAM=y
+
+# More BSD sockets for MQTT + RTC; one slot reserved by bsp_oss_upload_init()
+CONFIG_LWIP_MAX_SOCKETS=12

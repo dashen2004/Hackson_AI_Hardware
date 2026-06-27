@@ -1319,6 +1319,10 @@ void scr_study_pose_on_frame_result(const yolo11_pose_frame_result_t *result)
 
     s_pose_nobody_consec = 0;
 
+    if (result->status == YOLO11_POSE_FRAME_UNKNOWN) {
+        return;
+    }
+
     if (result->status == YOLO11_POSE_FRAME_BAD_POSTURE) {
         if (result->err_type != YOLO11_POSE_ERR_NONE) {
             s_pose_last_corpus = (uint8_t)result->err_type;

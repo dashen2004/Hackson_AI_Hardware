@@ -24,6 +24,48 @@
 #define OSS_HMAC_KEY_SIZE   64
 #define OSS_HMAC_DIGEST_LEN 20
 
+static int s_oss_sock = -1;
+
+static bool oss_credentials_ready(void)
+{
+    return BSP_OSS_ACCESS_KEY_ID[0] != '\0' && BSP_OSS_ACCESS_KEY_SECRET[0] != '\0';
+}
+
+static int oss_sock_reserve(void)
+{
+    if (s_oss_sock >= 0) {
+        return s_oss_sock;
+    }
+
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) {
+        ESP_LOGE(LOG_TAG, "reserve socket failed, errno=%d", errno);
+        return -1;
+    }
+
+    s_oss_sock = fd;
+    ESP_LOGI(LOG_TAG, "reserved socket fd=%d", fd);
+    return fd;
+}
+
+static void oss_sock_release(void)
+{
+    if (s_oss_sock >= 0) {
+        close(s_oss_sock);
+        s_oss_sock = -1;
+    }
+}
+
+qm_err_t bsp_oss_upload_init(void)
+{
+    if (!oss_credentials_ready()) {
+        ESP_LOGW(LOG_TAG, "skip reserve: OSS credentials not set");
+        return -QM_EINVAL;
+    }
+
+    return oss_sock_reserve() >= 0 ? QM_EOK : -QM_EIO;
+}
+
 static int oss_hmac_sha1_base64(const char *msg, int msg_len,
                                 const char *key, int key_len,
                                 char *b64_out, size_t b64_out_len)
@@ -68,11 +110,6 @@ static int oss_hmac_sha1_base64(const char *msg, int msg_len,
     }
     b64_out[out_len] = '\0';
     return 0;
-}
-
-static bool oss_credentials_ready(void)
-{
-    return BSP_OSS_ACCESS_KEY_ID[0] != '\0' && BSP_OSS_ACCESS_KEY_SECRET[0] != '\0';
 }
 
 static int oss_build_gmt_date(char *date_buf, size_t date_buf_len)
@@ -185,6 +222,7 @@ static int oss_raw_put_jpg(const uint8_t *data, size_t data_len,
     int fd = -1;
     int req_len;
     int ret = -1;
+    bool fd_owned = false;
 
     snprintf(host, sizeof(host), "%s.%s", BSP_OSS_BUCKET, BSP_OSS_ENDPOINT);
     req_len = snprintf(request, sizeof(request),
@@ -213,11 +251,11 @@ static int oss_raw_put_jpg(const uint8_t *data, size_t data_len,
         return -1;
     }
 
-    fd = socket(addr_list->ai_family, addr_list->ai_socktype, addr_list->ai_protocol);
+    fd = oss_sock_reserve();
     if (fd < 0) {
-        ESP_LOGE(LOG_TAG, "socket failed, errno=%d", errno);
         goto out;
     }
+    fd_owned = true;
 
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
@@ -249,8 +287,9 @@ static int oss_raw_put_jpg(const uint8_t *data, size_t data_len,
     ret = 0;
 
 out:
-    if (fd >= 0) {
-        close(fd);
+    if (fd_owned) {
+        oss_sock_release();
+        oss_sock_reserve();
     }
     if (addr_list) {
         freeaddrinfo(addr_list);
@@ -330,6 +369,11 @@ qm_err_t bsp_oss_upload_jpg_named(const uint8_t *data, size_t len, const char *o
 }
 
 qm_err_t bsp_oss_upload_test_jpg(void)
+{
+    return -QM_ENOSYS;
+}
+
+qm_err_t bsp_oss_upload_init(void)
 {
     return -QM_ENOSYS;
 }

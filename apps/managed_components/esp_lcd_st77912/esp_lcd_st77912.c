@@ -11,6 +11,8 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_commands.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
+#include "esp_memory_utils.h"
 
 #include "esp_lcd_st77912.h"
 
@@ -355,8 +357,21 @@ static esp_err_t panel_st77912_draw_bitmap(esp_lcd_panel_t *panel, int x_start, 
         (y_end - 1) & 0xFF,
     }, 4), TAG, "send command failed");
     size_t len = (x_end - x_start) * (y_end - y_start) * st77912->fb_bits_per_pixel / 8;
-    tx_color(st77912, io, LCD_CMD_RAMWR, color_data, len);
-    
+    esp_err_t color_ret = tx_color(st77912, io, LCD_CMD_RAMWR, color_data, len);
+    if (color_ret != ESP_OK) {
+        ESP_LOGE(TAG, "send color failed: %s(0x%x) area=(%d,%d)-(%d,%d) len=%u",
+                 esp_err_to_name(color_ret), color_ret,
+                 x_start, y_start, x_end, y_end, (unsigned)len);
+        ESP_LOGE(TAG, "  buf=%p spiram=%d align64=%u | internal free=%u largest=%u | dma free=%u largest=%u",
+                 color_data, esp_ptr_external_ram(color_data),
+                 (unsigned)((uintptr_t)color_data & 0x3F),
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_DMA),
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
+        return color_ret;
+    }
+
     return ESP_OK;
 }
 
