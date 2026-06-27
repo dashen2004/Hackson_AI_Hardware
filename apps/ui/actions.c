@@ -204,6 +204,8 @@ void goto_page_by_id(int8_t screen_id)
     cur_screen_index = screen_id;
     loadScreenEx(screen_id);
     lvgl_port_unlock();
+
+    app_lvgl_turnoff_reset(1);
 }
 
 static void goto_next_swipe_page(void)

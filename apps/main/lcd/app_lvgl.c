@@ -57,7 +57,6 @@ static void lvgl_turnoff_handler(void *arg)
     } else {
         extern void goto_page_by_id(int8_t screen_id);
         goto_page_by_id(SCREEN_ID_PAGE_SLEEP);
-        app_lvgl_turnoff_reset(0);
     }
 }
 

@@ -18,7 +18,6 @@
 #include "bsp_i2c.h"
 #include "bsp_sensor_light.h"
 #include "example_video_common.h"
-#include "bsp_sensor_tof.h"
 #include "bsp_lcd.h"
 #include "bsp_lcd_touch.h"
 #include "bsp_camera.h"

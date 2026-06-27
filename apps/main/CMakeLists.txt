@@ -18,14 +18,7 @@ set(COMPONENT_SRCS
     "./lcd/bsp_lcd_touch.c"
     "./lcd/app_lvgl.c"
     "./cloud/xjiang_cloud.c"
-    "./sensor/bsp_sensor_tof.c"
     "./sensor/bsp_sensor_light.c"
-
-    "../component/NDS03_SDK/example/nds03_platform.c"
-    "../component/NDS03_SDK/src/nds03_calib.c"
-    "../component/NDS03_SDK/src/nds03_comm.c"
-    "../component/NDS03_SDK/src/nds03_data.c"
-    "../component/NDS03_SDK/src/nds03_dev.c"
 
     "../component/qm_debug/qm_task_psram.c"
     "../component/qm_debug/qm_mem_log.c"
