@@ -1,82 +1,16 @@
-/* volc rtc example code
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
- 
-#include <stdio.h>
-#include <time.h>
-#include <sys/time.h>
-
-#include "freertos/idf_additions.h"
-#include "nvs_flash.h"
-#include "esp_event.h"
-#include "esp_netif.h"
-#include "esp_netif_sntp.h"
-#include "esp_log.h"
-#include "esp_timer.h"
-
-#include "qm_mem_log.h"
 #include "qm.h"
-#include "ai_main.h"
-#include "bsp_camera.h"
+#include "vb701n_player.h"
+#include "xjiang_cloud.h"
 
-#include "esp_bt.h"
-#include "esp_bt_main.h"
-
-// #define ENABLE_TASK_MONITOR
-
-static char *TAG = "main";
-
-#if defined(ENABLE_TASK_MONITOR)
-static void monitor_task(void *arg)
+void app_main(void)
 {
-    while (1) {
-        audio_sys_get_real_time_stats();
-        AUDIO_MEM_SHOW(TAG);
-        vTaskDelay(10000 / portTICK_RATE_MS);
-    }
-}
-#endif
-
-void app_main()
-{
-    ESP_ERROR_CHECK(nvs_flash_init());
-    qm_mem_log_print("nvs_flash");
-
-    if (bsp_camera_early_init() != QM_EOK) {
-        ESP_LOGW(TAG, "camera early init failed, continue without camera");
-    }
-    qm_mem_log_print("camera_early");
-
-    if (bsp_camera_stream_prepare() != QM_EOK) {
-        ESP_LOGW(TAG, "camera stream prepare failed, continue without camera");
-    }
-    qm_mem_log_print("camera_stream_prepare");
-
-    ESP_ERROR_CHECK(esp_netif_init());
-    qm_mem_log_init();
-    qm_mem_log_print("netif");
-
-    esp_log_level_set("AUDIO_THREAD", ESP_LOG_ERROR);
-    esp_log_level_set("i2c_bus_v2", ESP_LOG_ERROR);
-    esp_log_level_set("AUDIO_HAL", ESP_LOG_ERROR);
-    esp_log_level_set("AUDIO_PIPELINE", ESP_LOG_ERROR);
-    esp_log_level_set("AUDIO_ELEMENT", ESP_LOG_ERROR);
-    // esp_log_level_set("I2S_STREAM_IDF5.x", ESP_LOG_ERROR);
-    esp_log_level_set("RSP_FILTER", ESP_LOG_ERROR);
-    esp_log_level_set("AUDIO_EVT", ESP_LOG_ERROR);
-    
-    esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
-
-#if defined(ENABLE_TASK_MONITOR)
-    audio_thread_create(NULL, "monitor_task", monitor_task, NULL, 4 * 1024, 1, true, 1);
-#endif
-
-    // init byte rtc engine
     qm_main();
-    qm_mem_log_print("qm_main");
+}
+
+void qm_application_start(void)
+{
+    vb701n_player_start();
+    if (xjiang_cloud_init() != QM_EOK) {
+        QM_LOGE("main", "xjiang_cloud_init failed");
+    }
 }

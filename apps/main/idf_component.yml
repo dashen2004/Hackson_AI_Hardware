@@ -1,37 +1,3 @@
-## IDF Component Manager Manifest File
 dependencies:
-  ## Required IDF version
   idf:
-    version: '>=4.1.0'
-  # # Put list of dependencies here
-  # # For components maintained by Espressif:
-  # component: "~1.0.0"
-  # # For 3rd party components:
-  # username/component: ">=1.0.0,<2.0.0"
-  # username2/component2:
-  #   version: "~1.0.0"
-  #   # For transient dependencies `public` flag can be set.
-  #   # `public` flag doesn't have an effect dependencies of the `main` component.
-  #   # All dependencies of `main` are public by default.
-  #   public: true
-  # espressif/esp_lcd_st77916: ^2.0.2
-  espressif/esp_lcd_touch_cst816s: ^1.0.6
-  lvgl/lvgl: 9.2.2
-  espressif/esp_lvgl_port:
-    version: ^2.6.0
-    override_path: ../managed_components/espressif__esp_lvgl_port
-  # 78/esp-opus: ^1.0.5
-  # espressif/lightbulb_driver: ^1.11.0
-  # espressif/esp_lcd_gc9a01: ^2.0.4
-  esp_lcd_st77912:
-    # git: "https://github.com/river147/esp_lcd_st77912.git"
-    override_path: ../managed_components/esp_lcd_st77912
-
-  iot_usbh_modem:
-    version: '>=0.2.0'
-    override_path: ../../qumi/platform/mcu/esp32/hal/modem/usb/iot_usbh_modem
-  esp_video: {}
-  example_video_common:
-    path: ../component/example_video_common
-  yolo11_pose:
-    path: ../component/yolo11_pose
+    version: '>=5.3.0'
