@@ -9,6 +9,7 @@
 #include "qm_ble_gap.h"
 #include "qm_work.h"
 #include "qm_string.h"
+#include "qm_gpio.h"
 
 #include <string.h>
 
@@ -27,6 +28,12 @@
 #define CLOUD_WIFI_DELAY_MS 1000
 #define CLOUD_IOT_TASK_STACK (16 * 1024)
 #define CLOUD_IOT_TASK_PRIO  5
+
+#define CLOUD_RESET_GPIO       14
+#define CLOUD_RESET_HOLD_MS    3000
+#define CLOUD_RESET_POLL_MS    100
+#define CLOUD_RESET_TASK_STACK 2048
+#define CLOUD_RESET_TASK_PRIO  5
 
 static void *iot_handle;
 static qm_provision_handle_t provision_handle;
@@ -273,6 +280,81 @@ static int cloud_apply_wifi(const char *ssid, const char *password)
     return qm_wifi_set_config(QM_WIFI_IF_STA, &config);
 }
 
+static uint8_t provision_resetting;
+
+static void cloud_clear_saved_provision(void)
+{
+    uint8_t bound = 0;
+
+    (void)qm_kv_set(CLOUD_KV_BIND, &bound, (int)sizeof(bound), 1);
+    (void)qm_kv_del("wifi_cfg");
+}
+
+static void cloud_reset_provision(void)
+{
+    if (provision_resetting) {
+        return;
+    }
+    provision_resetting = 1;
+
+    if (iot_handle != NULL && qm_iot_reset(iot_handle) == QM_EOK) {
+        QM_LOGI(LOG_TAG, "gpio%d held %u ms, request unbind",
+                CLOUD_RESET_GPIO, (unsigned)CLOUD_RESET_HOLD_MS);
+        return;
+    }
+
+    cloud_clear_saved_provision();
+    QM_LOGI(LOG_TAG, "gpio%d held %u ms, cloud not up, reboot",
+            CLOUD_RESET_GPIO, (unsigned)CLOUD_RESET_HOLD_MS);
+    qm_msleep(50);
+    qm_reboot();
+}
+
+static void cloud_reset_task(void *arg)
+{
+    qm_gpio_dev_t gpio = {
+        .port = CLOUD_RESET_GPIO,
+        .config = {
+            .mode = QM_GPIO_MODE_INPUT,
+            .pull_en = QM_GPIO_PULLUP_ONLY,
+        },
+    };
+    uint32_t low_ms = 0;
+
+    (void)arg;
+    if (qm_gpio_init(&gpio) != QM_EOK) {
+        QM_LOGE(LOG_TAG, "reset gpio%d init fail", CLOUD_RESET_GPIO);
+        qm_task_exit(NULL);
+        return;
+    }
+
+    while (1) {
+        if (qm_gpio_get_level(&gpio) == 0) {
+            if (low_ms == 0) {
+                QM_LOGI(LOG_TAG, "gpio%d low, hold %u ms to reset provision",
+                        CLOUD_RESET_GPIO, (unsigned)CLOUD_RESET_HOLD_MS);
+            }
+            low_ms += CLOUD_RESET_POLL_MS;
+            if (low_ms >= CLOUD_RESET_HOLD_MS) {
+                cloud_reset_provision();
+            }
+        } else {
+            low_ms = 0;
+        }
+        qm_msleep(CLOUD_RESET_POLL_MS);
+    }
+}
+
+static void cloud_reset_start(void)
+{
+    static qm_task_t task;
+
+    if (qm_task_new(&task, "prov_rst", cloud_reset_task, NULL,
+                    CLOUD_RESET_TASK_STACK, CLOUD_RESET_TASK_PRIO) != 0) {
+        QM_LOGE(LOG_TAG, "reset task create fail");
+    }
+}
+
 static int cloud_has_saved_wifi(void)
 {
     qm_wifi_cfg_t cfg;
@@ -420,6 +502,12 @@ static void cloud_iot_event_handler(void *handle, const qm_iot_event_t *event, v
         case QM_IOT_EVENT_CONNING_CLOUD:
             QM_LOGI(LOG_TAG, "cloud connecting");
             break;
+        case QM_IOT_EVENT_RESET:
+            QM_LOGI(LOG_TAG, "cloud reset, clear provision and reboot");
+            cloud_clear_saved_provision();
+            qm_msleep(50);
+            qm_reboot();
+            break;
         default:
             QM_LOGD(LOG_TAG, "iot event %d", event->type);
             break;
@@ -440,6 +528,8 @@ int xjiang_cloud_init(void)
 {
     uint32_t pid = CONFIG_XJIANG_CLOUD_PID;
     int ret;
+
+    cloud_reset_start();
 
     iot_handle = qm_iot_init();
     if (iot_handle == NULL) {
