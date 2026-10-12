@@ -50,20 +50,6 @@ static void cloud_set_bound(uint8_t bound)
     (void)qm_kv_set(CLOUD_KV_BIND, &bound, (int)sizeof(bound), 1);
 }
 
-static int kv_copy(const char *key, char *dst, uint32_t dst_size, uint32_t *out_len)
-{
-    int len = (int)dst_size;
-
-    if (qm_kv_get(key, dst, &len) != QM_EOK || len <= 0 || (uint32_t)len >= dst_size) {
-        return -QM_EIO;
-    }
-    dst[len] = '\0';
-    if (out_len != NULL) {
-        *out_len = (uint32_t)len;
-    }
-    return QM_EOK;
-}
-
 static int cloud_save_credential(const qm_iot_cloud_auth_t *credential)
 {
     if (credential == NULL || credential->did == 0) {
@@ -91,44 +77,6 @@ static int cloud_save_credential(const qm_iot_cloud_auth_t *credential)
                         (int)credential->ota_public_key_len, 1);
     }
     return QM_EOK;
-}
-
-static int cloud_restore_credential(void)
-{
-    int did_len = (int)sizeof(cloud_credential.did);
-    uint32_t len = 0;
-
-    memset(&cloud_credential, 0, sizeof(cloud_credential));
-    if (qm_kv_get(CLOUD_KV_DID, &cloud_credential.did, &did_len) != QM_EOK ||
-        cloud_credential.did == 0) {
-        return -QM_ENOENT;
-    }
-    if (kv_copy(CLOUD_KV_HOST, cloud_credential.cloud_info.host,
-                sizeof(cloud_credential.cloud_info.host), NULL) != QM_EOK) {
-        return -QM_ENOENT;
-    }
-    did_len = (int)sizeof(cloud_credential.cloud_info.port);
-    if (qm_kv_get(CLOUD_KV_PORT, &cloud_credential.cloud_info.port, &did_len) != QM_EOK) {
-        return -QM_ENOENT;
-    }
-    if (kv_copy(CLOUD_KV_SRV_CA, dynreg_server_ca, sizeof(dynreg_server_ca), &len) != QM_EOK) {
-        return -QM_ENOENT;
-    }
-    cloud_credential.server_cert = dynreg_server_ca;
-    cloud_credential.server_cert_len = len;
-    if (kv_copy(CLOUD_KV_CLI_CRT, dynreg_client_crt, sizeof(dynreg_client_crt), &len) == QM_EOK) {
-        cloud_credential.client_crt = dynreg_client_crt;
-        cloud_credential.client_crt_len = len;
-    }
-    if (kv_copy(CLOUD_KV_CLI_KEY, dynreg_client_key, sizeof(dynreg_client_key), &len) == QM_EOK) {
-        cloud_credential.client_key = dynreg_client_key;
-        cloud_credential.client_key_len = len;
-    }
-    if (kv_copy(CLOUD_KV_PUB_KEY, dynreg_public_key, sizeof(dynreg_public_key), &len) == QM_EOK) {
-        cloud_credential.ota_public_key = dynreg_public_key;
-        cloud_credential.ota_public_key_len = len;
-    }
-    return qm_iot_setopt(iot_handle, QM_IOT_OPT_CLOUD_CREDENTIAL, &cloud_credential);
 }
 
 static void refresh_device_sn(void)
@@ -261,12 +209,10 @@ static int cloud_start_iot(void)
     if (iot_handle == NULL || cloud_started) {
         return QM_EOK;
     }
-    ret = cloud_restore_credential();
+    /* 已存 WiFi 也每次重新注册，不用 KV 里的旧证书直接连。 */
+    ret = cloud_run_dynreg();
     if (ret != QM_EOK) {
-        ret = cloud_run_dynreg();
-        if (ret != QM_EOK) {
-            return ret;
-        }
+        return ret;
     }
     cloud_set_devinfo();
     ret = qm_iot_start(iot_handle);
