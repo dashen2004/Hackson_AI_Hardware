@@ -11,14 +11,19 @@
 
 #define LOG_TAG "vb701n_player"
 
-/* 1: PCM 320 字节/10 ms。0: Opus 40 字节/20 ms */
+/* 1: 双向 PCM。0: 双向 Opus 40 字节/20 ms */
 #ifndef VB701N_APP_PCM
-#define VB701N_APP_PCM  0
+#define VB701N_APP_PCM  1
 #endif
 
-/* 1: 麦回环。0: 播 xj_test_20ms */
+/* 1: 麦回环。0: 播 xj_test_20ms。只在 VB701N_APP_DEMO_PLAY 打开时生效 */
 #ifndef VB701N_APP_LOOPBACK
 #define VB701N_APP_LOOPBACK  0
+#endif
+
+/* 1: 芯片起来后播测试音频。0: 开麦，交给上层 */
+#ifndef VB701N_APP_DEMO_PLAY
+#define VB701N_APP_DEMO_PLAY  0
 #endif
 
 /* 1: 关掉发送间隔并循环播，只靠流控脚停发。0: 按帧间隔播一遍 */
@@ -26,33 +31,21 @@
 #define VB701N_APP_FLOW_STRESS  0
 #endif
 
-#if !VB701N_APP_LOOPBACK
+#if VB701N_APP_DEMO_PLAY && !VB701N_APP_LOOPBACK
 extern const uint8_t xj_test_20ms[3160];
 #define VB701N_PLAY_FRAME_LEN   (VB701N_APP_PCM ? 320 : 40)
-#define VB701N_PLAY_BURST       (VB701N_APP_PCM ? 1 : 2)
+#define VB701N_PLAY_BURST       2
 #endif
 
+/* 帧格式在 vb701n_audio_fmt.c，由 CONFIG_VOICE_BACKEND_* 选择。 */
+extern const qm_audio_format_t g_in_fmt;
+extern const qm_audio_format_t g_out_fmt;
+
 #if VB701N_APP_PCM
-static const qm_audio_format_t g_audio_fmt = {
-    .codec = QM_AUDIO_CODEC_PCM,
-    .data_type = QM_AUDIO_CODEC_PCM,
-    .sample_rate = 16000,
-    .channel_num = 1,
-    .bits_per_sample = 16,
-    .frame_ms = 10,
-};
-#define VB701N_LOOP_FRAME_MAX      320
-#define BOARD_VB701N_TX_INTERVAL_MS  10
+#define VB701N_LOOP_FRAME_MAX        512
+#define BOARD_VB701N_TX_INTERVAL_MS  5
 #else
-static const qm_audio_format_t g_audio_fmt = {
-    .codec = QM_AUDIO_CODEC_OPUS,
-    .data_type = QM_AUDIO_CODEC_OPUS,
-    .sample_rate = 16000,
-    .channel_num = 1,
-    .bits_per_sample = 16,
-    .frame_ms = 20,
-};
-#define VB701N_LOOP_FRAME_MAX      160
+#define VB701N_LOOP_FRAME_MAX        160
 #define BOARD_VB701N_TX_INTERVAL_MS  20
 #endif
 
@@ -106,11 +99,14 @@ static int board_tx_is_busy(void)
 static qm_audio_handle_t g_audio;
 static qm_work_t g_ver_work;
 static qm_work_t g_play_work;
+#if VB701N_APP_DEMO_PLAY
 static qm_task_t g_play_task;
+#endif
 static uint8_t g_ver_retry;
 static uint8_t g_got_version;
 static uint8_t g_play_started;
 
+#if VB701N_APP_DEMO_PLAY
 static void play_task(void *arg)
 {
     qm_audio_playback_session_t session = NULL;
@@ -207,6 +203,7 @@ static void play_task(void *arg)
     self = g_play_task;
     qm_task_exit(&self);
 }
+#endif
 
 static void on_chip_ready(void *arg)
 {
@@ -221,11 +218,21 @@ static void on_chip_ready(void *arg)
     }
     g_play_started = 1;
     qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_VOLUME, &vol);
+#if VB701N_APP_DEMO_PLAY
     if (qm_task_new(&g_play_task, "vb701n_play", play_task, NULL,
                     8192, CONFIG_QM_APP_TASK_PRIO) != QM_EOK) {
         QM_LOGD(LOG_TAG, "play task create fail");
         g_play_started = 0;
     }
+#else
+    {
+        qm_audio_capture_policy_t policy = QM_AUDIO_CAPTURE_POLICY_KEEP;
+
+        /* KEEP 发 02 31 01 开麦。PAUSE 会发 02 01，喇叭和麦一起停。 */
+        qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_CAPTURE_POLICY, &policy);
+        QM_LOGD(LOG_TAG, "mic record start, opus 16k/20ms");
+    }
+#endif
 }
 
 static void on_audio_event(const qm_audio_event_t *event, void *user)
@@ -277,15 +284,17 @@ static void ver_retry_handle(void *arg)
         return;
     }
     if (g_ver_retry >= 5) {
-        QM_LOGD(LOG_TAG, "version query timeout, start play anyway");
+        QM_LOGD(LOG_TAG, "version query timeout, continue anyway");
         on_chip_ready(NULL);
         return;
     }
     g_ver_retry++;
+#if VB701N_APP_DEMO_PLAY
     if (g_ver_retry == 1) {
         qm_audio_capture_policy_t policy = QM_AUDIO_CAPTURE_POLICY_PAUSE;
         qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_CAPTURE_POLICY, &policy);
     }
+#endif
     qm_audio_control(g_audio, QM_AUDIO_CTRL_QUERY_VERSION, NULL);
     qm_post_delayed_action(&g_ver_work, ver_retry_handle, NULL, 3000);
 }
@@ -335,8 +344,8 @@ qm_err_t vb701n_player_start(void)
     memset(&audio_cfg, 0, sizeof(audio_cfg));
     audio_cfg.capture_driver_if = &vb701n_audio_driver;
     audio_cfg.playback_driver_if = &vb701n_audio_driver;
-    audio_cfg.input_format = &g_audio_fmt;
-    audio_cfg.output_format = &g_audio_fmt;
+    audio_cfg.input_format = &g_in_fmt;
+    audio_cfg.output_format = &g_out_fmt;
     g_audio = qm_audio_create(&audio_cfg);
     if (g_audio == NULL) {
         QM_LOGD(LOG_TAG, "qm_audio_create failed");
@@ -344,6 +353,13 @@ qm_err_t vb701n_player_start(void)
     }
     qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_EVENT_CALLBACK, &event_callback);
     qm_post_delayed_action(&g_ver_work, ver_retry_handle, NULL, 1500);
-    QM_LOGD(LOG_TAG, "qm_audio ready");
+    QM_LOGI(LOG_TAG, "qm_audio ready, %s in %ums out %ums",
+            VB701N_APP_PCM ? "pcm" : "opus",
+            (unsigned)g_in_fmt.frame_ms, (unsigned)g_out_fmt.frame_ms);
     return QM_EOK;
+}
+
+qm_audio_handle_t vb701n_player_get_audio(void)
+{
+    return g_audio;
 }

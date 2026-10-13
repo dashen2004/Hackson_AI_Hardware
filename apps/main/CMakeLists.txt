@@ -1,10 +1,34 @@
 set(QDEV $ENV{ADF_PATH}/qumios-dev)
+set(AGORA_SDK ${CMAKE_CURRENT_LIST_DIR}/../../components/agora_iot_sdk)
+
+file(READ "${CMAKE_CURRENT_LIST_DIR}/qm_config/qm_config.h" QM_CONFIG_H)
+if(QM_CONFIG_H MATCHES "#define[ \t]+CONFIG_VOICE_BACKEND_AGORA[ \t]+1")
+    set(VOICE_BACKEND_AGORA 1)
+else()
+    set(VOICE_BACKEND_AGORA 0)
+endif()
+message(STATUS "voice backend agora=${VOICE_BACKEND_AGORA}")
 
 set(COMPONENT_SRCS
     "./main.c"
+    "./ai/ai_app.c"
     "./cloud/xjiang_cloud.c"
     "./vb701n/vb701n_player.c"
+    "./vb701n/vb701n_audio_fmt.c"
     "./vb701n/xj_test_20ms.c"
+
+    "${QDEV}/components/qm_agent/src/core/qm_agent_core.c"
+    "${QDEV}/components/qm_agent/src/core/qm_agent_event.c"
+    "${QDEV}/components/qm_agent/src/core/qm_agent_module.c"
+    "${QDEV}/components/qm_agent/src/audio/qm_agent_audio_engine.c"
+    "${QDEV}/components/qm_agent/src/auth/qm_agent_auth.c"
+    "${QDEV}/components/qm_agent/src/transport/qm_agent_transport.c"
+    "${QDEV}/components/qm_websocket_client/src/qm_websocket_client.c"
+    "${QDEV}/components/qm_websocket_client/src/qm_websocket_transport.c"
+    "${QDEV}/components/qm_time/src/qm_time.c"
+    "${QDEV}/platform/mcu/esp32s3/hal/soc/qm_rtc.c"
+    "${QDEV}/utility/uuid/qm_utils_uuid.c"
+    "${QDEV}/utility/sprintf/qm_sprintf.c"
 
     "${QDEV}/drivers/VB701N/src/vb701n.c"
     "${QDEV}/drivers/VB701N/proto/vb701n_proto.c"
@@ -77,10 +101,34 @@ set(COMPONENT_SRCS
     "${QDEV}/platform/mcu/esp32s3/qm_db/qm_hal_kv.c"
 )
 
+if(VOICE_BACKEND_AGORA)
+    list(APPEND COMPONENT_SRCS
+        "${QDEV}/components/qm_agent/src/transport/qm_agent_transport_agora.c"
+        "${QDEV}/components/qm_agent/src/transport/qm_agent_agora_stream.c"
+    )
+else()
+    list(APPEND COMPONENT_SRCS
+        "${QDEV}/components/qm_agent/src/transport/qm_agent_transport_joyinside.c"
+        "${QDEV}/components/joyinside_client/src/joyinside_client.c"
+        "${QDEV}/components/joyinside_client/src/joyinside_client_audiobook.c"
+    )
+endif()
+
 set(COMPONENT_ADD_INCLUDEDIRS
     "./qm_config"
+    "./ai"
     "./cloud"
     "./vb701n"
+    "${QDEV}/components/qm_agent/include"
+    "${QDEV}/components/qm_agent/priv_include"
+    "${QDEV}/components/qm_agent/src/transport"
+    "${QDEV}/components/joyinside_client/include"
+    "${AGORA_SDK}/include"
+    "${QDEV}/components/qm_websocket_client/include"
+    "${QDEV}/components/qm_websocket_client/src"
+    "${QDEV}/components/qm_time/include"
+    "${QDEV}/utility/uuid"
+    "${QDEV}/utility/sprintf"
     "${QDEV}/include"
     "${QDEV}/include/qmos"
     "${QDEV}/include/common"
@@ -138,4 +186,16 @@ set(COMPONENT_REQUIRES
     esp_wifi esp_netif esp_event nvs_flash bt mbedtls esp-tls
 )
 
+if(VOICE_BACKEND_AGORA)
+    list(APPEND COMPONENT_REQUIRES pthread)
+endif()
+
 register_component()
+
+if(VOICE_BACKEND_AGORA)
+    target_link_libraries(${COMPONENT_LIB} PUBLIC
+        "${AGORA_SDK}/libs/librtsa.a"
+        "${AGORA_SDK}/libs/libahpl.a"
+        "${AGORA_SDK}/libs/libagora-cjson.a"
+    )
+endif()

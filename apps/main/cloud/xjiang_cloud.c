@@ -1,4 +1,5 @@
 #include "xjiang_cloud.h"
+#include "ai_app.h"
 
 #include "qm_iot_api.h"
 #include "qm_iot_dynreg.h"
@@ -209,6 +210,32 @@ static void cloud_set_devinfo(void)
     (void)qm_iot_setopt(iot_handle, QM_IOT_OPT_DEVINFO, &info);
 }
 
+/*
+ * is_reset 非 0 时，MQTT 连上也不发 CLOUD_CONN，要等 bindDevNotify。
+ * 本地标记会停在 1，云不一定再推绑定通知。配网并动态注册之后，
+ * 启动前改成未复位，让连接成功事件发出来。
+ */
+static void cloud_migrate_reset_marker(void)
+{
+    qm_iot_reset_info_t reset_info;
+    int ret;
+    int was;
+
+    if (iot_handle == NULL) {
+        return;
+    }
+    memset(&reset_info, 0, sizeof(reset_info));
+    ret = qm_iot_reset_info_get(iot_handle, &reset_info);
+    was = (ret == QM_EOK) ? (int)reset_info.is_reset : -1;
+    if (was == (int)QM_IOT_NOT_RESET) {
+        QM_LOGI(LOG_TAG, "reset marker already clear");
+        return;
+    }
+    reset_info.is_reset = QM_IOT_NOT_RESET;
+    ret = qm_iot_reset_info_set(iot_handle, &reset_info);
+    QM_LOGI(LOG_TAG, "reset marker force not-reset was=%d ret=%d", was, ret);
+}
+
 static int cloud_start_iot(void)
 {
     int ret;
@@ -222,6 +249,7 @@ static int cloud_start_iot(void)
         return ret;
     }
     cloud_set_devinfo();
+    cloud_migrate_reset_marker();
     ret = qm_iot_start(iot_handle);
     if (ret != QM_EOK) {
         QM_LOGE(LOG_TAG, "iot start failed ret=%d", ret);
@@ -495,9 +523,13 @@ static void cloud_iot_event_handler(void *handle, const qm_iot_event_t *event, v
     switch (event->type) {
         case QM_IOT_EVENT_CLOUD_CONN:
             QM_LOGI(LOG_TAG, "cloud connected");
+            if (ai_on_cloud_connected() != QM_EOK) {
+                QM_LOGE(LOG_TAG, "agent start failed");
+            }
             break;
         case QM_IOT_EVENT_CLOUD_DISCONN:
             QM_LOGW(LOG_TAG, "cloud disconnected");
+            ai_on_cloud_disconnected();
             break;
         case QM_IOT_EVENT_CONNING_CLOUD:
             QM_LOGI(LOG_TAG, "cloud connecting");
@@ -556,6 +588,12 @@ int xjiang_cloud_init(void)
     refresh_device_sn();
     if (device_sn[0] != '\0') {
         (void)qm_iot_setopt(iot_handle, QM_IOT_OPT_SN, device_sn);
+    }
+
+    ret = ai_app_bind_cloud(iot_handle);
+    if (ret != QM_EOK) {
+        QM_LOGE(LOG_TAG, "agent bind failed ret=%d", ret);
+        return ret;
     }
 
     if (cloud_has_saved_wifi()) {
