@@ -73,9 +73,7 @@ static void enc_task(void *arg)
             continue;
         }
         pkt.len = (uint16_t)pkt_len;
-        if (qm_queue_send(&s_enc_q, &pkt, sizeof(pkt)) != QM_EOK) {
-            QM_LOGW(LOG_TAG, "enc queue full, drop %d", pkt_len);
-        }
+        (void)qm_queue_send(&s_enc_q, &pkt, sizeof(pkt));
     }
 }
 

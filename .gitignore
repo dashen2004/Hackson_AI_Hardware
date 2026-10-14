@@ -49,6 +49,7 @@ coverage.info
 coverage_report/
 
 .vscode
+.cursor
 
 # ESP-IDF default build directory name
 build
