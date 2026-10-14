@@ -1,8 +1,8 @@
-#include "agora_pcm_bridge.h"
+#include "pcm_drv.h"
 
 #include <string.h>
 
-#include "agora_opus.h"
+#include "opus_pkt.h"
 #include "qm.h"
 #include "qm_log.h"
 #include "vb701n.h"
@@ -11,7 +11,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define LOG_TAG "agora_pcm"
+#define LOG_TAG "pcm"
 
 /* 芯片麦一包 512 字节。播放侧按 PCM 打开，驱动自己切成 320 字节/10 ms。 */
 #define CHIP_PCM_READ_MAX 512
@@ -68,7 +68,7 @@ static void enc_task(void *arg)
             continue;
         }
 
-        pkt_len = agora_opus_pcm_to_packet(pcm, (uint32_t)n, pkt.data, sizeof(pkt.data));
+        pkt_len = opus_pcm_to_packet(pcm, (uint32_t)n, pkt.data, sizeof(pkt.data));
         if (pkt_len <= 0) {
             continue;
         }
@@ -94,7 +94,7 @@ static int enc_start(void *driver_ctx)
         (void)qm_queue_free(&s_enc_q);
         return -QM_ENOMEM;
     }
-    if (xTaskCreateStatic(enc_task, "agora_enc",
+    if (xTaskCreateStatic(enc_task, "opus_enc",
                           ENC_STACK_BYTES / sizeof(StackType_t),
                           NULL, CONFIG_QM_AUDIO_CAPTURE_TASK_PRIORITY,
                           s_enc_stack, &s_enc_tcb) == NULL) {
@@ -109,7 +109,7 @@ static int enc_start(void *driver_ctx)
     return QM_EOK;
 }
 
-static int bridge_open(void **driver_ctx,
+static int drv_open(void **driver_ctx,
                        const qm_audio_format_t *input_format,
                        const qm_audio_format_t *output_format,
                        qm_audio_event_cb_t event_cb,
@@ -146,12 +146,12 @@ static int bridge_open(void **driver_ctx,
     }
 }
 
-static int bridge_close(void *driver_ctx)
+static int drv_close(void *driver_ctx)
 {
     return vb701n_audio_driver.close(driver_ctx);
 }
 
-static int bridge_read(void *driver_ctx, void *data, uint32_t len, uint32_t timeout_ms)
+static int drv_read(void *driver_ctx, void *data, uint32_t len, uint32_t timeout_ms)
 {
     enc_pkt_t pkt;
     unsigned int size = sizeof(pkt);
@@ -174,7 +174,7 @@ static int bridge_read(void *driver_ctx, void *data, uint32_t len, uint32_t time
     return (int)pkt.len;
 }
 
-static int bridge_write_ex(void *driver_ctx,
+static int drv_write_ex(void *driver_ctx,
                            const void *data,
                            uint32_t len,
                            uint32_t timeout_ms,
@@ -191,7 +191,7 @@ static int bridge_write_ex(void *driver_ctx,
         return -QM_EINVAL;
     }
 
-    pcm_len = agora_opus_packet_to_pcm((const uint8_t *)data, len, pcm, sizeof(pcm));
+    pcm_len = opus_packet_to_pcm((const uint8_t *)data, len, pcm, sizeof(pcm));
     if (pcm_len <= 0) {
         return pcm_len < 0 ? pcm_len : -QM_ERROR;
     }
@@ -206,12 +206,12 @@ static int bridge_write_ex(void *driver_ctx,
     return (int)len;
 }
 
-static int bridge_write(void *driver_ctx, const void *data, uint32_t len)
+static int drv_write(void *driver_ctx, const void *data, uint32_t len)
 {
-    return bridge_write_ex(driver_ctx, data, len, 0, NULL);
+    return drv_write_ex(driver_ctx, data, len, 0, NULL);
 }
 
-static int bridge_get_caps(void *driver_ctx, qm_audio_caps_t *caps)
+static int drv_get_caps(void *driver_ctx, qm_audio_caps_t *caps)
 {
     int ret;
 
@@ -224,48 +224,48 @@ static int bridge_get_caps(void *driver_ctx, qm_audio_caps_t *caps)
     return QM_EOK;
 }
 
-static int bridge_abort_read(void *driver_ctx)
+static int drv_abort_read(void *driver_ctx)
 {
     return vb701n_audio_driver.abort_read(driver_ctx);
 }
 
-static int bridge_abort_write(void *driver_ctx)
+static int drv_abort_write(void *driver_ctx)
 {
     return vb701n_audio_driver.abort_write(driver_ctx);
 }
 
-static int bridge_playback_begin(void *driver_ctx, qm_audio_playback_delivery_t delivery)
+static int drv_playback_begin(void *driver_ctx, qm_audio_playback_delivery_t delivery)
 {
     return vb701n_audio_driver.playback_begin(driver_ctx, delivery);
 }
 
-static int bridge_playback_end(void *driver_ctx)
+static int drv_playback_end(void *driver_ctx)
 {
     return vb701n_audio_driver.playback_end(driver_ctx);
 }
 
-static int bridge_get_progress(void *driver_ctx, uint32_t *position_ms)
+static int drv_get_progress(void *driver_ctx, uint32_t *position_ms)
 {
     return vb701n_audio_driver.get_playback_progress_ms(driver_ctx, position_ms);
 }
 
-static int bridge_control(void *driver_ctx, qm_audio_ctrl_t ctrl, void *arg)
+static int drv_control(void *driver_ctx, qm_audio_ctrl_t ctrl, void *arg)
 {
     return vb701n_audio_driver.control(driver_ctx, ctrl, arg);
 }
 
-const qm_audio_driver_if_t agora_pcm_bridge_driver = {
-    .name = "agora_pcm",
-    .open = bridge_open,
-    .close = bridge_close,
-    .read = bridge_read,
-    .write = bridge_write,
-    .write_ex = bridge_write_ex,
-    .get_caps = bridge_get_caps,
-    .abort_read = bridge_abort_read,
-    .abort_write = bridge_abort_write,
-    .playback_begin = bridge_playback_begin,
-    .playback_end = bridge_playback_end,
-    .get_playback_progress_ms = bridge_get_progress,
-    .control = bridge_control,
+const qm_audio_driver_if_t pcm_driver = {
+    .name = "pcm",
+    .open = drv_open,
+    .close = drv_close,
+    .read = drv_read,
+    .write = drv_write,
+    .write_ex = drv_write_ex,
+    .get_caps = drv_get_caps,
+    .abort_read = drv_abort_read,
+    .abort_write = drv_abort_write,
+    .playback_begin = drv_playback_begin,
+    .playback_end = drv_playback_end,
+    .get_playback_progress_ms = drv_get_progress,
+    .control = drv_control,
 };

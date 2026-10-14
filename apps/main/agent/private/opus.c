@@ -1,4 +1,4 @@
-#include "agora_opus.h"
+#include "opus_pkt.h"
 
 #include <string.h>
 
@@ -6,7 +6,7 @@
 #include "qm.h"
 #include "qm_log.h"
 
-#define LOG_TAG "agora_opus"
+#define LOG_TAG "opus"
 
 /* 16 kHz / 单声道 / 20 ms。麦是 512 字节/16 ms，这里攒够 640 再编。 */
 #define AGORA_OPUS_RATE        16000
@@ -61,7 +61,7 @@ static int codec_open(void)
     return QM_EOK;
 }
 
-int agora_opus_pcm_to_packet(const uint8_t *pcm, uint32_t pcm_len,
+int opus_pcm_to_packet(const uint8_t *pcm, uint32_t pcm_len,
                              uint8_t *opus, uint32_t opus_cap)
 {
     int nbytes;
@@ -114,7 +114,7 @@ int agora_opus_pcm_to_packet(const uint8_t *pcm, uint32_t pcm_len,
     return nbytes;
 }
 
-int agora_opus_packet_to_pcm(const uint8_t *opus, uint32_t opus_len,
+int opus_packet_to_pcm(const uint8_t *opus, uint32_t opus_len,
                              uint8_t *pcm, uint32_t pcm_cap)
 {
     int samples;

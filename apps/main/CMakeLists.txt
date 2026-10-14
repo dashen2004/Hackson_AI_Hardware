@@ -11,11 +11,12 @@ message(STATUS "voice backend agora=${VOICE_BACKEND_AGORA}")
 
 set(COMPONENT_SRCS
     "./main.c"
-    "./ai/ai_app.c"
-    "./cloud/xjiang_cloud.c"
-    "./vb701n/vb701n_player.c"
-    "./vb701n/vb701n_audio_fmt.c"
-    "./vb701n/xj_test_20ms.c"
+    "./agent/agent_app.c"
+    "./cloud/ljyd_cloud.c"
+    "./cloud/ljyd_provision.c"
+    "./peripheral/bsp_uart.c"
+    "./peripheral/bsp_io.c"
+    "./voice/voice.c"
 
     "${QDEV}/components/qm_agent/src/core/qm_agent_core.c"
     "${QDEV}/components/qm_agent/src/core/qm_agent_event.c"
@@ -102,17 +103,19 @@ set(COMPONENT_SRCS
 )
 
 list(APPEND COMPONENT_SRCS
-    "./ai/agora_opus.c"
-    "./ai/agora_pcm_bridge.c"
+    "./agent/private/opus.c"
+    "./agent/private/pcm_drv.c"
     "${QDEV}/components/qm_agent/src/transport/qm_agent_transport_agora.c"
     "${QDEV}/components/qm_agent/src/transport/qm_agent_agora_stream.c"
 )
 
 set(COMPONENT_ADD_INCLUDEDIRS
     "./qm_config"
-    "./ai"
+    "./agent"
+    "./agent/private"
     "./cloud"
-    "./vb701n"
+    "./peripheral"
+    "./voice"
     "${QDEV}/components/qm_agent/include"
     "${QDEV}/components/qm_agent/priv_include"
     "${QDEV}/components/qm_agent/src/transport"

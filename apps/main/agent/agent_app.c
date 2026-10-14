@@ -1,15 +1,18 @@
-#include "ai_app.h"
+#include "agent_app.h"
+#include "ljyd_cloud.h"
 
 #include "qm_agent.h"
 #include "qm_audio.h"
 #include "qm_log.h"
 #include "qm_string.h"
-#include "vb701n_player.h"
+#include "voice.h"
 
-#define LOG_TAG "ai"
+#define LOG_TAG "agent"
 
 static qm_agent_handle_t s_agent;
 static uint8_t s_downlink_logged;
+static uint8_t s_cloud_connected;
+static uint8_t s_agent_started;
 
 static const char *life_name(qm_agent_state_t state)
 {
@@ -113,7 +116,7 @@ static void on_agent_event(qm_agent_handle_t handle,
     }
 }
 
-int ai_app_bind_cloud(void *iot_handle)
+static int agent_app_bind_cloud(void *iot_handle)
 {
     qm_agent_config_t config;
     qm_audio_handle_t audio;
@@ -127,9 +130,9 @@ int ai_app_bind_cloud(void *iot_handle)
         return -QM_EINVAL;
     }
 
-    audio = vb701n_player_get_audio();
+    audio = voice_get_audio();
     if (audio == NULL) {
-        QM_LOGE(LOG_TAG, "bind failed: vb701n audio is null");
+        QM_LOGE(LOG_TAG, "bind failed: voice audio is null");
         return -QM_EINIT;
     }
 
@@ -174,29 +177,23 @@ int ai_app_bind_cloud(void *iot_handle)
     return QM_EOK;
 }
 
-int ai_on_cloud_connected(void)
+static void agent_on_cloud_connected(void)
 {
-    int ret;
-
+    s_cloud_connected = 1;
     if (s_agent == NULL) {
-        QM_LOGE(LOG_TAG, "cloud connected but agent is null");
-        return -QM_EINVAL;
+        return;
     }
-
-    ret = qm_agent_network_update(s_agent, QM_AGENT_NETWORK_UP);
-    if (ret != QM_EOK) {
-        QM_LOGW(LOG_TAG, "network up ret=%d", ret);
+    if (qm_agent_network_update(s_agent, QM_AGENT_NETWORK_UP) != QM_EOK) {
+        QM_LOGW(LOG_TAG, "network up failed");
     }
-    ret = qm_agent_start(s_agent);
-    QM_LOGI(LOG_TAG, "qm_agent_start ret=%d state=%s",
-            ret, life_name(qm_agent_get_state(s_agent)));
-    return ret;
 }
 
-void ai_on_cloud_disconnected(void)
+static void agent_on_cloud_disconnected(void)
 {
     int ret;
 
+    s_cloud_connected = 0;
+    s_agent_started = 0;
     if (s_agent == NULL) {
         return;
     }
@@ -204,4 +201,48 @@ void ai_on_cloud_disconnected(void)
     ret = qm_agent_stop(s_agent);
     QM_LOGI(LOG_TAG, "qm_agent_stop ret=%d state=%s",
             ret, life_name(qm_agent_get_state(s_agent)));
+}
+
+static void on_cloud_event(ljyd_cloud_event_t event, void *iot_handle, void *userdata)
+{
+    (void)userdata;
+    (void)iot_handle;
+    if (event == LJYD_CLOUD_EVENT_CONNECTED) {
+        agent_on_cloud_connected();
+        return;
+    }
+    if (event == LJYD_CLOUD_EVENT_DISCONNECTED) {
+        agent_on_cloud_disconnected();
+    }
+}
+
+static void on_wakeup(void)
+{
+    int ret;
+
+    if (s_agent == NULL || !s_cloud_connected) {
+        QM_LOGI(LOG_TAG, "wakeup ignored, cloud=%u agent=%p",
+                (unsigned)s_cloud_connected, (void *)s_agent);
+        return;
+    }
+    if (s_agent_started) {
+        return;
+    }
+    ret = qm_agent_start(s_agent);
+    QM_LOGI(LOG_TAG, "qm_agent_start ret=%d state=%s",
+            ret, life_name(qm_agent_get_state(s_agent)));
+    if (ret == QM_EOK) {
+        s_agent_started = 1;
+    }
+}
+
+int agent_app_init(void *iot_handle)
+{
+    int ret = agent_app_bind_cloud(iot_handle);
+    if (ret != QM_EOK) {
+        return ret;
+    }
+    ljyd_cloud_set_event_cb(on_cloud_event, NULL);
+    voice_set_wakeup_cb(on_wakeup);
+    return QM_EOK;
 }

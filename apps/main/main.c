@@ -1,6 +1,10 @@
 #include "qm.h"
-#include "vb701n_player.h"
-#include "xjiang_cloud.h"
+#include "bsp_uart.h"
+#include "bsp_io.h"
+#include "voice.h"
+#include "agent_app.h"
+#include "ljyd_cloud.h"
+#include "ljyd_provision.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -17,8 +21,27 @@ void app_main(void)
 
 void qm_application_start(void)
 {
-    vb701n_player_start();
-    if (xjiang_cloud_init() != QM_EOK) {
-        QM_LOGE("main", "xjiang_cloud_init failed");
+    if (bsp_uart_init() != QM_EOK) {
+        QM_LOGE("main", "uart init failed");
+        return;
+    }
+    if (bsp_io_init() != QM_EOK) {
+        QM_LOGE("main", "io init failed");
+        return;
+    }
+    if (voice_start() != QM_EOK) {
+        QM_LOGE("main", "audio init failed");
+        return;
+    }
+
+    if (ljyd_cloud_init() != QM_EOK) {
+        QM_LOGE("main", "ljyd_cloud_init failed");
+        return;
+    }
+    if (ljyd_provision_init() != QM_EOK) {
+        QM_LOGE("main", "ljyd_provision_init failed");
+    }
+    if (agent_app_init(ljyd_cloud_get_handle()) != QM_EOK) {
+        QM_LOGE("main", "agent_app_init failed");
     }
 }
