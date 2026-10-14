@@ -16,6 +16,10 @@
 #define VB701N_APP_PCM  1
 #endif
 
+#if CONFIG_VOICE_BACKEND_AGORA && VB701N_APP_PCM
+#include "agora_pcm_bridge.h"
+#endif
+
 /* 1: 麦回环。0: 播 xj_test_20ms。只在 VB701N_APP_DEMO_PLAY 打开时生效 */
 #ifndef VB701N_APP_LOOPBACK
 #define VB701N_APP_LOOPBACK  0
@@ -37,7 +41,7 @@ extern const uint8_t xj_test_20ms[3160];
 #define VB701N_PLAY_BURST       2
 #endif
 
-/* 帧格式在 vb701n_audio_fmt.c，由 CONFIG_VOICE_BACKEND_* 选择。 */
+/* 帧格式在 vb701n_audio_fmt.c。 */
 extern const qm_audio_format_t g_in_fmt;
 extern const qm_audio_format_t g_out_fmt;
 
@@ -342,8 +346,13 @@ qm_err_t vb701n_player_start(void)
             VB701N_APP_FLOW_STRESS);
 
     memset(&audio_cfg, 0, sizeof(audio_cfg));
+#if CONFIG_VOICE_BACKEND_AGORA && VB701N_APP_PCM
+    audio_cfg.capture_driver_if = &agora_pcm_bridge_driver;
+    audio_cfg.playback_driver_if = &agora_pcm_bridge_driver;
+#else
     audio_cfg.capture_driver_if = &vb701n_audio_driver;
     audio_cfg.playback_driver_if = &vb701n_audio_driver;
+#endif
     audio_cfg.input_format = &g_in_fmt;
     audio_cfg.output_format = &g_out_fmt;
     g_audio = qm_audio_create(&audio_cfg);
@@ -353,9 +362,14 @@ qm_err_t vb701n_player_start(void)
     }
     qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_EVENT_CALLBACK, &event_callback);
     qm_post_delayed_action(&g_ver_work, ver_retry_handle, NULL, 1500);
+#if CONFIG_VOICE_BACKEND_AGORA && VB701N_APP_PCM
+    QM_LOGI(LOG_TAG, "qm_audio ready, chip pcm, agent opus in %ums out %ums",
+            (unsigned)g_in_fmt.frame_ms, (unsigned)g_out_fmt.frame_ms);
+#else
     QM_LOGI(LOG_TAG, "qm_audio ready, %s in %ums out %ums",
             VB701N_APP_PCM ? "pcm" : "opus",
             (unsigned)g_in_fmt.frame_ms, (unsigned)g_out_fmt.frame_ms);
+#endif
     return QM_EOK;
 }
 

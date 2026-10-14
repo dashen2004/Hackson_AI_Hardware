@@ -101,18 +101,12 @@ set(COMPONENT_SRCS
     "${QDEV}/platform/mcu/esp32s3/qm_db/qm_hal_kv.c"
 )
 
-if(VOICE_BACKEND_AGORA)
-    list(APPEND COMPONENT_SRCS
-        "${QDEV}/components/qm_agent/src/transport/qm_agent_transport_agora.c"
-        "${QDEV}/components/qm_agent/src/transport/qm_agent_agora_stream.c"
-    )
-else()
-    list(APPEND COMPONENT_SRCS
-        "${QDEV}/components/qm_agent/src/transport/qm_agent_transport_joyinside.c"
-        "${QDEV}/components/joyinside_client/src/joyinside_client.c"
-        "${QDEV}/components/joyinside_client/src/joyinside_client_audiobook.c"
-    )
-endif()
+list(APPEND COMPONENT_SRCS
+    "./ai/agora_opus.c"
+    "./ai/agora_pcm_bridge.c"
+    "${QDEV}/components/qm_agent/src/transport/qm_agent_transport_agora.c"
+    "${QDEV}/components/qm_agent/src/transport/qm_agent_agora_stream.c"
+)
 
 set(COMPONENT_ADD_INCLUDEDIRS
     "./qm_config"
@@ -122,7 +116,6 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "${QDEV}/components/qm_agent/include"
     "${QDEV}/components/qm_agent/priv_include"
     "${QDEV}/components/qm_agent/src/transport"
-    "${QDEV}/components/joyinside_client/include"
     "${AGORA_SDK}/include"
     "${QDEV}/components/qm_websocket_client/include"
     "${QDEV}/components/qm_websocket_client/src"
@@ -187,7 +180,7 @@ set(COMPONENT_REQUIRES
 )
 
 if(VOICE_BACKEND_AGORA)
-    list(APPEND COMPONENT_REQUIRES pthread)
+    list(APPEND COMPONENT_REQUIRES pthread 78__esp-opus)
 endif()
 
 register_component()

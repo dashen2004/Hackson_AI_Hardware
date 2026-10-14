@@ -8,10 +8,6 @@
 
 #define LOG_TAG "ai"
 
-#ifndef CONFIG_QM_AGENT_VOICE_TIMEOUT_MS
-#define CONFIG_QM_AGENT_VOICE_TIMEOUT_MS 5000U
-#endif
-
 static qm_agent_handle_t s_agent;
 static uint8_t s_downlink_logged;
 
@@ -70,19 +66,11 @@ static void on_agent_event(qm_agent_handle_t handle,
                     life_name(event->data.state.new_state));
             break;
         case QM_AGENT_EVENT_CONNECTED:
-#if CONFIG_VOICE_BACKEND_AGORA
             QM_LOGI(LOG_TAG, "agora connected");
-#else
-            QM_LOGI(LOG_TAG, "joyinside connected");
-#endif
             break;
         case QM_AGENT_EVENT_DISCONNECTED:
             s_downlink_logged = 0;
-#if CONFIG_VOICE_BACKEND_AGORA
             QM_LOGW(LOG_TAG, "agora disconnected");
-#else
-            QM_LOGW(LOG_TAG, "joyinside disconnected");
-#endif
             break;
         case QM_AGENT_EVENT_ASR:
             QM_LOGI(LOG_TAG, "asr final=%d text=%s",
@@ -150,22 +138,19 @@ int ai_app_bind_cloud(void *iot_handle)
         QM_LOGE(LOG_TAG, "get input format failed ret=%d", ret);
         return ret;
     }
-    if (format.codec != QM_AUDIO_CODEC_PCM) {
-        QM_LOGE(LOG_TAG, "expect pcm, got codec=%d frame_ms=%u",
+    if (format.codec != QM_AUDIO_CODEC_PCM && format.codec != QM_AUDIO_CODEC_OPUS) {
+        QM_LOGE(LOG_TAG, "unsupported codec=%d frame_ms=%u",
                 (int)format.codec, (unsigned)format.frame_ms);
         return -QM_EINVAL;
     }
-    QM_LOGI(LOG_TAG, "voice uplink pcm rate=%u ch=%u frame_ms=%u",
+    QM_LOGI(LOG_TAG, "voice uplink %s rate=%u ch=%u frame_ms=%u",
+            format.codec == QM_AUDIO_CODEC_OPUS ? "opus" : "pcm",
             (unsigned)format.sample_rate,
             (unsigned)format.channel_num,
             (unsigned)format.frame_ms);
 
     qm_memset(&config, 0, sizeof(config));
-#if CONFIG_VOICE_BACKEND_AGORA
     config.transport.type = QM_AGENT_TRANSPORT_AGORA;
-#else
-    config.transport.type = QM_AGENT_TRANSPORT_JOYINSIDE;
-#endif
     config.audio = audio;
     qm_agent_config_init_defaults(&config);
     /*
@@ -173,14 +158,9 @@ int ai_app_bind_cloud(void *iot_handle)
      * 对话期间用 KEEP，TTS 下行时不要把麦和喇叭一起关掉。
      */
     config.transport_capture_policy = QM_AGENT_CAPTURE_POLICY_KEEP;
-#if CONFIG_VOICE_BACKEND_AGORA
     /* app_id / channel / token / license / uid 由 qm_agent 从鉴权回包填入。 */
     config.transport.data.agora.audio_enable = QM_TRUE;
     config.transport.data.agora.video_enable = QM_FALSE;
-#else
-    config.transport.data.joyinside.chat_role_code = NULL;
-    config.transport.data.joyinside.timeout_ms = CONFIG_QM_AGENT_VOICE_TIMEOUT_MS;
-#endif
     config.iot_handle = iot_handle;
     config.event_cb = on_agent_event;
 
