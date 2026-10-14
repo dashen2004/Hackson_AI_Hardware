@@ -13,6 +13,7 @@ set(COMPONENT_SRCS
     "./main.c"
     "./agent/agent_app.c"
     "./cloud/ljyd_cloud.c"
+    "./cloud/ljyd_method.c"
     "./cloud/ljyd_provision.c"
     "./peripheral/bsp_uart.c"
     "./peripheral/bsp_io.c"

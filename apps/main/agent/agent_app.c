@@ -216,6 +216,22 @@ static void on_cloud_event(ljyd_cloud_event_t event, void *iot_handle, void *use
     }
 }
 
+int agent_app_leave(void)
+{
+    int ret;
+
+    if (s_agent == NULL) {
+        return -QM_EINVAL;
+    }
+    ret = qm_agent_stop(s_agent);
+    if (ret == QM_EOK) {
+        s_agent_started = 0;
+    }
+    QM_LOGI(LOG_TAG, "leave stop ret=%d state=%s",
+            ret, life_name(qm_agent_get_state(s_agent)));
+    return ret;
+}
+
 static void on_wakeup(void)
 {
     int ret;

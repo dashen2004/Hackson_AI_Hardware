@@ -1,4 +1,5 @@
 #include "ljyd_cloud.h"
+#include "ljyd_method.h"
 #include "ljyd_provision.h"
 
 #include "qm.h"
@@ -276,6 +277,7 @@ static void cloud_iot_event_handler(void *handle, const qm_iot_event_t *event, v
     switch (event->type) {
         case QM_IOT_EVENT_CLOUD_CONN:
             QM_LOGI(LOG_TAG, "cloud connected");
+            (void)ljyd_method_on_connected(iot_handle);
             if (cloud_event_cb != NULL) {
                 cloud_event_cb(LJYD_CLOUD_EVENT_CONNECTED, iot_handle, cloud_event_userdata);
             }
