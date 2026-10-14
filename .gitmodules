@@ -1,6 +1,6 @@
 [submodule "esp-idf"]
 	path = esp-idf
-	url = https://github.com/espressif/esp-idf
+	url = git@gitee.com:embedded-develop/xjopen_esp_idf_5.4.git
 [submodule "qumios-dev"]
 	path = qumios-dev
 	url = git@gitee.com:embedded-develop/qumios-dev.git
