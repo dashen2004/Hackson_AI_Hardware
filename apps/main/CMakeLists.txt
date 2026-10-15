@@ -1,4 +1,5 @@
 set(QDEV $ENV{ADF_PATH}/qumios-dev)
+file(TO_CMAKE_PATH "${QDEV}" QDEV)
 set(AGORA_SDK ${CMAKE_CURRENT_LIST_DIR}/../../components/agora_iot_sdk)
 
 file(READ "${CMAKE_CURRENT_LIST_DIR}/qm_config/qm_config.h" QM_CONFIG_H)
