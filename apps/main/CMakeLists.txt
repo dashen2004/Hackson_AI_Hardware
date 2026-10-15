@@ -26,6 +26,9 @@ set(COMPONENT_SRCS
     "./peripheral/bsp_uart.c"
     "./peripheral/bsp_io.c"
     "./peripheral/bsp_mpu6050.c"
+    "./peripheral/bsp_servo.c"
+    "./peripheral/bsp_vibrator.c"
+    "./peripheral/bsp_ws2812.c"
     "./voice/voice.c"
 
     "${QDEV}/components/qm_agent/src/core/qm_agent_core.c"
@@ -101,6 +104,7 @@ set(COMPONENT_SRCS
     "${QDEV}/kernel/init/qm_init.c"
     "${QDEV}/platform/mcu/esp32s3/hal/soc/qm_uart.c"
     "${QDEV}/platform/mcu/esp32s3/hal/soc/qm_gpio.c"
+    "${QDEV}/platform/mcu/esp32s3/hal/soc/qm_pwm.c"
     "${QDEV}/platform/mcu/esp32s3/hal/wifi/qm_wifi.c"
     "${QDEV}/platform/mcu/esp32s3/hal/net/qm_tcp.c"
     "${QDEV}/platform/mcu/esp32s3/hal/net/qm_tls.c"
@@ -191,6 +195,7 @@ set(COMPONENT_REQUIRES
     esp_driver_uart esp_driver_gpio esp_timer driver vfs
     esp_wifi esp_netif esp_event nvs_flash bt mbedtls esp-tls
     esp-idf-lib__mpu6050
+    espressif__led_strip
 )
 
 if(VOICE_BACKEND_AGORA)
