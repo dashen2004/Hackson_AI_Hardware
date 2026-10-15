@@ -1,5 +1,12 @@
-set(QDEV $ENV{ADF_PATH}/qumios-dev)
+if(DEFINED ENV{ADF_PATH} AND EXISTS "$ENV{ADF_PATH}/qumios-dev")
+    set(QDEV "$ENV{ADF_PATH}/qumios-dev")
+else()
+    get_filename_component(QDEV "${CMAKE_CURRENT_LIST_DIR}/../../qumios-dev" ABSOLUTE)
+endif()
 file(TO_CMAKE_PATH "${QDEV}" QDEV)
+if(NOT IS_DIRECTORY "${QDEV}")
+    message(FATAL_ERROR "qumios-dev not found at ${QDEV}. Set ADF_PATH to the repo root (esp32_combo).")
+endif()
 set(AGORA_SDK ${CMAKE_CURRENT_LIST_DIR}/../../components/agora_iot_sdk)
 
 file(READ "${CMAKE_CURRENT_LIST_DIR}/qm_config/qm_config.h" QM_CONFIG_H)
@@ -18,6 +25,7 @@ set(COMPONENT_SRCS
     "./cloud/ljyd_provision.c"
     "./peripheral/bsp_uart.c"
     "./peripheral/bsp_io.c"
+    "./peripheral/bsp_mpu6050.c"
     "./voice/voice.c"
 
     "${QDEV}/components/qm_agent/src/core/qm_agent_core.c"
@@ -182,6 +190,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
 set(COMPONENT_REQUIRES
     esp_driver_uart esp_driver_gpio esp_timer driver vfs
     esp_wifi esp_netif esp_event nvs_flash bt mbedtls esp-tls
+    esp-idf-lib__mpu6050
 )
 
 if(VOICE_BACKEND_AGORA)

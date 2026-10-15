@@ -1,6 +1,7 @@
 #include "qm.h"
 #include "bsp_uart.h"
 #include "bsp_io.h"
+/* #include "bsp_mpu6050.h" */
 #include "voice.h"
 #include "agent_app.h"
 #include "ljyd_cloud.h"
@@ -29,6 +30,9 @@ void qm_application_start(void)
         QM_LOGE("main", "io init failed");
         return;
     }
+    /* if (bsp_mpu6050_init() != QM_EOK) {
+        QM_LOGE("main", "mpu6050 init failed");
+    } */
     if (voice_start() != QM_EOK) {
         QM_LOGE("main", "audio init failed");
         return;
