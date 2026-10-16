@@ -1,4 +1,5 @@
 #include "qm.h"
+#include "qm_kv.h"
 #include "qm_log.h"
 #include "qm_work.h"
 #include "qm_audio.h"
@@ -8,6 +9,13 @@
 #include <string.h>
 
 #define LOG_TAG "voice"
+
+/* 与物模型音量共用的 KV。值是 10..100，芯片寄存器是 0..31。 */
+#define VOICE_KV_VOLUME    "volume"
+#define VOICE_VOLUME_MIN   10
+#define VOICE_VOLUME_MAX   100
+#define VOICE_VOLUME_DEF   80
+#define VOICE_VOLUME_HW    31u
 
 /* 1: 芯片侧双向 PCM。0: 双向 Opus 40 字节/20 ms。报给 agent 的格式始终是 Opus。 */
 #ifndef VB701N_APP_PCM
@@ -43,10 +51,26 @@ static uint8_t g_ver_retry;
 static uint8_t g_got_version;
 static uint8_t g_play_started;
 
+static void voice_apply_saved_volume(void)
+{
+    uint8_t volume = VOICE_VOLUME_DEF;
+    uint32_t hw;
+    int len = (int)sizeof(volume);
+
+    if (qm_kv_get(VOICE_KV_VOLUME, &volume, &len) == 0) {
+        if (volume < VOICE_VOLUME_MIN) {
+            volume = VOICE_VOLUME_MIN;
+        } else if (volume > VOICE_VOLUME_MAX) {
+            volume = VOICE_VOLUME_MAX;
+        }
+    }
+    hw = ((uint32_t)volume * VOICE_VOLUME_HW) / 100u;
+    qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_VOLUME, &hw);
+    QM_LOGI(LOG_TAG, "volume %u hw=%u", (unsigned)volume, (unsigned)hw);
+}
+
 static void on_chip_ready(void *arg)
 {
-    uint32_t vol = 20;
-
     (void)arg;
     if (g_play_started) {
         return;
@@ -55,7 +79,7 @@ static void on_chip_ready(void *arg)
         return;
     }
     g_play_started = 1;
-    qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_VOLUME, &vol);
+    voice_apply_saved_volume();
     {
         qm_audio_capture_policy_t policy = QM_AUDIO_CAPTURE_POLICY_KEEP;
 

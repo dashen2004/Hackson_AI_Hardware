@@ -2,6 +2,9 @@
 #include "bsp_uart.h"
 #include "bsp_io.h"
 /* #include "bsp_mpu6050.h" */
+#include "bsp_servo.h"
+#include "bsp_vibrator.h"
+#include "bsp_ws2812.h"
 #include "voice.h"
 #include "agent_app.h"
 #include "ljyd_cloud.h"
@@ -22,6 +25,15 @@ void app_main(void)
 
 void qm_application_start(void)
 {
+    // if (bsp_servo_init() != QM_EOK) {
+    //     QM_LOGE("main", "servo init failed");
+    // }
+    // if (bsp_vibrator_init() != QM_EOK) {
+    //     QM_LOGE("main", "vibrator init failed");
+    // } else {
+    //     bsp_vibrator_pulse(BSP_VIBRATOR_PULSE_MS);
+    // }
+    // bsp_ws2812_example();
     if (bsp_uart_init() != QM_EOK) {
         QM_LOGE("main", "uart init failed");
         return;

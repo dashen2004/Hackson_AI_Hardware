@@ -23,6 +23,8 @@ set(COMPONENT_SRCS
     "./cloud/ljyd_cloud.c"
     "./cloud/ljyd_method.c"
     "./cloud/ljyd_provision.c"
+    "./cloud/ljyd_iot_prop.c"
+    "./cloud/ljyd_iot_volume.c"
     "./peripheral/bsp_uart.c"
     "./peripheral/bsp_io.c"
     "./peripheral/bsp_mpu6050.c"

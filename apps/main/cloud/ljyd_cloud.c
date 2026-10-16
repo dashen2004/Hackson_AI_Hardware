@@ -1,6 +1,7 @@
 #include "ljyd_cloud.h"
 #include "ljyd_method.h"
 #include "ljyd_provision.h"
+#include "ljyd_iot_prop.h"
 
 #include "qm.h"
 #include "qm_iot_api.h"
@@ -301,14 +302,96 @@ static void cloud_iot_event_handler(void *handle, const qm_iot_event_t *event, v
     }
 }
 
+static const char *iot_recv_type_name(qm_iot_recv_type_t type)
+{
+    switch (type) {
+    case QM_IOT_RECV_TYPE_PROPERTY_SET:
+        return "set";
+    case QM_IOT_RECV_TYPE_PROPERTY_GET_RSP:
+        return "get_rsp";
+    case QM_IOT_RECV_TYPE_PROPERTY_GET_REQ:
+        return "get_req";
+    default:
+        return "unknown";
+    }
+}
+
+static qm_spec_property_t *iot_recv_property(const qm_iot_recv_t *recv)
+{
+    switch (recv->type) {
+    case QM_IOT_RECV_TYPE_PROPERTY_SET:
+        return recv->data.set.property;
+    case QM_IOT_RECV_TYPE_PROPERTY_GET_RSP:
+        return recv->data.get_rsp.property;
+    case QM_IOT_RECV_TYPE_PROPERTY_GET_REQ:
+        return recv->data.get_req.property;
+    default:
+        return NULL;
+    }
+}
+
+static void format_spec_value(qm_spec_property_t *prop, char *buf, int buf_size)
+{
+    uint8_t fmt;
+
+    if (buf == NULL || buf_size <= 0) {
+        return;
+    }
+    if (prop == NULL) {
+        qm_snprintf(buf, (size_t)buf_size, "none");
+        return;
+    }
+
+    fmt = prop->value.property_format;
+    switch (fmt) {
+    case QM_SPEC_PROPERTY_FORMAT_BOOL: {
+        bool_t v = 0;
+        qm_spec_property_unpack_bool(prop, &v);
+        qm_snprintf(buf, (size_t)buf_size, "bool %d", (int)v);
+        break;
+    }
+    case QM_SPEC_PROPERTY_FORMAT_NUMBER:
+    case QM_SPEC_PROPERTY_FORMAT_INT32: {
+        int32_t v = 0;
+        qm_spec_property_unpack_int32(prop, &v);
+        qm_snprintf(buf, (size_t)buf_size, "i32 %d", (int)v);
+        break;
+    }
+    case QM_SPEC_PROPERTY_FORMAT_STRING: {
+        char *s = NULL;
+        int n = 0;
+        qm_spec_property_unpack_string_direct(prop, &s, &n);
+        qm_snprintf(buf, (size_t)buf_size, "str %.*s", n, s != NULL ? s : "");
+        break;
+    }
+    default:
+        qm_snprintf(buf, (size_t)buf_size, "fmt=%u len=%u",
+                    (unsigned)fmt, (unsigned)prop->value.len);
+        break;
+    }
+}
+
 static void cloud_iot_recv_handler(void *handle, const qm_iot_recv_t *recv, void *userdata)
 {
+    qm_spec_property_t *prop;
+    char value[96];
+
     (void)handle;
     (void)userdata;
     if (recv == NULL) {
         return;
     }
-    QM_LOGD(LOG_TAG, "iot recv type=%d siid=%u piid=%u", recv->type, recv->siid, recv->piid);
+
+    prop = iot_recv_property(recv);
+    format_spec_value(prop, value, (int)sizeof(value));
+    QM_LOGI(LOG_TAG, "iot recv %s(%d) did=%u siid=%u piid=%u code=%d value=%s",
+            iot_recv_type_name(recv->type), (int)recv->type,
+            (unsigned)recv->did, (unsigned)recv->siid, (unsigned)recv->piid,
+            prop != NULL ? (int)prop->code : 0, value);
+
+    if (recv->type == QM_IOT_RECV_TYPE_PROPERTY_SET) {
+        ljyd_iot_prop_on_set(prop);
+    }
 }
 
 void ljyd_cloud_on_network_up(void)
@@ -364,6 +447,9 @@ int ljyd_cloud_init(void)
     refresh_device_sn();
     if (device_sn[0] != '\0') {
         (void)qm_iot_setopt(iot_handle, QM_IOT_OPT_SN, device_sn);
+    }
+    if (ljyd_iot_prop_init(iot_handle) != QM_EOK) {
+        QM_LOGE(LOG_TAG, "prop init failed");
     }
     return QM_EOK;
 }
