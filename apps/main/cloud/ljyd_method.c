@@ -162,6 +162,18 @@ static void method_down_dispatch(void *handle, const qm_iot_mqtt_recv_t *packet,
         return;
     }
 
+    /* MQTT payloads are length-delimited and are not guaranteed to be NUL-terminated. */
+    QM_LOGI(LOG_TAG,
+            "MQTT downlink method=%s topic=%.*s payload_len=%u payload=%.*s",
+            method,
+            (int)packet->data.pub.topic_len,
+            packet->data.pub.topic != NULL ? packet->data.pub.topic : "",
+            (unsigned)packet->data.pub.payload_len,
+            (int)packet->data.pub.payload_len,
+            (const char *)packet->data.pub.payload);
+    QM_HEX_LOGI(LOG_TAG, "MQTT downlink payload hex",
+                packet->data.pub.payload, packet->data.pub.payload_len);
+
     root = cJSON_ParseWithLength((const char *)packet->data.pub.payload,
                                  packet->data.pub.payload_len);
     if (root == NULL) {

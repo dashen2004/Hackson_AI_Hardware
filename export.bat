@@ -12,10 +12,10 @@ if not defined IDF_PATH (
 echo ADF_PATH: %ADF_PATH%
 echo IDF_PATH: %IDF_PATH%
 
-call %IDF_PATH%\export.bat
-if %errorlevel% neq 0 (goto :ErrorHandling)
+call "%IDF_PATH%\export.bat"
+if errorlevel 1 goto :ErrorHandling
 python.exe "%ADF_PATH%\tools\adf_install_patches.py" apply-patch
-if %errorlevel% neq 0 (goto :ErrorHandling)
+if errorlevel 1 goto :ErrorHandling
 
 echo.
 echo The following command can be executed now to view detailed usage:
@@ -29,7 +29,12 @@ echo   [33midf.py set-target esp32[0m
 echo   [33midf.py menuconfig[0m
 echo   idf.py build
 echo.
+goto :Success
 
 :ErrorHandling
 echo The script encountered an error.
-goto :eof
+exit /b 1
+
+:Success
+echo ESP-IDF environment setup completed successfully.
+exit /b 0

@@ -42,6 +42,15 @@ End of Life IDF branches are removed. See [IDF Supported Periods](https://docs.e
 
 You need one of ESP-IDF versions described in [ESP-ADF Releases](https://github.com/espressif/esp-adf/releases), one of audio boards below and headphones.
 
+On Windows PowerShell, initialize the environment in the current session with:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\export.ps1
+```
+
+Then run `idf.py` from the same PowerShell window. In `cmd.exe`, use `export.bat` instead. Running a `.bat` file from PowerShell cannot keep its environment changes after the child `cmd.exe` exits.
+
 **Note:**  If this is your first exposure to ESP-IDF, proceed to **Getting Started** documentation specific for [ESP32](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html), [ESP32-S2](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/get-started/index.html),  [ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/index.html) or [ESP32-P4](https://docs.espressif.com/projects/esp-idf/en/latest/esp32p4/index.html) SoCs.
 
 Click on one of the audio boards shown below to set up and use the ESP-ADF [getting-started](https://docs.espressif.com/projects/esp-adf/en/latest/get-started/index.html) guide.

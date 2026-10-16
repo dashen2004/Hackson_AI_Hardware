@@ -4,10 +4,7 @@ else()
     get_filename_component(QDEV "${CMAKE_CURRENT_LIST_DIR}/../../qumios-dev" ABSOLUTE)
 endif()
 file(TO_CMAKE_PATH "${QDEV}" QDEV)
-if(NOT IS_DIRECTORY "${QDEV}")
-    message(FATAL_ERROR "qumios-dev not found at ${QDEV}. Set ADF_PATH to the repo root (esp32_combo).")
-endif()
-set(AGORA_SDK ${CMAKE_CURRENT_LIST_DIR}/../../components/agora_iot_sdk)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../components/agora_iot_sdk" AGORA_SDK)
 
 file(READ "${CMAKE_CURRENT_LIST_DIR}/qm_config/qm_config.h" QM_CONFIG_H)
 if(QM_CONFIG_H MATCHES "#define[ \t]+CONFIG_VOICE_BACKEND_AGORA[ \t]+1")
@@ -25,6 +22,7 @@ set(COMPONENT_SRCS
     "./cloud/ljyd_provision.c"
     "./cloud/ljyd_iot_prop.c"
     "./cloud/ljyd_iot_volume.c"
+    "./playback/playback.c"
     "./peripheral/bsp_uart.c"
     "./peripheral/bsp_io.c"
     "./peripheral/bsp_mpu6050.c"
@@ -51,6 +49,9 @@ set(COMPONENT_SRCS
     "${QDEV}/components/qm_audio/src/qm_audio.c"
     "${QDEV}/components/qm_audio/src/qm_audio_capture.c"
     "${QDEV}/components/qm_audio/src/qm_audio_playback.c"
+    "${QDEV}/components/qm_player/src/qm_player.c"
+    "${QDEV}/components/qm_player/src/qm_player_cloud.c"
+    "${QDEV}/components/qm_res_mgr/src/qm_res_mgr.c"
     "${QDEV}/components/qm_event/src/qm_event.c"
     "${QDEV}/components/qm_event/src/qm_work.c"
     "${QDEV}/components/qm_provision/src/qm_provision.c"
@@ -92,6 +93,7 @@ set(COMPONENT_SRCS
     "${QDEV}/utility/string/qm_string.c"
     "${QDEV}/utility/string/qm_utils_string.c"
     "${QDEV}/utility/list/qm_utils_list.c"
+    "${QDEV}/utility/ringbuf/qm_ringbuf.c"
     "${QDEV}/utility/timer/qm_utils_timer.c"
     "${QDEV}/utility/json_parser/json_parser.c"
     "${QDEV}/utility/hmac/qm_utils_hmac.c"
@@ -130,6 +132,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./agent"
     "./agent/private"
     "./cloud"
+    "./playback"
     "./peripheral"
     "./voice"
     "${QDEV}/components/qm_agent/include"
@@ -150,6 +153,8 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "${QDEV}/include/hal/ble"
     "${QDEV}/components/qm_audio/include"
     "${QDEV}/components/qm_audio/priv_include"
+    "${QDEV}/components/qm_player/include"
+    "${QDEV}/components/qm_res_mgr/include"
     "${QDEV}/components/qm_event/include"
     "${QDEV}/components/qm_provision/include"
     "${QDEV}/components/qm_cloud/include"
@@ -182,6 +187,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "${QDEV}/drivers/VB701N/proto"
     "${QDEV}/utility/string"
     "${QDEV}/utility/list"
+    "${QDEV}/utility/ringbuf"
     "${QDEV}/utility/timer"
     "${QDEV}/utility/json_parser"
     "${QDEV}/utility/hmac"
