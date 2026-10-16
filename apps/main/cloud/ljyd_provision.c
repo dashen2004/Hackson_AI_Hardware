@@ -14,6 +14,7 @@
 #define LOG_TAG "provision"
 
 #define PROVISION_KV_BIND      "cloud/bind"
+#define PROVISION_KV_ENV       "cloud/env"
 #define PROVISION_WIFI_DELAY_MS 1000
 
 static qm_provision_handle_t provision_handle;
@@ -21,6 +22,31 @@ static uint8_t wifi_event_registered;
 static qm_work_t wifi_delay_work;
 static char pending_ssid[CONFIG_QM_WIFI_SSID_MAX_LEN + 1];
 static char pending_password[CONFIG_QM_WIFI_PASSWD_MAX_LEN + 1];
+
+static void provision_env_load(void)
+{
+    uint8_t env = 0;
+    int len = (int)sizeof(env);
+
+    if (qm_kv_get(PROVISION_KV_ENV, &env, &len) != QM_EOK || len != (int)sizeof(env)) {
+        return;
+    }
+    if (env > (uint8_t)QM_IOT_DYNREG_ENV_PROD) {
+        return;
+    }
+    (void)qm_iot_dynreg_env_set((qm_iot_dynreg_env_t)env);
+    QM_LOGI(LOG_TAG, "dynreg env=%u", (unsigned)env);
+}
+
+static void provision_env_save(uint8_t env)
+{
+    if (env > (uint8_t)QM_IOT_DYNREG_ENV_PROD) {
+        return;
+    }
+    (void)qm_iot_dynreg_env_set((qm_iot_dynreg_env_t)env);
+    (void)qm_kv_set(PROVISION_KV_ENV, &env, (int)sizeof(env), 1);
+    QM_LOGI(LOG_TAG, "dynreg env save=%u", (unsigned)env);
+}
 
 static void provision_set_bound(uint8_t bound)
 {
@@ -32,6 +58,7 @@ void ljyd_provision_clear_and_reboot(void)
     uint8_t bound = 0;
 
     (void)qm_kv_set(PROVISION_KV_BIND, &bound, (int)sizeof(bound), 1);
+    (void)qm_kv_del(PROVISION_KV_ENV);
     (void)qm_kv_del("wifi_cfg");
     qm_msleep(50);
     qm_reboot();
@@ -119,7 +146,7 @@ static void provision_recv(qm_provision_handle_t handle,
     }
     QM_LOGI(LOG_TAG, "provision ssid=%s", recv->ssid);
     if (recv->env_type_valid) {
-        (void)qm_iot_dynreg_env_set((qm_iot_dynreg_env_t)recv->env_type);
+        provision_env_save(recv->env_type);
     }
     memset(pending_ssid, 0, sizeof(pending_ssid));
     memset(pending_password, 0, sizeof(pending_password));
@@ -202,6 +229,8 @@ int ljyd_provision_init(void)
         }
         wifi_event_registered = 1;
     }
+
+    provision_env_load();
 
     if (provision_has_saved_wifi()) {
         QM_LOGI(LOG_TAG, "saved wifi, skip ble");

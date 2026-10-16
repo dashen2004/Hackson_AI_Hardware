@@ -442,7 +442,6 @@ int ljyd_cloud_init(void)
     qm_iot_setopt(iot_handle, QM_IOT_OPT_PRODUCT_SECRET, CONFIG_XJIANG_CLOUD_SECERT);
     qm_iot_setopt(iot_handle, QM_IOT_OPT_RECV_HANDLER, cloud_iot_recv_handler);
     qm_iot_setopt(iot_handle, QM_IOT_OPT_EVENT_HANDLER, cloud_iot_event_handler);
-    (void)qm_iot_dynreg_env_set(QM_IOT_DYNREG_ENV_TEST);
 
     refresh_device_sn();
     if (device_sn[0] != '\0') {
