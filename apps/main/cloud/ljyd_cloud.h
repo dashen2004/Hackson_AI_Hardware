@@ -1,6 +1,10 @@
 #ifndef LJYD_CLOUD_H
 #define LJYD_CLOUD_H
 
+/* 灵机平台产品身份。换产品改这里。 */
+#define CONFIG_XJIANG_CLOUD_PID    11658
+#define CONFIG_XJIANG_CLOUD_SECERT "969FA7FFD2A848DBB6902225B45AAE96"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
