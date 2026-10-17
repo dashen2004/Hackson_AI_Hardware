@@ -1,6 +1,6 @@
 # 应用层资源播放
 
-本文档描述当前仓库 `apps/main/playback` 的实际实现。该目录是一个应用层
+本文档描述当前仓库 `apps/main/lj_components/playback` 的实际实现。该目录是一个应用层
 包装，不是 QUMI 的通用资源播放组件。
 
 当前代码提供两类能力：
@@ -37,7 +37,7 @@ qm_res_mgr --获取资源 URL--> qm_player
 
 ## 当前工程状态
 
-`apps/main/CMakeLists.txt` 已经把 `playback/playback.c` 加入编译，并提供了
+`apps/main/CMakeLists.txt` 已经把 `lj_components/playback/playback.c` 加入编译，并提供了
 QUMI 的 `qm_player`、`qm_res_mgr` 头文件路径。但是当前
 `apps/main/main.c` 的启动顺序是：
 
@@ -310,10 +310,8 @@ qm_res_mgr_resource_free(&detail);
 会先请求停止资源播放；如果同时存在云端对话，`qm_agent_interrupt()` 会清空
 本地 TTS 队列并重新打开上行麦克风。
 
-当前 Agora transport 的后端中断发送接口仍返回 `-QM_ENOSYS`。因此应用层会把
-这种情况升级为“本地停止 + 延迟重启 agent 会话”：`qm_agent_stop()` 结束当前
-Agora 会话后，通过 `qm_work` 调 `qm_agent_start()` 重新加入新会话，避免服务端
-继续下发旧回复。
+当前 Agora transport 的后端中断发送接口仍返回 `-QM_ENOSYS`。此时应用层只记录
+本地打断结果，不会停止或重启 agent 会话。
 
 ## 云控边界
 

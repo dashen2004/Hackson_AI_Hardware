@@ -20,17 +20,52 @@ if not exist "%APP_DIR%\CMakeLists.txt" (
     echo ERROR: Cannot find the apps project at "%APP_DIR%"
     exit /b 1
 )
+if not exist "%IDF_PATH%\tools\idf.py" (
+    echo ERROR: ESP-IDF is not initialized at "%IDF_PATH%"
+    echo Run install.bat first.
+    exit /b 1
+)
+if not exist "%ROOT_DIR%\qumios-dev\components\qm_agent\include\qm_agent.h" (
+    echo ERROR: qumios-dev is not initialized.
+    echo Run install.bat first.
+    exit /b 1
+)
+
+where.exe git.exe >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: git.exe was not found in PATH.
+    exit /b 1
+)
+python.exe --version >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: python.exe was not found in PATH.
+    echo Run install.bat from a terminal with Python available.
+    exit /b 1
+)
 
 echo.
 echo [1/4] Exporting ESP-IDF and applying ADF patches...
 call "%ADF_PATH%\export.bat"
 if errorlevel 1 goto :failed
+if not defined IDF_PYTHON_ENV_PATH (
+    echo ERROR: ESP-IDF Python environment was not exported.
+    echo Run install.bat again, then retry build.bat.
+    set "BUILD_EXIT_CODE=1"
+    goto :failed
+)
+set "IDF_PYTHON=%IDF_PYTHON_ENV_PATH%\Scripts\python.exe"
+if not exist "%IDF_PYTHON%" (
+    echo ERROR: ESP-IDF Python was not found: "%IDF_PYTHON%"
+    echo Run install.bat again, then retry build.bat.
+    set "BUILD_EXIT_CODE=1"
+    goto :failed
+)
 
 echo.
 echo [2/4] Building the apps project...
 pushd "%APP_DIR%"
 if errorlevel 1 goto :failed
-idf.py build
+"%IDF_PYTHON%" "%IDF_PATH%\tools\idf.py" build
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 if not "%BUILD_EXIT_CODE%"=="0" (
     popd
@@ -42,7 +77,7 @@ echo.
 echo [3/4] Erasing the chip...
 pushd "%APP_DIR%"
 if errorlevel 1 goto :failed
-idf.py erase-flash
+"%IDF_PYTHON%" "%IDF_PATH%\tools\idf.py" erase-flash
 set "ERASE_EXIT_CODE=%ERRORLEVEL%"
 popd
 if not "%ERASE_EXIT_CODE%"=="0" (
@@ -53,7 +88,7 @@ echo.
 echo [4/4] Flashing the application and starting the serial monitor...
 pushd "%APP_DIR%"
 if errorlevel 1 goto :failed
-idf.py flash monitor
+"%IDF_PYTHON%" "%IDF_PATH%\tools\idf.py" flash monitor
 set "FLASH_MONITOR_EXIT_CODE=%ERRORLEVEL%"
 popd
 if not "%FLASH_MONITOR_EXIT_CODE%"=="0" (

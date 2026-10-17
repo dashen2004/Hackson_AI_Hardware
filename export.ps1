@@ -6,11 +6,9 @@ param()
 $ErrorActionPreference = "Stop"
 $adfPath = $PSScriptRoot
 
-if (-not $env:IDF_PATH) {
-    $env:IDF_PATH = Join-Path $adfPath "esp-idf"
-}
-
-$idfPath = [System.IO.Path]::GetFullPath($env:IDF_PATH)
+# Always use the ESP-IDF checkout tracked by this repository, even if the
+# caller has another IDF_PATH in its environment.
+$idfPath = [System.IO.Path]::GetFullPath((Join-Path $adfPath "esp-idf"))
 $env:ADF_PATH = $adfPath
 $env:IDF_PATH = $idfPath
 

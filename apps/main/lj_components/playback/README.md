@@ -1,6 +1,7 @@
 # Application Playback
 
-This application layer wraps the QUMI `qm_player` and `qm_res_mgr` APIs used by
+This directory lives at `apps/main/lj_components/playback` and wraps the QUMI
+`qm_player` and `qm_res_mgr` APIs used by
 the resource playback guide.
 
 The component provides:
@@ -15,6 +16,10 @@ The component provides:
 source adapter. The component does not provide a codec backend or create the
 audio handle. The caller owns both injected interfaces and must keep them alive
 until `playback_deinit()` completes.
+
+`apps/main/CMakeLists.txt` builds `lj_components/playback/playback.c` and exports
+its include directory. Whether startup calls `playback_init()` depends on the
+current initialization order in `main.c`.
 
 Resource-manager list/detail calls are synchronous and must run from an
 application worker, not an MQTT receive callback. `playback_play_*()` only

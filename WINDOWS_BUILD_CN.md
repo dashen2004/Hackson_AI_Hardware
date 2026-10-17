@@ -1,6 +1,44 @@
 # Windows 编译说明
 
-本仓库包含 ESP-ADF、ESP-IDF 和 `apps` 应用。Windows 下先初始化 ESP-IDF 环境，再进入 `apps` 目录编译。
+本仓库包含 ESP-ADF、ESP-IDF 和 `apps` 应用。Windows 下先拉取本仓库配置的子模块，再使用本地 `esp-idf` 子模块安装工具环境并编译 `apps`。
+
+## 新机器前置条件
+
+两个根目录脚本不能替代操作系统级依赖。运行它们前请确认：
+
+- 使用 Git 工作树，而不是直接解压的 ZIP 包；建议用 `git clone --recurse-submodules` 获取仓库。
+- 已安装 Git for Windows，并且在新开的终端中可以执行 `git --version`。
+- 已安装 ESP-IDF 支持的 Python 版本，并且 `python.exe` 在 PATH 中可以执行。
+  如果 `python` 指向 Microsoft Store 的 WindowsApps 别名，请在“应用执行别名”中关闭该别名，或调整 PATH 顺序。
+- 首次安装时可以访问 `.gitmodules` 中配置的子模块仓库，以及本地 ESP-IDF 安装脚本所需的工具包下载地址；公司代理或防火墙需要允许 Git、Python 和工具下载。
+
+Git 和 Python 是安装脚本运行前必须存在的两个系统命令；CMake、Ninja、Xtensa 工具链和 Python 环境由本仓库 `esp-idf` 子模块里的安装脚本处理。
+
+## 一键安装和编译（推荐）
+
+首次使用或更换 ESP-IDF 工具链时，必须先执行根目录的 `install.bat`，再执行
+`build.bat`。`install.bat` 会先按 `.gitmodules` 拉取本仓库的 `esp-idf` 和 `qumios-dev` 子模块，
+再调用本地 `esp-idf\install.bat` 安装编译工具；`build.bat`
+会自动导出环境、编译 `apps`、擦除芯片、烧录固件并启动串口监视器。
+
+在 PowerShell 中从仓库根目录执行：
+
+```powershell
+Set-Location D:\Code\esp32_combo
+.\install.bat
+.\build.bat
+```
+
+在 `cmd.exe` 中执行：
+
+```bat
+cd /d D:\Code\esp32_combo
+call install.bat
+call build.bat
+```
+
+`build.bat` 已经会自动调用 `export.bat`，所以一键流程不需要先手动执行
+`export.ps1` 或 `export.bat`。如果只想编译、不擦除或烧录，可以使用下面的手动流程。
 
 ## PowerShell（推荐）
 
@@ -95,6 +133,24 @@ idf.py -p COM7 flash monitor
 
 ### PowerShell 提示无法识别 idf.py
 
+一键流程不依赖系统对 `.py` 文件的关联，也不直接使用 PATH 中的 `idf.py`；`build.bat` 会在导出环境后调用 ESP-IDF 虚拟环境里的 Python 和仓库内的 `tools\idf.py`。如果仍然报错，请重新执行 `install.bat`。
+
+### install.bat 提示找不到 Python 或 Git
+
+这两个命令需要先安装到 Windows，并加入 PATH。安装后必须关闭并重新打开终端，再从仓库根目录执行 `install.bat`。如果 `where python.exe` 的第一项是 `WindowsApps`，请关闭 Microsoft Store 的 Python 执行别名。
+
+### install.bat 提示子模块初始化失败
+
+仓库包含 `esp-idf` 和 `qumios-dev` 两个子模块，源码地址以 `.gitmodules` 为准。检查 Git 对应的远程地址、SSH/HTTPS 凭据、代理和网络访问，然后重新执行 `install.bat`。脚本会从仓库根目录执行递归子模块初始化；不需要手动进入 `esp-idf` 目录。
+
+### 工具下载地址和 ESP-IDF 源码的区别
+
+`install.bat` 不会从其他仓库重新获取 ESP-IDF 源码。ESP-IDF 源码固定来自本仓库的 `esp-idf` 子模块；本地子模块安装脚本只负责准备编译器、CMake、Ninja 和 Python 虚拟环境等构建工具。
+
+### build.bat 提示 ESP-IDF 或 qumios-dev 未初始化
+
+先确认 `install.bat` 已完整执行成功。不要只创建空的 `esp-idf` 或 `qumios-dev` 目录；脚本需要实际存在 ESP-IDF 的 `tools\idf.py` 和 QUMI 的 `components\qm_agent\include\qm_agent.h`。
+
 通常是当前窗口尚未初始化环境，或者在 PowerShell 中运行了 `export.bat`。回到仓库根目录执行 `.\export.ps1`，然后在同一窗口进入 `apps` 编译。
 
 ### 仓库不在 D:\Code\esp32_combo
@@ -107,11 +163,10 @@ Set-Location "D:\My Projects\esp32_combo"
 
 ### 已设置其他 IDF_PATH
 
-根目录的 `export.ps1` 会保留已有的 `IDF_PATH`。如果当前窗口指向另一个 ESP-IDF，请先明确指定本仓库版本：
+根目录的 `export.ps1` 会强制使用本仓库的 `esp-idf` 子模块，不会沿用当前窗口中其他项目的 `IDF_PATH`。如果需要确认路径，可以执行：
 
 ```powershell
 Set-Location D:\Code\esp32_combo
-$env:IDF_PATH = Join-Path (Get-Location).Path "esp-idf"
 .\export.ps1
 ```
 

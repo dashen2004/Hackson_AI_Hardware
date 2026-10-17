@@ -1,13 +1,11 @@
 @echo off
 
 set "ORIG_PATH=%cd%"
-set ADF_PATH=%~dp0
-set ADF_PATH=%ADF_PATH:~0,-1%
+set "ADF_PATH=%~dp0"
+if "%ADF_PATH:~-1%"=="\" set "ADF_PATH=%ADF_PATH:~0,-1%"
 
-:: Check IDF_PATH
-if not defined IDF_PATH (
-   set IDF_PATH=%ADF_PATH%\esp-idf
-)
+:: Always use the ESP-IDF checkout tracked by this repository.
+set "IDF_PATH=%ADF_PATH%\esp-idf"
 
 echo ADF_PATH: %ADF_PATH%
 echo IDF_PATH: %IDF_PATH%
