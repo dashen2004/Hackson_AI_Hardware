@@ -28,6 +28,13 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_QM_IOT_TASK_STACK_SIZE (16 * 1024)
 
 #define CONFIG_QM_CLOUD_SUPPORT 1
+/* Temporary cloud payload tracing; disable after diagnostics. */
+#define CONFIG_QM_CLOUD_LOG_CONFIG 1
+#define CONFIG_QM_CLOUD_LOG_ERROR 1
+#define CONFIG_QM_CLOUD_LOG_LIFECYCLE 1
+#define CONFIG_QM_CLOUD_LOG_CONTROL 1
+#define CONFIG_QM_CLOUD_LOG_DOWNLINK 1
+#define CONFIG_QM_CLOUD_LOG_PAYLOAD 1
 #define CONFIG_QM_IOT_MQTT_SUPPORT 1
 #define CONFIG_QM_IOT_SPEC_SUPPORT 1
 #define CONFIG_QM_IOT_PUB_SUPPORT 1
