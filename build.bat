@@ -8,7 +8,6 @@ set "ADF_PATH=%ROOT_DIR%"
 set "IDF_PATH=%ROOT_DIR%\esp-idf"
 set "APP_DIR=%ROOT_DIR%\apps"
 set "BUILD_EXIT_CODE="
-set "ERASE_EXIT_CODE="
 set "FLASH_MONITOR_EXIT_CODE="
 set "EXIT_CODE="
 
@@ -44,7 +43,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [1/4] Exporting ESP-IDF and applying ADF patches...
+echo [1/3] Exporting ESP-IDF and applying ADF patches...
 call "%ADF_PATH%\export.bat"
 if errorlevel 1 goto :failed
 if not defined IDF_PYTHON_ENV_PATH (
@@ -62,7 +61,7 @@ if not exist "%IDF_PYTHON%" (
 )
 
 echo.
-echo [2/4] Building the apps project...
+echo [2/3] Building the apps project...
 pushd "%APP_DIR%"
 if errorlevel 1 goto :failed
 "%IDF_PYTHON%" "%IDF_PATH%\tools\idf.py" build
@@ -73,19 +72,7 @@ if not "%BUILD_EXIT_CODE%"=="0" (
 )
 popd
 
-echo.
-echo [3/4] Erasing the chip...
-pushd "%APP_DIR%"
-if errorlevel 1 goto :failed
-"%IDF_PYTHON%" "%IDF_PATH%\tools\idf.py" erase-flash
-set "ERASE_EXIT_CODE=%ERRORLEVEL%"
-popd
-if not "%ERASE_EXIT_CODE%"=="0" (
-    goto :failed
-)
-
-echo.
-echo [4/4] Flashing the application and starting the serial monitor...
+echo [3/3] Flashing the application and starting the serial monitor...
 pushd "%APP_DIR%"
 if errorlevel 1 goto :failed
 "%IDF_PYTHON%" "%IDF_PATH%\tools\idf.py" flash monitor
@@ -104,8 +91,6 @@ exit /b 0
 :failed
 if defined FLASH_MONITOR_EXIT_CODE (
     set "EXIT_CODE=%FLASH_MONITOR_EXIT_CODE%"
-) else if defined ERASE_EXIT_CODE (
-    set "EXIT_CODE=%ERASE_EXIT_CODE%"
 ) else if defined BUILD_EXIT_CODE (
     set "EXIT_CODE=%BUILD_EXIT_CODE%"
 ) else (

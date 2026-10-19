@@ -1,5 +1,10 @@
 #include "ljyd_method.h"
 #include "agent_app.h"
+#include "qm_config.h"
+
+#if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
+#include "playback.h"
+#endif
 
 #include "cJSON.h"
 #include "qm.h"
@@ -35,9 +40,15 @@ typedef struct {
 static void *s_iot;
 
 static int action_chat_quit(const ljyd_method_ctx_t *ctx);
+#if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
+static int action_player_play(const ljyd_method_ctx_t *ctx);
+#endif
 
 static const ljyd_method_entry_t s_table[] = {
     {"chat", "quit", action_chat_quit, LJYD_METHOD_NEED_REPLY},
+#if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
+    {"player", "play", action_player_play, LJYD_METHOD_NEED_REPLY},
+#endif
 };
 
 static int params_source_is_local(const cJSON *params)
@@ -70,6 +81,19 @@ static int json_read_int(const cJSON *obj, const char *key, int *out)
     }
     return 0;
 }
+
+#if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
+static int json_read_u32(const cJSON *obj, const char *key, uint32_t *out)
+{
+    int value;
+
+    if (out == NULL || !json_read_int(obj, key, &value) || value < 0) {
+        return 0;
+    }
+    *out = (uint32_t)value;
+    return 1;
+}
+#endif
 
 static const ljyd_method_entry_t *table_find(const char *method, const char *submethod)
 {
@@ -134,6 +158,52 @@ static int action_chat_quit(const ljyd_method_ctx_t *ctx)
     QM_LOGI(LOG_TAG, "chat quit speak=%s", speak != NULL ? speak : "");
     return agent_app_leave();
 }
+
+#if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
+static int action_player_play(const ljyd_method_ctx_t *ctx)
+{
+    playback_cloud_play_request_t request;
+    const cJSON *item;
+
+    if (ctx == NULL || !cJSON_IsObject(ctx->params)) {
+        return -QM_EINVAL;
+    }
+    memset(&request, 0, sizeof(request));
+    item = cJSON_GetObjectItemCaseSensitive(ctx->params, "url");
+    if (!cJSON_IsString(item) || item->valuestring == NULL ||
+        item->valuestring[0] == '\0') {
+        return -QM_EINVAL;
+    }
+    request.url = item->valuestring;
+
+    item = cJSON_GetObjectItemCaseSensitive(ctx->params, "guideWords");
+    if (cJSON_IsString(item) && item->valuestring != NULL &&
+        item->valuestring[0] != '\0') {
+        request.guide_words = item->valuestring;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(ctx->params, "audioType");
+    if (cJSON_IsString(item) && item->valuestring != NULL &&
+        item->valuestring[0] != '\0') {
+        request.audio_type = item->valuestring;
+    } else {
+        request.audio_type = "pcm";
+    }
+    item = cJSON_GetObjectItemCaseSensitive(ctx->params, "title");
+    if (cJSON_IsString(item) && item->valuestring != NULL &&
+        item->valuestring[0] != '\0') {
+        request.title = item->valuestring;
+    }
+    (void)json_read_u32(ctx->params, "fileSize", &request.file_size);
+    (void)json_read_u32(ctx->params, "totalDuration", &request.duration_s);
+    QM_LOGI(LOG_TAG, "player play url=%s type=%s size=%u duration=%u guide=%u",
+            request.url,
+            request.audio_type,
+            (unsigned)request.file_size,
+            (unsigned)request.duration_s,
+            request.guide_words != NULL ? 1U : 0U);
+    return playback_submit_cloud_play(&request);
+}
+#endif
 
 static void method_down_dispatch(void *handle, const qm_iot_mqtt_recv_t *packet, void *userdata)
 {

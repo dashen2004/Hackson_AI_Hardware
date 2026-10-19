@@ -46,6 +46,24 @@ int playback_play_file(const char *path,
                        uint32_t file_size,
                        uint32_t duration_s);
 
+/**
+ * @brief One cloud player/play request copied into the playback worker.
+ *
+ * The pointers are borrowed only for the duration of the call; the component
+ * copies all strings before returning.
+ */
+typedef struct {
+    const char *guide_words;
+    const char *url;
+    const char *audio_type;
+    const char *title;
+    uint32_t file_size;
+    uint32_t duration_s;
+} playback_cloud_play_request_t;
+
+/** @brief Queue a cloud resource request without blocking the MQTT callback. */
+int playback_submit_cloud_play(const playback_cloud_play_request_t *request);
+
 #if defined(CONFIG_QM_RES_MGR_SUPPORT) && CONFIG_QM_RES_MGR_SUPPORT
 /** @brief Select the resource service environment for HTTP metadata builds. */
 int playback_set_resource_env(qm_res_mgr_env_t env);

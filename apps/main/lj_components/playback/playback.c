@@ -1,8 +1,13 @@
 #include "playback.h"
 
+#include "agent_app.h"
+
+#include "qm.h"
 #include "qm_errno.h"
 #include "qm_log.h"
 #include "qm_string.h"
+
+#include <string.h>
 
 #if defined(CONFIG_QM_RES_MGR_SUPPORT) && CONFIG_QM_RES_MGR_SUPPORT
 #include "qm_res_mgr.h"
@@ -13,9 +18,74 @@
 #define PLAYBACK_AUDIO_WAIT_MS    3000U
 #define PLAYBACK_MQTT_TIMEOUT_MS  15000U
 #define PLAYBACK_PAGE_SIZE        10U
+#define PLAYBACK_COMMAND_QUEUE_LEN 4U
+#define PLAYBACK_WORKER_STACK      (12 * 1024)
+#define PLAYBACK_WORKER_PRIORITY   18
+#define PLAYBACK_GUIDE_TIMEOUT_MS  30000U
 
 static qm_player_t s_player;
 static uint32_t s_operation_id;
+static qm_queue_t s_command_queue;
+static qm_task_t s_command_task;
+static qm_sem_t s_command_done;
+static uint8_t s_command_ready;
+
+static void playback_command_task(void *arg);
+int playback_stop(void);
+
+typedef struct {
+    char *guide_words;
+    char *url;
+    char *audio_type;
+    char *title;
+    uint32_t file_size;
+    uint32_t duration_s;
+} playback_cloud_command_t;
+
+static qm_player_resource_type_t media_type(const char *audio_type)
+{
+    if (audio_type == NULL) {
+        return QM_PLAYER_RESOURCE_TYPE_UNKNOWN;
+    }
+    if (qm_strcasecmp(audio_type, "mp3") == 0) return QM_PLAYER_RESOURCE_TYPE_MP3;
+    if (qm_strcasecmp(audio_type, "wav") == 0) return QM_PLAYER_RESOURCE_TYPE_WAV;
+    if (qm_strcasecmp(audio_type, "aac") == 0) return QM_PLAYER_RESOURCE_TYPE_AAC;
+    if (qm_strcasecmp(audio_type, "flac") == 0) return QM_PLAYER_RESOURCE_TYPE_FLAC;
+    if (qm_strcasecmp(audio_type, "pcm") == 0) return QM_PLAYER_RESOURCE_TYPE_PCM;
+    return QM_PLAYER_RESOURCE_TYPE_UNKNOWN;
+}
+
+static char *copy_text(const char *text)
+{
+    size_t len;
+    char *copy;
+
+    if (text == NULL || text[0] == '\0') {
+        return NULL;
+    }
+    len = qm_strlen(text);
+    copy = (char *)qm_malloc(len + 1U);
+    if (copy == NULL) {
+        return NULL;
+    }
+    memcpy(copy, text, len + 1U);
+    return copy;
+}
+
+static void free_cloud_command(playback_cloud_command_t *command)
+{
+    if (command == NULL) return;
+    qm_free(command->guide_words);
+    qm_free(command->url);
+    qm_free(command->audio_type);
+    qm_free(command->title);
+    qm_free(command);
+}
+
+static void playback_restore_audio(void)
+{
+    (void)agent_app_set_resource_mode(QM_FALSE);
+}
 
 static void playback_event(qm_player_t player,
                            const qm_player_event_t *event,
@@ -34,6 +104,14 @@ static void playback_event(qm_player_t player,
             (unsigned int)event->operation_id,
             event->error,
             (unsigned int)event->position_ms);
+    if (event->operation_id == s_operation_id &&
+        (event->type == QM_PLAYER_EVENT_FINISHED ||
+         event->type == QM_PLAYER_EVENT_STOPPED ||
+         event->type == QM_PLAYER_EVENT_PREEMPTED ||
+         event->type == QM_PLAYER_EVENT_ERROR)) {
+        s_operation_id = 0U;
+        playback_restore_audio();
+    }
 }
 
 int playback_init(qm_audio_handle_t audio,
@@ -41,6 +119,10 @@ int playback_init(qm_audio_handle_t audio,
                   const qm_player_source_if_t *source_if)
 {
     qm_player_config_t config;
+    int ret;
+    uint8_t queue_ready = 0U;
+    uint8_t sem_created = 0U;
+    uint8_t sem_ready = 0U;
 
     if (audio == NULL || decoder_if == NULL) {
         return -QM_EINVAL;
@@ -60,6 +142,39 @@ int playback_init(qm_audio_handle_t audio,
     }
 
     s_operation_id = 0U;
+    ret = qm_queue_new(&s_command_queue,
+                       PLAYBACK_COMMAND_QUEUE_LEN,
+                       sizeof(playback_cloud_command_t *));
+    if (ret == QM_EOK) {
+        queue_ready = 1U;
+        ret = qm_sem_new(&s_command_done, 0);
+        if (ret == QM_EOK) {
+            sem_created = 1U;
+        }
+    }
+    if (ret == QM_EOK && qm_sem_is_valid(&s_command_done)) {
+        sem_ready = 1U;
+    }
+    if (!queue_ready || !sem_ready) {
+        if (sem_created) {
+            (void)qm_sem_free(&s_command_done);
+        }
+        if (queue_ready) {
+            (void)qm_queue_free(&s_command_queue);
+        }
+        (void)qm_player_destroy(s_player);
+        s_player = NULL;
+        return -QM_ENOMEM;
+    }
+    if (qm_task_new(&s_command_task, "playback", playback_command_task, NULL,
+                    PLAYBACK_WORKER_STACK, PLAYBACK_WORKER_PRIORITY) != QM_EOK) {
+        (void)qm_sem_free(&s_command_done);
+        (void)qm_queue_free(&s_command_queue);
+        (void)qm_player_destroy(s_player);
+        s_player = NULL;
+        return -QM_ENOMEM;
+    }
+    s_command_ready = 1U;
     return QM_EOK;
 }
 
@@ -75,6 +190,10 @@ static int submit_resource(const qm_player_resource_t *resource)
     if (resource == NULL || resource->location == NULL ||
         resource->location[0] == '\0') {
         return -QM_EINVAL;
+    }
+    if (resource->type != QM_PLAYER_RESOURCE_TYPE_PCM) {
+        QM_LOGW(LOG_TAG, "unsupported resource type=%d", (int)resource->type);
+        return -QM_ENOSYS;
     }
     if (resource->location_type == QM_PLAYER_LOCATION_URI &&
         qm_strncmp(resource->location, "http://", 7U) != 0 &&
@@ -98,6 +217,109 @@ static int submit_resource(const qm_player_resource_t *resource)
         QM_LOGW(LOG_TAG, "play submit failed ret=%d", ret);
     }
     return ret;
+}
+
+static void process_cloud_command(playback_cloud_command_t *command)
+{
+    int ret;
+
+    if (command == NULL) {
+        return;
+    }
+    if (s_operation_id != 0U) {
+        (void)playback_stop();
+    }
+    (void)agent_app_abort_output();
+
+    if (command->guide_words != NULL) {
+        ret = agent_app_user_corpus(command->guide_words);
+        if (ret == QM_EOK) {
+            ret = agent_app_wait_tts_complete(PLAYBACK_GUIDE_TIMEOUT_MS);
+        }
+        if (ret != QM_EOK) {
+            QM_LOGW(LOG_TAG, "guide words failed ret=%d", ret);
+            (void)agent_app_set_resource_mode(QM_FALSE);
+            return;
+        }
+        QM_LOGI(LOG_TAG, "guide words playback complete");
+    }
+
+    if (command->url == NULL || command->url[0] == '\0') {
+        (void)agent_app_set_resource_mode(QM_FALSE);
+        return;
+    }
+    (void)agent_app_set_resource_mode(QM_TRUE);
+    ret = playback_play_url(command->url,
+                            media_type(command->audio_type),
+                            command->file_size,
+                            command->duration_s);
+    if (ret != QM_EOK) {
+        QM_LOGW(LOG_TAG, "resource play failed ret=%d", ret);
+        (void)agent_app_set_resource_mode(QM_FALSE);
+    }
+}
+
+static void playback_command_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        playback_cloud_command_t *command = NULL;
+        unsigned int size = sizeof(command);
+
+        if (qm_queue_recv(&s_command_queue, &command, &size,
+                          QM_WAIT_FOREVER) != QM_EOK) {
+            continue;
+        }
+        if (command == NULL) {
+            break;
+        }
+        process_cloud_command(command);
+        free_cloud_command(command);
+    }
+    (void)qm_sem_signal(&s_command_done);
+    qm_task_exit(NULL);
+}
+
+int playback_submit_cloud_play(const playback_cloud_play_request_t *request)
+{
+    playback_cloud_command_t *command;
+
+    if (!s_command_ready || request == NULL || request->url == NULL ||
+        request->url[0] == '\0') {
+        return -QM_EINVAL;
+    }
+    if (media_type(request->audio_type != NULL ? request->audio_type : "pcm") !=
+        QM_PLAYER_RESOURCE_TYPE_PCM) {
+        return -QM_ENOSYS;
+    }
+    command = (playback_cloud_command_t *)qm_malloc(sizeof(*command));
+    if (command == NULL) {
+        return -QM_ENOMEM;
+    }
+    qm_memset(command, 0, sizeof(*command));
+    command->guide_words = copy_text(request->guide_words);
+    command->url = copy_text(request->url);
+    command->audio_type = copy_text(request->audio_type != NULL ?
+                                    request->audio_type : "pcm");
+    command->title = copy_text(request->title);
+    command->file_size = request->file_size;
+    command->duration_s = request->duration_s;
+    if (command->url == NULL || command->audio_type == NULL ||
+        (request->guide_words != NULL && command->guide_words == NULL) ||
+        (request->title != NULL && command->title == NULL)) {
+        free_cloud_command(command);
+        return -QM_ENOMEM;
+    }
+    QM_LOGI(LOG_TAG, "cloud play queued type=%s size=%u duration=%u guide=%u",
+            command->audio_type,
+            (unsigned)command->file_size,
+            (unsigned)command->duration_s,
+            command->guide_words != NULL ? 1U : 0U);
+    if (qm_queue_send(&s_command_queue, &command, sizeof(command)) != QM_EOK) {
+        free_cloud_command(command);
+        return -QM_EBUSY;
+    }
+    return QM_EOK;
 }
 
 int playback_play_url(const char *url,
@@ -145,29 +367,6 @@ static int metadata_valid(const playback_metadata_t *metadata)
 #else
     return 0;
 #endif
-}
-
-static qm_player_resource_type_t media_type(const char *audio_type)
-{
-    if (audio_type == NULL) {
-        return QM_PLAYER_RESOURCE_TYPE_UNKNOWN;
-    }
-    if (qm_strcasecmp(audio_type, "mp3") == 0) {
-        return QM_PLAYER_RESOURCE_TYPE_MP3;
-    }
-    if (qm_strcasecmp(audio_type, "wav") == 0) {
-        return QM_PLAYER_RESOURCE_TYPE_WAV;
-    }
-    if (qm_strcasecmp(audio_type, "aac") == 0) {
-        return QM_PLAYER_RESOURCE_TYPE_AAC;
-    }
-    if (qm_strcasecmp(audio_type, "flac") == 0) {
-        return QM_PLAYER_RESOURCE_TYPE_FLAC;
-    }
-    if (qm_strcasecmp(audio_type, "pcm") == 0) {
-        return QM_PLAYER_RESOURCE_TYPE_PCM;
-    }
-    return QM_PLAYER_RESOURCE_TYPE_UNKNOWN;
 }
 
 static int print_page(const qm_res_mgr_list_page_t *page, void *user)
@@ -389,6 +588,19 @@ int playback_deinit(void)
 {
     int ret;
 
+    if (s_command_ready) {
+        playback_cloud_command_t *stop = NULL;
+
+        ret = qm_queue_send(&s_command_queue, &stop, sizeof(stop));
+        if (ret != QM_EOK ||
+            qm_sem_wait(&s_command_done, PLAYBACK_GUIDE_TIMEOUT_MS) != QM_EOK) {
+            QM_LOGW(LOG_TAG, "command worker stop timeout ret=%d", ret);
+            return -QM_ETIMEOUT;
+        }
+        (void)qm_queue_free(&s_command_queue);
+        (void)qm_sem_free(&s_command_done);
+        s_command_ready = 0U;
+    }
     if (s_player == NULL) {
         return QM_EOK;
     }

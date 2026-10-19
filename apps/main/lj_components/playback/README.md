@@ -11,21 +11,25 @@ The component provides:
 - resource list/category/detail lookup through the configured MQTT metadata channel;
 - resource download through an application-owned data callback;
 - pause, resume, stop, status, and teardown helpers.
+- application-owned `player/play` handling with guide-word TTS followed by PCM resource playback;
+- capture/upload arbitration while a resource owns the shared audio path.
 
 `playback_init()` requires a decoder implementation and an optional local-file
-source adapter. The component does not provide a codec backend or create the
-audio handle. The caller owns both injected interfaces and must keep them alive
-until `playback_deinit()` completes.
+source adapter. This app supplies `resource_pcm_decoder`, which currently accepts
+only cloud `audioType=pcm` (16 kHz, mono, signed 16-bit raw PCM). The component
+does not create the shared audio handle.
 
-`apps/main/CMakeLists.txt` builds `lj_components/playback/playback.c` and exports
-its include directory. Whether startup calls `playback_init()` depends on the
-current initialization order in `main.c`.
+`CONFIG_LJYD_PLAYBACK_SUPPORT` in `apps/main/qm_config/qm_config.h` controls the
+application component. When it is `1`, `apps/main/CMakeLists.txt` builds both
+playback sources and `main.c` calls `playback_init()` after `voice_start()`.
+When it is `0`, the sources, cloud command route, wakeup stop hook, and startup
+initialization are omitted.
 
 Resource-manager list/detail calls are synchronous and must run from an
 application worker, not an MQTT receive callback. `playback_play_*()` only
 queues a request; use the player event log or the status API to observe the
 actual lifecycle.
 
-This app keeps `CONFIG_QM_PLAYER_CLOUD_SUPPORT` disabled. MQTT `player` command
-routing remains application-owned, so this component does not register a second
-`player` handler.
+This app keeps `CONFIG_QM_PLAYER_CLOUD_SUPPORT` disabled. MQTT `player/play`
+routing remains application-owned and runs in the playback worker; no QUMI cloud
+source is modified or registered a second time.

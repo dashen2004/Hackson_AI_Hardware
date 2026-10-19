@@ -10,6 +10,11 @@
 #include "ljyd_cloud.h"
 #include "ljyd_provision.h"
 
+#if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
+#include "playback.h"
+#include "resource_pcm_decoder.h"
+#endif
+
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -49,6 +54,11 @@ void qm_application_start(void)
         QM_LOGE("main", "audio init failed");
         return;
     }
+#if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
+    if (playback_init(voice_get_audio(), resource_pcm_decoder_get_if(), NULL) != QM_EOK) {
+        QM_LOGE("main", "playback init failed");
+    }
+#endif
 
     if (ljyd_cloud_init() != QM_EOK) {
         QM_LOGE("main", "ljyd_cloud_init failed");

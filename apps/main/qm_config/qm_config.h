@@ -25,7 +25,7 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_QM_KV_SUPPORT 1
 #define CONFIG_QM_KV_SYSTEM_SUPPORT 1
 #define CONFIG_QM_WIFI_SUPPORT 1
-#define CONFIG_QM_IOT_TASK_STACK_SIZE (16 * 1024)
+#define CONFIG_QM_IOT_TASK_STACK_SIZE (8 * 1024)
 
 #define CONFIG_QM_CLOUD_SUPPORT 1
 /* Temporary cloud payload tracing; disable after diagnostics. */
@@ -71,6 +71,9 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_QM_AUDIO_CAPTURE_FRAME_MAX_LEN 640
 #define CONFIG_QM_AUDIO_CAPTURE_DEFAULT_QUEUE_LEN 4
 
+/* Application-owned cloud resource playback component. */
+#define CONFIG_LJYD_PLAYBACK_SUPPORT 1
+
 #define CONFIG_QM_PLAYER_SUPPORT 1
 #define CONFIG_QM_PLAYER_DECODER_SUPPORT 1
 /* MQTT player cloud control remains owned by the application for now. */
@@ -84,9 +87,9 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_QM_PLAYER_SOURCE_RX_BUF_SIZE 2048
 #define CONFIG_QM_PLAYER_SOURCE_WRITE_TIMEOUT_MS 1000
 #define CONFIG_QM_PLAYER_STREAM_BUF_SIZE 32768
-#define CONFIG_QM_PLAYER_OUTPUT_TASK_STACK_SIZE 4096
+#define CONFIG_QM_PLAYER_OUTPUT_TASK_STACK_SIZE (16 * 1024)
 #define CONFIG_QM_PLAYER_OUTPUT_TASK_PRIORITY 20
-#define CONFIG_QM_PLAYER_OUTPUT_CHUNK_SIZE 1024
+#define CONFIG_QM_PLAYER_OUTPUT_CHUNK_SIZE 160
 #define CONFIG_QM_PLAYER_PCM_BUF_SIZE 32768
 #define CONFIG_QM_PLAYER_DECODER_FRAME_TIMEOUT_MS 1000
 #define CONFIG_QM_PLAYER_SOURCE_START_WAIT_MS 2000

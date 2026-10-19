@@ -14,6 +14,13 @@ else()
 endif()
 message(STATUS "voice backend agora=${VOICE_BACKEND_AGORA}")
 
+if(QM_CONFIG_H MATCHES "#define[ \t]+CONFIG_LJYD_PLAYBACK_SUPPORT[ \t]+1")
+    set(LJYD_PLAYBACK_SUPPORT 1)
+else()
+    set(LJYD_PLAYBACK_SUPPORT 0)
+endif()
+message(STATUS "ljyd playback support=${LJYD_PLAYBACK_SUPPORT}")
+
 set(COMPONENT_SRCS
     "./main.c"
     "./agent/agent_app.c"
@@ -22,7 +29,6 @@ set(COMPONENT_SRCS
     "./cloud/ljyd_provision.c"
     "./cloud/ljyd_iot_prop.c"
     "./cloud/ljyd_iot_volume.c"
-    "./lj_components/playback/playback.c"
     "./peripheral/bsp_uart.c"
     "./peripheral/bsp_io.c"
     "./peripheral/bsp_mpu6050.c"
@@ -120,6 +126,13 @@ set(COMPONENT_SRCS
     "${QDEV}/platform/mcu/esp32s3/qm_db/qm_hal_kv.c"
 )
 
+if(LJYD_PLAYBACK_SUPPORT)
+    list(APPEND COMPONENT_SRCS
+        "./lj_components/playback/playback.c"
+        "./lj_components/playback/resource_pcm_decoder.c"
+    )
+endif()
+
 list(APPEND COMPONENT_SRCS
     "./agent/private/opus.c"
     "./agent/private/pcm_drv.c"
@@ -132,7 +145,6 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./agent"
     "./agent/private"
     "./cloud"
-    "./lj_components/playback"
     "./peripheral"
     "./voice"
     "${QDEV}/components/qm_agent/include"
@@ -198,6 +210,10 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "${QDEV}/utility/aes"
     "${QDEV}/components/qm_time/include"
 )
+
+if(LJYD_PLAYBACK_SUPPORT)
+    list(APPEND COMPONENT_ADD_INCLUDEDIRS "./lj_components/playback")
+endif()
 
 set(COMPONENT_REQUIRES
     esp_driver_uart esp_driver_gpio esp_timer driver vfs

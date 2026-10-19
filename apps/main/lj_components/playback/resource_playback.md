@@ -37,35 +37,32 @@ qm_res_mgr --获取资源 URL--> qm_player
 
 ## 当前工程状态
 
-`apps/main/CMakeLists.txt` 已经把 `lj_components/playback/playback.c` 加入编译，并提供了
-QUMI 的 `qm_player`、`qm_res_mgr` 头文件路径。但是当前
+`apps/main/CMakeLists.txt` 已经把播放器和应用层 PCM 解码器加入编译。
 `apps/main/main.c` 的启动顺序是：
 
 ```text
 voice_start()
+  -> playback_init(voice_get_audio(), resource_pcm_decoder_get_if(), NULL)
   -> ljyd_cloud_init()
   -> ljyd_provision_init()
   -> agent_app_init()
 ```
 
-启动流程目前没有调用 `playback_init()`，应用层也没有提供
-`qm_player_decoder_if_t` 解码器适配器。因此资源播放器目前只是已经编译进
-工程的应用层接口，尚未被启动流程真正创建。
+启动时由应用层提供 `resource_pcm_decoder`，它把 HTTP 返回的 16 kHz、单声道、
+16-bit 原始 PCM 按 20 ms 编码为 Opus frame，再送入共享 `qm_audio`。当前云控
+资源链路只接受 `audioType=pcm`；MP3/WAV/AAC/FLAC 的元数据仍可查询，但没有在
+本应用层实现对应解码器。
 
-这也意味着：
-
-- 直接调用 `playback_play_url()`、`playback_play_file()` 或
-  `playback_play_id()` 前，必须先完成 `playback_init()`；否则会返回
-  `-QM_EINIT`；
-- 当前语音唤醒回调会调用 `playback_stop()`，但播放器尚未初始化时该调用
-  会返回 `-QM_ENOENT`，随后仍会通过 `qm_agent_interrupt()` 停止本地 TTS；
-- 当前工程没有自动注册 MQTT `method=player` 的云控路由。
+资源播放器未初始化或没有当前 operation 时，控制接口会返回 `-QM_EINIT` 或
+`-QM_ENOENT`。
 
 ## 配置边界
 
 当前 `apps/main/qm_config/qm_config.h` 的相关配置为：
 
 ```c
+#define CONFIG_LJYD_PLAYBACK_SUPPORT 1
+
 #define CONFIG_QM_PLAYER_SUPPORT 1
 #define CONFIG_QM_PLAYER_DECODER_SUPPORT 1
 #define CONFIG_QM_PLAYER_CLOUD_SUPPORT 0
@@ -79,6 +76,9 @@ voice_start()
 
 含义如下：
 
+- `CONFIG_LJYD_PLAYBACK_SUPPORT` 控制本目录的应用层资源播放组件；设为 `0`
+  时，CMake 不编译组件源文件，`main` 不初始化组件，应用层也不注册
+  `player/play` 路由或执行唤醒停止调用；
 - `qm_player` 和解码器边界已启用，但具体解码器仍由应用层提供；
 - `qm_player_cloud` 云控适配已关闭，QUMI 不会自动接管 `player` 方法；
 - `qm_res_mgr` 的列表、分类、子分类和详情查询使用 MQTT 元数据通道；
@@ -141,15 +141,40 @@ QM_PLAYER_RESOURCE_TYPE_FLAC
 QM_PLAYER_RESOURCE_TYPE_PCM
 ```
 
-URL 资源使用 `qm_player` 内置的 HTTP source；应用层不需要实现
-`qm_player_source_if_t`。该函数成功只表示播放请求已经入队，不表示喇叭已经
-开始出声。
+当前应用层 URL 播放实际只接受 `QM_PLAYER_RESOURCE_TYPE_PCM`。URL 资源使用
+`qm_player` 内置的 HTTP source；应用层不需要实现 `qm_player_source_if_t`。
+该函数成功只表示播放请求已经入队，不表示喇叭已经开始出声。
+
+## 云控资源播放
+
+由于 `CONFIG_QM_PLAYER_CLOUD_SUPPORT` 保持为 0，`apps/main/cloud/ljyd_method.c`
+自行注册 `method=player`、`subMethod=play`。MQTT 回调只解析并复制请求，然后投递
+到 playback worker，不在收包回调里等待 HTTP、TTS 或音频播放。
+
+一次云控播放的应用层顺序是：
+
+```text
+MQTT player/play
+  -> 复制 guideWords、url、audioType 和元数据
+  -> 停止上一条资源/语音输出
+  -> HTTP sendSpeakRequest 播放 guideWords（若有）
+  -> 等待 QM_AGENT_EVENT_TTS_PLAYBACK_COMPLETE
+  -> 暂停采集并关闭 agent 上行
+  -> HTTP 下载 PCM URL
+  -> 应用层 PCM -> Opus 解码器 -> qm_player -> qm_audio
+  -> 播放结束/停止/抢占/错误后恢复采集
+```
+
+`guideWords` 使用当前 agent 的缓存鉴权信息发送，`Authorization` 使用服务端要求
+的原始 token。唤醒词会先停止资源播放器；如果正在进行语音对话或 guide TTS，
+应用层也会清空本地输出并停止上行。Agora transport 是否支持远端中断由其后端
+决定，不影响本地音频抢占。
 
 ## 播放本地文件
 
 ```c
-int ret = playback_play_file("/data/song.mp3",
-                             QM_PLAYER_RESOURCE_TYPE_MP3,
+int ret = playback_play_file("/data/song.pcm",
+                             QM_PLAYER_RESOURCE_TYPE_PCM,
                              file_size,
                              duration_s);
 ```
@@ -264,8 +289,8 @@ MQTT getResourceDetail
         -> 释放 detail 返回的动态字段
 ```
 
-`audioType` 当前映射为 `mp3`、`wav`、`aac`、`flac` 和 `pcm`。未知类型会映射
-为 `QM_PLAYER_RESOURCE_TYPE_UNKNOWN`，通常需要由解码器或业务层拒绝。
+`audioType` 当前仍可映射为 `mp3`、`wav`、`aac`、`flac` 和 `pcm`，但本应用层
+提交播放时只接受 `pcm`；其他类型会返回 `-QM_ENOSYS`，等待对应解码器实现。
 `qm_player_play()` 会复制播放资源的字符串，因此 `playback_play_id()` 在提交
 后可以安全释放 `qm_res_mgr_get_detail()` 返回的 detail。
 
@@ -321,8 +346,9 @@ qm_res_mgr_resource_free(&detail);
 #define CONFIG_QM_PLAYER_CLOUD_SUPPORT 0
 ```
 
-所以本工程不会自动注册 `method=player`、`playerReply` 的 QUMI 云控处理器。
-如果业务层收到 MQTT `player` 命令，应用必须自己完成：
+所以本工程不会由 QUMI 自动注册 `method=player`、`playerReply` 处理器；应用层已经
+完成 `player/play` 接收和异步投递。业务回复仍由现有 MQTT method 分发器统一处理。
+如果扩展其他 `player` 子方法，继续在应用层增加表项和 worker 命令即可：
 
 ```text
 MQTT 收包
