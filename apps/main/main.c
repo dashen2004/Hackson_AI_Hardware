@@ -9,6 +9,7 @@
 #include "agent_app.h"
 #include "ljyd_cloud.h"
 #include "ljyd_provision.h"
+#include "iot_control.h"
 
 #if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
 #include "playback.h"
@@ -63,6 +64,9 @@ void qm_application_start(void)
     if (ljyd_cloud_init() != QM_EOK) {
         QM_LOGE("main", "ljyd_cloud_init failed");
         return;
+    }
+    if (iot_control_init(ljyd_cloud_get_handle()) != QM_EOK) {
+        QM_LOGE("main", "iot_control_init failed");
     }
     if (ljyd_provision_init() != QM_EOK) {
         QM_LOGE("main", "ljyd_provision_init failed");

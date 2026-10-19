@@ -1,7 +1,6 @@
 #include "ljyd_cloud.h"
 #include "ljyd_method.h"
 #include "ljyd_provision.h"
-#include "ljyd_iot_prop.h"
 
 #include "qm.h"
 #include "qm_iot_api.h"
@@ -32,6 +31,7 @@ static uint8_t cloud_started;
 static uint8_t iot_task_running;
 static ljyd_cloud_event_cb_t cloud_event_cb;
 static void *cloud_event_userdata;
+static ljyd_cloud_prop_cb_t cloud_prop_cb;
 
 static char dynreg_host[128];
 static char dynreg_server_ca[CLOUD_CERT_MAX];
@@ -389,8 +389,8 @@ static void cloud_iot_recv_handler(void *handle, const qm_iot_recv_t *recv, void
             (unsigned)recv->did, (unsigned)recv->siid, (unsigned)recv->piid,
             prop != NULL ? (int)prop->code : 0, value);
 
-    if (recv->type == QM_IOT_RECV_TYPE_PROPERTY_SET) {
-        ljyd_iot_prop_on_set(prop);
+    if (recv->type == QM_IOT_RECV_TYPE_PROPERTY_SET && cloud_prop_cb != NULL) {
+        cloud_prop_cb(prop);
     }
 }
 
@@ -413,6 +413,11 @@ void ljyd_cloud_set_event_cb(ljyd_cloud_event_cb_t cb, void *userdata)
 {
     cloud_event_cb = cb;
     cloud_event_userdata = userdata;
+}
+
+void ljyd_cloud_set_prop_cb(ljyd_cloud_prop_cb_t cb)
+{
+    cloud_prop_cb = cb;
 }
 
 int ljyd_cloud_request_reset(void)
@@ -446,9 +451,6 @@ int ljyd_cloud_init(void)
     refresh_device_sn();
     if (device_sn[0] != '\0') {
         (void)qm_iot_setopt(iot_handle, QM_IOT_OPT_SN, device_sn);
-    }
-    if (ljyd_iot_prop_init(iot_handle) != QM_EOK) {
-        QM_LOGE(LOG_TAG, "prop init failed");
     }
     return QM_EOK;
 }

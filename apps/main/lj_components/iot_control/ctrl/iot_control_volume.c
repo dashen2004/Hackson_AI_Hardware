@@ -1,5 +1,6 @@
-#include "ljyd_iot_volume.h"
+#include "iot_control_volume.h"
 
+#include "ljyd_cloud.h"
 #include "voice.h"
 
 #include "qm.h"
@@ -11,7 +12,7 @@
  * 对齐 ljyd_ai_lamp 的音量，不接静音。
  *   SIID=4 PIID=1 绝对音量 10..100
  *   SIID=4 PIID=2 1增大 2减小 3最大 4最小
- * 回调挂在 ljyd_iot_prop 的 siid/piid 表上。
+ * 回调挂在 iot_control 的 siid/piid 表上。
  */
 
 #define LOG_TAG "volume"
@@ -26,7 +27,6 @@
 
 #define KV_VOLUME "volume"
 
-static void *s_iot;
 static uint8_t s_volume = VOLUME_DEFAULT;
 static uint8_t s_kv_loaded;
 
@@ -98,17 +98,19 @@ static void shadow_add_number(qm_spec_property_operation_t *op,
 static void volume_shadow_report(void)
 {
     qm_spec_property_operation_t *op;
+    void *iot;
     int32_t ret;
 
-    if (s_iot == NULL) {
+    iot = ljyd_cloud_get_handle();
+    if (iot == NULL) {
         return;
     }
     op = qm_spec_property_operation_creat();
     if (op == NULL) {
         return;
     }
-    shadow_add_number(op, LJYD_IOT_VOLUME_SIID, LJYD_IOT_VOLUME_PIID, (int)s_volume);
-    ret = qm_iot_report(s_iot, op);
+    shadow_add_number(op, IOT_CONTROL_VOLUME_SIID, IOT_CONTROL_VOLUME_PIID, (int)s_volume);
+    ret = qm_iot_report(iot, op);
     if (ret != QM_EOK) {
         qm_spec_property_operation_delete(op);
         QM_LOGW(LOG_TAG, "shadow report failed ret=%d", (int)ret);
@@ -135,7 +137,7 @@ static int unpack_number(qm_spec_property_t *property, int *value)
     return qm_spec_property_unpack_number(property, value) == QM_EOK;
 }
 
-int ljyd_iot_volume_set_value(qm_spec_property_t *property)
+int iot_control_volume_set_value(qm_spec_property_t *property)
 {
     int value = 0;
 
@@ -147,7 +149,7 @@ int ljyd_iot_volume_set_value(qm_spec_property_t *property)
     return QM_EOK;
 }
 
-int ljyd_iot_volume_set_adjust(qm_spec_property_t *property)
+int iot_control_volume_set_adjust(qm_spec_property_t *property)
 {
     int value = 0;
     uint8_t next;
@@ -178,15 +180,5 @@ int ljyd_iot_volume_set_adjust(qm_spec_property_t *property)
         return QM_EOK;
     }
     volume_commit(next);
-    return QM_EOK;
-}
-
-int ljyd_iot_volume_init(void *iot_handle)
-{
-    if (iot_handle == NULL) {
-        return -QM_EINVAL;
-    }
-    s_iot = iot_handle;
-    volume_kv_load();
     return QM_EOK;
 }
