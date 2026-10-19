@@ -141,5 +141,15 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_QM_EPOCHTIME_SUPPORT 1
 #define CONFIG_NTPDATE_SUPPORT 1
 
+#define CONFIG_QM_POMODORO_SUPPORT 1
+#define CONFIG_QM_POMODORO_FOCUS_SEC 25
+#define CONFIG_QM_POMODORO_SHORT_BREAK_SEC 5
+#define CONFIG_QM_POMODORO_LONG_BREAK_SEC 10
+#define CONFIG_QM_POMODORO_LONG_BREAK_INTERVAL 2
+#define CONFIG_QM_POMODORO_FOCUS_TARGET 4
+#define CONFIG_QM_POMODORO_TICK_MS 1000
+/* 1：上电自动开始。默认 0，等语控 pomodoro/start。 */
+#define CONFIG_APP_POMODORO_AUTO_START 0
+
 /* 0 关，1 打方向和命令，2 再打整帧十六进制 */
 #define VB701N_UART_TRACE 0

@@ -10,6 +10,7 @@
 #include "ljyd_cloud.h"
 #include "ljyd_provision.h"
 #include "iot_control.h"
+#include "pomodoro.h"
 
 #if defined(CONFIG_QM_ALARM_SUPPORT) && CONFIG_QM_ALARM_SUPPORT
 #include "app_alarm.h"
