@@ -15,7 +15,8 @@
 
 #define PROVISION_KV_BIND      "cloud/bind"
 #define PROVISION_KV_ENV       "cloud/env"
-#define PROVISION_WIFI_DELAY_MS 1000
+/* 蓝牙断连后再等 500ms 才 qm_ble_end。1s 时 Wi-Fi 和协议栈抢内部 RAM，静态 RX 缓冲分配失败。 */
+#define PROVISION_WIFI_DELAY_MS 2000
 
 static qm_provision_handle_t provision_handle;
 static uint8_t wifi_event_registered;

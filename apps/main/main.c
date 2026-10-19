@@ -12,6 +12,10 @@
 #include "iot_control.h"
 #include "pomodoro.h"
 
+#if defined(CONFIG_QM_POSE_SUPPORT) && CONFIG_QM_POSE_SUPPORT
+#include "example_pose.h"
+#endif
+
 #if defined(CONFIG_QM_ALARM_SUPPORT) && CONFIG_QM_ALARM_SUPPORT
 #include "app_alarm.h"
 #endif
@@ -36,6 +40,9 @@ void app_main(void)
 
 void qm_application_start(void)
 {
+#if defined(CONFIG_QM_POSE_SUPPORT) && CONFIG_QM_POSE_SUPPORT
+    example_pose_run();
+#endif
     // if (bsp_servo_init() != QM_EOK) {
     //     QM_LOGE("main", "servo init failed");
     // }

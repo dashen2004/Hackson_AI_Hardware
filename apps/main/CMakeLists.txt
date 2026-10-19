@@ -31,6 +31,13 @@ else()
 endif()
 message(STATUS "qm alarm support=${QM_ALARM_SUPPORT}")
 
+if(QM_CONFIG_H MATCHES "#define[ \t]+CONFIG_QM_POSE_SUPPORT[ \t]+1")
+    set(QM_POSE_SUPPORT 1)
+else()
+    set(QM_POSE_SUPPORT 0)
+endif()
+message(STATUS "qm pose support=${QM_POSE_SUPPORT}")
+
 set(COMPONENT_SRCS
     "./main.c"
     "./agent/agent_app.c"
@@ -160,6 +167,13 @@ if(QM_ALARM_SUPPORT)
     )
 endif()
 
+if(QM_POSE_SUPPORT)
+    list(APPEND COMPONENT_SRCS
+        "./pose/yolo11_pose.cpp"
+        "./pose/example_pose.c"
+    )
+endif()
+
 list(APPEND COMPONENT_SRCS
     "./agent/private/opus.c"
     "./agent/private/pcm_drv.c"
@@ -184,6 +198,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "${QDEV}/components/cli"
     "${QDEV}/components/ntpdate/include"
     "${QDEV}/components/epochtime/include"
+    "./pose"
     "${QDEV}/components/qm_agent/include"
     "${QDEV}/components/qm_agent/priv_include"
     "${QDEV}/components/qm_agent/src/transport"
@@ -259,8 +274,16 @@ set(COMPONENT_REQUIRES
     espressif__led_strip
 )
 
+if(QM_POSE_SUPPORT)
+    list(APPEND COMPONENT_REQUIRES coco_pose esp-dl)
+endif()
+
 if(VOICE_BACKEND_AGORA)
     list(APPEND COMPONENT_REQUIRES pthread 78__esp-opus)
+endif()
+
+if(QM_POSE_SUPPORT)
+    set(COMPONENT_EMBED_FILES "pose/bus.jpg")
 endif()
 
 register_component()

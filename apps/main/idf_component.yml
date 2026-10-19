@@ -4,3 +4,5 @@ dependencies:
   78/esp-opus: ^1.0.5
   esp-idf-lib/mpu6050: ^2.1.9
   espressif/led_strip: "3.0.3"
+  coco_pose:
+    path: pose/private/coco_pose

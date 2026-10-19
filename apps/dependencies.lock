@@ -9,6 +9,15 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.0.5
+  coco_pose:
+    dependencies:
+    - name: espressif/esp-dl
+      override_path: ../esp-dl
+      version: ~3.2.0
+    source:
+      path: /home/micro/esp32/esp32_combo/apps/main/pose/private/coco_pose
+      type: local
+    version: 0.3.0
   esp-idf-lib/esp_idf_lib_helpers:
     component_hash: 689853bb8993434f9556af0f2816e808bf77b5d22100144b21f3519993daf237
     dependencies: []
@@ -75,6 +84,62 @@ dependencies:
     - esp32s2
     - esp32s3
     version: 2.1.9
+  espressif/dl_fft:
+    dependencies:
+    - name: idf
+      version: '>=5.0'
+    source:
+      path: /home/micro/esp32/esp32_combo/apps/main/pose/private/dl_fft
+      type: local
+    version: 0.3.1
+  espressif/esp-dl:
+    dependencies:
+    - name: idf
+      version: '>=5.3'
+    - name: espressif/esp_new_jpeg
+      version: '>=0.6.1'
+    - name: espressif/dl_fft
+      override_path: ../dl_fft
+      version: '>=0.3.1'
+    - name: espressif/esp-dsp
+      version: '>=1.7.0'
+    source:
+      path: /home/micro/esp32/esp32_combo/apps/main/pose/private/esp-dl
+      type: local
+    targets:
+    - esp32
+    - esp32s3
+    - esp32p4
+    version: 3.2.4
+  espressif/esp-dsp:
+    component_hash: ed9ac175b14e0414399a2b33c525579414b5bad19a2a67b12ea212def96f9a98
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.2'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.8.2
+  espressif/esp_new_jpeg:
+    component_hash: e1e7e6991193c41ed6c9fc386702aa7821433319e7aa9c3147cd3236310cd69c
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    targets:
+    - esp32
+    - esp32s2
+    - esp32s3
+    - esp32s31
+    - esp32p4
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h4
+    version: 1.0.2
   espressif/led_strip:
     component_hash: 28621486f77229aaf81c71f5e15d6fbf36c2949cf11094e07090593e659e7639
     dependencies:
@@ -91,9 +156,10 @@ dependencies:
     version: 5.4.1
 direct_dependencies:
 - 78/esp-opus
+- coco_pose
 - esp-idf-lib/mpu6050
 - espressif/led_strip
 - idf
-manifest_hash: 0774ef67ff013581d9cea454c9d7bf7883ec68ed73c7283029c50755b8a210c9
+manifest_hash: 6ab30e13b09ae25d6551c542364b9979f7b66f82fec72010c5d53302a3a3b90a
 target: esp32s3
 version: 2.0.0

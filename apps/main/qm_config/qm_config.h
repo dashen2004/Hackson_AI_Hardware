@@ -124,6 +124,9 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 
 /* 闹钟总开关：0 = 平台 qm_alarm 组件和应用层 app_alarm 都不编译、不注册 */
 #define CONFIG_QM_ALARM_SUPPORT 1
+
+/* 姿态识别总开关：0 = 不编译 yolo11_pose，也不初始化 */
+#define CONFIG_QM_POSE_SUPPORT 1
 #define CONFIG_QM_ALARM_MAX_ALARMS 8
 #define CONFIG_QM_ALARM_SNOOZE_INTERVAL_MIN 5
 
