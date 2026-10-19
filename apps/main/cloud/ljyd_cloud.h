@@ -4,8 +4,8 @@
 #include "qm_spec_api.h"
 
 /* 灵机平台产品身份。换产品改这里。 */
-#define CONFIG_XJIANG_CLOUD_PID    11735
-#define CONFIG_XJIANG_CLOUD_SECERT "B09C6E63D3DE43848CE17B3C55C0429A"
+#define CONFIG_XJIANG_CLOUD_PID    11665
+#define CONFIG_XJIANG_CLOUD_SECERT "F7B6033204064B698FEDE033605DDDBA"
 
 #ifdef __cplusplus
 extern "C" {

@@ -122,5 +122,24 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 
 #define CONFIG_QM_TIME_SUPPORT 1
 
+/* 闹钟总开关：0 = 平台 qm_alarm 组件和应用层 app_alarm 都不编译、不注册 */
+#define CONFIG_QM_ALARM_SUPPORT 1
+#define CONFIG_QM_ALARM_MAX_ALARMS 8
+#define CONFIG_QM_ALARM_SNOOZE_INTERVAL_MIN 5
+
+/* 调试命令行（QUMIOS CLI）：内核 qm_init 里自动 qm_cli_init()。
+ * 输入输出走"调试通道"，这里绑定到与 ESP-IDF console 同一路 UART0(115200, TX=43/RX=44)。 */
+#define CONFIG_QM_CLI_SUPPORT 1
+#define CONFIG_QM_LOG_UART 1
+#define CONFIG_QM_DEBUG_UART_PORT 0
+#define CONFIG_QM_DEBUG_UART_BRAUDRATE 115200
+#define CONFIG_QM_DEBUG_UART_TX_PIN 43
+#define CONFIG_QM_DEBUG_UART_RX_PIN 44
+
+/* 联网对时：epochtime（公网 NTP 取 UTC）+ ntpdate（连云后写入 RTC）。
+ * 时区沿用 qm_time_init() 的默认 +8（CONFIG_QM_TIMEZONE_MINUTESWEST）。 */
+#define CONFIG_QM_EPOCHTIME_SUPPORT 1
+#define CONFIG_NTPDATE_SUPPORT 1
+
 /* 0 关，1 打方向和命令，2 再打整帧十六进制 */
 #define VB701N_UART_TRACE 0

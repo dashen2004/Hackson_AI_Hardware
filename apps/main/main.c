@@ -11,6 +11,10 @@
 #include "ljyd_provision.h"
 #include "iot_control.h"
 
+#if defined(CONFIG_QM_ALARM_SUPPORT) && CONFIG_QM_ALARM_SUPPORT
+#include "app_alarm.h"
+#endif
+
 #if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
 #include "playback.h"
 #include "resource_pcm_decoder.h"
@@ -74,4 +78,11 @@ void qm_application_start(void)
     if (agent_app_init(ljyd_cloud_get_handle()) != QM_EOK) {
         QM_LOGE("main", "agent_app_init failed");
     }
+
+#if defined(CONFIG_QM_ALARM_SUPPORT) && CONFIG_QM_ALARM_SUPPORT
+    /* 闹钟：开机即初始化（不要求已联网）。云端同步与响铃行为注册都在模块内部完成。 */
+    if (app_alarm_init(ljyd_cloud_get_handle()) != QM_EOK) {
+        QM_LOGE("main", "app_alarm_init failed");
+    }
+#endif
 }

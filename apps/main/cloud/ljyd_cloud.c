@@ -1,6 +1,7 @@
 #include "ljyd_cloud.h"
 #include "ljyd_method.h"
 #include "ljyd_provision.h"
+#include "time_sync.h"
 
 #include "qm.h"
 #include "qm_iot_api.h"
@@ -279,6 +280,7 @@ static void cloud_iot_event_handler(void *handle, const qm_iot_event_t *event, v
         case QM_IOT_EVENT_CLOUD_CONN:
             QM_LOGI(LOG_TAG, "cloud connected");
             (void)ljyd_method_on_connected(iot_handle);
+            time_sync_start();      /* 网络已可用：SNTP 对时 → 成功后通知闹钟重排 */
             if (cloud_event_cb != NULL) {
                 cloud_event_cb(LJYD_CLOUD_EVENT_CONNECTED, iot_handle, cloud_event_userdata);
             }

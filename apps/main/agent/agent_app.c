@@ -289,6 +289,23 @@ int agent_app_leave(void)
     return ret;
 }
 
+int agent_app_is_active(void)
+{
+    return (s_agent_started != 0) ? 1 : 0;
+}
+
+int agent_app_play_local_audio(const void *data, uint32_t len)
+{
+    int ret;
+
+    if (s_agent == NULL) {
+        return -QM_EINIT;
+    }
+    ret = qm_agent_play_audio(s_agent, data, len, NULL, NULL);
+    QM_LOGI(LOG_TAG, "local prompt len=%u ret=%d", (unsigned)len, ret);
+    return ret;
+}
+
 static void drain_tts_complete_sem(void)
 {
     if (!s_tts_complete_sem_ready) {

@@ -5,6 +5,7 @@
 #include "qm_audio.h"
 #include "vb701n.h"
 #include "voice.h"
+#include "boot_sound.h"
 
 #include <string.h>
 
@@ -87,6 +88,8 @@ static void on_chip_ready(void *arg)
         qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_CAPTURE_POLICY, &policy);
         QM_LOGD(LOG_TAG, "mic record start, opus 16k/20ms");
     }
+    /* 音量已设、麦已开：放开机音效。异步，不阻塞后续初始化。 */
+    (void)boot_sound_start();
 }
 
 static void on_audio_event(const qm_audio_event_t *event, void *user)

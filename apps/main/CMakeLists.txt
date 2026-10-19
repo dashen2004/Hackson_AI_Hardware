@@ -7,6 +7,9 @@ file(TO_CMAKE_PATH "${QDEV}" QDEV)
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../components/agora_iot_sdk" AGORA_SDK)
 
 file(READ "${CMAKE_CURRENT_LIST_DIR}/qm_config/qm_config.h" QM_CONFIG_H)
+
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+             "${CMAKE_CURRENT_LIST_DIR}/qm_config/qm_config.h")
 if(QM_CONFIG_H MATCHES "#define[ \t]+CONFIG_VOICE_BACKEND_AGORA[ \t]+1")
     set(VOICE_BACKEND_AGORA 1)
 else()
@@ -21,12 +24,20 @@ else()
 endif()
 message(STATUS "ljyd playback support=${LJYD_PLAYBACK_SUPPORT}")
 
+if(QM_CONFIG_H MATCHES "#define[ \t]+CONFIG_QM_ALARM_SUPPORT[ \t]+1")
+    set(QM_ALARM_SUPPORT 1)
+else()
+    set(QM_ALARM_SUPPORT 0)
+endif()
+message(STATUS "qm alarm support=${QM_ALARM_SUPPORT}")
+
 set(COMPONENT_SRCS
     "./main.c"
     "./agent/agent_app.c"
     "./cloud/ljyd_cloud.c"
     "./cloud/ljyd_method.c"
     "./cloud/ljyd_provision.c"
+    "./cloud/time_sync.c"
     "./lj_components/iot_control/iot_control.c"
     "./lj_components/iot_control/ctrl/iot_control_volume.c"
     "./lj_components/playback/playback.c"
@@ -37,7 +48,12 @@ set(COMPONENT_SRCS
     "./peripheral/bsp_vibrator.c"
     "./peripheral/bsp_ws2812.c"
     "./voice/voice.c"
+    "./voice/boot_sound.c"
 
+    "${QDEV}/components/cli/qm_cli.c"
+    "${QDEV}/components/ntpdate/src/ntpdate.c"
+    "${QDEV}/components/epochtime/src/qm_epochtime.c"
+    "${QDEV}/platform/mcu/esp32s3/hal/net/qm_udp.c"
     "${QDEV}/components/qm_agent/src/core/qm_agent_core.c"
     "${QDEV}/components/qm_agent/src/core/qm_agent_event.c"
     "${QDEV}/components/qm_agent/src/core/qm_agent_module.c"
@@ -134,6 +150,14 @@ if(LJYD_PLAYBACK_SUPPORT)
     )
 endif()
 
+# 闹钟：平台组件和应用层模块一起开关，CONFIG_QM_ALARM_SUPPORT 0 时两者都不编译
+if(QM_ALARM_SUPPORT)
+    list(APPEND COMPONENT_SRCS
+        "./lj_components/alarm/app_alarm.c"
+        "${QDEV}/components/qm_alarm/src/qm_alarm.c"
+    )
+endif()
+
 list(APPEND COMPONENT_SRCS
     "./agent/private/opus.c"
     "./agent/private/pcm_drv.c"
@@ -143,6 +167,7 @@ list(APPEND COMPONENT_SRCS
 
 set(COMPONENT_ADD_INCLUDEDIRS
     "./qm_config"
+    "./lj_components/alarm"
     "./agent"
     "./agent/private"
     "./cloud"
@@ -151,6 +176,10 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "./lj_components/playback"
     "./peripheral"
     "./voice"
+    "${QDEV}/components/qm_alarm/include"
+    "${QDEV}/components/cli"
+    "${QDEV}/components/ntpdate/include"
+    "${QDEV}/components/epochtime/include"
     "${QDEV}/components/qm_agent/include"
     "${QDEV}/components/qm_agent/priv_include"
     "${QDEV}/components/qm_agent/src/transport"
@@ -231,6 +260,9 @@ if(VOICE_BACKEND_AGORA)
 endif()
 
 register_component()
+
+# 开机音效 PCM（16k/单声道/16bit）嵌进固件，生成 _binary_boot_sound_pcm_start/_end
+target_add_binary_data(${COMPONENT_LIB} "voice/boot_sound.pcm" BINARY RENAME_TO boot_sound_pcm)
 
 if(VOICE_BACKEND_AGORA)
     target_link_libraries(${COMPONENT_LIB} PUBLIC
