@@ -9,7 +9,8 @@
 - 使用 `qm_res_mgr` 通过当前配置的 MQTT 元数据通道查询资源，并把资源详情
   转换成 `qm_player` 播放请求。
 
-资源播放和语音对话是两条不同的音频路径。资源播放使用下面的链路：
+资源播放和语音对话是两条不同的控制路径，但最终共享同一个 `qm_audio` 输出。
+资源播放使用下面的链路：
 
 ```text
 资源元数据 MQTT 查询
@@ -33,12 +34,13 @@ qm_res_mgr --获取资源 URL--> qm_player
 
 当前工程的语音对话使用 `qm_agent` 和 Agora transport。日志中的
 `dialog=speaking`、`downlink first frame`、TTS 和 Opus 解码属于
-`qm_agent -> qm_audio` 路径，不会自动进入本文件的 `playback_*()` 接口。
+`qm_agent -> qm_audio` 路径，不会自动进入本文件的 `playback_*()` 接口；两条路径
+在音频仲裁层竞争同一个输出资源。
 
 ## 当前工程状态
 
-`apps/main/CMakeLists.txt` 已经把播放器和应用层 PCM 解码器加入编译。
-`apps/main/main.c` 的启动顺序是：
+当 `CONFIG_LJYD_PLAYBACK_SUPPORT=1` 时，`apps/main/CMakeLists.txt` 才会把播放器
+和应用层 PCM 解码器加入编译。`apps/main/main.c` 的启动顺序是：
 
 ```text
 voice_start()
@@ -47,6 +49,11 @@ voice_start()
   -> ljyd_provision_init()
   -> agent_app_init()
 ```
+
+当 `CONFIG_LJYD_PLAYBACK_SUPPORT=0` 时，`playback.c`、
+`resource_pcm_decoder.c` 不加入应用编译，`main.c` 不调用初始化，应用层也不注册
+`player/play` 路由或在唤醒时调用资源播放器的停止接口。该宏只控制应用层接入，
+不会自动关闭 QUMI 的 `CONFIG_QM_PLAYER_SUPPORT` 或 `CONFIG_QM_RES_MGR_SUPPORT`。
 
 启动时由应用层提供 `resource_pcm_decoder`，它把 HTTP 返回的 16 kHz、单声道、
 16-bit 原始 PCM 按 20 ms 编码为 Opus frame，再送入共享 `qm_audio`。当前云控
@@ -86,8 +93,10 @@ voice_start()
 - MQTT 元数据模式不使用 `qm_res_mgr_set_env()`，调用它会返回
   `-QM_ENOSYS`。`DEV/TEST/PROD` 环境切换只适用于 HTTP 元数据模式。
 
-固定容量、队列长度、超时等构建参数放在 `qm_config`/Kconfig；DID、资源包
-名称、资源 ID、MQTT handle 和资源 URL 等运行时数据必须通过 API 参数传入。
+QUMI 播放器和资源管理器的固定容量、队列长度、超时等构建参数放在
+`qm_config`/Kconfig；本应用 wrapper 的命令队列、worker 栈和 guide 等待时间仍由
+`playback.c` 内部常量控制。DID、资源包名称、资源 ID、MQTT handle 和资源 URL
+等运行时数据必须通过 API 参数传入。
 
 ## 播放器初始化
 
@@ -107,9 +116,9 @@ int playback_init(qm_audio_handle_t audio,
 | `decoder_if` | 必须提供，负责压缩音频解码和 PCM frame 输出 |
 | `source_if` | 播放 `QM_PLAYER_LOCATION_FILE` 时必须提供；只播放 URI 时可以为 `NULL` |
 
-该函数只保存接口指针并创建 `qm_player` worker，不创建 `qm_audio`，也不创建
-解码器。调用方必须保证 `audio`、`decoder_if` 和 `source_if` 在
-`playback_deinit()` 返回前一直有效。
+该函数创建 `qm_player`，并创建一个用于处理应用层 `player/play` 请求的队列和
+worker；它不创建 `qm_audio`，也不创建解码器。调用方必须保证 `audio`、
+`decoder_if` 和 `source_if` 在 `playback_deinit()` 返回前一直有效。
 
 `qm_player_decoder_if_t` 的 `open()` 会收到一个带有 `read()`、输出格式和
 frame sink 的解码会话；解码器应把 PCM frame 推送给 `frame_sink.push()`。
@@ -119,37 +128,77 @@ frame sink 的解码会话；解码器应把 PCM frame 推送给 `frame_sink.pus
 辅助代码，不是 `qm_player_decoder_if_t` 实现，不能直接作为
 `playback_init()` 的第二个参数。
 
+当前资源 PCM 解码器通过以下接口注入：
+
+```c
+#include "resource_pcm_decoder.h"
+
+const qm_player_decoder_if_t *decoder = resource_pcm_decoder_get_if();
+int ret = playback_init(voice_get_audio(), decoder, NULL);
+```
+
+该解码器接收 16 kHz、单声道、16-bit 原始 PCM，按 20 ms（640 个采样、1280
+字节）编码为固定 160 字节的 Opus frame，再通过 `frame_sink.push()` 交给
+`qm_player`。它不是通用 MP3/WAV/AAC/FLAC 解码器。
+
 ## 播放 URL
 
 ```c
 #include "playback.h"
 
-int ret = playback_play_url("https://example.com/song.mp3",
-                            QM_PLAYER_RESOURCE_TYPE_MP3,
+int ret = playback_play_url("https://example.com/song.pcm",
+                            QM_PLAYER_RESOURCE_TYPE_PCM,
                             0U,  /* 文件大小未知 */
                             0U); /* 时长未知 */
 ```
 
-`playback_play_url()` 只接受以 `http://` 或 `https://` 开头的 URI。资源类型
-可使用：
-
-```text
-QM_PLAYER_RESOURCE_TYPE_MP3
-QM_PLAYER_RESOURCE_TYPE_WAV
-QM_PLAYER_RESOURCE_TYPE_AAC
-QM_PLAYER_RESOURCE_TYPE_FLAC
-QM_PLAYER_RESOURCE_TYPE_PCM
-```
-
-当前应用层 URL 播放实际只接受 `QM_PLAYER_RESOURCE_TYPE_PCM`。URL 资源使用
+`playback_play_url()` 只接受以 `http://` 或 `https://` 开头的 URI。类型枚举
+虽然保留了 MP3/WAV/AAC/FLAC/PCM，但当前应用层解码链路实际只接受
+`QM_PLAYER_RESOURCE_TYPE_PCM`（16 kHz、单声道、16-bit 原始 PCM）。URL 资源使用
 `qm_player` 内置的 HTTP source；应用层不需要实现 `qm_player_source_if_t`。
-该函数成功只表示播放请求已经入队，不表示喇叭已经开始出声。
+该函数成功只表示请求已经提交给 `qm_player`，不表示 HTTP 已连接、解码已开始
+或喇叭已经出声。
 
 ## 云控资源播放
 
 由于 `CONFIG_QM_PLAYER_CLOUD_SUPPORT` 保持为 0，`apps/main/cloud/ljyd_method.c`
 自行注册 `method=player`、`subMethod=play`。MQTT 回调只解析并复制请求，然后投递
 到 playback worker，不在收包回调里等待 HTTP、TTS 或音频播放。
+
+应用层接受的主要参数如下，`fileSize`、`totalDuration` 可以是 JSON 数字，也可以
+是数字字符串：
+
+```json
+{
+  "method": "player",
+  "subMethod": "play",
+  "params": {
+    "url": "https://example.com/song.pcm",
+    "audioType": "pcm",
+    "guideWords": "收到，马上播放",
+    "title": "示例",
+    "fileSize": "2333884",
+    "totalDuration": "72"
+  }
+}
+```
+
+应用层等价的入队接口是：
+
+```c
+playback_cloud_play_request_t request = {
+    .guide_words = "收到，马上播放",
+    .url = "https://example.com/song.pcm",
+    .audio_type = "pcm",
+    .title = "示例",
+    .file_size = 0U,
+    .duration_s = 0U,
+};
+int ret = playback_submit_cloud_play(&request);
+```
+
+该接口会复制字符串，调用返回后调用方可以释放或复用原字符串。它只表示请求
+进入应用层队列；队列满时返回 `-QM_EBUSY`，非 PCM 类型返回 `-QM_ENOSYS`。
 
 一次云控播放的应用层顺序是：
 
@@ -166,9 +215,11 @@ MQTT player/play
 ```
 
 `guideWords` 使用当前 agent 的缓存鉴权信息发送，`Authorization` 使用服务端要求
-的原始 token。唤醒词会先停止资源播放器；如果正在进行语音对话或 guide TTS，
-应用层也会清空本地输出并停止上行。Agora transport 是否支持远端中断由其后端
-决定，不影响本地音频抢占。
+的原始 token。guide TTS 完成后才会提交资源播放；guide 请求失败或 TTS 等待超时会
+放弃本次资源播放并恢复音频路径。资源下载、解码和输出错误通过播放器终态事件
+报告。唤醒词会先停止资源播放器；如果正在进行语音
+对话或 guide TTS，应用层也会清空本地输出并停止上行。Agora transport 是否支持
+远端中断由其后端决定，不影响本地音频抢占。
 
 ## 播放本地文件
 
@@ -193,8 +244,8 @@ int playback_get_status(qm_player_status_t *status);
 int playback_deinit(void);
 ```
 
-`playback.c` 保存最近一次成功入队的 operation ID，并用它执行暂停、恢复和
-停止。控制请求是异步入队的：
+`playback.c` 保存最近一次成功提交的 operation ID，并用它执行暂停、恢复和
+停止。控制请求会提交给 `qm_player` 的 worker：
 
 - `playback_pause()` 保留 source、解码器会话和已经缓存的 PCM；
 - `playback_resume()` 恢复同一个 operation；
@@ -202,6 +253,11 @@ int playback_deinit(void);
 - `playback_deinit()` 销毁 player，调用方仍负责管理共享 `qm_audio`；
 - 没有播放器或没有当前 operation 时，暂停、恢复和停止会返回
   `-QM_ENOENT`。
+
+`playback_get_status()` 返回当前状态、operation ID 和毫秒级位置；常见状态是
+`STOPPED`、`BUFFERING`、`PLAYING`、`PAUSED` 和 `ERROR`。自然结束、停止、被抢占
+或错误会通过事件回调记录为 `QM_PLAYER_EVENT_FINISHED`、`STOPPED`、`PREEMPTED`
+或 `ERROR`，资源播放组件在这些终态事件中恢复采集和 agent 上行。
 
 播放请求使用当前实现固定的音频仲裁策略：低优先级、队列策略、暂停采集、
 可靠投递，申请音频 lease 最多等待 3000 ms。播放器事件由
@@ -311,8 +367,9 @@ on_data(resource, data, len, offset, total_size, user)
 ```
 
 应用层可以在回调里写文件、做缓存或送入自己的处理管线。回调返回
-`QM_EOK` 继续，返回负的 `QM_E*` 会终止下载。下载结束后由应用检查
-`qm_res_mgr_download_result_t`，并自行处理临时文件、校验和缓存策略。
+`QM_EOK` 继续，返回负的 `QM_E*` 会终止下载；正值会被资源管理器转成
+`-QM_EIO`。下载结束后由应用检查 `qm_res_mgr_download_result_t`，并自行处理
+临时文件、校验和缓存策略。
 
 资源列表和详情中的动态字符串分别由以下 API 释放：
 
@@ -323,7 +380,7 @@ qm_res_mgr_resource_free(&detail);
 
 ## 唤醒打断
 
-当前 `apps/main/agent/agent_app.c` 的唤醒回调顺序是：
+当资源播放开关打开时，当前 `apps/main/agent/agent_app.c` 的唤醒回调顺序是：
 
 ```text
 唤醒词
@@ -332,11 +389,14 @@ qm_res_mgr_resource_free(&detail);
 ```
 
 因此，资源播放器已经通过 `playback_init()` 创建并有活动 operation 时，唤醒
-会先请求停止资源播放；如果同时存在云端对话，`qm_agent_interrupt()` 会清空
-本地 TTS 队列并重新打开上行麦克风。
+会先请求停止资源播放；如果同时存在云端对话，应用还会清空本地 TTS 队列、停止
+当前共享输出并关闭上行。资源播放结束或终态事件到达后，组件才恢复采集策略和
+agent 上行。关闭资源播放开关时，唤醒流程仍可打断语音对话，但不会调用
+`playback_stop()`。
 
-当前 Agora transport 的后端中断发送接口仍返回 `-QM_ENOSYS`。此时应用层只记录
-本地打断结果，不会停止或重启 agent 会话。
+当前 Agora transport 的后端中断发送接口仍返回 `-QM_ENOSYS`；这表示本地输出会
+停止，但不能据此保证云端对话状态已经被远端取消。若需要远端同步打断，必须另外
+接入云端 HTTP 打断接口。
 
 ## 云控边界
 
@@ -364,7 +424,8 @@ MQTT 收包
 ## 生命周期和线程要求
 
 - `playback_init()` 成功后，保持传入的 audio、decoder 和 source 接口有效；
-- `playback_play_*()`、暂停、恢复和停止只提交播放器命令，实际状态通过事件
+- `playback_play_url()`、`playback_play_file()`、暂停、恢复和停止只提交播放器
+  命令；`playback_submit_cloud_play()` 先提交到应用层 worker，实际状态通过事件
   或 `playback_get_status()` 观察；
 - `qm_res_mgr` 的列表、分类、详情和下载接口都是同步接口，应在应用 worker
   中执行；
@@ -381,12 +442,16 @@ MQTT 收包
 | `-QM_EINIT` | 播放器尚未通过 `playback_init()` 创建 |
 | `-QM_ENOENT` | 没有可暂停、恢复或停止的当前 operation |
 | `-QM_ENOSYS` | 当前构建不支持该功能，例如 MQTT 模式调用资源环境切换 |
-| `-QM_EIO` | 资源服务业务失败或下载/解码链路错误 |
+| `-QM_EBUSY` | 应用层云控队列已满，或播放器当前无法接受该请求 |
+| `-QM_ENOMEM` | 创建播放器、命令队列、worker 或复制云控参数时内存不足 |
+| `-QM_ETIMEOUT` | 同步资源操作或 `playback_deinit()` 等待内部 worker 超时 |
+| `-QM_EIO` | 同步资源服务/下载调用失败；异步下载或解码错误应通过播放器事件观察 |
 
 排查时应先区分：
 
 1. 是否调用过 `playback_init()`，以及 decoder/source 是否真实有效；
-2. `playback_play_*()` 是否只是入队成功，后续是否有播放器事件；
+2. `playback_play_*()` 是否已经提交成功，后续是否有播放器事件；云控请求还要检查
+   `playback_submit_cloud_play()` 是否因队列满返回 `-QM_EBUSY`；
 3. 元数据查询是否使用了有效的 DID 和 `ljyd_cloud_get_handle()`；
 4. 资源 URL 是否可访问、`audioType` 是否有对应解码器；
 5. 日志是否来自 `qm_player` 资源链路，还是来自 `qm_agent` 的语音下行链路。
