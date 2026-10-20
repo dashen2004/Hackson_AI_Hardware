@@ -4,21 +4,8 @@
 
 #include "qm_log.h"
 #include "qm_gpio.h"
-#include "vb701n.h"
 
 #define LOG_TAG "io"
-
-#ifndef VB701N_APP_PCM
-#define VB701N_APP_PCM  1
-#endif
-
-#if VB701N_APP_PCM
-#define BSP_TX_INTERVAL_MS  5
-#else
-#define BSP_TX_INTERVAL_MS  20
-#endif
-
-#define BSP_FLOW_PIN  38
 
 #define BSP_RESET_GPIO        14
 #define BSP_RESET_HOLD_MS     3000
@@ -26,46 +13,7 @@
 #define BSP_RESET_TASK_STACK  2048
 #define BSP_RESET_TASK_PRIO   5
 
-static qm_gpio_dev_t g_flow_gpio = {
-    .port = BSP_FLOW_PIN,
-    .config = {
-        .mode = QM_GPIO_MODE_INPUT,
-        .pull_en = QM_GPIO_PULLDOWN_ONLY,
-    },
-};
-
 static uint8_t g_resetting;
-
-static int flow_is_busy(void)
-{
-    int level = qm_gpio_get_level(&g_flow_gpio);
-    static uint32_t last_log;
-
-    if (level != 0) {
-        uint32_t now = qm_now_ms();
-        if ((now - last_log) > 1000) {
-            last_log = now;
-            QM_LOGD(LOG_TAG, "tx gate busy, flow pin %u level %d",
-                    (unsigned)BSP_FLOW_PIN, level);
-        }
-    }
-    return level != 0;
-}
-
-static qm_err_t flow_init(void)
-{
-    qm_err_t ret = qm_gpio_init(&g_flow_gpio);
-    if (ret != QM_EOK) {
-        QM_LOGD(LOG_TAG, "flow gpio init fail %d", ret);
-        return ret;
-    }
-    vb701n_set_tx_gate(flow_is_busy, BSP_TX_INTERVAL_MS);
-    QM_LOGD(LOG_TAG, "flow pin %u level %u, tx interval %u ms",
-            (unsigned)BSP_FLOW_PIN,
-            (unsigned)qm_gpio_get_level(&g_flow_gpio),
-            (unsigned)BSP_TX_INTERVAL_MS);
-    return QM_EOK;
-}
 
 static void reset_provision(void)
 {
@@ -134,9 +82,5 @@ static qm_err_t reset_init(void)
 
 qm_err_t bsp_io_init(void)
 {
-    qm_err_t ret = flow_init();
-    if (ret != QM_EOK) {
-        return ret;
-    }
     return reset_init();
 }

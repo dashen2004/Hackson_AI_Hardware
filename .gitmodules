@@ -4,4 +4,4 @@
 [submodule "qumios-dev"]
 	path = qumios-dev
 	url = git@gitee.com:embedded-develop/qumios-dev.git
-	branch = master
+	branch = test

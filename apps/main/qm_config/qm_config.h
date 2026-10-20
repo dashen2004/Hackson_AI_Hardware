@@ -63,13 +63,23 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 
 #define CONFIG_XJIANG_VERSION_STR "1.0.0"
 
-#define CONFIG_QM_AUDIO_PLAYBACK_ARBITER_SUPPORT 1
 #define CONFIG_QM_AUDIO_SUPPORT 1
-#define CONFIG_QM_AUDIO_CAPTURE_SUBSCRIPTION_SUPPORT 1
+#define CONFIG_QM_AUDIO_DEVICE_VB701N 1
+#define CONFIG_QM_VB701N_SUPPORT 1
+#define CONFIG_QM_VB701N_UART_PORT 1
+#define CONFIG_QM_VB701N_UART_BAUDRATE 2000000
+#define CONFIG_QM_VB701N_UART_TX_PIN 40
+#define CONFIG_QM_VB701N_UART_RX_PIN 39
+#define CONFIG_QM_VB701N_FLOW_GPIO 38
+#define CONFIG_QM_VB701N_TX_INTERVAL_MS 5
+#define CONFIG_QM_AUDIO_CAPTURE_SUPPORT 1
+#define CONFIG_QM_AUDIO_CAPTURE_MODE_PULL 1
 #define CONFIG_QM_AUDIO_CAPTURE_TASK_STACK_SIZE 4096
 #define CONFIG_QM_AUDIO_CAPTURE_TASK_PRIORITY 8
-#define CONFIG_QM_AUDIO_CAPTURE_FRAME_MAX_LEN 640
-#define CONFIG_QM_AUDIO_CAPTURE_DEFAULT_QUEUE_LEN 4
+#define CONFIG_QM_AUDIO_CAPTURE_FRAME_BYTES 512
+#define CONFIG_QM_AUDIO_CAPTURE_QUEUE_LEN 4
+/* 播放任务里调用 opus_decode，4 KB 不够。 */
+#define CONFIG_QM_AUDIO_ENGINE_RENDER_TASK_STACK_SIZE 24576
 
 /* Application-owned cloud resource playback component. */
 #define CONFIG_LJYD_PLAYBACK_SUPPORT 1
@@ -101,7 +111,7 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_QM_RES_MGR_PAGE_SIZE 10
 #define CONFIG_QM_RES_MGR_MQTT_TIMEOUT_MS_DEFAULT 15000
 
-/* VB701N 已是 16 kHz / 单声道 / Opus / 20 ms。qm_agent 从这份 qm_audio 取格式。 */
+/* VB701N 芯片是 PCM，设备对外是 Opus。这份 SDK 没有编码器，进频道时 codec 用 DISABLED。 */
 #define CONFIG_QM_AGENT_SUPPORT 1
 #define CONFIG_QM_AGENT_ENABLE_AUDIO 1
 #define CONFIG_QM_AGENT_ENABLE_VIDEO 0
@@ -117,7 +127,7 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_VOICE_BACKEND_AGORA      1
 #define CONFIG_QM_AGENT_TRANSPORT_AGORA 1
 #define CONFIG_QM_AGENT_AGORA_SDK_LOG_DISABLE 0
-/* 本工程这份 1.9.5 没有内置编码器。0 关掉 enable_audio_decode，并把 codec 设成 DISABLED。不定义时传输里按 1。 */
+/* 本工程这份 1.9.5 没有内置编码器。0 把 audio_codec_type 设成 DISABLED。不定义时传输里按 1。 */
 #define CONFIG_QM_AGENT_AGORA_AUDIO_CODEC_SUP 0
 
 #define CONFIG_QM_TIME_SUPPORT 1

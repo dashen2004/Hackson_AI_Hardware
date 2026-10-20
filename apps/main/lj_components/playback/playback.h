@@ -2,7 +2,7 @@
 #define LJYD_PLAYBACK_H
 
 #include "qm_config.h"
-#include "qm_player.h"
+#include "qm_audio.h"
 
 #if defined(CONFIG_QM_RES_MGR_SUPPORT) && CONFIG_QM_RES_MGR_SUPPORT
 #include "qm_res_mgr.h"
@@ -29,20 +29,16 @@ typedef struct {
 #endif
 } playback_metadata_t;
 
-/** @brief Create the application-owned player around an existing qm_audio. */
-int playback_init(qm_audio_handle_t audio,
-                  const qm_player_decoder_if_t *decoder_if,
-                  const qm_player_source_if_t *source_if);
+/** @brief Create a Control on the already-started qm_audio. */
+int playback_init(void);
 
-/** @brief Submit a URI resource for playback. */
+/** @brief Submit a PCM URI for playback. */
 int playback_play_url(const char *url,
-                      qm_player_resource_type_t type,
                       uint32_t file_size,
                       uint32_t duration_s);
 
-/** @brief Submit a local resource handled by the injected source adapter. */
+/** @brief Submit a local PCM file for playback. */
 int playback_play_file(const char *path,
-                       qm_player_resource_type_t type,
                        uint32_t file_size,
                        uint32_t duration_s);
 
@@ -101,10 +97,10 @@ int playback_resume(void);
 /** @brief Stop the most recently accepted playback operation. */
 int playback_stop(void);
 
-/** @brief Read the current player state and position. */
-int playback_get_status(qm_player_status_t *status);
+/** @brief Read the current operation snapshot. */
+int playback_get_status(qm_audio_control_snapshot_t *status);
 
-/** @brief Destroy the player while retaining the caller-owned qm_audio. */
+/** @brief Destroy the Control. qm_audio itself stays up. */
 int playback_deinit(void);
 
 #ifdef __cplusplus

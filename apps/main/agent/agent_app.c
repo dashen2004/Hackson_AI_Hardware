@@ -11,6 +11,7 @@
 /* qdev has no public auth getter; keep this compatibility access app-local. */
 #include "qm_agent_internal.h"
 #include "qm_audio.h"
+#include "qm_event.h"
 #include "qm_http_client.h"
 #include "qm_iot_dynreg.h"
 #include "qm_log.h"
@@ -21,15 +22,13 @@
 #define LOG_TAG "agent"
 
 static qm_agent_handle_t s_agent;
-static uint8_t s_downlink_logged;
 static uint8_t s_cloud_connected;
 static uint8_t s_agent_started;
+static uint8_t s_event_registered;
 static qm_sem_t s_tts_complete_sem;
 static uint8_t s_tts_complete_sem_ready;
 static volatile uint8_t s_waiting_tts_complete;
 static volatile uint8_t s_tts_wait_aborted;
-static volatile uint8_t s_tts_text_final;
-static volatile uint8_t s_tts_playback_started;
 
 static void abort_tts_wait(void);
 
@@ -74,108 +73,100 @@ static const char *dialog_name(qm_agent_dialog_state_t state)
     }
 }
 
-static void on_agent_event(qm_agent_handle_t handle,
-                           const qm_agent_event_t *event,
-                           void *user_ctx)
+static void on_agent_event(void *event_handler_arg,
+                           qm_event_base_t event_base,
+                           int32_t event_id,
+                           void *event_data,
+                           size_t event_data_size)
 {
-    (void)handle;
-    (void)user_ctx;
-    if (event == NULL) {
+    const qm_agent_event_notice_t *notice = (const qm_agent_event_notice_t *)event_data;
+
+    (void)event_handler_arg;
+    if (event_base != QM_AGENT_EVENT_BASE || notice == NULL ||
+        event_data_size != sizeof(*notice)) {
         return;
     }
 
-    switch (event->id) {
+    switch ((qm_agent_event_id_t)event_id) {
         case QM_AGENT_EVENT_STATE_CHANGED:
             QM_LOGI(LOG_TAG, "state %s -> %s",
-                    life_name(event->data.state.old_state),
-                    life_name(event->data.state.new_state));
+                    life_name(notice->data.state.old_state),
+                    life_name(notice->data.state.new_state));
             break;
         case QM_AGENT_EVENT_CONNECTED:
             QM_LOGI(LOG_TAG, "agora connected");
             break;
         case QM_AGENT_EVENT_DISCONNECTED:
-            s_downlink_logged = 0;
             QM_LOGW(LOG_TAG, "agora disconnected");
             break;
         case QM_AGENT_EVENT_ASR:
             QM_LOGI(LOG_TAG, "asr final=%d text=%s",
-                    event->data.asr.final,
-                    event->data.asr.text ? event->data.asr.text : "");
+                    notice->data.text.final,
+                    notice->data.text.text);
             break;
         case QM_AGENT_EVENT_TTS:
             QM_LOGI(LOG_TAG, "tts final=%d text=%s",
-                    event->data.tts.final,
-                    event->data.tts.text ? event->data.tts.text : "");
-            if (event->data.tts.final) {
-                s_tts_text_final = 1U;
-            }
+                    notice->data.text.final,
+                    notice->data.text.text);
             break;
         case QM_AGENT_EVENT_AGENT_TEXT:
             QM_LOGI(LOG_TAG, "agent text final=%d text=%s",
-                    event->data.agent_text.final,
-                    event->data.agent_text.text ? event->data.agent_text.text : "");
-            if (event->data.agent_text.final) {
-                s_tts_text_final = 1U;
-            }
+                    notice->data.text.final,
+                    notice->data.text.text);
             break;
         case QM_AGENT_EVENT_AGENT_STATE:
             QM_LOGI(LOG_TAG, "dialog=%s",
-                    dialog_name(event->data.agent_state.state));
+                    dialog_name(notice->data.agent_state.state));
             /* The core may re-enable upload when it reports speaking. The
              * custom-corpus transaction owns upload until its local TTS ends. */
             if (s_waiting_tts_complete && s_agent != NULL) {
                 qm_agent_set_upload_enabled(s_agent, QM_FALSE);
-                if (event->data.agent_state.state == QM_AGENT_DIALOG_STATE_SILENT &&
-                    s_tts_text_final && s_tts_playback_started) {
-                    /* Agora has no TTS_INPUT_COMPLETE event. At silent, the
-                     * final text and first local frame prove this turn can
-                     * be closed; qdev will drain the speaker and emit the
-                     * normal PLAYBACK_COMPLETE event. */
-                    qm_agent_audio_engine_mark_tts_input_complete(s_agent);
-                }
             }
-            break;
-        case QM_AGENT_EVENT_AUDIO:
-            if (!s_downlink_logged) {
-                s_downlink_logged = 1;
-                QM_LOGI(LOG_TAG, "downlink first frame len=%u codec=%d frame_ms=%u",
-                        (unsigned)event->data.audio.len,
-                        (int)event->data.audio.format.codec,
-                        (unsigned)event->data.audio.format.frame_ms);
-            }
-            break;
-        case QM_AGENT_EVENT_TTS_PLAYBACK_STARTED:
-            s_tts_playback_started = 1U;
             break;
         case QM_AGENT_EVENT_TTS_PLAYBACK_COMPLETE:
             if (s_waiting_tts_complete && s_tts_complete_sem_ready) {
                 (void)qm_sem_signal(&s_tts_complete_sem);
             }
             QM_LOGI(LOG_TAG, "tts playback complete generation=%u",
-                    (unsigned)event->data.tts_playback.generation);
+                    (unsigned)notice->generation);
             break;
         case QM_AGENT_EVENT_ERROR:
             QM_LOGE(LOG_TAG, "agent error code=%d msg=%s",
-                    event->code,
-                    event->data.error.message ? event->data.error.message : "");
-            /* Agora may fail before emitting TTS_INPUT_COMPLETE. Once the
-             * transport has reported an error, no more guide PCM can arrive;
-             * let the local TTS queue drain and produce PLAYBACK_COMPLETE. */
-            if (s_waiting_tts_complete && s_agent != NULL) {
-                qm_agent_audio_engine_mark_tts_input_complete(s_agent);
-            }
+                    notice->code,
+                    notice->data.text.text);
             break;
         default:
-            QM_LOGD(LOG_TAG, "agent event id=%d", event->id);
+            QM_LOGD(LOG_TAG, "agent event id=%d", (int)event_id);
             break;
     }
+}
+
+static int register_agent_events(void)
+{
+    int ret;
+
+    if (s_event_registered) {
+        return QM_EOK;
+    }
+    ret = qm_event_default_create();
+    if (ret != QM_EOK && ret != -QM_EINIT) {
+        return ret;
+    }
+    ret = qm_event_handler_register(QM_AGENT_EVENT_BASE,
+                                    QM_EVENT_ANY_ID,
+                                    on_agent_event,
+                                    NULL);
+    if (ret == QM_EOK) {
+        s_event_registered = 1;
+    }
+    return ret;
 }
 
 static int agent_app_bind_cloud(void *iot_handle)
 {
     qm_agent_config_t config;
-    qm_audio_handle_t audio;
-    qm_audio_format_t format;
+    qm_audio_control_t *control;
+    qm_audio_stream_format_t format;
     int ret;
 
     if (s_agent != NULL) {
@@ -185,42 +176,54 @@ static int agent_app_bind_cloud(void *iot_handle)
         return -QM_EINVAL;
     }
 
-    audio = voice_get_audio();
-    if (audio == NULL) {
+    control = voice_get_control();
+    if (control == NULL) {
         QM_LOGE(LOG_TAG, "bind failed: voice audio is null");
         return -QM_EINIT;
     }
 
-    ret = qm_audio_get_input_format(audio, &format);
+    ret = qm_audio_get_input_stream_format(&format);
     if (ret != QM_EOK) {
         QM_LOGE(LOG_TAG, "get input format failed ret=%d", ret);
         return ret;
     }
-    if (format.codec != QM_AUDIO_CODEC_PCM && format.codec != QM_AUDIO_CODEC_OPUS) {
-        QM_LOGE(LOG_TAG, "unsupported codec=%d frame_ms=%u",
-                (int)format.codec, (unsigned)format.frame_ms);
-        return -QM_EINVAL;
+    QM_LOGI(LOG_TAG, "voice uplink opus rate=%u ch=%u",
+            (unsigned)format.pcm.sample_rate_hz,
+            (unsigned)format.pcm.channels);
+
+    ret = register_agent_events();
+    if (ret != QM_EOK) {
+        QM_LOGE(LOG_TAG, "event register failed ret=%d", ret);
+        return ret;
     }
-    QM_LOGI(LOG_TAG, "voice uplink %s rate=%u ch=%u frame_ms=%u",
-            format.codec == QM_AUDIO_CODEC_OPUS ? "opus" : "pcm",
-            (unsigned)format.sample_rate,
-            (unsigned)format.channel_num,
-            (unsigned)format.frame_ms);
 
     qm_memset(&config, 0, sizeof(config));
     config.transport.type = QM_AGENT_TRANSPORT_AGORA;
-    config.audio = audio;
-    qm_agent_config_init_defaults(&config);
+    config.audio.control = control;
+    config.audio.capture_enabled = QM_TRUE;
     /*
-     * VB701N 的 PAUSE 会发 0x0201，协议上喇叭也停。
-     * 对话期间用 KEEP，TTS 下行时不要把麦和喇叭一起关掉。
+     * 跟设备对外格式一致：按包收 Opus，包长不固定。芯片 PCM 的编解码在设备里。
+     * 零下行格式表示喇叭也走这份 Opus，设备再解成 PCM。
+     */
+    config.audio.uplink_format.codec = QM_AGENT_AUDIO_CODEC_OPUS;
+    config.audio.uplink_format.data_type = QM_AGENT_AUDIO_CODEC_OPUS;
+    config.audio.uplink_format.sample_rate = format.pcm.sample_rate_hz;
+    config.audio.uplink_format.channel_num = format.pcm.channels;
+    config.audio.uplink_format.bits_per_sample = 16;
+    config.audio.uplink_format.frame_ms = (uint16_t)format.packet_duration_ms;
+    config.audio.uplink_format.framing = format.packet_bytes == 0 ?
+        QM_AGENT_AUDIO_FRAMING_OPUS_PACKET : QM_AGENT_AUDIO_FRAMING_OPUS_CBR;
+    config.audio.uplink_format.packet_bytes = format.packet_bytes;
+    /*
+     * VB701N 的 0x0201 会把喇叭一起停。
+     * 对话期间用 KEEP，TTS 下行时不要把麦停掉。
      */
     config.transport_capture_policy = QM_AGENT_CAPTURE_POLICY_KEEP;
+    qm_agent_config_init_defaults(&config);
     /* app_id / channel / token / license / uid 由 qm_agent 从鉴权回包填入。 */
     config.transport.data.agora.audio_enable = QM_TRUE;
     config.transport.data.agora.video_enable = QM_FALSE;
     config.iot_handle = iot_handle;
-    config.event_cb = on_agent_event;
 
     s_agent = qm_agent_create(&config);
     if (s_agent == NULL) {
@@ -296,12 +299,43 @@ int agent_app_is_active(void)
 
 int agent_app_play_local_audio(const void *data, uint32_t len)
 {
+    qm_audio_control_t *control = NULL;
+    qm_audio_control_play_request_t request;
+    qm_audio_operation_id_t operation = 0;
     int ret;
 
-    if (s_agent == NULL) {
+    if (data == NULL || len == 0U) {
+        return -QM_EINVAL;
+    }
+    if (!voice_audio_ready()) {
         return -QM_EINIT;
     }
-    ret = qm_agent_play_audio(s_agent, data, len, NULL, NULL);
+
+    ret = qm_audio_control_create(&control);
+    if (ret != QM_EOK || control == NULL) {
+        return ret != QM_EOK ? ret : -QM_EINIT;
+    }
+
+    qm_memset(&request, 0, sizeof(request));
+    request.source.type = QM_AUDIO_SOURCE_MEMORY;
+    request.source.value.memory.data = data;
+    request.source.value.memory.size = len;
+    request.codec.codec = QM_AUDIO_CODEC_OPUS;
+    request.codec.framing = QM_AUDIO_CODEC_FRAMING_STREAM;
+    request.codec.packet_duration_ms = 20;
+    request.codec.pcm.sample_rate_hz = 16000;
+    request.codec.pcm.channels = 1;
+    request.codec.pcm.sample = QM_AUDIO_PCM_S16;
+    request.priority = QM_AUDIO_PRIORITY_HIGH;
+    request.admission = QM_AUDIO_ADMISSION_PREEMPT_LOWER;
+    request.admission_timeout_ms = 800;
+    ret = qm_audio_control_play(control, &request, &operation);
+    if (ret == QM_EOK) {
+        ret = qm_audio_control_wait(control, operation, 3000);
+        (void)qm_audio_control_release(control, operation, 1000);
+    }
+    (void)qm_audio_control_shutdown(control, 1000);
+    (void)qm_audio_control_destroy(control);
     QM_LOGI(LOG_TAG, "local prompt len=%u ret=%d", (unsigned)len, ret);
     return ret;
 }
@@ -328,16 +362,8 @@ static void abort_tts_wait(void)
 
 int agent_app_set_resource_mode(qm_bool active)
 {
-    qm_audio_handle_t audio = voice_get_audio();
-    qm_audio_capture_policy_t policy;
-
-    if (audio == NULL) {
+    if (!voice_audio_ready()) {
         return -QM_EINIT;
-    }
-    policy = active ? QM_AUDIO_CAPTURE_POLICY_PAUSE :
-                      QM_AUDIO_CAPTURE_POLICY_KEEP;
-    if (qm_audio_control(audio, QM_AUDIO_CTRL_SET_CAPTURE_POLICY, &policy) != QM_EOK) {
-        QM_LOGW(LOG_TAG, "resource capture policy failed active=%d", (int)active);
     }
     if (s_agent != NULL) {
         qm_agent_set_upload_enabled(s_agent,
@@ -350,28 +376,10 @@ int agent_app_set_resource_mode(qm_bool active)
 int agent_app_abort_output(void)
 {
     int ret = QM_EOK;
-    int step_ret;
-    qm_audio_handle_t audio = voice_get_audio();
 
     if (s_agent != NULL) {
-        step_ret = qm_agent_interrupt(s_agent);
-        if (step_ret == -QM_ENOSYS) {
-            /* qm_agent_interrupt() already flushed local TTS, but Agora's
-             * unsupported interrupt has no ACK to reopen TTS acceptance. */
-            qm_agent_audio_engine_accept_next_tts(s_agent);
-            step_ret = QM_EOK;
-        }
-        if (step_ret != QM_EOK && ret == QM_EOK) {
-            ret = step_ret;
-        }
+        ret = qm_agent_interrupt(s_agent);
         qm_agent_set_upload_enabled(s_agent, QM_FALSE);
-    }
-    if (audio != NULL) {
-        step_ret = qm_audio_control(audio, QM_AUDIO_CTRL_STOP_PLAYBACK, NULL);
-        /* The qdev fallback may already have released the session. */
-        if (step_ret != QM_EOK && step_ret != -QM_EBUSY && ret == QM_EOK) {
-            ret = step_ret;
-        }
     }
     abort_tts_wait();
     QM_LOGI(LOG_TAG, "abort output ret=%d", ret);
@@ -399,19 +407,10 @@ static int get_agent_auth_info(qm_agent_auth_info_t *info)
         return -QM_EINVAL;
     }
     qm_memset(info, 0, sizeof(*info));
-    if (s_agent->auth.lock_valid) {
-        qm_mutex_lock(&s_agent->auth.lock, QM_WAIT_FOREVER);
-    }
     if (s_agent->auth.helper == NULL || !s_agent->auth.has_auth) {
-        if (s_agent->auth.lock_valid) {
-            qm_mutex_unlock(&s_agent->auth.lock);
-        }
         return -QM_ENOENT;
     }
     ret = qm_agent_auth_get_token(s_agent->auth.helper, info);
-    if (s_agent->auth.lock_valid) {
-        qm_mutex_unlock(&s_agent->auth.lock);
-    }
     return ret;
 }
 
@@ -465,8 +464,6 @@ int agent_app_user_corpus(const char *text)
 
     drain_tts_complete_sem();
     s_tts_wait_aborted = 0U;
-    s_tts_text_final = 0U;
-    s_tts_playback_started = 0U;
     s_waiting_tts_complete = 1U;
     header.name = "Authorization";
     header.value = auth.ljyd.token;
@@ -506,8 +503,6 @@ int agent_app_wait_tts_complete(uint32_t timeout_ms)
     aborted = s_tts_wait_aborted ? QM_TRUE : QM_FALSE;
     s_waiting_tts_complete = 0U;
     s_tts_wait_aborted = 0U;
-    s_tts_text_final = 0U;
-    s_tts_playback_started = 0U;
     if (aborted) {
         return -QM_EINTR;
     }

@@ -6,6 +6,7 @@
 #include "qm_errno.h"
 #include "qm_log.h"
 #include "qm_string.h"
+#include "qm_work.h"
 
 #include <string.h>
 
@@ -23,8 +24,13 @@
 #define PLAYBACK_WORKER_PRIORITY   18
 #define PLAYBACK_GUIDE_TIMEOUT_MS  30000U
 
-static qm_player_t s_player;
-static uint32_t s_operation_id;
+static qm_audio_control_t *s_control;
+static qm_audio_subscription_t s_sub;
+static qm_audio_operation_id_t s_op;
+static uint8_t s_op_live;
+static qm_mutex_t s_lock;
+static uint8_t s_lock_ok;
+static qm_work_t s_finish_work;
 static qm_queue_t s_command_queue;
 static qm_task_t s_command_task;
 static qm_sem_t s_command_done;
@@ -42,17 +48,12 @@ typedef struct {
     uint32_t duration_s;
 } playback_cloud_command_t;
 
-static qm_player_resource_type_t media_type(const char *audio_type)
+static int media_is_pcm(const char *audio_type)
 {
     if (audio_type == NULL) {
-        return QM_PLAYER_RESOURCE_TYPE_UNKNOWN;
+        return 0;
     }
-    if (qm_strcasecmp(audio_type, "mp3") == 0) return QM_PLAYER_RESOURCE_TYPE_MP3;
-    if (qm_strcasecmp(audio_type, "wav") == 0) return QM_PLAYER_RESOURCE_TYPE_WAV;
-    if (qm_strcasecmp(audio_type, "aac") == 0) return QM_PLAYER_RESOURCE_TYPE_AAC;
-    if (qm_strcasecmp(audio_type, "flac") == 0) return QM_PLAYER_RESOURCE_TYPE_FLAC;
-    if (qm_strcasecmp(audio_type, "pcm") == 0) return QM_PLAYER_RESOURCE_TYPE_PCM;
-    return QM_PLAYER_RESOURCE_TYPE_UNKNOWN;
+    return qm_strcasecmp(audio_type, "pcm") == 0;
 }
 
 static char *copy_text(const char *text)
@@ -87,61 +88,99 @@ static void playback_restore_audio(void)
     (void)agent_app_set_resource_mode(QM_FALSE);
 }
 
-static void playback_event(qm_player_t player,
-                           const qm_player_event_t *event,
-                           void *user_data)
+static int release_current(void)
 {
-    QM_UNUSED_ARG(player);
-    QM_UNUSED_ARG(user_data);
+    qm_audio_operation_id_t id;
 
+    if (!s_lock_ok) {
+        return -QM_EINIT;
+    }
+    qm_mutex_lock(&s_lock, QM_WAIT_FOREVER);
+    if (!s_op_live || s_control == NULL) {
+        qm_mutex_unlock(&s_lock);
+        return -QM_ENOENT;
+    }
+    id = s_op;
+    s_op_live = 0;
+    qm_mutex_unlock(&s_lock);
+
+    (void)qm_audio_control_release(s_control, id, 1000);
+    playback_restore_audio();
+    return QM_EOK;
+}
+
+static void playback_finish_work(void *arg)
+{
+    (void)arg;
+    (void)release_current();
+}
+
+static void playback_event(const qm_audio_event_t *event, void *user_data)
+{
+    (void)user_data;
     if (event == NULL) {
         return;
     }
 
-    QM_LOGI(LOG_TAG,
-            "event=%d operation=%u error=%d position=%u",
+    QM_LOGI(LOG_TAG, "event=%d operation=%u result=%d position=%u",
             (int)event->type,
-            (unsigned int)event->operation_id,
-            event->error,
-            (unsigned int)event->position_ms);
-    if (event->operation_id == s_operation_id &&
-        (event->type == QM_PLAYER_EVENT_FINISHED ||
-         event->type == QM_PLAYER_EVENT_STOPPED ||
-         event->type == QM_PLAYER_EVENT_PREEMPTED ||
-         event->type == QM_PLAYER_EVENT_ERROR)) {
-        s_operation_id = 0U;
-        playback_restore_audio();
+            (unsigned)event->operation_id,
+            (int)event->result,
+            (unsigned)event->position_ms);
+    if (!s_op_live || event->operation_id != s_op) {
+        return;
+    }
+    if (event->type == QM_AUDIO_EVENT_FINISHED ||
+        event->type == QM_AUDIO_EVENT_CANCELLED ||
+        event->type == QM_AUDIO_EVENT_PREEMPTED ||
+        event->type == QM_AUDIO_EVENT_ERROR) {
+        qm_post_delayed_action(&s_finish_work, playback_finish_work, NULL, 0);
     }
 }
 
-int playback_init(qm_audio_handle_t audio,
-                  const qm_player_decoder_if_t *decoder_if,
-                  const qm_player_source_if_t *source_if)
+static void destroy_control(void)
 {
-    qm_player_config_t config;
+    if (s_control == NULL) {
+        return;
+    }
+    (void)qm_audio_control_unsubscribe(s_control, s_sub);
+    (void)qm_audio_control_shutdown(s_control, 1000);
+    (void)qm_audio_control_destroy(s_control);
+    s_control = NULL;
+    s_op_live = 0;
+}
+
+int playback_init(void)
+{
     int ret;
     uint8_t queue_ready = 0U;
     uint8_t sem_created = 0U;
     uint8_t sem_ready = 0U;
 
-    if (audio == NULL || decoder_if == NULL) {
-        return -QM_EINVAL;
-    }
-    if (s_player != NULL) {
+    if (s_control != NULL) {
         return -QM_EBUSY;
     }
-
-    qm_memset(&config, 0, sizeof(config));
-    config.audio = audio;
-    config.decoder_if = decoder_if;
-    config.source_if = source_if;
-    config.event_cb = playback_event;
-    s_player = qm_player_create(&config);
-    if (s_player == NULL) {
-        return -QM_EINIT;
+    if (!s_lock_ok) {
+        if (qm_mutex_new(&s_lock) != QM_EOK) {
+            return -QM_ENOMEM;
+        }
+        s_lock_ok = 1;
     }
 
-    s_operation_id = 0U;
+    ret = qm_audio_control_create(&s_control);
+    if (ret != QM_EOK || s_control == NULL) {
+        s_control = NULL;
+        return ret != QM_EOK ? ret : -QM_EINIT;
+    }
+    ret = qm_audio_control_subscribe(s_control, playback_event, NULL, &s_sub);
+    if (ret != QM_EOK) {
+        (void)qm_audio_control_shutdown(s_control, 1000);
+        (void)qm_audio_control_destroy(s_control);
+        s_control = NULL;
+        return ret;
+    }
+
+    s_op_live = 0;
     ret = qm_queue_new(&s_command_queue,
                        PLAYBACK_COMMAND_QUEUE_LEN,
                        sizeof(playback_cloud_command_t *));
@@ -162,61 +201,53 @@ int playback_init(qm_audio_handle_t audio,
         if (queue_ready) {
             (void)qm_queue_free(&s_command_queue);
         }
-        (void)qm_player_destroy(s_player);
-        s_player = NULL;
+        destroy_control();
         return -QM_ENOMEM;
     }
     if (qm_task_new(&s_command_task, "playback", playback_command_task, NULL,
                     PLAYBACK_WORKER_STACK, PLAYBACK_WORKER_PRIORITY) != QM_EOK) {
         (void)qm_sem_free(&s_command_done);
         (void)qm_queue_free(&s_command_queue);
-        (void)qm_player_destroy(s_player);
-        s_player = NULL;
+        destroy_control();
         return -QM_ENOMEM;
     }
     s_command_ready = 1U;
     return QM_EOK;
 }
 
-static int submit_resource(const qm_player_resource_t *resource)
+static void fill_pcm_codec(qm_audio_codec_config_t *codec)
 {
-    qm_audio_playback_request_t request;
-    uint32_t operation_id = 0U;
+    qm_memset(codec, 0, sizeof(*codec));
+    codec->codec = QM_AUDIO_CODEC_PCM;
+    codec->framing = QM_AUDIO_CODEC_FRAMING_STREAM;
+    codec->pcm.sample_rate_hz = 16000;
+    codec->pcm.channels = 1;
+    codec->pcm.sample = QM_AUDIO_PCM_S16;
+}
+
+static int submit_play(const qm_audio_control_play_request_t *request)
+{
+    qm_audio_operation_id_t operation = 0;
     int ret;
 
-    if (s_player == NULL) {
+    if (s_control == NULL || request == NULL) {
         return -QM_EINIT;
     }
-    if (resource == NULL || resource->location == NULL ||
-        resource->location[0] == '\0') {
-        return -QM_EINVAL;
-    }
-    if (resource->type != QM_PLAYER_RESOURCE_TYPE_PCM) {
-        QM_LOGW(LOG_TAG, "unsupported resource type=%d", (int)resource->type);
-        return -QM_ENOSYS;
-    }
-    if (resource->location_type == QM_PLAYER_LOCATION_URI &&
-        qm_strncmp(resource->location, "http://", 7U) != 0 &&
-        qm_strncmp(resource->location, "https://", 8U) != 0) {
-        return -QM_EINVAL;
+    if (s_op_live) {
+        (void)playback_stop();
     }
 
-    qm_memset(&request, 0, sizeof(request));
-    request.priority = QM_AUDIO_PLAYBACK_PRIORITY_LOW;
-    request.policy = QM_AUDIO_PLAYBACK_POLICY_QUEUE;
-    request.capture_policy = QM_AUDIO_CAPTURE_POLICY_PAUSE;
-    request.delivery = QM_AUDIO_PLAYBACK_DELIVERY_RELIABLE;
-    request.acquire_timeout_ms = PLAYBACK_AUDIO_WAIT_MS;
-
-    ret = qm_player_play(s_player, resource, &request, &operation_id);
-    if (ret == QM_EOK) {
-        s_operation_id = operation_id;
-        QM_LOGI(LOG_TAG, "play submitted operation=%u type=%d",
-                (unsigned int)s_operation_id, (int)resource->type);
-    } else {
+    ret = qm_audio_control_play(s_control, request, &operation);
+    if (ret != QM_EOK) {
         QM_LOGW(LOG_TAG, "play submit failed ret=%d", ret);
+        return ret;
     }
-    return ret;
+    qm_mutex_lock(&s_lock, QM_WAIT_FOREVER);
+    s_op = operation;
+    s_op_live = 1;
+    qm_mutex_unlock(&s_lock);
+    QM_LOGI(LOG_TAG, "play submitted operation=%u", (unsigned)operation);
+    return QM_EOK;
 }
 
 static void process_cloud_command(playback_cloud_command_t *command)
@@ -226,7 +257,7 @@ static void process_cloud_command(playback_cloud_command_t *command)
     if (command == NULL) {
         return;
     }
-    if (s_operation_id != 0U) {
+    if (s_op_live) {
         (void)playback_stop();
     }
     (void)agent_app_abort_output();
@@ -250,7 +281,6 @@ static void process_cloud_command(playback_cloud_command_t *command)
     }
     (void)agent_app_set_resource_mode(QM_TRUE);
     ret = playback_play_url(command->url,
-                            media_type(command->audio_type),
                             command->file_size,
                             command->duration_s);
     if (ret != QM_EOK) {
@@ -288,8 +318,7 @@ int playback_submit_cloud_play(const playback_cloud_play_request_t *request)
         request->url[0] == '\0') {
         return -QM_EINVAL;
     }
-    if (media_type(request->audio_type != NULL ? request->audio_type : "pcm") !=
-        QM_PLAYER_RESOURCE_TYPE_PCM) {
+    if (!media_is_pcm(request->audio_type != NULL ? request->audio_type : "pcm")) {
         return -QM_ENOSYS;
     }
     command = (playback_cloud_command_t *)qm_malloc(sizeof(*command));
@@ -323,35 +352,51 @@ int playback_submit_cloud_play(const playback_cloud_play_request_t *request)
 }
 
 int playback_play_url(const char *url,
-                      qm_player_resource_type_t type,
                       uint32_t file_size,
                       uint32_t duration_s)
 {
-    qm_player_resource_t resource;
+    qm_audio_control_play_request_t request;
 
-    qm_memset(&resource, 0, sizeof(resource));
-    resource.location_type = QM_PLAYER_LOCATION_URI;
-    resource.location = url;
-    resource.type = type;
-    resource.file_size = file_size;
-    resource.duration_s = duration_s;
-    return submit_resource(&resource);
+    (void)duration_s;
+    if (url == NULL || url[0] == '\0') {
+        return -QM_EINVAL;
+    }
+    if (qm_strncmp(url, "http://", 7U) != 0 &&
+        qm_strncmp(url, "https://", 8U) != 0) {
+        return -QM_EINVAL;
+    }
+
+    qm_memset(&request, 0, sizeof(request));
+    request.source.type = QM_AUDIO_SOURCE_URI;
+    request.source.value.uri.url = url;
+    request.source.value.uri.expected_size = file_size;
+    fill_pcm_codec(&request.codec);
+    request.priority = QM_AUDIO_PRIORITY_LOW;
+    request.admission = QM_AUDIO_ADMISSION_QUEUE;
+    request.admission_timeout_ms = PLAYBACK_AUDIO_WAIT_MS;
+    return submit_play(&request);
 }
 
 int playback_play_file(const char *path,
-                       qm_player_resource_type_t type,
                        uint32_t file_size,
                        uint32_t duration_s)
 {
-    qm_player_resource_t resource;
+    qm_audio_control_play_request_t request;
 
-    qm_memset(&resource, 0, sizeof(resource));
-    resource.location_type = QM_PLAYER_LOCATION_FILE;
-    resource.location = path;
-    resource.type = type;
-    resource.file_size = file_size;
-    resource.duration_s = duration_s;
-    return submit_resource(&resource);
+    (void)file_size;
+    (void)duration_s;
+    if (path == NULL || path[0] == '\0') {
+        return -QM_EINVAL;
+    }
+
+    qm_memset(&request, 0, sizeof(request));
+    request.source.type = QM_AUDIO_SOURCE_FILE;
+    request.source.value.file.path = path;
+    fill_pcm_codec(&request.codec);
+    request.priority = QM_AUDIO_PRIORITY_LOW;
+    request.admission = QM_AUDIO_ADMISSION_QUEUE;
+    request.admission_timeout_ms = PLAYBACK_AUDIO_WAIT_MS;
+    return submit_play(&request);
 }
 
 #if defined(CONFIG_QM_RES_MGR_SUPPORT) && CONFIG_QM_RES_MGR_SUPPORT
@@ -490,10 +535,9 @@ int playback_play_id(const playback_metadata_t *metadata, uint32_t resource_id)
 {
     qm_res_mgr_detail_req_t request;
     qm_res_mgr_resource_t detail;
-    qm_player_resource_t resource;
     int ret;
 
-    if (s_player == NULL) {
+    if (s_control == NULL) {
         return -QM_EINIT;
     }
     if (!metadata_valid(metadata) || resource_id == 0U) {
@@ -513,18 +557,12 @@ int playback_play_id(const playback_metadata_t *metadata, uint32_t resource_id)
 
     ret = qm_res_mgr_get_detail(&request, &detail);
     if (ret == QM_EOK) {
-        qm_memset(&resource, 0, sizeof(resource));
-        resource.location_type = QM_PLAYER_LOCATION_URI;
-        resource.location = detail.url;
-        resource.type = media_type(detail.audio_type);
-        resource.file_size = detail.file_size;
-        resource.duration_s = detail.total_duration;
-        resource.title = detail.title;
-        resource.description = detail.description;
-        ret = submit_resource(&resource);
+        if (!media_is_pcm(detail.audio_type)) {
+            ret = -QM_ENOSYS;
+        } else {
+            ret = playback_play_url(detail.url, detail.file_size, detail.total_duration);
+        }
     }
-
-    /* qm_player clones resource strings before returning from play(). */
     qm_res_mgr_resource_free(&detail);
     return ret;
 }
@@ -549,39 +587,72 @@ int playback_download(const qm_res_mgr_resource_t *resource,
 }
 #endif
 
-int playback_pause(void)
+static int copy_live_op(qm_audio_operation_id_t *id)
 {
-    if (s_player == NULL || s_operation_id == 0U) {
+    if (s_control == NULL || !s_lock_ok) {
+        return -QM_EINIT;
+    }
+    qm_mutex_lock(&s_lock, QM_WAIT_FOREVER);
+    if (!s_op_live) {
+        qm_mutex_unlock(&s_lock);
         return -QM_ENOENT;
     }
-    return qm_player_pause(s_player, s_operation_id);
+    *id = s_op;
+    qm_mutex_unlock(&s_lock);
+    return QM_EOK;
+}
+
+int playback_pause(void)
+{
+    qm_audio_operation_id_t id;
+    int ret = copy_live_op(&id);
+
+    if (ret != QM_EOK) {
+        return ret;
+    }
+    return qm_audio_control_pause(s_control, id, QM_AUDIO_PAUSE_HOLD_OUTPUT);
 }
 
 int playback_resume(void)
 {
-    if (s_player == NULL || s_operation_id == 0U) {
-        return -QM_ENOENT;
+    qm_audio_operation_id_t id;
+    int ret = copy_live_op(&id);
+
+    if (ret != QM_EOK) {
+        return ret;
     }
-    return qm_player_resume(s_player, s_operation_id);
+    return qm_audio_control_resume(s_control, id);
 }
 
 int playback_stop(void)
 {
-    if (s_player == NULL || s_operation_id == 0U) {
-        return -QM_ENOENT;
+    qm_audio_operation_id_t id;
+    int ret = copy_live_op(&id);
+
+    if (ret != QM_EOK) {
+        return ret;
     }
-    return qm_player_stop(s_player, s_operation_id);
+    ret = qm_audio_control_stop(s_control, id, 0);
+    if (ret == QM_EOK) {
+        (void)qm_audio_control_wait(s_control, id, PLAYBACK_AUDIO_WAIT_MS);
+    }
+    (void)release_current();
+    return ret;
 }
 
-int playback_get_status(qm_player_status_t *status)
+int playback_get_status(qm_audio_control_snapshot_t *status)
 {
-    if (s_player == NULL) {
-        return -QM_EINIT;
-    }
+    qm_audio_operation_id_t id;
+    int ret;
+
     if (status == NULL) {
         return -QM_EINVAL;
     }
-    return qm_player_get_status(s_player, status);
+    ret = copy_live_op(&id);
+    if (ret != QM_EOK) {
+        return ret;
+    }
+    return qm_audio_control_get_snapshot(s_control, id, status);
 }
 
 int playback_deinit(void)
@@ -601,14 +672,7 @@ int playback_deinit(void)
         (void)qm_sem_free(&s_command_done);
         s_command_ready = 0U;
     }
-    if (s_player == NULL) {
-        return QM_EOK;
-    }
-
-    ret = qm_player_destroy(s_player);
-    if (ret == QM_EOK) {
-        s_player = NULL;
-        s_operation_id = 0U;
-    }
-    return ret;
+    (void)playback_stop();
+    destroy_control();
+    return QM_EOK;
 }

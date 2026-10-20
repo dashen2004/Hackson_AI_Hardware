@@ -7,7 +7,7 @@
 #include "qm_log.h"
 #include "qm_audio.h"
 #include "voice.h"
-#include "agent_app.h"      /* 对话中优先走 agent 的本地提示音通路 */
+#include "agent_app.h"      /* 对话中先停掉 agent 输出，再自己播 */
 
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
@@ -47,11 +47,10 @@ static StaticSemaphore_t s_sem_buf;
 static SemaphoreHandle_t s_sem;
 static uint8_t s_task_up;
 
-/* 整段 Opus + 每帧偏移表（qm_agent_play_audio 只接受一次连续写入） */
+/* 整段 Opus + 每帧偏移表。播放按包写，不拼成一条字节流。 */
 static uint8_t *s_opus;
 static uint32_t *s_opus_off;    /* frames + 1 个，末元素是总字节数 */
 static uint16_t s_opus_frames;
-static uint32_t s_opus_total;
 
 static void boot_sound_task(void *arg);
 
@@ -111,7 +110,6 @@ static int boot_sound_build_opus(void)
 
     s_opus_off[frames] = opus_off;
     s_opus_frames = (uint16_t)frames;
-    s_opus_total = opus_off;
     QM_LOGI(LOG_TAG, "encoded %u frames / %u bytes opus", (unsigned)frames,
             (unsigned)opus_off);
     return QM_EOK;
@@ -124,62 +122,87 @@ fail:
     return -QM_ERROR;
 }
 
-/* 没有 agent 会话时：自己申请播放会话，按帧写已编好的 Opus */
+/* 自己的 Control，按包写已编好的 Opus。不占用 agent 那份 Control。 */
 static void boot_sound_play_local(void)
 {
-    qm_audio_handle_t audio = voice_get_audio();
-    qm_audio_playback_session_t session = NULL;
-    qm_audio_playback_request_t req;
+    qm_audio_control_t *control = NULL;
+    qm_audio_control_play_request_t req;
+    qm_audio_operation_id_t operation = 0;
     uint16_t i;
     int ret;
     int attempt;
 
-    if (audio == NULL) {
-        QM_LOGW(LOG_TAG, "audio null, skip");
+    if (!voice_audio_ready()) {
+        QM_LOGW(LOG_TAG, "audio not ready, skip");
+        return;
+    }
+
+    ret = qm_audio_control_create(&control);
+    if (ret != QM_EOK || control == NULL) {
+        QM_LOGW(LOG_TAG, "control create failed ret=%d", ret);
         return;
     }
 
     memset(&req, 0, sizeof(req));
-    /* 回退通路不再需要抢占：对端已由 agent_app_abort_output() 收掉 */
-    req.priority = QM_AUDIO_PLAYBACK_PRIORITY_HIGH;
-    req.policy = QM_AUDIO_PLAYBACK_POLICY_INTERRUPT_LOWER;
-    req.delivery = QM_AUDIO_PLAYBACK_DELIVERY_RELIABLE;
-    req.acquire_timeout_ms = BS_ACQUIRE_MS;
+    req.source.type = QM_AUDIO_SOURCE_PUSH;
+    req.source.value.push.buffer_bytes = 4096;
+    req.codec.codec = QM_AUDIO_CODEC_OPUS;
+    req.codec.framing = QM_AUDIO_CODEC_FRAMING_PACKET;
+    req.codec.packet_duration_ms = 20;
+    req.codec.packet_bytes = 0;
+    req.codec.pcm.sample_rate_hz = BS_RATE_HZ;
+    req.codec.pcm.channels = 1;
+    req.codec.pcm.sample = QM_AUDIO_PCM_S16;
+    req.priority = QM_AUDIO_PRIORITY_HIGH;
+    req.admission = QM_AUDIO_ADMISSION_PREEMPT_LOWER;
+    req.admission_timeout_ms = BS_ACQUIRE_MS;
 
-    ret = qm_audio_play_request(audio, NULL, &req, &session);
+    ret = qm_audio_control_play(control, &req, &operation);
     for (attempt = 1; ret != QM_EOK && attempt < BS_ACQUIRE_RETRY; attempt++) {
         QM_LOGW(LOG_TAG, "play request failed ret=%d, retry %d", ret, attempt);
         vTaskDelay(pdMS_TO_TICKS(BS_ACQUIRE_GAP_MS));
-        ret = qm_audio_play_request(audio, NULL, &req, &session);
+        ret = qm_audio_control_play(control, &req, &operation);
     }
     if (ret != QM_EOK) {
         QM_LOGW(LOG_TAG, "play request failed ret=%d (give up)", ret);
+        (void)qm_audio_control_shutdown(control, 1000);
+        (void)qm_audio_control_destroy(control);
         return;
     }
 
     for (i = 0U; i < s_opus_frames; i++) {
+        qm_audio_data_t packet;
         uint32_t off = s_opus_off[i];
         uint32_t len = s_opus_off[i + 1U] - off;
-        int w = qm_audio_play_write(audio, session, s_opus + off, len, BS_WRITE_MS);
 
-        if (w < 0) {
-            QM_LOGW(LOG_TAG, "write failed ret=%d frame=%u", w, (unsigned)i);
+        memset(&packet, 0, sizeof(packet));
+        packet.data = s_opus + off;
+        packet.size = len;
+        packet.duration_ms = 20;
+        packet.flags = QM_AUDIO_DATA_DURATION_VALID;
+        ret = qm_audio_control_stream_write_packet(control, operation, &packet, BS_WRITE_MS);
+        if (ret != QM_EOK) {
+            QM_LOGW(LOG_TAG, "write failed ret=%d frame=%u", ret, (unsigned)i);
             break;
         }
     }
 
-    ret = qm_audio_play_drain(audio, session, BS_DRAIN_MS);
-    QM_LOGI(LOG_TAG, "local play done drain ret=%d frames=%u/%u",
+    if (ret == QM_EOK) {
+        ret = qm_audio_control_stream_finish(control, operation);
+    }
+    if (ret == QM_EOK) {
+        ret = qm_audio_control_wait(control, operation, BS_DRAIN_MS);
+    }
+    QM_LOGI(LOG_TAG, "local play done ret=%d frames=%u/%u",
             ret, (unsigned)i, (unsigned)s_opus_frames);
-    ret = qm_audio_play_release(audio, session);
-    QM_LOGI(LOG_TAG, "local play release ret=%d", ret);
+    (void)qm_audio_control_release(control, operation, 1000);
+    (void)qm_audio_control_shutdown(control, 1000);
+    (void)qm_audio_control_destroy(control);
 }
 
 /* 播一遍；编不出来就直接放弃，不再去抢通路 */
 static void boot_sound_play_once(void)
 {
-    int ret;
-
     if (boot_sound_build_opus() != QM_EOK) {
         QM_LOGW(LOG_TAG, "no opus cache, skip");
         return;
@@ -188,14 +211,7 @@ static void boot_sound_play_once(void)
     if (agent_app_is_active()) {
         (void)agent_app_set_resource_mode(QM_TRUE);
         (void)agent_app_abort_output();
-        ret = agent_app_play_local_audio(s_opus, s_opus_total);
         (void)agent_app_set_resource_mode(QM_FALSE);
-        if (ret == QM_EOK) {
-            QM_LOGI(LOG_TAG, "play %u ms via agent",
-                    (unsigned)((uint32_t)s_opus_frames * 20U));
-            return;
-        }
-        QM_LOGW(LOG_TAG, "agent play failed ret=%d, fallback local", ret);
     }
 
     QM_LOGI(LOG_TAG, "play %u ms local", (unsigned)((uint32_t)s_opus_frames * 20U));

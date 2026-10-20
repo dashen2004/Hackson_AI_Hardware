@@ -10,8 +10,8 @@
 
 /*
  * 对齐 ljyd_ai_lamp 的音量，不接静音。
- *   SIID=4 PIID=1 绝对音量 10..100
- *   SIID=4 PIID=2 1增大 2减小 3最大 4最小
+ *   SIID=2 PIID=1 绝对音量 10..100
+ *   SIID=2 PIID=2 1增大 2减小 3最大 4最小
  * 回调挂在 iot_control 的 siid/piid 表上。
  */
 
@@ -21,9 +21,6 @@
 #define VOLUME_MAX     100
 #define VOLUME_DEFAULT 80
 #define VOLUME_STEP    10
-
-/* VB701N 音量寄存器是 0..31。 */
-#define VOLUME_HW_MAX  31u
 
 #define KV_VOLUME "volume"
 
@@ -65,17 +62,14 @@ static void volume_kv_save(void)
 
 static void volume_apply_hw(void)
 {
-    qm_audio_handle_t audio = voice_get_audio();
-    uint32_t hw;
-
-    if (audio == NULL) {
+    if (!voice_audio_ready()) {
         QM_LOGW(LOG_TAG, "audio not ready, skip hw vol=%u", (unsigned)s_volume);
         return;
     }
 
-    hw = ((uint32_t)s_volume * VOLUME_HW_MAX) / 100u;
-    (void)qm_audio_control(audio, QM_AUDIO_CTRL_SET_VOLUME, &hw);
-    QM_LOGI(LOG_TAG, "hw vol=%u hw_reg=%u", (unsigned)s_volume, (unsigned)hw);
+    /* 0..100。芯片 0..31 的换算在 VB701N 设备里做。 */
+    (void)qm_audio_set_volume(s_volume);
+    QM_LOGI(LOG_TAG, "hw vol=%u", (unsigned)s_volume);
 }
 
 static void shadow_add_number(qm_spec_property_operation_t *op,

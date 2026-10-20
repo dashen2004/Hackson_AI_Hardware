@@ -54,7 +54,9 @@ static int codec_open(void)
         return -QM_EINIT;
     }
 
-    opus_encoder_ctl(s_enc, OPUS_SET_DTX(1));
+    opus_encoder_ctl(s_enc, OPUS_SET_BITRATE(OPUS_PKT_BYTES * 8 * 1000 / OPUS_PKT_FRAME_MS));
+    opus_encoder_ctl(s_enc, OPUS_SET_VBR(0));
+    opus_encoder_ctl(s_enc, OPUS_SET_DTX(0));
     opus_encoder_ctl(s_enc, OPUS_SET_COMPLEXITY(0));
     QM_LOGI(LOG_TAG, "opus ready %d Hz mono %d ms frame=%d bytes",
             AGORA_OPUS_RATE, AGORA_OPUS_FRAME_MS, AGORA_OPUS_FRAME_BYTES);

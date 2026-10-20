@@ -8,11 +8,13 @@
 extern "C" {
 #endif
 
-/* 创建 qm_audio。芯片回版本后开麦。 */
+/* 初始化 qm_audio。串口、版本和开麦在 VB701N 设备绑定里。 */
 qm_err_t voice_start(void);
 
-/* qm_agent 借用这份句柄，生命周期跟语音会话一样长。 */
-qm_audio_handle_t voice_get_audio(void);
+/* qm_agent 借用这份 Control。音频没起来时返回 NULL。 */
+qm_audio_control_t *voice_get_control(void);
+
+int voice_audio_ready(void);
 
 typedef void (*voice_wakeup_cb_t)(void);
 void voice_set_wakeup_cb(voice_wakeup_cb_t cb);

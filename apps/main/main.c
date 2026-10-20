@@ -1,5 +1,5 @@
 #include "qm.h"
-#include "bsp_uart.h"
+#include "qm_work.h"
 #include "bsp_io.h"
 /* #include "bsp_mpu6050.h" */
 #include "bsp_servo.h"
@@ -26,7 +26,6 @@
 
 #if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
 #include "playback.h"
-#include "resource_pcm_decoder.h"
 #endif
 
 #include <stdio.h>
@@ -56,8 +55,8 @@ void qm_application_start(void)
     //     bsp_vibrator_pulse(BSP_VIBRATOR_PULSE_MS);
     // }
     // bsp_ws2812_example();
-    if (bsp_uart_init() != QM_EOK) {
-        QM_LOGE("main", "uart init failed");
+    if (qm_work_on_init() != QM_EOK) {
+        QM_LOGE("main", "qm_work_on_init failed");
         return;
     }
     if (bsp_io_init() != QM_EOK) {
@@ -77,7 +76,7 @@ void qm_application_start(void)
         return;
     }
 #if defined(CONFIG_LJYD_PLAYBACK_SUPPORT) && CONFIG_LJYD_PLAYBACK_SUPPORT
-    if (playback_init(voice_get_audio(), resource_pcm_decoder_get_if(), NULL) != QM_EOK) {
+    if (playback_init() != QM_EOK) {
         QM_LOGE("main", "playback init failed");
     }
 #endif

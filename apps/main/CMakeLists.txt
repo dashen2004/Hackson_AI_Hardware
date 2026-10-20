@@ -54,10 +54,8 @@ set(COMPONENT_SRCS
     "./cloud/time_sync.c"
     "./lj_components/iot_control/iot_control.c"
     "./lj_components/iot_control/ctrl/iot_control_volume.c"
-    "./lj_components/playback/playback.c"
     "./lj_components/pomodoro/pomodoro.c"
     "${QDEV}/components/qm_pomodoro/src/qm_pomodoro.c"
-    "./peripheral/bsp_uart.c"
     "./peripheral/bsp_io.c"
     "./peripheral/bsp_mpu6050.c"
     "./peripheral/bsp_servo.c"
@@ -73,6 +71,7 @@ set(COMPONENT_SRCS
     "${QDEV}/components/qm_agent/src/core/qm_agent_core.c"
     "${QDEV}/components/qm_agent/src/core/qm_agent_event.c"
     "${QDEV}/components/qm_agent/src/core/qm_agent_module.c"
+    "${QDEV}/components/qm_agent/src/core/qm_agent_control.c"
     "${QDEV}/components/qm_agent/src/audio/qm_agent_audio_engine.c"
     "${QDEV}/components/qm_agent/src/auth/qm_agent_auth.c"
     "${QDEV}/components/qm_agent/src/transport/qm_agent_transport.c"
@@ -84,12 +83,14 @@ set(COMPONENT_SRCS
     "${QDEV}/utility/sprintf/qm_sprintf.c"
 
     "${QDEV}/drivers/VB701N/src/vb701n.c"
-    "${QDEV}/drivers/VB701N/proto/vb701n_proto.c"
-    "${QDEV}/components/qm_audio/src/qm_audio.c"
-    "${QDEV}/components/qm_audio/src/qm_audio_capture.c"
-    "${QDEV}/components/qm_audio/src/qm_audio_playback.c"
-    "${QDEV}/components/qm_player/src/qm_player.c"
-    "${QDEV}/components/qm_player/src/qm_player_cloud.c"
+    "${QDEV}/platform/mcu/esp32s3/qm_audio/qm_audio_device_vb701n.c"
+    "${QDEV}/components/qm_audio/src/audio/qm_audio.c"
+    "${QDEV}/components/qm_audio/src/capture/qm_audio_capture.c"
+    "${QDEV}/components/qm_audio/src/control/qm_audio_control.c"
+    "${QDEV}/components/qm_audio/src/engine/qm_audio_engine.c"
+    "${QDEV}/components/qm_audio/src/event/qm_audio_event.c"
+    "${QDEV}/components/qm_audio/src/pipeline/qm_audio_pipeline.c"
+    "${QDEV}/components/qm_audio/src/service/qm_audio_service.c"
     "${QDEV}/components/qm_res_mgr/src/qm_res_mgr.c"
     "${QDEV}/components/qm_event/src/qm_event.c"
     "${QDEV}/components/qm_event/src/qm_work.c"
@@ -133,6 +134,7 @@ set(COMPONENT_SRCS
     "${QDEV}/utility/string/qm_utils_string.c"
     "${QDEV}/utility/list/qm_utils_list.c"
     "${QDEV}/utility/ringbuf/qm_ringbuf.c"
+    "${QDEV}/utility/ringqueue/qm_ring_queue.c"
     "${QDEV}/utility/timer/qm_utils_timer.c"
     "${QDEV}/utility/json_parser/json_parser.c"
     "${QDEV}/utility/hmac/qm_utils_hmac.c"
@@ -162,7 +164,6 @@ set(COMPONENT_SRCS
 if(LJYD_PLAYBACK_SUPPORT)
     list(APPEND COMPONENT_SRCS
         "./lj_components/playback/playback.c"
-        "./lj_components/playback/resource_pcm_decoder.c"
     )
 endif()
 
@@ -187,7 +188,6 @@ endif()
 
 list(APPEND COMPONENT_SRCS
     "./agent/private/opus.c"
-    "./agent/private/pcm_drv.c"
     "${QDEV}/components/qm_agent/src/transport/qm_agent_transport_agora.c"
     "${QDEV}/components/qm_agent/src/transport/qm_agent_agora_stream.c"
 )
@@ -226,9 +226,9 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "${QDEV}/include/hal/wifi"
     "${QDEV}/include/hal/net"
     "${QDEV}/include/hal/ble"
+    "${QDEV}/drivers/VB701N/include"
     "${QDEV}/components/qm_audio/include"
     "${QDEV}/components/qm_audio/priv_include"
-    "${QDEV}/components/qm_player/include"
     "${QDEV}/components/qm_res_mgr/include"
     "${QDEV}/components/qm_event/include"
     "${QDEV}/components/qm_provision/include"
@@ -258,11 +258,10 @@ set(COMPONENT_ADD_INCLUDEDIRS
     "${QDEV}/components/mqtt/MQTTPacket"
     "${QDEV}/components/backoff/include"
     "${QDEV}/components/cjson"
-    "${QDEV}/drivers/VB701N/include"
-    "${QDEV}/drivers/VB701N/proto"
     "${QDEV}/utility/string"
     "${QDEV}/utility/list"
     "${QDEV}/utility/ringbuf"
+    "${QDEV}/utility/ringqueue"
     "${QDEV}/utility/timer"
     "${QDEV}/utility/json_parser"
     "${QDEV}/utility/hmac"

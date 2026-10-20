@@ -1,9 +1,8 @@
 #include "qm.h"
 #include "qm_kv.h"
 #include "qm_log.h"
-#include "qm_work.h"
+#include "opus_pkt.h"
 #include "qm_audio.h"
-#include "vb701n.h"
 #include "voice.h"
 #include "boot_sound.h"
 
@@ -11,51 +10,24 @@
 
 #define LOG_TAG "voice"
 
-/* 与物模型音量共用的 KV。值是 10..100，芯片寄存器是 0..31。 */
+/* 与物模型音量共用的 KV。值是 10..100，芯片寄存器换算在设备里做。 */
 #define VOICE_KV_VOLUME    "volume"
 #define VOICE_VOLUME_MIN   10
 #define VOICE_VOLUME_MAX   100
 #define VOICE_VOLUME_DEF   80
-#define VOICE_VOLUME_HW    31u
 
-/* 1: 芯片侧双向 PCM。0: 双向 Opus 40 字节/20 ms。报给 agent 的格式始终是 Opus。 */
-#ifndef VB701N_APP_PCM
-#define VB701N_APP_PCM  1
-#endif
+/* 麦一包最多 512 字节，16 kHz / 单声道 / S16。 */
+#define VOICE_CAPTURE_BYTES 512
+#define VOICE_CAPTURE_QUEUE 4
 
-#if CONFIG_VOICE_BACKEND_AGORA && VB701N_APP_PCM
-#include "pcm_drv.h"
-#endif
-
-static const qm_audio_format_t g_in_fmt = {
-    .codec = QM_AUDIO_CODEC_OPUS,
-    .data_type = QM_AUDIO_CODEC_OPUS,
-    .sample_rate = 16000,
-    .channel_num = 1,
-    .bits_per_sample = 16,
-    .frame_ms = 20,
-};
-static const qm_audio_format_t g_out_fmt = {
-    .codec = QM_AUDIO_CODEC_OPUS,
-    .data_type = QM_AUDIO_CODEC_OPUS,
-    .sample_rate = 16000,
-    .channel_num = 1,
-    .bits_per_sample = 16,
-    .frame_ms = 20,
-};
-
-static qm_audio_handle_t g_audio;
+static qm_audio_control_t *g_control;
+static qm_audio_subscription_t g_wake_sub;
+static uint8_t g_ready;
 static voice_wakeup_cb_t g_wakeup_cb;
-static qm_work_t g_ver_work;
-static qm_work_t g_play_work;
-static uint8_t g_ver_retry;
-static uint8_t g_got_version;
-static uint8_t g_play_started;
 
 static void voice_apply_saved_volume(void)
 {
     uint8_t volume = VOICE_VOLUME_DEF;
-    uint32_t hw;
     int len = (int)sizeof(volume);
 
     if (qm_kv_get(VOICE_KV_VOLUME, &volume, &len) == 0) {
@@ -65,75 +37,18 @@ static void voice_apply_saved_volume(void)
             volume = VOICE_VOLUME_MAX;
         }
     }
-    hw = ((uint32_t)volume * VOICE_VOLUME_HW) / 100u;
-    qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_VOLUME, &hw);
-    QM_LOGI(LOG_TAG, "volume %u hw=%u", (unsigned)volume, (unsigned)hw);
+    (void)qm_audio_set_volume(volume);
+    QM_LOGI(LOG_TAG, "volume %u", (unsigned)volume);
 }
 
-static void on_chip_ready(void *arg)
+static void on_wake(const qm_audio_event_t *event, void *user_ctx)
 {
-    (void)arg;
-    if (g_play_started) {
+    (void)user_ctx;
+    if (event == NULL || event->type != QM_AUDIO_EVENT_WAKE) {
         return;
     }
-    if (g_audio == NULL) {
-        return;
-    }
-    g_play_started = 1;
-    voice_apply_saved_volume();
-    {
-        qm_audio_capture_policy_t policy = QM_AUDIO_CAPTURE_POLICY_KEEP;
-
-        /* KEEP 发 02 31 01 开麦。PAUSE 会发 02 01，喇叭和麦一起停。 */
-        qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_CAPTURE_POLICY, &policy);
-        QM_LOGD(LOG_TAG, "mic record start, opus 16k/20ms");
-    }
-    /* 音量已设、麦已开：放开机音效。异步，不阻塞后续初始化。 */
-    (void)boot_sound_start();
-}
-
-static void on_audio_event(const qm_audio_event_t *event, void *user)
-{
-    const uint8_t *data;
-    uint32_t len;
-
-    (void)user;
-    if (event == NULL) {
-        return;
-    }
-    data = (const uint8_t *)event->data;
-    len = event->data_len;
-    if (event->id == QM_AUDIO_EVENT_VERSION) {
-        g_got_version = 1;
-        if (data != NULL && len > 0) {
-            char ver[64];
-            uint32_t n = len;
-            if (n >= sizeof(ver)) {
-                n = sizeof(ver) - 1;
-            }
-            memcpy(ver, data, n);
-            ver[n] = '\0';
-            QM_LOGD(LOG_TAG, "version: %s", ver);
-        }
-        qm_post_delayed_action(&g_play_work, on_chip_ready, NULL, 500);
-        return;
-    }
-    if (event->id == QM_AUDIO_EVENT_WAKEUP) {
-        char text[128];
-        uint32_t n = len;
-        if (data == NULL || len == 0) {
-            QM_LOGD(LOG_TAG, "wakeup: (empty)");
-        } else {
-            if (n >= sizeof(text)) {
-                n = sizeof(text) - 1;
-            }
-            memcpy(text, data, n);
-            text[n] = '\0';
-            QM_LOGD(LOG_TAG, "wakeup: %s", text);
-        }
-        if (g_wakeup_cb != NULL) {
-            g_wakeup_cb();
-        }
+    if (g_wakeup_cb != NULL) {
+        g_wakeup_cb();
     }
 }
 
@@ -142,56 +57,64 @@ void voice_set_wakeup_cb(voice_wakeup_cb_t cb)
     g_wakeup_cb = cb;
 }
 
-static void ver_retry_handle(void *arg)
+static void fill_opus(qm_audio_stream_format_t *fmt)
 {
-    (void)arg;
-    if (g_got_version) {
-        return;
-    }
-    if (g_ver_retry >= 5) {
-        QM_LOGD(LOG_TAG, "version query timeout, continue anyway");
-        on_chip_ready(NULL);
-        return;
-    }
-    g_ver_retry++;
-    qm_audio_control(g_audio, QM_AUDIO_CTRL_QUERY_VERSION, NULL);
-    qm_post_delayed_action(&g_ver_work, ver_retry_handle, NULL, 3000);
+    memset(fmt, 0, sizeof(*fmt));
+    /* 芯片是 PCM。设备对外按包收 Opus，单包不超过 255。编解码在设备里完成。 */
+    fmt->codec = QM_AUDIO_CODEC_OPUS;
+    fmt->pcm.sample_rate_hz = 16000;
+    fmt->pcm.channels = 1;
+    fmt->pcm.sample = QM_AUDIO_PCM_S16;
+    fmt->packet_duration_ms = OPUS_PKT_FRAME_MS;
+    fmt->packet_bytes = 0;
+    fmt->max_packet_bytes = OPUS_PKT_MAX;
+    fmt->framing = QM_AUDIO_CODEC_FRAMING_STREAM;
 }
 
 qm_err_t voice_start(void)
 {
     qm_audio_config_t audio_cfg;
-    qm_audio_event_cb_t event_callback = on_audio_event;
+    int ret;
 
     memset(&audio_cfg, 0, sizeof(audio_cfg));
-#if CONFIG_VOICE_BACKEND_AGORA && VB701N_APP_PCM
-    audio_cfg.capture_driver_if = &pcm_driver;
-    audio_cfg.playback_driver_if = &pcm_driver;
-#else
-    audio_cfg.capture_driver_if = &vb701n_audio_driver;
-    audio_cfg.playback_driver_if = &vb701n_audio_driver;
-#endif
-    audio_cfg.input_format = &g_in_fmt;
-    audio_cfg.output_format = &g_out_fmt;
-    g_audio = qm_audio_create(&audio_cfg);
-    if (g_audio == NULL) {
-        QM_LOGD(LOG_TAG, "qm_audio_create failed");
-        return -QM_ENOMEM;
+    fill_opus(&audio_cfg.input_format);
+    fill_opus(&audio_cfg.output_format);
+    audio_cfg.capture_frame_bytes = VOICE_CAPTURE_BYTES;
+    audio_cfg.capture_queue_len = VOICE_CAPTURE_QUEUE;
+
+    ret = qm_audio_init(&audio_cfg);
+    if (ret != QM_EOK) {
+        QM_LOGD(LOG_TAG, "qm_audio_init failed ret=%d", ret);
+        return ret;
     }
-    qm_audio_control(g_audio, QM_AUDIO_CTRL_SET_EVENT_CALLBACK, &event_callback);
-    qm_post_delayed_action(&g_ver_work, ver_retry_handle, NULL, 1500);
-#if CONFIG_VOICE_BACKEND_AGORA && VB701N_APP_PCM
-    QM_LOGI(LOG_TAG, "qm_audio ready, chip pcm, agent opus in %ums out %ums",
-            (unsigned)g_in_fmt.frame_ms, (unsigned)g_out_fmt.frame_ms);
-#else
-    QM_LOGI(LOG_TAG, "qm_audio ready, %s in %ums out %ums",
-            VB701N_APP_PCM ? "pcm" : "opus",
-            (unsigned)g_in_fmt.frame_ms, (unsigned)g_out_fmt.frame_ms);
-#endif
+    ret = qm_audio_wake_subscribe(on_wake, NULL, &g_wake_sub);
+    if (ret != QM_EOK) {
+        QM_LOGD(LOG_TAG, "wake subscribe failed ret=%d", ret);
+        (void)qm_audio_deinit(1000);
+        return ret;
+    }
+    ret = qm_audio_control_create(&g_control);
+    if (ret != QM_EOK) {
+        QM_LOGD(LOG_TAG, "qm_audio_control_create failed ret=%d", ret);
+        (void)qm_audio_wake_unsubscribe(g_wake_sub);
+        (void)qm_audio_deinit(1000);
+        g_control = NULL;
+        return ret;
+    }
+    g_ready = 1;
+    voice_apply_saved_volume();
+    QM_LOGI(LOG_TAG, "qm_audio ready, opus 20ms");
+    /* 音量已设。开机音效走自己的 Control，不占用 agent 这份。 */
+    (void)boot_sound_start();
     return QM_EOK;
 }
 
-qm_audio_handle_t voice_get_audio(void)
+qm_audio_control_t *voice_get_control(void)
 {
-    return g_audio;
+    return g_control;
+}
+
+int voice_audio_ready(void)
+{
+    return g_ready;
 }

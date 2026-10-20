@@ -250,10 +250,18 @@ qm_err_t app_alarm_get_state(qm_alarm_state_t *state, uint8_t *alarm_id)
 
 qm_err_t app_alarm_time_changed(void)
 {
+    int ret;
+
     if (s_alarm == NULL) {
         return -QM_EINIT;
     }
-    return qm_alarm_notify_time_changed(s_alarm);
+    /* 这份 qm_alarm 没有单独的对时通知。已经 start 过再调 start 不会重排，
+     * 所以先停再开，让 schedule_next 按新时钟算下一次。 */
+    ret = qm_alarm_stop(s_alarm);
+    if (ret != QM_EOK) {
+        return ret;
+    }
+    return qm_alarm_start(s_alarm);
 }
 
 qm_err_t app_alarm_report(void)
