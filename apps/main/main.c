@@ -16,6 +16,10 @@
 #include "example_pose.h"
 #endif
 
+#if defined(CONFIG_APP_CAMERA_TEST) && CONFIG_APP_CAMERA_TEST
+#include "bsp_camera.h"
+#endif
+
 #if defined(CONFIG_QM_ALARM_SUPPORT) && CONFIG_QM_ALARM_SUPPORT
 #include "app_alarm.h"
 #endif
@@ -60,6 +64,11 @@ void qm_application_start(void)
         QM_LOGE("main", "io init failed");
         return;
     }
+#if defined(CONFIG_APP_CAMERA_TEST) && CONFIG_APP_CAMERA_TEST
+    if (bsp_camera_early_init() != ESP_OK) {
+        QM_LOGE("main", "camera early init failed");
+    }
+#endif
     /* if (bsp_mpu6050_init() != QM_EOK) {
         QM_LOGE("main", "mpu6050 init failed");
     } */

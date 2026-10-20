@@ -6,3 +6,5 @@ dependencies:
   espressif/led_strip: "3.0.3"
   coco_pose:
     path: pose/private/coco_pose
+  espressif/esp_video: "2.2.0"
+  espressif/esp_cam_sensor: "2.2.0"

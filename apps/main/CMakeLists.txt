@@ -38,6 +38,13 @@ else()
 endif()
 message(STATUS "qm pose support=${QM_POSE_SUPPORT}")
 
+if(QM_CONFIG_H MATCHES "#define[ \t]+CONFIG_APP_CAMERA_TEST[ \t]+1")
+    set(APP_CAMERA_TEST 1)
+else()
+    set(APP_CAMERA_TEST 0)
+endif()
+message(STATUS "app camera test=${APP_CAMERA_TEST}")
+
 set(COMPONENT_SRCS
     "./main.c"
     "./agent/agent_app.c"
@@ -159,6 +166,10 @@ if(LJYD_PLAYBACK_SUPPORT)
     )
 endif()
 
+if(APP_CAMERA_TEST)
+    list(APPEND COMPONENT_SRCS "./peripheral/bsp_camera.c")
+endif()
+
 # 闹钟：平台组件和应用层模块一起开关，CONFIG_QM_ALARM_SUPPORT 0 时两者都不编译
 if(QM_ALARM_SUPPORT)
     list(APPEND COMPONENT_SRCS
@@ -276,6 +287,10 @@ set(COMPONENT_REQUIRES
 
 if(QM_POSE_SUPPORT)
     list(APPEND COMPONENT_REQUIRES coco_pose esp-dl)
+endif()
+
+if(APP_CAMERA_TEST)
+    list(APPEND COMPONENT_REQUIRES espressif__esp_video espressif__esp_cam_sensor)
 endif()
 
 if(VOICE_BACKEND_AGORA)
