@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#include "agent_app.h"      /* 只在 RING 打点里读一次"是否正在对话" */
+#include "agent_app.h"     
 #include "boot_sound.h"     /* 示例提示音：复用已内嵌的开机音效 */
 #include "qm.h"
 #include "qm_log.h"
@@ -10,13 +10,7 @@
 
 #define LOG_TAG "app_alarm"
 
-/*
- * 只依赖平台闹钟组件 qm_alarm；投递用的 qm_work 也是它的传递依赖
- * （qm_alarm 的 Kconfig 就 depends on QM_WORK_SUPPORT），没有引入新依赖。
- * 需要 qm_config.h 里打开 CONFIG_QM_ALARM_SUPPORT。
- */
-
-static qm_alarm_t s_alarm;                  /* 单例：整个应用只有一份闹钟表 */
+static qm_alarm_t s_alarm;
 static app_alarm_behavior_cb_t s_cb;
 static void *s_cb_user;
 static qm_work_t s_evt_work;
@@ -29,7 +23,7 @@ static int alarm_cli_register(void);
 static void alarm_cli_unregister(void);
 #endif
 
-/* 组件通知回调：跑在组件 owner task 上，只做拷贝 + 投递，立即返回 */
+/* 组件通知回调：只做拷贝 + 投递，立即返回 */
 static void alarm_notify_cb(qm_alarm_t alarm, qm_alarm_notify_t notify,
                             const qm_alarm_item_t *item, void *user_ctx)
 {
@@ -46,13 +40,11 @@ static void alarm_notify_cb(qm_alarm_t alarm, qm_alarm_notify_t notify,
         s_evt.repeat_mask = item->repeat_mask;
         s_evt.enabled = item->enabled;
         s_evt.vibrate = item->vibrate;
-        s_evt.tone = item->tone;    /* 值类型（local_id + online_id[32]），可整结构体拷贝 */
+        s_evt.tone = item->tone;
     }
-    /* ms=0：立即排到工作队列，后续在 workqueue 任务里跑行为回调 */
     (void)qm_post_delayed_action(&s_evt_work, alarm_evt_work, NULL, 0);
 }
 
-/* 工作队列上下文：这里可以安全调用本模块接口（不在组件 owner task 上） */
 static void alarm_evt_work(void *arg)
 {
     (void)arg;
@@ -61,10 +53,7 @@ static void alarm_evt_work(void *arg)
     }
 }
 
-/* 模块内置的行为回调（= 注册进组件的示例实现，产品化时改这里）：
- *   RING    → 播一遍提示音（不拆 agent 会话，靠 qm_audio 仲裁抢占对端播放）
- *   DISMISS / SNOOZE / CHANGED → 只打日志
- * 运行在事件循环任务上下文，所以这里只允许做"投递 + 打点"，不能有阻塞调用。 */
+/* 示例行为实现：RING 播提示音，其余只打日志（产品化时改这里） */
 static void app_alarm_behavior(const app_alarm_event_t *evt, void *user)
 {
     (void)user;
@@ -77,7 +66,6 @@ static void app_alarm_behavior(const app_alarm_event_t *evt, void *user)
         QM_LOGI(LOG_TAG, "RING enter id=%u %02u:%02u repeat=0x%02x agent_active=%d",
                 (unsigned)evt->alarm_id, (unsigned)evt->hour, (unsigned)evt->minute,
                 (unsigned)evt->repeat_mask, agent_app_is_active());
-        /* 让对话让出喇叭由 boot_sound 负责，这里只投递不阻塞 */
         ret = boot_sound_start();
         QM_LOGI(LOG_TAG, "RING sound_ret=%d", ret);
         break;
@@ -105,7 +93,7 @@ qm_err_t app_alarm_init(void *iot_handle)
     }
 
     memset(&cfg, 0, sizeof(cfg));
-    cfg.iot_handle = iot_handle;    /* NULL = 只做本地闹钟 */
+    cfg.iot_handle = iot_handle;
     cfg.notify_cb = alarm_notify_cb;
     cfg.user_ctx = NULL;
 
@@ -121,7 +109,7 @@ qm_err_t app_alarm_init(void *iot_handle)
         return -QM_ERROR;
     }
 
-    s_cb = app_alarm_behavior;      /* 注册动作就放在初始化里：上层不必再传回调 */
+    s_cb = app_alarm_behavior;
     s_cb_user = NULL;
     QM_LOGI(LOG_TAG, "ready, cloud=%s", (iot_handle != NULL) ? "on" : "off");
 #if CONFIG_QM_CLI_SUPPORT
@@ -137,8 +125,8 @@ void app_alarm_deinit(void)
     if (s_alarm == NULL) {
         return;
     }
-    (void)qm_alarm_stop(s_alarm);       /* 停调度 + 注销 alarm/alarmReply */
-    qm_alarm_destroy(s_alarm);          /* 释放实例与 owner task */
+    (void)qm_alarm_stop(s_alarm);
+    qm_alarm_destroy(s_alarm);
     s_alarm = NULL;
     s_cb = NULL;
     s_cb_user = NULL;
@@ -160,12 +148,12 @@ void app_alarm_item_defaults(qm_alarm_item_t *item)
     }
     memset(item, 0, sizeof(*item));
     memcpy(item->source, QM_ALARM_SOURCE_DEVICE, sizeof(QM_ALARM_SOURCE_DEVICE));
-    item->alarm_id = QM_ALARM_LOCAL_ID_AUTO;    /* 让组件分配第一个空闲 id */
+    item->alarm_id = QM_ALARM_LOCAL_ID_AUTO;
     item->enabled = QM_TRUE;
-    item->tone.type = QM_ALARM_TONE_TYPE_LOCAL; /* local_id 由产品按自己的铃声表填 */
-    item->snooze.enabled = QM_FALSE;            /* 需要稍后提醒就自己打开并给间隔 */
+    item->tone.type = QM_ALARM_TONE_TYPE_LOCAL;
+    item->snooze.enabled = QM_FALSE;
     item->snooze.interval_min = CONFIG_QM_ALARM_SNOOZE_INTERVAL_MIN;
-    item->extensions = NULL;                    /* 组件把 NULL/空串当作"无扩展" */
+    item->extensions = NULL;
 }
 
 qm_err_t app_alarm_add(const qm_alarm_item_t *item)
@@ -277,15 +265,11 @@ qm_err_t app_alarm_report(void)
 }
 
 #if CONFIG_QM_CLI_SUPPORT
-/* ---------------------------------------------------------------------------
- * 调试命令行（QUMIOS CLI）：alarm list|next|state|add|del|on|off|close|snooze|cancel
- * 仅在 CONFIG_QM_CLI_SUPPORT 打开时编译；命令注册在 app_alarm_init() 里，
- * 由内核 qm_init() 启动的 CLI 任务执行。
- * ------------------------------------------------------------------------- */
+/* 调试命令行：alarm list|next|state|add|del|on|off|close|snooze|cancel|clear|test */
 
 #include "qm_cli.h"
 #include "qm_time.h"
-#include "boot_sound.h"     /* alarm test：直接播一遍音效，用于单独验证播放通路 */
+#include "boot_sound.h"
 
 #include <stdio.h>
 #include <stdlib.h>
