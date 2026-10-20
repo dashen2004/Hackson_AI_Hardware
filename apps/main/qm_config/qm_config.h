@@ -144,7 +144,7 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_QM_EPOCHTIME_SUPPORT 1
 #define CONFIG_NTPDATE_SUPPORT 1
 
-#define CONFIG_QM_POMODORO_SUPPORT 1
+#define CONFIG_QM_POMODORO_SUPPORT 0
 #define CONFIG_QM_POMODORO_FOCUS_SEC 25
 #define CONFIG_QM_POMODORO_SHORT_BREAK_SEC 5
 #define CONFIG_QM_POMODORO_LONG_BREAK_SEC 10

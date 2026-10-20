@@ -102,4 +102,8 @@ void qm_application_start(void)
         QM_LOGE("main", "app_alarm_init failed");
     }
 #endif
+
+#if defined(CONFIG_QM_POMODORO_SUPPORT) && CONFIG_QM_POMODORO_SUPPORT
+    pomodoro_init();
+#endif
 }

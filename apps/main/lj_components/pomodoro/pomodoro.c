@@ -18,12 +18,66 @@ static void on_pomodoro_event(qm_pomodoro_t t, const qm_pomodoro_event_data_t *e
     if (e == NULL) {
         return;
     }
-    if (e->event == QM_POMODORO_EVENT_TICK) {
+    switch (e->event) {
+    case QM_POMODORO_EVENT_TICK:
+        /* Remaining time was updated. */
         QM_LOGI(LOG_TAG, "remain=%us", (unsigned)e->status.remaining_sec);
+        break;
+    case QM_POMODORO_EVENT_STATE_CHANGED:
+        /* Phase changed. */
+        break;
+    case QM_POMODORO_EVENT_PHASE_DONE:
+        /* Current focus or break phase completed. */
+        break;
+    case QM_POMODORO_EVENT_PAUSED:
+        /* Timer was paused. */
+        break;
+    case QM_POMODORO_EVENT_RESUMED:
+        /* Timer resumed from pause. */
+        break;
+    case QM_POMODORO_EVENT_STOPPED:
+        /* Timer was stopped and reset to idle. */
+        break;
+    case QM_POMODORO_EVENT_FINISHED:
+        /* Target focus count completed. */
+        break;
+    default:
+        /* Unknown event. */
+        break;
     }
 }
 
-void pomodoro_min_init(void)
+static int pomodoro_start(void)
+{
+    return qm_pomodoro_start(g_pomodoro);
+}
+
+static int pomodoro_stop(void)
+{
+    return qm_pomodoro_stop(g_pomodoro);
+}
+
+static int pomodoro_pause(void)
+{
+    return qm_pomodoro_pause(g_pomodoro);
+}
+
+static int pomodoro_resume(void)
+{
+    return qm_pomodoro_resume(g_pomodoro);
+}
+
+static inline int pomodoro_skip(void)
+{
+    return qm_pomodoro_skip(g_pomodoro);
+}
+
+static inline int pomodoro_get_status(qm_pomodoro_status_t *status)
+{
+    return qm_pomodoro_get_status(g_pomodoro, status);
+}
+
+void pomodoro_init(void)
 {
     qm_pomodoro_config_t cfg = {0};
 
@@ -80,15 +134,13 @@ static void handle_pomodoro_cloud_down(void *handle,
     }
 
     if (strcmp(subMethod, "start") == 0) {
-        ret = qm_pomodoro_start(g_pomodoro);
+        ret = pomodoro_start();
     } else if (strcmp(subMethod, "stop") == 0) {
-        ret = qm_pomodoro_stop(g_pomodoro);
+        ret = pomodoro_stop();
     } else if (strcmp(subMethod, "pause") == 0) {
-        ret = qm_pomodoro_pause(g_pomodoro);
+        ret = pomodoro_pause();
     } else if (strcmp(subMethod, "resume") == 0) {
-        ret = qm_pomodoro_resume(g_pomodoro);
-    } else if (strcmp(subMethod, "skip") == 0) {
-        ret = qm_pomodoro_skip(g_pomodoro);
+        ret = pomodoro_resume();
     } else {
         QM_LOGW(LOG_TAG, "unknown subMethod=%s", subMethod);
         cJSON_Delete(root);

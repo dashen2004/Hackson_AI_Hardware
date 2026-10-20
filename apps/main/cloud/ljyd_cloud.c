@@ -291,7 +291,9 @@ static void cloud_iot_event_handler(void *handle, const qm_iot_event_t *event, v
 #endif
             (void)ljyd_method_on_connected(iot_handle);
             time_sync_start();      /* 网络已可用：SNTP 对时 → 成功后通知闹钟重排 */
+#if defined(CONFIG_QM_POMODORO_SUPPORT) && CONFIG_QM_POMODORO_SUPPORT
             (void)pomodoro_on_connected(iot_handle);
+#endif
             if (cloud_event_cb != NULL) {
                 cloud_event_cb(LJYD_CLOUD_EVENT_CONNECTED, iot_handle, cloud_event_userdata);
             }
