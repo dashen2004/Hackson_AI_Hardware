@@ -165,6 +165,7 @@ set(COMPONENT_SRCS
 if(LJYD_PLAYBACK_SUPPORT)
     list(APPEND COMPONENT_SRCS
         "./lj_components/playback/playback.c"
+        "./lj_components/playback/qm_audio_encoder_opus.c"
     )
 endif()
 

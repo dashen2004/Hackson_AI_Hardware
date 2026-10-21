@@ -40,12 +40,32 @@ static void *cloud_event_userdata;
 static ljyd_cloud_prop_cb_t cloud_prop_cb;
 
 static char dynreg_host[128];
-static char dynreg_server_ca[CLOUD_CERT_MAX];
-static char dynreg_client_crt[CLOUD_CERT_MAX];
-static char dynreg_client_key[CLOUD_CERT_MAX];
-static char dynreg_public_key[CLOUD_CERT_MAX];
+/* The four dynamic-registration certificates are only needed during dynreg.
+ * Keep them in one PSRAM pool instead of 32 KB of internal .bss. */
+static char *dynreg_pool;
+static char *dynreg_server_ca;
+static char *dynreg_client_crt;
+static char *dynreg_client_key;
+static char *dynreg_public_key;
 static qm_iot_cloud_auth_t cloud_credential;
 static char device_sn[13];
+
+static int dynreg_pool_init(void)
+{
+    if (dynreg_pool != NULL) {
+        return QM_EOK;
+    }
+    dynreg_pool = (char *)qm_malloc(CLOUD_CERT_MAX * 4U);
+    if (dynreg_pool == NULL) {
+        return -QM_ENOMEM;
+    }
+    memset(dynreg_pool, 0, CLOUD_CERT_MAX * 4U);
+    dynreg_server_ca = dynreg_pool;
+    dynreg_client_crt = dynreg_pool + CLOUD_CERT_MAX;
+    dynreg_client_key = dynreg_pool + CLOUD_CERT_MAX * 2U;
+    dynreg_public_key = dynreg_pool + CLOUD_CERT_MAX * 3U;
+    return QM_EOK;
+}
 
 static int cloud_save_credential(const qm_iot_cloud_auth_t *credential)
 {
@@ -119,16 +139,16 @@ static void dynreg_recv_handler(void *handle, const qm_iot_dynreg_recv_t *packet
             (unsigned)cloud_credential.did,
             cloud_credential.cloud_info.host,
             (unsigned)cloud_credential.cloud_info.port);
-    copy_len(dynreg_server_ca, sizeof(dynreg_server_ca), info->server_cert, info->server_cert_len);
+    copy_len(dynreg_server_ca, CLOUD_CERT_MAX, info->server_cert, info->server_cert_len);
     cloud_credential.server_cert = dynreg_server_ca;
     cloud_credential.server_cert_len = info->server_cert_len;
-    copy_len(dynreg_client_crt, sizeof(dynreg_client_crt), info->client_crt, info->client_cert_len);
+    copy_len(dynreg_client_crt, CLOUD_CERT_MAX, info->client_crt, info->client_cert_len);
     cloud_credential.client_crt = dynreg_client_crt;
     cloud_credential.client_crt_len = info->client_cert_len;
-    copy_len(dynreg_client_key, sizeof(dynreg_client_key), info->client_private_key, info->client_privkey_len);
+    copy_len(dynreg_client_key, CLOUD_CERT_MAX, info->client_private_key, info->client_privkey_len);
     cloud_credential.client_key = dynreg_client_key;
     cloud_credential.client_key_len = info->client_privkey_len;
-    copy_len(dynreg_public_key, sizeof(dynreg_public_key), info->public_key, info->public_key_len);
+    copy_len(dynreg_public_key, CLOUD_CERT_MAX, info->public_key, info->public_key_len);
     cloud_credential.ota_public_key = dynreg_public_key;
     cloud_credential.ota_public_key_len = info->public_key_len;
 }
@@ -142,6 +162,11 @@ static int cloud_run_dynreg(void)
     uint32_t timeout = CONFIG_QM_IOT_DYNREG_RECV_TIMEOUT_MS;
     int ret = QM_EOK;
 
+    ret = dynreg_pool_init();
+    if (ret != QM_EOK) {
+        QM_LOGE(LOG_TAG, "dynreg cert pool alloc failed");
+        return ret;
+    }
     refresh_device_sn();
     if (device_sn[0] == '\0') {
         return -QM_EINVAL;

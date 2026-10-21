@@ -17,6 +17,7 @@
 #include "qm_log.h"
 #include "qm_string.h"
 #include "qm.h"
+#include "qm_kernel.h"
 #include "voice.h"
 
 #define LOG_TAG "agent"
@@ -29,11 +30,75 @@ static qm_sem_t s_tts_complete_sem;
 static uint8_t s_tts_complete_sem_ready;
 static volatile uint8_t s_waiting_tts_complete;
 static volatile uint8_t s_tts_wait_aborted;
+static volatile uint8_t s_tts_text_seen;
+static volatile uint8_t s_tts_speaking_seen;
+static volatile uint8_t s_tts_playback_started;
+static volatile uint8_t s_tts_playback_failed;
+static volatile int s_tts_playback_error;
+static volatile uint8_t s_tts_silent_seen;
+static volatile uint8_t s_tts_input_complete_posted;
 
 static void abort_tts_wait(void);
 
+/*
+ * Agora currently reports the end of a custom-corpus reply as dialog=silent,
+ * but does not emit QM_AGENT_EVENT_TTS_INPUT_COMPLETE.  Only close the input
+ * after qm_agent has admitted and started local playback; then queue the
+ * normalized boundary on qm_agent's control task so the PUSH audio operation
+ * can drain.
+ */
+static void finish_custom_tts_input_if_ready(void)
+{
+    qm_agent_event_t *event;
+    int ret;
+
+    if (!s_waiting_tts_complete || !s_tts_text_seen ||
+        !s_tts_speaking_seen || !s_tts_playback_started ||
+        !s_tts_silent_seen ||
+        s_tts_wait_aborted || s_tts_input_complete_posted || s_agent == NULL) {
+        return;
+    }
+
+    event = (qm_agent_event_t *)qm_malloc(sizeof(*event));
+    if (event == NULL) {
+        QM_LOGE(LOG_TAG, "tts input complete alloc failed");
+        return;
+    }
+    qm_memset(event, 0, sizeof(*event));
+    event->id = QM_AGENT_EVENT_TTS_INPUT_COMPLETE;
+    event->source = QM_AGENT_EVENT_SOURCE_TRANSPORT;
+
+    /* Mark before posting because the control task consumes this asynchronously. */
+    s_tts_input_complete_posted = 1U;
+    ret = qm_agent_control_post_event(s_agent, event);
+    if (ret != QM_EOK) {
+        s_tts_input_complete_posted = 0U;
+        QM_LOGW(LOG_TAG, "tts input complete post failed ret=%d", ret);
+        return;
+    }
+    QM_LOGI(LOG_TAG, "tts input complete queued after dialog silent");
+}
+
 #define AGENT_CORPUS_URL_MAX       160U
 #define AGENT_CORPUS_TIMEOUT_MS    15000U
+#define AGENT_AUDIO_IDLE_TIMEOUT_MS 3000U
+#define AGENT_AUDIO_IDLE_POLL_MS      10U
+
+static int wait_agent_audio_idle(void)
+{
+    uint32_t waited_ms = 0U;
+
+    while (s_agent != NULL && qm_agent_audio_engine_stream_active(s_agent)) {
+        if (waited_ms >= AGENT_AUDIO_IDLE_TIMEOUT_MS) {
+            QM_LOGW(LOG_TAG, "agent audio cleanup timeout=%u",
+                    (unsigned)AGENT_AUDIO_IDLE_TIMEOUT_MS);
+            return -QM_ETIMEOUT;
+        }
+        qm_msleep(AGENT_AUDIO_IDLE_POLL_MS);
+        waited_ms += AGENT_AUDIO_IDLE_POLL_MS;
+    }
+    return QM_EOK;
+}
 
 static const char *life_name(qm_agent_state_t state)
 {
@@ -108,6 +173,10 @@ static void on_agent_event(void *event_handler_arg,
             QM_LOGI(LOG_TAG, "tts final=%d text=%s",
                     notice->data.text.final,
                     notice->data.text.text);
+            if (s_waiting_tts_complete && notice->data.text.text[0] != '\0') {
+                s_tts_text_seen = 1U;
+                finish_custom_tts_input_if_ready();
+            }
             break;
         case QM_AGENT_EVENT_AGENT_TEXT:
             QM_LOGI(LOG_TAG, "agent text final=%d text=%s",
@@ -122,6 +191,35 @@ static void on_agent_event(void *event_handler_arg,
             if (s_waiting_tts_complete && s_agent != NULL) {
                 qm_agent_set_upload_enabled(s_agent, QM_FALSE);
             }
+            if (s_waiting_tts_complete) {
+                if (notice->data.agent_state.state == QM_AGENT_DIALOG_STATE_SPEAKING) {
+                    s_tts_speaking_seen = 1U;
+                    s_tts_silent_seen = 0U;
+                } else if (notice->data.agent_state.state == QM_AGENT_DIALOG_STATE_SILENT) {
+                    s_tts_silent_seen = 1U;
+                    finish_custom_tts_input_if_ready();
+                }
+            }
+            break;
+        case QM_AGENT_EVENT_TTS_PLAYBACK_STARTED:
+            if (s_waiting_tts_complete) {
+                s_tts_playback_started = 1U;
+                finish_custom_tts_input_if_ready();
+            }
+            QM_LOGI(LOG_TAG, "tts playback started generation=%u",
+                    (unsigned)notice->generation);
+            break;
+        case QM_AGENT_EVENT_TTS_PLAYBACK_FAILED:
+            if (s_waiting_tts_complete) {
+                s_tts_playback_failed = 1U;
+                s_tts_playback_error = notice->code != QM_EOK ?
+                                       notice->code : -QM_EIO;
+                if (s_tts_complete_sem_ready) {
+                    (void)qm_sem_signal(&s_tts_complete_sem);
+                }
+            }
+            QM_LOGE(LOG_TAG, "tts playback failed generation=%u code=%d",
+                    (unsigned)notice->generation, notice->code);
             break;
         case QM_AGENT_EVENT_TTS_PLAYBACK_COMPLETE:
             if (s_waiting_tts_complete && s_tts_complete_sem_ready) {
@@ -375,10 +473,39 @@ int agent_app_set_resource_mode(qm_bool active)
 
 int agent_app_abort_output(void)
 {
+    qm_agent_event_t *event;
     int ret = QM_EOK;
 
+    /* Prevent an interrupt-generated silent state from closing this reply. */
+    if (s_waiting_tts_complete) {
+        s_tts_wait_aborted = 1U;
+    }
     if (s_agent != NULL) {
         ret = qm_agent_interrupt(s_agent);
+        if (ret == -QM_ENOSYS) {
+            /*
+             * Agora has no local interrupt implementation. qm_agent still
+             * closes stream admission while attempting the unsupported
+             * interrupt; replay its normalized abort on qm_agent_ctl so the
+             * next downlink can reopen admission without touching qdev state
+             * from this application thread.
+             */
+            event = (qm_agent_event_t *)qm_malloc(sizeof(*event));
+            if (event == NULL) {
+                QM_LOGW(LOG_TAG, "local interrupt reopen alloc failed");
+            } else {
+                qm_memset(event, 0, sizeof(*event));
+                event->id = QM_AGENT_EVENT_AGENT_ABORTED;
+                event->source = QM_AGENT_EVENT_SOURCE_TRANSPORT;
+                event->code = -QM_ENOSYS;
+                if (qm_agent_control_post_event(s_agent, event) == QM_EOK) {
+                    QM_LOGI(LOG_TAG, "local interrupt queued audio reopen");
+                } else {
+                    QM_LOGW(LOG_TAG, "local interrupt audio reopen post failed");
+                }
+            }
+        }
+        qm_agent_set_upload_enabled(s_agent, QM_FALSE);
     }
     abort_tts_wait();
     QM_LOGI(LOG_TAG, "abort output ret=%d", ret);
@@ -461,8 +588,22 @@ int agent_app_user_corpus(const char *text)
         return -QM_EFULL;
     }
 
+    ret = wait_agent_audio_idle();
+    if (ret != QM_EOK) {
+        cJSON_free(body);
+        qm_agent_auth_info_deinit(&auth);
+        return ret;
+    }
+
     drain_tts_complete_sem();
     s_tts_wait_aborted = 0U;
+    s_tts_text_seen = 0U;
+    s_tts_speaking_seen = 0U;
+    s_tts_playback_started = 0U;
+    s_tts_playback_failed = 0U;
+    s_tts_playback_error = QM_EOK;
+    s_tts_silent_seen = 0U;
+    s_tts_input_complete_posted = 0U;
     s_waiting_tts_complete = 1U;
     header.name = "Authorization";
     header.value = auth.ljyd.token;
@@ -482,6 +623,13 @@ int agent_app_user_corpus(const char *text)
     }
     if (ret != QM_EOK) {
         s_waiting_tts_complete = 0U;
+        s_tts_text_seen = 0U;
+        s_tts_speaking_seen = 0U;
+        s_tts_playback_started = 0U;
+        s_tts_playback_failed = 0U;
+        s_tts_playback_error = QM_EOK;
+        s_tts_silent_seen = 0U;
+        s_tts_input_complete_posted = 0U;
     }
     QM_LOGI(LOG_TAG, "user corpus response ret=%d status=%d",
             ret, response.status_code);
@@ -493,21 +641,53 @@ int agent_app_user_corpus(const char *text)
 int agent_app_wait_tts_complete(uint32_t timeout_ms)
 {
     int ret;
+    int playback_error;
     qm_bool aborted;
+    qm_bool playback_failed;
 
     if (!s_tts_complete_sem_ready || !s_waiting_tts_complete) {
         return -QM_EINVAL;
     }
     ret = qm_sem_wait(&s_tts_complete_sem, timeout_ms);
     aborted = s_tts_wait_aborted ? QM_TRUE : QM_FALSE;
+    playback_failed = s_tts_playback_failed ? QM_TRUE : QM_FALSE;
+    playback_error = s_tts_playback_error;
+    if (s_tts_playback_failed) {
+        QM_LOGW(LOG_TAG, "tts playback failed while waiting code=%d",
+                (int)s_tts_playback_error);
+    }
+    if (ret != QM_EOK && !aborted) {
+        QM_LOGW(LOG_TAG,
+                "wait tts playback complete timeout=%u text=%u speaking=%u started=%u silent=%u posted=%u",
+                (unsigned)timeout_ms,
+                (unsigned)s_tts_text_seen,
+                (unsigned)s_tts_speaking_seen,
+                (unsigned)s_tts_playback_started,
+                (unsigned)s_tts_silent_seen,
+                (unsigned)s_tts_input_complete_posted);
+    }
     s_waiting_tts_complete = 0U;
     s_tts_wait_aborted = 0U;
+    s_tts_text_seen = 0U;
+    s_tts_speaking_seen = 0U;
+    s_tts_playback_started = 0U;
+    s_tts_playback_failed = 0U;
+    s_tts_playback_error = QM_EOK;
+    s_tts_silent_seen = 0U;
+    s_tts_input_complete_posted = 0U;
     if (aborted) {
         return -QM_EINTR;
     }
+    if (playback_failed) {
+        /* A failed terminal event is emitted only after qdev has finished
+         * cleaning the TTS operation. Keep this request alive so a transient
+         * guide-word failure cannot drop the actual resource playback. */
+        QM_LOGW(LOG_TAG,
+                "tts playback ended with error code=%d; continue resource handoff",
+                playback_error);
+        return QM_EOK;
+    }
     if (ret != QM_EOK) {
-        QM_LOGW(LOG_TAG, "wait tts playback complete timeout=%u",
-                (unsigned)timeout_ms);
         return -QM_ETIMEOUT;
     }
     return QM_EOK;

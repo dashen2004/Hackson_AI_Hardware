@@ -80,6 +80,17 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_QM_AUDIO_CAPTURE_QUEUE_LEN 4
 /* 播放任务里调用 opus_decode，4 KB 不够。 */
 #define CONFIG_QM_AUDIO_ENGINE_RENDER_TASK_STACK_SIZE 24576
+/* Resource HTTPS reads and PCM->Opus encoding run on this shared task.
+ * opus_encode() is the dominant consumer (the standalone resource encoder
+ * task uses 30 KB for the same OPUS_APPLICATION_AUDIO/16 kHz/20 ms setup),
+ * and the first URI open additionally performs the mbedTLS handshake here.
+ * 16 KB only covers the handshake; the first encoded frame overflows it. */
+#define CONFIG_QM_AUDIO_CONTROL_SOURCE_TASK_STACK_SIZE (32 * 1024)
+
+/* Cloud resources are raw PCM over HTTP; the current VB701N adapter contract is
+ * Opus, so the pipeline encodes PCM before the adapter decodes it back to PCM. */
+#define CONFIG_QM_AUDIO_SOURCE_URI_SUPPORT 1
+#define CONFIG_QM_AUDIO_ENCODER_SUPPORT 1
 
 /* Application-owned cloud resource playback component. */
 #define CONFIG_LJYD_PLAYBACK_SUPPORT 1
