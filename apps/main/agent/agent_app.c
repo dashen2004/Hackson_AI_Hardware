@@ -379,7 +379,6 @@ int agent_app_abort_output(void)
 
     if (s_agent != NULL) {
         ret = qm_agent_interrupt(s_agent);
-        qm_agent_set_upload_enabled(s_agent, QM_FALSE);
     }
     abort_tts_wait();
     QM_LOGI(LOG_TAG, "abort output ret=%d", ret);

@@ -13,12 +13,9 @@ BOOTLOADER_PATH="build/bootloader/bootloader.bin"
 PARTITION_TABLE_PATH="build/partition_table/partition-table.bin"
 OTA_DATA_INITIAL_PATH="build/ota_data_initial.bin"
 PHY_INIT_DATA_PATH="build/phy_init_data.bin"
-VOLC_RTC_PATH="build/volc_rtc.bin"
-SRMODELS_PATH="build/srmodels/srmodels.bin"
-SPIFFS_DATA_PATH="build/spiffs_data.bin"
-LVGL_PATH="build/lvgl.bin"
-
-VOLC_RTC_MAP_PATH="build/volc_rtc.map"
+APP_BIN_PATH="build/vb701n.bin"
+APP_MAP_PATH="build/vb701n.map"
+COCO_POSE_PATH="build/espdl_models/coco_pose.espdl"
 
 
 COMBINE_OUTPUT_FILE="LIGHT.0059.G.101_FW_WB74_$current_datetime.bin"
@@ -61,43 +58,45 @@ fi
 mkdir -p $ESP_TOOL_PATH
 
 cp $BOOTLOADER_PATH $ESP_TOOL_PATH
+check_cmd_result ${FUNCNAME[0]}
 cp $PARTITION_TABLE_PATH $ESP_TOOL_PATH
+check_cmd_result ${FUNCNAME[0]}
 cp $OTA_DATA_INITIAL_PATH $ESP_TOOL_PATH
+check_cmd_result ${FUNCNAME[0]}
 cp $PHY_INIT_DATA_PATH $ESP_TOOL_PATH
-cp $VOLC_RTC_PATH $ESP_TOOL_PATH
-cp $SRMODELS_PATH $ESP_TOOL_PATH
-cp $SPIFFS_DATA_PATH $ESP_TOOL_PATH
-cp $LVGL_PATH $ESP_TOOL_PATH
-cp $VOLC_RTC_MAP_PATH $ESP_TOOL_PATH
+check_cmd_result ${FUNCNAME[0]}
+cp $APP_BIN_PATH $ESP_TOOL_PATH
+check_cmd_result ${FUNCNAME[0]}
+cp $APP_MAP_PATH $ESP_TOOL_PATH
+check_cmd_result ${FUNCNAME[0]}
+cp $COCO_POSE_PATH $ESP_TOOL_PATH
+check_cmd_result ${FUNCNAME[0]}
 
 echo "copy $BOOTLOADER_PATH           to $ESP_TOOL_WIN_PATH"
 echo "copy $PARTITION_TABLE_PATH      to $ESP_TOOL_WIN_PATH"
 echo "copy $OTA_DATA_INITIAL_PATH     to $ESP_TOOL_WIN_PATH"
 echo "copy $PHY_INIT_DATA_PATH        to $ESP_TOOL_WIN_PATH"
-echo "copy $VOLC_RTC_PATH             to $ESP_TOOL_WIN_PATH"
-echo "copy $SRMODELS_PATH             to $ESP_TOOL_WIN_PATH"
-echo "copy $SPIFFS_DATA_PATH          to $ESP_TOOL_WIN_PATH"
-echo "copy $LVGL_PATH                 to $ESP_TOOL_WIN_PATH"
-echo "copy $VOLC_RTC_MAP_PATH         to $ESP_TOOL_WIN_PATH"
-check_cmd_result ${FUNCNAME[0]}
+echo "copy $APP_BIN_PATH              to $ESP_TOOL_WIN_PATH"
+echo "copy $APP_MAP_PATH              to $ESP_TOOL_WIN_PATH"
+echo "copy $COCO_POSE_PATH            to $ESP_TOOL_WIN_PATH"
 }
 
 esp_merge_bin() {
-if cmd.exe /c "where python" > /dev/null 2>&1; then
+if ( cd "$ESP_TOOL_PATH" && cmd.exe /c "where python" ) > /dev/null 2>&1; then
 echo "Python exists"
 else
 echo "please install python"
 check_cmd_result ${FUNCNAME[0]}
 fi
 
-if cmd.exe /c "where esptool" > /dev/null 2>&1; then
+if ( cd "$ESP_TOOL_PATH" && cmd.exe /c "where esptool" ) > /dev/null 2>&1; then
 echo "esptool exist"
 else
-cmd.exe /c "pip install esptool"
+( cd "$ESP_TOOL_PATH" && cmd.exe /c "pip install esptool" )
 check_cmd_result ${FUNCNAME[0]}
 fi
 
-cmd.exe /C "esptool --chip $CHIP_TYPE merge-bin \
+( cd "$ESP_TOOL_PATH" && cmd.exe /C "esptool --chip $CHIP_TYPE merge-bin \
 -o $ESP_TOOL_WIN_PATH$COMBINE_OUTPUT_FILE \
 --flash-mode dio \
 --flash-freq 80m \
@@ -105,29 +104,27 @@ cmd.exe /C "esptool --chip $CHIP_TYPE merge-bin \
 0x10000 $ESP_TOOL_WIN_PATH"partition-table.bin" \
 0x1d000 $ESP_TOOL_WIN_PATH"ota_data_initial.bin" \
 0x1f000 $ESP_TOOL_WIN_PATH"phy_init_data.bin" \
-0x20000 $ESP_TOOL_WIN_PATH"volc_rtc.bin" \
-0x800000 $ESP_TOOL_WIN_PATH"srmodels.bin" \
-0xbf0000 $ESP_TOOL_WIN_PATH"spiffs_data.bin" \
-0xcf0000 $ESP_TOOL_WIN_PATH"lvgl.bin""
+0x20000 $ESP_TOOL_WIN_PATH"vb701n.bin" \
+0x810000 $ESP_TOOL_WIN_PATH"coco_pose.espdl"" )
 check_cmd_result ${FUNCNAME[0]}
 }
 
 esp_factory_flash() {
 echo "esp_factory_flash port: $PORT"
-cmd.exe /C "esptool --chip $CHIP_TYPE -b 1152000 -p $1 write-flash --flash-mode dio --flash-size detect --flash-freq 80m \
-0x0 $ESP_TOOL_WIN_PATH$COMBINE_OUTPUT_FILE"
+( cd "$ESP_TOOL_PATH" && cmd.exe /C "esptool --chip $CHIP_TYPE -b 1152000 -p $1 write-flash --flash-mode dio --flash-size detect --flash-freq 80m \
+0x0 $ESP_TOOL_WIN_PATH$COMBINE_OUTPUT_FILE" )
 check_cmd_result ${FUNCNAME[0]}
 }
 
 esp_app_flash() {
 echo "esp_app_flash port: $PORT"
-cmd.exe /C "esptool --chip $CHIP_TYPE -b 1152000 -p $1 write-flash --flash-mode dio --flash-size detect --flash-freq 80m \
-0x20000 $ESP_TOOL_WIN_PATH"volc_rtc.bin""
+( cd "$ESP_TOOL_PATH" && cmd.exe /C "esptool --chip $CHIP_TYPE -b 1152000 -p $1 write-flash --flash-mode dio --flash-size detect --flash-freq 80m \
+0x20000 $ESP_TOOL_WIN_PATH"vb701n.bin"" )
 check_cmd_result ${FUNCNAME[0]}
 }
 
 esp_addr2line() {
-xtensa-esp32-elf-addr2line -e build/volc_rtc.elf $@
+xtensa-esp32s3-elf-addr2line -e build/vb701n.elf $@
 check_cmd_result ${FUNCNAME[0]}
 }
 
@@ -182,7 +179,7 @@ case $1 in
     echo "    flash, -f                 flash factory firmware"
     echo "    app_flash, -af            flash app firmware"
     echo "    menuconfig, -mc           idf menuconfig"
-    echo "    addr2line, -a             addr2line for volc_rtc.elf"
+    echo "    addr2line, -a             addr2line for vb701n.elf"
     echo "    help, -h                  show cmd"
     echo "param:"
     echo "    flash or app_flash can select port, defult use com3"

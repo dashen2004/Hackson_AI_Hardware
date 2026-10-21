@@ -8,6 +8,10 @@
 #include "qm_string.h"
 #include "qm_work.h"
 
+#include "esp_heap_caps.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include <string.h>
 
 #if defined(CONFIG_QM_RES_MGR_SUPPORT) && CONFIG_QM_RES_MGR_SUPPORT
@@ -32,7 +36,8 @@ static qm_mutex_t s_lock;
 static uint8_t s_lock_ok;
 static qm_work_t s_finish_work;
 static qm_queue_t s_command_queue;
-static qm_task_t s_command_task;
+static StaticTask_t s_command_tcb;
+static StackType_t *s_command_stack;
 static qm_sem_t s_command_done;
 static uint8_t s_command_ready;
 
@@ -204,8 +209,21 @@ int playback_init(void)
         destroy_control();
         return -QM_ENOMEM;
     }
-    if (qm_task_new(&s_command_task, "playback", playback_command_task, NULL,
-                    PLAYBACK_WORKER_STACK, PLAYBACK_WORKER_PRIORITY) != QM_EOK) {
+    if (s_command_stack == NULL) {
+        s_command_stack = (StackType_t *)heap_caps_malloc(
+            PLAYBACK_WORKER_STACK, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (s_command_stack == NULL) {
+            (void)qm_sem_free(&s_command_done);
+            (void)qm_queue_free(&s_command_queue);
+            (void)qm_player_destroy(s_player);
+            s_player = NULL;
+            return -QM_ENOMEM;
+        }
+    }
+    if (xTaskCreateStatic(playback_command_task, "playback",
+                          PLAYBACK_WORKER_STACK / sizeof(StackType_t),
+                          NULL, PLAYBACK_WORKER_PRIORITY,
+                          s_command_stack, &s_command_tcb) == NULL) {
         (void)qm_sem_free(&s_command_done);
         (void)qm_queue_free(&s_command_queue);
         destroy_control();
@@ -307,7 +325,7 @@ static void playback_command_task(void *arg)
         free_cloud_command(command);
     }
     (void)qm_sem_signal(&s_command_done);
-    qm_task_exit(NULL);
+    vTaskDelete(NULL);
 }
 
 int playback_submit_cloud_play(const playback_cloud_play_request_t *request)
