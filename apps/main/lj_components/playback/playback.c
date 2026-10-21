@@ -215,8 +215,7 @@ int playback_init(void)
         if (s_command_stack == NULL) {
             (void)qm_sem_free(&s_command_done);
             (void)qm_queue_free(&s_command_queue);
-            (void)qm_player_destroy(s_player);
-            s_player = NULL;
+            destroy_control();
             return -QM_ENOMEM;
         }
     }

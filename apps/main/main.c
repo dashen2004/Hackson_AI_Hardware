@@ -11,7 +11,7 @@
 #include "ljyd_provision.h"
 #include "iot_control.h"
 #include "pomodoro.h"
-
+#include "ljyd_course.h"
 #if defined(CONFIG_QM_POSE_SUPPORT) && CONFIG_QM_POSE_SUPPORT
 #include "example_pose.h"
 #endif
@@ -87,6 +87,9 @@ void qm_application_start(void)
     }
     if (iot_control_init(ljyd_cloud_get_handle()) != QM_EOK) {
         QM_LOGE("main", "iot_control_init failed");
+    }
+    if (ljyd_course_init(ljyd_cloud_get_handle()) != QM_EOK) {
+        QM_LOGE("main", "ljyd_course_init failed");
     }
     if (ljyd_provision_init() != QM_EOK) {
         QM_LOGE("main", "ljyd_provision_init failed");
