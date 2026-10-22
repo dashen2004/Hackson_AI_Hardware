@@ -46,7 +46,7 @@ if not exist "%IDF_PATH%\install.bat" (
 echo.
 echo [1/2] Initializing repository submodules...
 echo Sources are taken from the URLs configured in "%ROOT_DIR%\.gitmodules".
-git -C "%ROOT_DIR%" submodule update --init --recursive --depth 1
+git -C "%ROOT_DIR%" submodule update --init --recursive --depth 1 esp-idf
 if errorlevel 1 (
     echo ERROR: Failed to initialize Git submodules.
     echo Check network access and the submodule URLs in .gitmodules.
@@ -77,13 +77,6 @@ if not "%IDF_INSTALL_EXIT_CODE%"=="0" (
     set "EXIT_CODE=%IDF_INSTALL_EXIT_CODE%"
     goto :failed
 )
-
-if not exist "%ROOT_DIR%\qumios-dev\components\qm_agent\include\qm_agent.h" (
-    echo ERROR: qumios-dev was not initialized correctly.
-    set "EXIT_CODE=1"
-    goto :failed
-)
-
 echo.
 echo Repository setup completed successfully.
 echo Run build.bat next to configure, build, erase, flash, and monitor the app.
