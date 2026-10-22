@@ -137,13 +137,15 @@ ESP32-S3 · 16 MB Flash · Wi-Fi / BLE · ESP-IDF + QUMIOS
 
 只使用现成烧录包体验设备的话，可以跳过本章，直接看 6.3 节。需要改代码、换 PID、裁剪功能时，按本章准备环境。
 
+本项目将 SDK 放在 `src/firmware/`，通过 Git 子模块固定版本；本地目录、SSH 获取方式与实际版本见[固件代码获取与运行说明](../../开发/固件代码获取与运行说明.md)。以下获取方式用于单独克隆上游；已有本项目工作区时，按该说明初始化即可，无需重复克隆。
+
 ### 4.1 前置条件
 
 - Git for Windows，且在新终端中可以执行 git --version。
 
 - Python 3，python 能在 PATH 中执行；如果指向 Microsoft Store 的应用别名，请先关闭该别名。
 
-- 仓库含 esp-idf、qumios-dev 两个子模块，必须用 git clone 获取，不能直接下载 ZIP 解压。
+- 原手册称 esp-idf、qumios-dev 是两个子模块；2026-10-22 获取的上游版本已将它们作为普通目录内置。建议使用 Git 获取完整源码并保留版本记录，实际依赖结构以所检出的版本为准。
 
 ### 4.2 获取代码
 
@@ -153,7 +155,7 @@ git clone --recurse-submodules https://gitee.com/xj-open/ljyd_xjwb03_agent_publi
 
 仓库地址：https://gitee.com/xj-open/ljyd_xjwb03_agent_public_developer
 
-如果子模块没有拉全，在仓库根目录补执行：
+递归初始化命令如下；当前 SDK 版本没有额外的 Git 子模块，此命令用于兼容其他版本的依赖：
 
 ```powershell
 git submodule update --init --recursive
@@ -161,7 +163,7 @@ git submodule update --init --recursive
 
 ### 4.3 安装工具链
 
-在仓库根目录执行一键安装脚本，它会拉取子模块并安装 CMake、Ninja、Xtensa 工具链和 Python 环境：
+在 SDK 根目录执行一键安装脚本；当前版本复用内置 ESP-IDF 源码，安装 CMake、Ninja、Xtensa 工具链和 Python 环境：
 
 ```batch
 install.bat
@@ -180,7 +182,7 @@ dev.bat build
 |报错|原因|处理|
 |---|---|---|
 |python env not found|工具链路径未找到|确认 install.bat 已成功；或设置 IDF_TOOLS_PATH 指向 .espressif 目录|
-|idf.py not found|esp-idf 子模块没有拉取|git submodule update --init esp-idf|
+|idf.py not found|SDK 中的 esp-idf 源码不完整，或 SDK 本身未初始化|先在主项目执行 git submodule update --init --recursive，再检查 SDK 的 esp-idf/tools/idf.py；当前版本中 esp-idf 是内置目录|
 |Invalid character escape|路径使用了反斜杠|脚本内部已使用正斜杠；自定义路径时不要写反斜杠|
 
 <a id="chapter-5"></a>
@@ -241,7 +243,9 @@ dev.bat build
 
 ### 6.3 不装环境也能烧：独立烧录包
 
-烧录包解压即用，这里有一个可用快速验证的烧录固件，点击脚本一键运行，能正常对话即为设备正常。在SDK 仓库demoflashpack 目录下。在该目录下执行以下命令：
+原手册说明：烧录包解压即用，SDK 仓库的 demoflashpack 目录下提供快速验证固件，点击脚本一键运行，能正常对话即为设备正常。在该目录下执行以下命令：
+
+> 2026-10-22 核对：本项目获取的 SDK 提交 `bebdc80209f1b3c2611f9602577be1c0d1ac4b96` 未包含 `demoflashpack/`。以下命令保留作原资料参考，烧录包获取位置待上游补充；当前可按 6.1、6.2 节自行编译后烧录。
 
 |命令|作用|
 |---|---|
@@ -459,7 +463,7 @@ esp32_combo/
 │   │   └── pose/              姿态识别示例（可选）
 │   └── build/                 编译产物
 ├── qumios-dev/                QUMIOS 组件层
-├── esp-idf/                   ESP-IDF 子模块
+├── esp-idf/                   ESP-IDF 源码（当前版本内置）
 └── dev.bat / install.bat      编译烧录入口
 ```
 
