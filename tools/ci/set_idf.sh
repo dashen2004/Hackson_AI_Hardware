@@ -22,8 +22,4 @@ else
     echo "The IDF branch is TAG:"${IDF_VERSION}
 fi
 
-# Removes the mqtt submodule, so the next submodule update doesn't fail
-rm -rf $IDF_PATH/components/mqtt/esp-mqtt
-python $ADF_PATH/tools/ci/ci_fetch_submodule.py -s all
-
 cmake --version

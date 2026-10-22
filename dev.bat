@@ -105,7 +105,7 @@ exit /b 1
 
 :noidfpy
 echo [dev] idf.py not found: %IDF_PY%
-echo [dev] esp-idf submodule missing? run: git submodule update --init esp-idf
+echo [dev] esp-idf checkout missing? make sure the working tree is complete
 exit /b 1
 
 rem ---------------- build: incremental ----------------

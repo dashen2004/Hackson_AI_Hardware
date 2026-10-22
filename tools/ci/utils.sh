@@ -155,29 +155,12 @@ function set_idf() {
   fi
 
   git log -1
-  # Removes the mqtt submodule, so the next submodule update doesn't fail
-  rm -rf $IDF_PATH/components/mqtt/esp-mqtt
-  git submodule update --init --recursive --depth 1
 
   popd
 }
 
-function update_submodule_remote() {
-  if [[ -n "${ADF_PATH}" ]]; then
-    pushd ${ADF_PATH}
-    # replace submodule to internal repository to speedup cloning
-    sed -i "s%https://github.com/espressif/esp-idf%${GITLAB_SSH_SERVER}/idf/esp-idf.git%" .gitmodules
-    sed -i "s%https://github.com/espressif/esp-adf-libs%${GITLAB_SSH_SERVER}/adf/esp-adf-libs.git%" .gitmodules
-    sed -i "s%https://github.com/espressif/esp-sr.git%${GITLAB_SSH_SERVER}/speech-recognition-framework/esp-sr.git%" .gitmodules
-    popd
-  else
-    echo "ADF_PATH not set"
-  fi
-}
-
 function fetch_idf_branch() {
   local idf_ver="${1}"
-  update_submodule_remote
   check_idf_version ${idf_ver}
 
   if [[ -n "${IDF_PATH}" ]]; then

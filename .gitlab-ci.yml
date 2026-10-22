@@ -23,28 +23,9 @@ variables:
   IDF_SKIP_CHECK_SUBMODULES: 1
   GIT_DEPTH: 1
 
-.execute_submodules: &execute_submodules |
-  if [[ "$DEEP_CLONE" == "true" ]]; then
-    git submodule update --init;
-  else
-    git -c submodule."esp-idf".update=none submodule update --init;
-    git submodule | grep esp-idf;
-    export ORIG_HEAD=`git submodule | grep "esp-idf" | sed -r 's/-(.*) esp-idf/\1/g' | awk '{print $1}'`;
-    echo ${ORIG_HEAD};
-    rm esp-idf -rf; mkdir esp-idf;
-    cd esp-idf; git init;
-    git remote add origin ${GITLAB_SSH_SERVER}/idf/esp-idf.git;
-    git fetch origin ${ORIG_HEAD}:${ORIG_HEAD} --depth 1;
-    git checkout ${ORIG_HEAD};
-    cd -;
-  fi
-
 before_script:
   - source $ADF_PATH/tools/ci/utils.sh
   - add_gitlab_ssh_keys
-  # replace submodule to internal repository to speedup cloning
-  - update_submodule_remote
-  - *execute_submodules
   # To disable set -e for automatic error detection, due to the switch_branch.sh use $? check return value
   - source $ADF_PATH/tools/ci/switch_branch.sh
   # - source esp-idf/tools/ci/configure_ci_environment.sh

@@ -12,6 +12,5 @@ echo "ADF_PATH: $ADF_PATH"
 echo "IDF_PATH: $IDF_PATH"
 
 pushd $IDF_PATH > /dev/null
-git submodule update --init --recursive --depth 1
 ./install.sh || return $?
 popd > /dev/null

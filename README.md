@@ -5,7 +5,7 @@
 通用能力（联网、配网、语音、音频、闹钟、播放）沉淀在 [qumios-dev](qumios-dev) 组件层，应用侧以插件形式集成在 `apps/main/lj_components`，每个插件由 `apps/main/qm_config/qm_config.h` 里的宏开关决定是否编入固件。
 
 - 主控：ESP32-S3（Xtensa 双核，Wi-Fi + BLE 5），16 MB Flash
-- 框架：ESP-IDF 5.4（本仓库 `esp-idf` 子模块）+ ESP-ADF 工程结构 + QUMIOS
+- 框架：ESP-IDF v5.4.1（源码已内置在本仓库 `esp-idf/` 目录）+ ESP-ADF 工程结构 + QUMIOS
 - 应用工程：[apps](apps)，固件名 `vb701n.bin`
 - 音频：VB701N 音频芯片，UART 通信，Opus 16 kHz / 单声道 / 20 ms
 
@@ -41,8 +41,8 @@ esp32_combo/
 │   ├── partitions.csv         分区表
 │   ├── sdkconfig              目标 esp32s3 / 16 MB / DIO 80 MHz
 │   └── build/                 编译产物（vb701n.bin）
-├── qumios-dev/                QUMIOS 组件层（子模块）
-├── esp-idf/                   ESP-IDF 5.4（子模块）
+├── qumios-dev/                QUMIOS 组件层（内置源码）
+├── esp-idf/                   ESP-IDF v5.4.1 源码（内置）
 ├── install.bat                首次安装工具链
 ├── build.bat                  传统一键：编译 + 烧录 + 串口监视
 ├── dev.bat                    编译 / 烧录入口（推荐日常使用）
@@ -55,23 +55,17 @@ esp32_combo/
 
 ### 1. 前置条件
 
-- Windows 10 / 11，使用 Git 工作树（不要下载 ZIP 解压），否则子模块无法初始化。
+- Windows 10 / 11，建议用 Git 工作树获取代码（便于更新）；解压 ZIP 包时需保证 `esp-idf/` 等目录完整。
 - Git for Windows，`git --version` 可执行。
 - Python 3，`python` 可执行；如果指向 Microsoft Store 的应用别名，请先在「应用执行别名」中关闭。
-- 能访问 `.gitmodules` 中的两个子模块仓库（Gitee）。
+- 能访问主仓库（Gitee），以及 ESP-IDF 工具链的下载地址。
 - 首次安装需要网络下载 CMake、Ninja、Xtensa 工具链。
 
 ### 2. 获取代码
 
 ```bat
-git clone --recurse-submodules https://gitee.com/xj-open/ljyd_xjwb03_agent_public_developer.git
+git clone https://gitee.com/xj-open/ljyd_xjwb03_agent_public_developer.git
 cd ljyd_xjwb03_agent_public_developer
-```
-
-子模块没拉全时补执行：
-
-```bat
-git submodule update --init --recursive
 ```
 
 ### 3. 安装工具链（只需一次）
@@ -82,7 +76,7 @@ git submodule update --init --recursive
 install.bat
 ```
 
-它会拉取 `esp-idf` 与 `qumios-dev` 子模块，并调用本地 ESP-IDF 的安装脚本准备 CMake、Ninja、Python 虚拟环境和 Xtensa 工具链。工具目录默认在 `%USERPROFILE%\.espressif`，可用环境变量 `IDF_TOOLS_PATH` 指定。
+它直接复用仓库内置的 `esp-idf` 源码，调用 `esp-idf\install.bat` 准备 CMake、Ninja、Python 虚拟环境和 Xtensa 工具链。工具目录默认在 `%USERPROFILE%\.espressif`，可用环境变量 `IDF_TOOLS_PATH` 指定。
 
 ### 4. 编译与烧录
 
@@ -167,7 +161,7 @@ Set-Location .\apps
 idf.py build
 ```
 
-`export.ps1` 会强制使用本仓库的 `esp-idf` 与 `qumios-dev`，并应用仓库中的 IDF 补丁。环境只在当前窗口有效，不能换个窗口再执行 `idf.py`。
+`export.ps1` 会强制使用本仓库内置的 `esp-idf` 与 `qumios-dev`，并应用仓库中的 IDF 补丁。环境只在当前窗口有效，不能换个窗口再执行 `idf.py`。
 
 ### cmd.exe
 
@@ -220,8 +214,8 @@ idf.py -p COMx flash monitor
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
 | 提示无法识别 `idf.py` | 当前窗口未导出环境 | 回到仓库根目录执行 `.\export.ps1`（PowerShell）或 `call export.bat`（cmd） |
-| `install.bat` 找不到 Python / Git | 命令不在 PATH，或 Python 指向应用别名 | 安装后重开终端；关闭 Microsoft Store 的 Python 别名 |
-| 子模块初始化失败 | 无权限 / 网络 / 代理 | 确认 Gitee 访问与凭据，重新执行 `install.bat`，或 `git submodule update --init --recursive` |
+| `install.bat` 找不到 Python | 命令不在 PATH，或 Python 指向应用别名 | 安装后重开终端；关闭 Microsoft Store 的 Python 别名 |
+| `esp-idf` 目录缺失或不完整 | 工作树不完整（例如用了裁剪过的压缩包） | 重新完整 clone 主仓库，再执行 `install.bat` |
 | `build.bat` 提示 IDF 或 qumios-dev 未初始化 | 未执行 `install.bat`，或目录是空的 | 先完整执行 `install.bat`，确认存在 `esp-idf\tools\idf.py` 与 `qumios-dev\components\qm_agent\include\qm_agent.h` |
 | `Activation script failed` | openocd / riscv32 gdb 版本不匹配 | 使用 `dev.bat` |
 | 仓库不在 `C:\esp32_combo` | 脚本按仓库相对路径工作 | 命令与配置中的路径替换为实际路径，含空格时加引号 |
