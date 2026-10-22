@@ -1,282 +1,44 @@
 # MPU-6000 / MPU-6050 产品规格书
 
-> 来源：`PS-MPU-6000A-EN.pdf`，共 57 页。正文按原始页序转换为 Markdown，文字、参数及表格直接排版；仅保留电路、时序、尺寸、实物等必要图示。英文资料保留英文；原表合并的参数行按项目展开，空白表示原表未给出该项数值。
-
-原资料版本：Revision 3.2；发布日期：2011-11-16。本次仅文档转换，未进行芯片或驱动验证。
-
-原文封面署名：InvenSense Inc.，1197 Borregas Ave, Sunnyvale, CA 94089 U.S.A.；Tel: +1 (408) 988-7339；Fax: +1 (408) 988-8104。网站：www.invensense.com。
-
-## 原文第 1 页
-
-### **MPU-6000 and MPU-6050** **Product Specification** **Revision 3.2**
-
-## 原文第 2 页
-
-#### **CONTENTS**
-
-**1** **REVISION HISTORY ................................................................................................................................... 5**
-
-**2** **PURPOSE AND SCOPE ............................................................................................................................. 5**
-
-**3** **PRODUCT OVERVIEW ............................................................................................................................... 6**
-
-3.1 MPU-60X0 OVERVIEW ........................................................................................................................ 7
-
-**4** **APPLICATIONS..........................................................................................................................................9**
-
-**5** **FEATURES................................................................................................................................................10**
-
-5.1
-
-5.2
-
-5.3
-
-5.4
-
-5.5
-
-GYROSCOPE FEATURES ..................................................................................................................... 10
-
-ACCELEROMETER FEATURES ............................................................................................................. 10
-
-ADDITIONAL FEATURES ...................................................................................................................... 10
-
-MOTIONPROCESSING ......................................................................................................................... 11
-
-CLOCKING ......................................................................................................................................... 11
-
-**6** **ELECTRICAL CHARACTERISTICS ......................................................................................................... 12**
-
-6.1
-
-6.2
-
-6.3
-
-6.4
-
-6.5
-
-6.6
-
-6.7
-
-6.8
-
-6.9
-
-GYROSCOPE SPECIFICATIONS ............................................................................................................12
-
-ACCELEROMETER SPECIFICATIONS.....................................................................................................13
-
-ELECTRICAL AND OTHER COMMON SPECIFICATIONS............................................................................14
-
-ELECTRICAL SPECIFICATIONS, CONTINUED .........................................................................................15
-
-ELECTRICAL SPECIFICATIONS, CONTINUED .........................................................................................16
-
-ELECTRICAL SPECIFICATIONS, CONTINUED .........................................................................................17
-
-I <sup>2</sup> C TIMING CHARACTERIZATION..........................................................................................................18
-
-SPI TIMING CHARACTERIZATION (MPU-6000 ONLY) ...........................................................................19
-
-ABSOLUTE MAXIMUM RATINGS ...........................................................................................................20
-
-**7** **APPLICATIONS INFORMATION .............................................................................................................. 21**
-
-7.1
-
-7.2
-
-7.3
-
-7.4
-
-7.5
-
-7.6
-
-7.7
-
-7.8
-
-7.9
-
-7.10
-
-7.11
-
-PIN OUT AND SIGNAL DESCRIPTION .................................................................................................... 21
-
-TYPICAL OPERATING CIRCUIT............................................................................................................. 22
-
-BILL OF MATERIALS FOR EXTERNAL COMPONENTS .............................................................................. 22
-
-RECOMMENDED POWER-ON PROCEDURE ........................................................................................... 23
-
-BLOCK DIAGRAM ............................................................................................................................... 24
-
-OVERVIEW ........................................................................................................................................ 24
-
-THREE-AXIS MEMS GYROSCOPE WITH 16-BIT ADCS AND SIGNAL CONDITIONING ................................ 25
-
-THREE-AXIS MEMS ACCELEROMETER WITH 16-BIT ADCS AND SIGNAL CONDITIONING ........................ 25
-
-DIGITAL MOTION PROCESSOR ............................................................................................................ 25
-
-PRIMARY I <sup>2</sup> C AND SPI SERIAL COMMUNICATIONS INTERFACES ............................................................ 25
-
-AUXILIARY I <sup>2</sup> C SERIAL INTERFACE ...................................................................................................... 26
-
-## 原文第 3 页
-
-7.12
-
-7.13
-
-7.14
-
-7.15
-
-7.16
-
-7.17
-
-7.18
-
-7.19
-
-7.20
-
-7.21
-
-SELF-TEST ........................................................................................................................................ 27
-
-MPU-60X0 SOLUTION FOR 9-AXIS SENSOR FUSION USING I <sup>2</sup> C INTERFACE .......................................... 28
-
-MPU-6000 USING SPI INTERFACE ..................................................................................................... 29
-
-INTERNAL CLOCK GENERATION .......................................................................................................... 30
-
-SENSOR DATA REGISTERS ................................................................................................................. 30
-
-FIFO ................................................................................................................................................ 30
-
-INTERRUPTS ...................................................................................................................................... 31
-
-DIGITAL-OUTPUT TEMPERATURE SENSOR .......................................................................................... 31
-
-BIAS AND LDO .................................................................................................................................. 31
-
-CHARGE PUMP .................................................................................................................................. 31
-
-**8** **PROGRAMMABLE INTERRUPTS ............................................................................................................ 32**
-
-8.1
-
-8.2
-
-8.3
-
-8.4
-
-FREE FALL, MOTION, AND ZERO MOTION SIGNAL PATHS ..................................................................... 33
-
-FREE FALL INTERRUPT ....................................................................................................................... 34
-
-MOTION INTERRUPT ........................................................................................................................... 34
-
-ZERO MOTION INTERRUPT.................................................................................................................. 35
-
-**9** **DIGITAL INTERFACE ............................................................................................................................... 36**
-
-9.1
-
-9.2
-
-9.3
-
-9.4
-
-9.5
-
-I <sup>2</sup> C AND SPI (MPU-6000 ONLY) SERIAL INTERFACES .......................................................................... 36
-
-I <sup>2</sup> C INTERFACE .................................................................................................................................. 36
-
-I <sup>2</sup> C COMMUNICATIONS PROTOCOL ...................................................................................................... 36
-
-I <sup>2</sup> C TERMS ........................................................................................................................................ 39
-
-SPI INTERFACE (MPU-6000 ONLY) .................................................................................................... 40
-
-**10** **SERIAL INTERFACE CONSIDERATIONS (MPU-6050) .......................................................................... 41**
-
-10.1
-
-10.2
-
-10.3
-
-10.4
-
-MPU-6050 SUPPORTED INTERFACES ................................................................................................. 41
-
-LOGIC LEVELS ................................................................................................................................... 41
-
-LOGIC LEVELS DIAGRAM FOR AUX __VDDIO_ = 0 .................................................................................. 42
-
-LOGIC LEVELS DIAGRAM FOR _AUX_VDDIO_ = 1 .................................................................................. 43
-
-**11** **ASSEMBLY ............................................................................................................................................... 44**
-
-11.1
-
-11.2
-
-11.3
-
-11.4
-
-11.5
-
-11.6
-
-11.7
-
-ORIENTATION OF AXES ...................................................................................................................... 44
-
-PACKAGE DIMENSIONS ...................................................................................................................... 45
-
-PCB DESIGN GUIDELINES .................................................................................................................. 46
-
-ASSEMBLY PRECAUTIONS .................................................................................................................. 47
-
-STORAGE SPECIFICATIONS................................................................................................................. 51
-
-PACKAGE MARKING SPECIFICATION .................................................................................................... 51
-
-TAPE & REEL SPECIFICATION ............................................................................................................. 52
-
-## 原文第 4 页
-
-11.8 LABEL .............................................................................................. **ERROR!** **BOOKMARK NOT DEFINED.**
-
-11.9 PACKAGING ...................................................................................... **ERROR!** **BOOKMARK NOT DEFINED.**
-
-**12** **RELIABILITY ............................................................................................................................................. 53**
-
-12.1 QUALIFICATION TEST POLICY ............................................................................................................. 55
-
-12.2 QUALIFICATION TEST PLAN ................................................................................................................ 55
-
-**13** **ENVIRONMENTAL COMPLIANCE ........................................................................................................... 56**
-
-## 原文第 5 页
-
-**1** **Revision History**
+用于查询芯片功能、电气参数、接口时序、应用电路和封装要求。参数表空白表示资料未给出该项数值。正文保留英文技术术语和章节编号，可通过阅读导航定位。
+
+> 来源：InvenSense，`PS-MPU-6000A-EN.pdf`，Revision 3.2，2011-11-16。未进行芯片、驱动或实物验证；实际模块版本与项目配置待确认。
+
+相关资料：[寄存器手册](RM-MPU-6000A-EN.md) · [模块原理图](MPU6050-V1-SCH.md) · [版本兼容说明](关于MPU6050模块新版本兼容问题的解决方案2.md)。
+
+## 阅读导航
+
+| 主题 | 入口 |
+| --- | --- |
+| 芯片功能与型号差异 | [3 Product Overview](#section-3) |
+| 电气参数与绝对最大额定值 | [6 Electrical Characteristics](#section-6) |
+| 芯片引脚与信号定义 | [7.1 Pin Out and Signal Description](#section-7-1) |
+| 典型应用电路与外围器件 | [7.2 Typical Operating Circuit](#section-7-2) |
+| 上电顺序 | [7.4 Recommended Power-on Procedure](#section-7-4) |
+| 运动检测与中断 | [8 Programmable Interrupts](#section-8) |
+| I²C 与 SPI 通信 | [9 Digital Interface](#section-9) |
+| MPU-6050 接口电平 | [10 Serial Interface Considerations (MPU-6050)](#section-10) |
+| 轴向、封装与 PCB 设计 | [11 Assembly](#section-11) |
+
+### 章节目录
+
+- [1 Revision History](#section-1)
+- [2 Purpose and Scope](#section-2)
+- [3 Product Overview](#section-3)
+- [4 Applications](#section-4)
+- [5 Features](#section-5)
+- [6 Electrical Characteristics](#section-6)
+- [7 Applications Information](#section-7)
+- [8 Programmable Interrupts](#section-8)
+- [9 Digital Interface](#section-9)
+- [10 Serial Interface Considerations (MPU-6050)](#section-10)
+- [11 Assembly](#section-11)
+- [12 Reliability](#section-12)
+- [13 Environmental Compliance](#section-13)
+
+<a id="section-1"></a>
+
+## 1 Revision History
 
 |Revision<br>Date|Revision|Description|
 |---|---|---|
@@ -289,77 +51,37 @@ TAPE & REEL SPECIFICATION ......................................................
 |10/24/2011|3.1|Edits for clarity<br>Changed operating voltage range to 2.375V-3.46V<br>Added accelerometer Intelligence Function increment value of 1m_g_/LSB<br>(Section 6.2)<br>Updated absolute maximum rating for acceleration (any axis, unpowered) from<br>0.3ms to 0.2ms (Section 6.9)<br>Modified absolute maximum rating for Latch-up to Level A and ±100mA (Section<br>6.9, 12.2)|
 |11/16/2011|3.2|**Updated self-test response specifications for Revision D parts dated with**<br>**date code 1147 (YYWW) or later.** <br>Edits for clarity<br>Added Gyro self-test (sections 5.1, 6.1, 7.6, 7.12)<br>Added Min/Max limits to Accel self-test response (section 6.2)<br>Updated Accelerometer low power mode operating currents (Section 6.3)<br>Added gyro self test to block diagram (section 7.5)<br>Updated packaging labels and descriptions (sections 11.8 & 11.9)|
 
-## 原文第 6 页
+<a id="section-2"></a>
 
-**2** **Purpose and Scope**
+## 2 Purpose and Scope
 
-This product specification provides advanced information regarding the electrical specification and design
-related information for the MPU-6000™ and MPU-6050™ Motion Processing Unit™, collectively called the
-MPU-60X0™ or MPU™.
+This product specification provides advanced information regarding the electrical specification and design related information for the MPU-6000™ and MPU-6050™ Motion Processing Unit™, collectively called the MPU-60X0™ or MPU™.
 
-Electrical characteristics are based upon design analysis and simulation results only. Specifications are
-subject to change without notice. Final specifications will be updated based upon characterization of
-production silicon. For references to register map and descriptions of individual registers, please refer to the
-MPU-6000/MPU-6050 Register Map and Register Descriptions document.
+Electrical characteristics are based upon design analysis and simulation results only. Specifications are subject to change without notice. Final specifications will be updated based upon characterization of production silicon. For references to register map and descriptions of individual registers, please refer to the MPU-6000/MPU-6050 Register Map and Register Descriptions document.
 
-**The self-test response specifications provided in this document pertain to Revision D parts with date**
-**codes of 1147 (YYWW) or later.** Please see Section 11.6 for package marking description details.
+**The self-test response specifications provided in this document pertain to Revision D parts with date** **codes of 1147 (YYWW) or later.** Please see Section 11.6 for package marking description details.
 
-## 原文第 7 页
+<a id="section-3"></a>
 
-**3** **Product Overview**
+## 3 Product Overview
 
-**3.1** **MPU-60X0 Overview**
-The MPU-60X0 Motion Processing Unit is the world’s first motion processing solution with integrated 9-Axis
-sensor fusion using its field-proven and proprietary MotionFusion™ engine for handset and tablet
-applications, game controllers, motion pointer remote controls, and other consumer devices. The MPU-60X0
-has an embedded 3-axis MEMS gyroscope, a 3-axis MEMS accelerometer, and a Digital Motion
-Processor™ (DMP™) hardware accelerator engine with an auxiliary I <sup>2</sup> C port that interfaces to 3 <sup>rd</sup> party digital
-sensors such as magnetometers. When connected to a 3-axis magnetometer, the MPU-60X0 delivers a
-complete 9-axis MotionFusion output to its primary I <sup>2</sup> C or SPI port (SPI is available on MPU-6000 only). The
-MPU-60X0 combines acceleration and rotational motion plus heading information into a single data stream
-for the application. This MotionProcessing™ technology integration provides a smaller footprint and has
-inherent cost advantages compared to discrete gyroscope plus accelerometer solutions. The MPU-60X0 is
-also designed to interface with multiple non-inertial digital sensors, such as pressure sensors, on its auxiliary
-I <sup>2</sup> C port. The MPU-60X0 is a 2 <sup>nd</sup> generation motion processor and is footprint compatible with the MPU30X0 family.
+<a id="section-3-1"></a>
 
-The MPU-60X0 features three 16-bit analog-to-digital converters (ADCs) for digitizing the gyroscope outputs
-and three 16-bit ADCs for digitizing the accelerometer outputs. For precision tracking of both fast and slow
-motions, the parts feature a user-programmable gyroscope full-scale range of ±250, ±500, ±1000, and
-±2000°/sec (dps) and a user-programmable accelerometer full-scale range of ±2 _g_, ±4 _g_, ±8 _g_, and ±16 _g_ .
+### 3.1 MPU-60X0 Overview
 
-An on-chip 1024 Byte FIFO buffer helps lower system power consumption by allowing the system processor
-to read the sensor data in bursts and then enter a low-power mode as the MPU collects more data. With all
-the necessary on-chip processing and sensor components required to support many motion-based use
-cases, the MPU-60X0 uniquely supports a variety of advanced motion-based applications entirely on-chip.
-The MPU-60X0 thus enables low-power MotionProcessing in portable applications with reduced processing
-requirements for the system processor. By providing an integrated MotionFusion output, the DMP in the
-MPU-60X0 offloads the intensive MotionProcessing computation requirements from the system processor,
-minimizing the need for frequent polling of the motion sensor output.
+The MPU-60X0 Motion Processing Unit is the world’s first motion processing solution with integrated 9-Axis sensor fusion using its field-proven and proprietary MotionFusion™ engine for handset and tablet applications, game controllers, motion pointer remote controls, and other consumer devices. The MPU-60X0 has an embedded 3-axis MEMS gyroscope, a 3-axis MEMS accelerometer, and a Digital Motion Processor™ (DMP™) hardware accelerator engine with an auxiliary I²C port that interfaces to 3 <sup>rd</sup> party digital sensors such as magnetometers. When connected to a 3-axis magnetometer, the MPU-60X0 delivers a complete 9-axis MotionFusion output to its primary I²C or SPI port (SPI is available on MPU-6000 only). The MPU-60X0 combines acceleration and rotational motion plus heading information into a single data stream for the application. This MotionProcessing™ technology integration provides a smaller footprint and has inherent cost advantages compared to discrete gyroscope plus accelerometer solutions. The MPU-60X0 is also designed to interface with multiple non-inertial digital sensors, such as pressure sensors, on its auxiliary I²C port. The MPU-60X0 is a 2 <sup>nd</sup> generation motion processor and is footprint compatible with the MPU30X0 family.
 
-Communication with all registers of the device is performed using either I <sup>2</sup> C at 400kHz or SPI at 1MHz
-(MPU-6000 only). For applications requiring faster communications, the sensor and interrupt registers may
-be read using SPI at 20MHz (MPU-6000 only). Additional features include an embedded temperature sensor
+The MPU-60X0 features three 16-bit analog-to-digital converters (ADCs) for digitizing the gyroscope outputs and three 16-bit ADCs for digitizing the accelerometer outputs. For precision tracking of both fast and slow motions, the parts feature a user-programmable gyroscope full-scale range of ±250, ±500, ±1000, and ±2000°/sec (dps) and a user-programmable accelerometer full-scale range of ±2 _g_, ±4 _g_, ±8 _g_, and ±16 _g_ .
 
-and an on-chip oscillator with ±1% variation over the operating temperature range.
+An on-chip 1024 Byte FIFO buffer helps lower system power consumption by allowing the system processor to read the sensor data in bursts and then enter a low-power mode as the MPU collects more data. With all the necessary on-chip processing and sensor components required to support many motion-based use cases, the MPU-60X0 uniquely supports a variety of advanced motion-based applications entirely on-chip. The MPU-60X0 thus enables low-power MotionProcessing in portable applications with reduced processing requirements for the system processor. By providing an integrated MotionFusion output, the DMP in the MPU-60X0 offloads the intensive MotionProcessing computation requirements from the system processor, minimizing the need for frequent polling of the motion sensor output.
 
-By leveraging its patented and volume-proven Nasiri-Fabrication platform, which integrates MEMS wafers
-with companion CMOS electronics through wafer-level bonding, InvenSense has driven the MPU-60X0
-package size down to a revolutionary footprint of 4x4x0.9mm (QFN), while providing the highest
-performance, lowest noise, and the lowest cost semiconductor packaging required for handheld consumer
-electronic devices. The part features a robust 10,000 _g_ shock tolerance, and has programmable low-pass
-filters for the gyroscopes, accelerometers, and the on-chip temperature sensor.
+Communication with all registers of the device is performed using either I²C at 400kHz or SPI at 1MHz (MPU-6000 only). For applications requiring faster communications, the sensor and interrupt registers may be read using SPI at 20MHz (MPU-6000 only). Additional features include an embedded temperature sensor and an on-chip oscillator with ±1% variation over the operating temperature range.
 
-For power supply flexibility, the MPU-60X0 operates from VDD power supply voltage range of 2.375V-3.46V.
-Additionally, the MPU-6050 provides a VLOGIC reference pin (in addition to its analog supply pin: VDD),
-which sets the logic levels of its I <sup>2</sup> C interface. The VLOGIC voltage may be 1.8V±5% or VDD.
+By leveraging its patented and volume-proven Nasiri-Fabrication platform, which integrates MEMS wafers with companion CMOS electronics through wafer-level bonding, InvenSense has driven the MPU-60X0 package size down to a revolutionary footprint of 4x4x0.9mm (QFN), while providing the highest performance, lowest noise, and the lowest cost semiconductor packaging required for handheld consumer electronic devices. The part features a robust 10,000 _g_ shock tolerance, and has programmable low-pass filters for the gyroscopes, accelerometers, and the on-chip temperature sensor.
 
-The MPU-6000 and MPU-6050 are identical, except that the MPU-6050 supports the I <sup>2</sup> C serial interface only,
-and has a separate VLOGIC reference pin. The MPU-6000 supports both I <sup>2</sup> C and SPI interfaces and has a
-single supply pin, VDD, which is both the device’s logic reference supply and the analog supply for the part.
-The table below outlines these differences:
+For power supply flexibility, the MPU-60X0 operates from VDD power supply voltage range of 2.375V-3.46V. Additionally, the MPU-6050 provides a VLOGIC reference pin (in addition to its analog supply pin: VDD), which sets the logic levels of its I²C interface. The VLOGIC voltage may be 1.8V±5% or VDD.
 
-## 原文第 8 页
+The MPU-6000 and MPU-6050 are identical, except that the MPU-6050 supports the I²C serial interface only, and has a separate VLOGIC reference pin. The MPU-6000 supports both I²C and SPI interfaces and has a single supply pin, VDD, which is both the device’s logic reference supply and the analog supply for the part. The table below outlines these differences:
 
 **Primary Differences between MPU-6000 and MPU-6050**
 
@@ -373,163 +95,161 @@ The table below outlines these differences:
 |**Pin 23**|SCL/SCLK|SCL|
 |**Pin 24**|SDA/SDI|SDA|
 
-## 原文第 9 页
+<a id="section-4"></a>
 
-**4** **Applications**
+## 4 Applications
 
-    - _BlurFree_ ™ technology (for Video/Still Image Stabilization)
+- _BlurFree_ ™ technology (for Video/Still Image Stabilization)
 
-    - _AirSign_ ™ technology (for Security/Authentication)
+- _AirSign_ ™ technology (for Security/Authentication)
 
-    - _TouchAnywhere_ ™ technology (for “no touch” UI Application Control/Navigation)
+- _TouchAnywhere_ ™ technology (for “no touch” UI Application Control/Navigation)
 
-    - _MotionCommand_ ™ technology (for Gesture Short-cuts)
+- _MotionCommand_ ™ technology (for Gesture Short-cuts)
 
-    - Motion-enabled game and application framework
+- Motion-enabled game and application framework
 
-    - InstantGesture™ iG™ gesture recognition
+- InstantGesture™ iG™ gesture recognition
 
-    - Location based services, points of interest, and dead reckoning
+- Location based services, points of interest, and dead reckoning
 
-    - Handset and portable gaming
+- Handset and portable gaming
 
-    - Motion-based game controllers
+- Motion-based game controllers
 
-    - 3D remote controls for Internet connected DTVs and set top boxes, 3D mice
+- 3D remote controls for Internet connected DTVs and set top boxes, 3D mice
 
-    - Wearable sensors for health, fitness and sports
+- Wearable sensors for health, fitness and sports
 
-    - Toys
+- Toys
 
-## 原文第 10 页
+<a id="section-5"></a>
 
-**5** **Features**
+## 5 Features
 
-**5.1** **Gyroscope Features**
+<a id="section-5-1"></a>
+
+### 5.1 Gyroscope Features
+
 The triple-axis MEMS gyroscope in the MPU-60X0 includes a wide range of features:
 
-  - Digital-output X-, Y-, and Z-Axis angular rate sensors (gyroscopes) with a user-programmable fullscale range of ±250, ±500, ±1000, and ±2000°/sec
+- Digital-output X-, Y-, and Z-Axis angular rate sensors (gyroscopes) with a user-programmable fullscale range of ±250, ±500, ±1000, and ±2000°/sec
 
-  - External sync signal connected to the FSYNC pin supports image, video and GPS synchronization
+- External sync signal connected to the FSYNC pin supports image, video and GPS synchronization
 
-  - Integrated 16-bit ADCs enable simultaneous sampling of gyros
+- Integrated 16-bit ADCs enable simultaneous sampling of gyros
 
-  - Enhanced bias and sensitivity temperature stability reduces the need for user calibration
+- Enhanced bias and sensitivity temperature stability reduces the need for user calibration
 
-  - Improved low-frequency noise performance
+- Improved low-frequency noise performance
 
-  - Digitally-programmable low-pass filter
+- Digitally-programmable low-pass filter
 
-  - Gyroscope operating current: 3.6mA
+- Gyroscope operating current: 3.6mA
 
-  - Standby current: 5µA
+- Standby current: 5µA
 
-  - Factory calibrated sensitivity scale factor
+- Factory calibrated sensitivity scale factor
 
-  - User self-test
+- User self-test
 
-**5.2** **Accelerometer Features**
+<a id="section-5-2"></a>
+
+### 5.2 Accelerometer Features
+
 The triple-axis MEMS accelerometer in MPU-60X0 includes a wide range of features:
 
-  - Digital-output triple-axis accelerometer with a programmable full scale range of ±2 _g_, ±4 _g_, ±8 _g_ and
-±16 _g_
+- Digital-output triple-axis accelerometer with a programmable full scale range of ±2 _g_, ±4 _g_, ±8 _g_ and ±16 _g_
 
-  - Integrated 16-bit ADCs enable simultaneous sampling of accelerometers while requiring no external
-multiplexer
+- Integrated 16-bit ADCs enable simultaneous sampling of accelerometers while requiring no external multiplexer
 
-  - Accelerometer normal operating current: 500µA
+- Accelerometer normal operating current: 500µA
 
-  - Low power accelerometer mode current: 10µA at 1.25Hz, 20µA at 5Hz, 60µA at 20Hz, 110µA at
-40Hz
+- Low power accelerometer mode current: 10µA at 1.25Hz, 20µA at 5Hz, 60µA at 20Hz, 110µA at 40Hz
 
-  - Orientation detection and signaling
+- Orientation detection and signaling
 
-  - Tap detection
+- Tap detection
 
-  - User-programmable interrupts
+- User-programmable interrupts
 
-  - Free-fall interrupt
+- Free-fall interrupt
 
-  - High-G interrupt
+- High-G interrupt
 
-  - Zero Motion/Motion interrupt
+- Zero Motion/Motion interrupt
 
-  - User self-test
+- User self-test
 
-**5.3** **Additional Features**
+<a id="section-5-3"></a>
+
+### 5.3 Additional Features
+
 The MPU-60X0 includes the following additional features:
 
-  - 9-Axis MotionFusion by the on-chip Digital Motion Processor (DMP)
+- 9-Axis MotionFusion by the on-chip Digital Motion Processor (DMP)
 
-  - Auxiliary master I <sup>2</sup> C bus for reading data from external sensors (e.g., magnetometer)
+- Auxiliary master I²C bus for reading data from external sensors (e.g., magnetometer)
 
-  - 3.9mA operating current when all 6 motion sensing axes and the DMP are enabled
+- 3.9mA operating current when all 6 motion sensing axes and the DMP are enabled
 
-  - VDD supply voltage range of 2.375V-3.46V
+- VDD supply voltage range of 2.375V-3.46V
 
-  - Flexible VLOGIC reference voltage supports multiple I <sup>2</sup> C interface voltages (MPU-6050 only)
+- Flexible VLOGIC reference voltage supports multiple I²C interface voltages (MPU-6050 only)
 
-  - Smallest and thinnest QFN package for portable devices: 4x4x0.9mm
+- Smallest and thinnest QFN package for portable devices: 4x4x0.9mm
 
-  - Minimal cross-axis sensitivity between the accelerometer and gyroscope axes
+- Minimal cross-axis sensitivity between the accelerometer and gyroscope axes
 
-  - 1024 byte FIFO buffer reduces power consumption by allowing host processor to read the data in
-bursts and then go into a low-power mode as the MPU collects more data
+- 1024 byte FIFO buffer reduces power consumption by allowing host processor to read the data in bursts and then go into a low-power mode as the MPU collects more data
 
-  - Digital-output temperature sensor
+- Digital-output temperature sensor
 
-  - User-programmable digital filters for gyroscope, accelerometer, and temp sensor
+- User-programmable digital filters for gyroscope, accelerometer, and temp sensor
 
-  - 10,000 _g_ shock tolerant
+- 10,000 _g_ shock tolerant
 
-  - 400kHz Fast Mode I <sup>2</sup> C for communicating with all registers
-
-## 原文第 11 页
+- 400kHz Fast Mode I²C for communicating with all registers
 
 - 1MHz SPI serial interface for communicating with all registers (MPU-6000 only)
 
-  - 20MHz SPI serial interface for reading sensor and interrupt registers (MPU-6000 only)
+- 20MHz SPI serial interface for reading sensor and interrupt registers (MPU-6000 only)
 
-  - MEMS structure hermetically sealed and bonded at wafer level
+- MEMS structure hermetically sealed and bonded at wafer level
 
-  - RoHS and Green compliant
+- RoHS and Green compliant
 
-**5.4** **MotionProcessing**
+<a id="section-5-4"></a>
 
-  - Internal Digital Motion Processing™ (DMP™) engine supports 3D MotionProcessing and gesture
-recognition algorithms
+### 5.4 MotionProcessing
 
-  - The MPU-60X0 collects gyroscope and accelerometer data while synchronizing data sampling at a
-user defined rate. The total dataset obtained by the MPU-60X0 includes 3-Axis gyroscope data, 3Axis accelerometer data, and temperature data. The MPU’s calculated output to the system
-processor can also include heading data from a digital 3-axis third party magnetometer.
+- Internal Digital Motion Processing™ (DMP™) engine supports 3D MotionProcessing and gesture recognition algorithms
 
-  - The FIFO buffers the complete data set, reducing timing requirements on the system processor by
+- The MPU-60X0 collects gyroscope and accelerometer data while synchronizing data sampling at a user defined rate. The total dataset obtained by the MPU-60X0 includes 3-Axis gyroscope data, 3Axis accelerometer data, and temperature data. The MPU’s calculated output to the system processor can also include heading data from a digital 3-axis third party magnetometer.
 
-allowing the processor burst read the FIFO data. After burst reading the FIFO data, the system
-processor can save power by entering a low-power sleep mode while the MPU collects more data.
+- The FIFO buffers the complete data set, reducing timing requirements on the system processor by allowing the processor burst read the FIFO data. After burst reading the FIFO data, the system processor can save power by entering a low-power sleep mode while the MPU collects more data.
 
-- Programmable interrupt supports features such as
-
-- Programmable interrupt supports features such as gesture recognition, panning, zooming, scrolling,
-
-zero-motion detection, tap detection, and shake detection
+- Programmable interrupt supports features such as gesture recognition, panning, zooming, scrolling, zero-motion detection, tap detection, and shake detection
 
 - Digitally-programmable low-pass filters
 
-- Low-power pedometer functionality allows the host processor to sleep while the DMP maintains the
-step count.
+- Low-power pedometer functionality allows the host processor to sleep while the DMP maintains the step count.
 
-**5.5** **Clocking**
+<a id="section-5-5"></a>
 
-  - On-chip timing generator ±1% frequency variation over full temperature range
+### 5.5 Clocking
 
-  - Optional external clock inputs of 32.768kHz or 19.2MHz
+- On-chip timing generator ±1% frequency variation over full temperature range
 
-## 原文第 12 页
+- Optional external clock inputs of 32.768kHz or 19.2MHz
 
-**6 Electrical Characteristics**
+<a id="section-6"></a>
 
-**6.1 Gyroscope Specifications**
+## 6 Electrical Characteristics
+
+<a id="section-6-1"></a>
+
+### 6.1 Gyroscope Specifications
 
 VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
@@ -569,9 +289,9 @@ VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
 1. The Y-Axis self-test has an opposite polarity from the X- and Z-Axes. However, the magnitude of the self-test limit is the same for all 3 axes.
 
-## 原文第 13 页
+<a id="section-6-2"></a>
 
-**6.2 Accelerometer Specifications**
+### 6.2 Accelerometer Specifications
 
 VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
@@ -602,9 +322,9 @@ VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
 1. Typical zero-g initial calibration tolerance value after MSL3 preconditioning.
 
-## 原文第 14 页
+<a id="section-6-3"></a>
 
-**6.3 Electrical and Other Common Specifications**
+### 6.3 Electrical and Other Common Specifications
 
 VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
@@ -632,9 +352,9 @@ VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 |Start-Up Time for Register Read/Write|||20|100|ms|
 |Specified Temperature Range|Performance parameters are not applicable beyond specified range|-40||+85|°C|
 
-## 原文第 15 页
+<a id="section-6-4"></a>
 
-**6.4 Electrical Specifications, Continued**
+### 6.4 Serial Interface and Digital I/O Specifications
 
 VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
@@ -664,9 +384,9 @@ VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
 Digital input pins: SDI/SDA, AD0, SCLK/SCL, FSYNC, /CS, CLKIN. VOH is the high-level output voltage; VOL1 is the low-level output voltage.
 
-## 原文第 16 页
+<a id="section-6-5"></a>
 
-**6.5 Electrical Specifications, Continued**
+### 6.5 Primary and Auxiliary I²C I/O Specifications
 
 Typical Operating Circuit of Section 7.2. VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
@@ -716,9 +436,9 @@ Typical Operating Circuit of Section 7.2. VDD = 2.375–3.46 V, VLOGIC (MPU-6050
 |tof, Output Fall Time from VIHmax to VILmax|Cb bus capacitance in pF|20 + 0.1 × Cb to 250|ns|
 |CI, Capacitance for Each I/O Pin||< 10|pF|
 
-## 原文第 17 页
+<a id="section-6-6"></a>
 
-**6.6 Electrical Specifications, Continued**
+### 6.6 Clock and Sample Rate Specifications
 
 Typical Operating Circuit of Section 7.2. VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
@@ -760,40 +480,63 @@ Typical Operating Circuit of Section 7.2. VDD = 2.375–3.46 V, VLOGIC (MPU-6050
 |Reference Clock Output|CLKOUTEN=1||1.024||MHz|
 |PLL Settling Time|||1|10|ms|
 
-## 原文第 18 页
+<a id="section-6-7"></a>
 
-**6.7** **I** <sup>**2**</sup> **C Timing Characterization**
-Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or
-VDD, TA = 25°C
+### 6.7 I²C Timing Characterization
 
-|Parameters|Conditions|Min|Typical|Max|Units|Notes|
-|---|---|---|---|---|---|---|
-|**I**<br>**2C TIMING**<br>fSCL, SCL Clock Frequency<br>tHD.STA, (Repeated) START Condition Hold<br>Time<br>tLOW, SCL Low Period<br>tHIGH, SCL High Period<br>tSU.STA, Repeated START Condition Setup<br>Time<br>tHD.DAT, SDA Data Hold Time<br>tSU.DAT, SDA Data Setup Time<br>tr, SDA and SCL Rise Time<br>tf, SDA and SCL Fall Time<br>tSU.STO, STOP Condition Setup Time<br>tBUF, Bus Free Time Between STOP and<br>START Condition<br>Cb, Capacitive Load for each Bus Line<br>tVD.DAT, Data Valid Time<br>tVD.ACK, Data Valid Acknowledge Time<br>|**I**<br>**2C FAST-MODE**<br> <br> <br> <br> <br> <br> <br> <br>Cb bus cap. from 10 to 400pF<br>Cb bus cap. from 10 to 400pF<br> <br> <br> <br> <br> <br>|<br>0.6<br>1.3<br>0.6<br>0.6<br>0 <br>100<br>20+0.1Cb <br>20+0.1Cb <br>0.6<br>1.3<br> <br> <br> <br>|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br>< 400<br> <br> <br>|400<br> <br> <br> <br> <br> <br> <br>300<br>300<br> <br> <br> <br>0.9<br>0.9|kHz<br>µs<br>µs<br>µs<br>µs<br>µs<br>ns<br>ns<br>ns<br>µs<br>µs<br>pF<br>µs<br>µs|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br>|
+Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or VDD, TA = 25°C
+
+| Parameter | Conditions | Min | Typical | Max | Units |
+| --- | --- | --- | --- | --- | --- |
+| fSCL, SCL Clock Frequency | I²C Fast-mode | | | 400 | kHz |
+| tHD.STA, (Repeated) START Condition Hold Time | I²C Fast-mode | 0.6 | | | μs |
+| tLOW, SCL Low Period | I²C Fast-mode | 1.3 | | | μs |
+| tHIGH, SCL High Period | I²C Fast-mode | 0.6 | | | μs |
+| tSU.STA, Repeated START Condition Setup Time | I²C Fast-mode | 0.6 | | | μs |
+| tHD.DAT, SDA Data Hold Time | I²C Fast-mode | 0 | | | μs |
+| tSU.DAT, SDA Data Setup Time | I²C Fast-mode | 100 | | | ns |
+| tr, SDA and SCL Rise Time | Cb = 10–400 pF | 20 + 0.1 × Cb | | 300 | ns |
+| tf, SDA and SCL Fall Time | Cb = 10–400 pF | 20 + 0.1 × Cb | | 300 | ns |
+| tSU.STO, STOP Condition Setup Time | I²C Fast-mode | 0.6 | | | μs |
+| tBUF, Bus Free Time Between STOP and START Condition | I²C Fast-mode | 1.3 | | | μs |
+| Cb, Capacitive Load for Each Bus Line | I²C Fast-mode | | < 400 | | pF |
+| tVD.DAT, Data Valid Time | I²C Fast-mode | | | 0.9 | μs |
+| tVD.ACK, Data Valid Acknowledge Time | I²C Fast-mode | | | 0.9 | μs |
+
+Timing characteristics apply to both primary and auxiliary I²C buses.
 
 **I** <sup>**2**</sup> **C Bus Timing Diagram**
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 18 页](img/PS-MPU-6000A-EN-p018.png)
+![I²C bus timing](img/PS-MPU-6000A-EN-p018.png)
 
-## 原文第 19 页
+<a id="section-6-8"></a>
 
-**6.8** **SPI Timing Characterization (MPU-6000 only)**
-Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or
-VDD,TA = -40°C to +85°C, unless otherwise noted.
+### 6.8 SPI Timing Characterization (MPU-6000 only)
 
-|Parameters|Conditions|Min|Typical|Max|Units|Notes|
-|---|---|---|---|---|---|---|
-|**SPI TIMING**<br>fSCLK, SCLK Clock Frequency<br>tLOW, SCLK Low Period<br>tHIGH, SCLK High Period<br>tSU.CS, CS Setup Time<br>tHD.CS, CS Hold Time<br>tSU.SDI, SDI Setup Time<br>tHD.SDI, SDI Hold Time<br>tVD.SDO, SDO Valid Time<br>tHD.SDO, SDO Hold Time<br>tDIS.SDO, SDO Output Disable Time|<br>Cload = 20pF<br>Cload = 20pF|400<br>400<br>8 <br>500<br>11<br>7 <br>4||1 <br>100<br>10|MHz<br>ns<br>ns<br>ns<br>ns<br>ns<br>ns<br>ns<br>ns<br>ns|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br>|
+Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or VDD,TA = -40°C to +85°C, unless otherwise noted.
+
+| Parameter | Conditions | Min | Typical | Max | Units |
+| --- | --- | --- | --- | --- | --- |
+| fSCLK, SCLK Clock Frequency | | | | 1 | MHz |
+| tLOW, SCLK Low Period | | 400 | | | ns |
+| tHIGH, SCLK High Period | | 400 | | | ns |
+| tSU.CS, CS Setup Time | | 8 | | | ns |
+| tHD.CS, CS Hold Time | | 500 | | | ns |
+| tSU.SDI, SDI Setup Time | | 11 | | | ns |
+| tHD.SDI, SDI Hold Time | | 7 | | | ns |
+| tVD.SDO, SDO Valid Time | Cload = 20 pF | | | 100 | ns |
+| tHD.SDO, SDO Hold Time | Cload = 20 pF | 4 | | | ns |
+| tDIS.SDO, SDO Output Disable Time | | | | 10 | ns |
 
 **SPI Bus Timing Diagram**
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 19 页](img/PS-MPU-6000A-EN-p019.png)
+![SPI bus timing](img/PS-MPU-6000A-EN-p019.png)
 
-## 原文第 20 页
+<a id="section-6-9"></a>
 
-**6.9** **Absolute Maximum Ratings**
-Stress above those listed as “Absolute Maximum Ratings” may cause permanent damage to the device.
-These are stress ratings only and functional operation of the device at these conditions is not implied.
-Exposure to the absolute maximum ratings conditions for extended periods may affect device reliability.
+### 6.9 Absolute Maximum Ratings
+
+Stress above those listed as “Absolute Maximum Ratings” may cause permanent damage to the device. These are stress ratings only and functional operation of the device at these conditions is not implied. Exposure to the absolute maximum ratings conditions for extended periods may affect device reliability.
 
 |Parameter|Rating|
 |---|---|
@@ -808,11 +551,13 @@ Exposure to the absolute maximum ratings conditions for extended periods may aff
 |Electrostatic Discharge (ESD) Protection|2kV (HBM);<br>200V (MM)|
 |Latch-up|JEDEC Class II (2),125°C<br>Level A, ±100mA|
 
-## 原文第 21 页
+<a id="section-7"></a>
 
-**7** **Applications Information**
+## 7 Applications Information
 
-**<u>7.1</u>** **<u>Pin Out and Signal Description</u>**
+<a id="section-7-1"></a>
+
+### 7.1 Pin Out and Signal Description
 
 |Pin Number|MPU-<br>6000|MPU-<br>6050|Pin Name|Pin Description|
 |---|---|---|---|---|
@@ -837,13 +582,19 @@ Exposure to the absolute maximum ratings conditions for extended periods may aff
 |24||Y|SDA|I²C serial data (SDA)|
 |2, 3, 4, 5, 14,<br>15, 16, 17|Y|Y|NC|Not internally connected. May be used for PCB trace routing.|
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 21 页](img/PS-MPU-6000A-EN-p021.png)
+![MPU-6000 and MPU-6050 pinout](img/PS-MPU-6000A-EN-p021.png)
 
-## 原文第 22 页
+<a id="section-7-2"></a>
 
-**7.2** **Typical Operating Circuit**
+### 7.2 Typical Operating Circuit
 
-**7.3** **Bill of Materials for External Components**
+![Typical operating circuit and external components](img/PS-MPU-6000A-EN-p022.png)
+
+<a id="section-7-3"></a>
+
+### 7.3 Bill of Materials for External Components
+
+Component labels refer to the [typical operating circuit](#section-7-2).
 
 |Component|Label|Specification|Quantity|
 |---|---|---|---|
@@ -854,305 +605,241 @@ Exposure to the absolute maximum ratings conditions for extended periods may aff
 
 - MPU-6050 Only.
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 22 页](img/PS-MPU-6000A-EN-p022.png)
+<a id="section-7-4"></a>
 
-## 原文第 23 页
+### 7.4 Recommended Power-on Procedure
 
-**7.4** **Recommended Power-on Procedure**
+![Recommended power-on procedure](img/PS-MPU-6000A-EN-p023.png)
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 23 页](img/PS-MPU-6000A-EN-p023.png)
+<a id="section-7-5"></a>
 
-## 原文第 24 页
+### 7.5 Block Diagram
 
-**7.5** **Block Diagram**
+![MPU-60X0 functional block diagram](img/PS-MPU-6000A-EN-p024.png)
 
-**7.6** **Overview**
+<a id="section-7-6"></a>
+
+### 7.6 Overview
+
 The MPU-60X0 is comprised of the following key blocks and functions:
 
-  - Three-axis MEMS rate gyroscope sensor with 16-bit ADCs and signal conditioning
+- Three-axis MEMS rate gyroscope sensor with 16-bit ADCs and signal conditioning
 
-  - Three-axis MEMS accelerometer sensor with 16-bit ADCs and signal conditioning
+- Three-axis MEMS accelerometer sensor with 16-bit ADCs and signal conditioning
 
-  - Digital Motion Processor (DMP) engine
+- Digital Motion Processor (DMP) engine
 
-  - Primary I <sup>2</sup> C and SPI (MPU-6000 only) serial communications interfaces
+- Primary I²C and SPI (MPU-6000 only) serial communications interfaces
 
-  - Auxiliary I <sup>2</sup> C serial interface for 3 <sup>rd</sup> party magnetometer & other sensors
+- Auxiliary I²C serial interface for 3 <sup>rd</sup> party magnetometer & other sensors
 
-  - Clocking
+- Clocking
 
-  - Sensor Data Registers
+- Sensor Data Registers
 
-  - FIFO
+- FIFO
 
-  - Interrupts
+- Interrupts
 
-  - Digital-Output Temperature Sensor
+- Digital-Output Temperature Sensor
 
-  - Gyroscope & Accelerometer Self-test
+- Gyroscope & Accelerometer Self-test
 
-  - Bias and LDO
+- Bias and LDO
 
-  - Charge Pump
+- Charge Pump
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 24 页](img/PS-MPU-6000A-EN-p024.png)
+<a id="section-7-7"></a>
 
-## 原文第 25 页
+### 7.7 Three-Axis MEMS Gyroscope with 16-bit ADCs and Signal Conditioning
 
-**7.7** **Three-Axis MEMS Gyroscope with 16-bit ADCs and Signal Conditioning**
-The MPU-60X0 consists of three independent vibratory MEMS rate gyroscopes, which detect rotation about
-the X-, Y-, and Z- Axes. When the gyros are rotated about any of the sense axes, the Coriolis Effect causes
-a vibration that is detected by a capacitive pickoff. The resulting signal is amplified, demodulated, and filtered
-to produce a voltage that is proportional to the angular rate. This voltage is digitized using individual on-chip
-16-bit Analog-to-Digital Converters (ADCs) to sample each axis. The full-scale range of the gyro sensors
-may be digitally programmed to ±250, ±500, ±1000, or ±2000 degrees per second (dps). The ADC sample
-rate is programmable from 8,000 samples per second, down to 3.9 samples per second, and user-selectable
-low-pass filters enable a wide range of cut-off frequencies.
+The MPU-60X0 consists of three independent vibratory MEMS rate gyroscopes, which detect rotation about the X-, Y-, and Z- Axes. When the gyros are rotated about any of the sense axes, the Coriolis Effect causes a vibration that is detected by a capacitive pickoff. The resulting signal is amplified, demodulated, and filtered to produce a voltage that is proportional to the angular rate. This voltage is digitized using individual on-chip 16-bit Analog-to-Digital Converters (ADCs) to sample each axis. The full-scale range of the gyro sensors may be digitally programmed to ±250, ±500, ±1000, or ±2000 degrees per second (dps). The ADC sample rate is programmable from 8,000 samples per second, down to 3.9 samples per second, and user-selectable low-pass filters enable a wide range of cut-off frequencies.
 
-**7.8** **Three-Axis MEMS Accelerometer with 16-bit ADCs and Signal Conditioning**
-The MPU-60X0’s 3-Axis accelerometer uses separate proof masses for each axis. Acceleration along a
-particular axis induces displacement on the corresponding proof mass, and capacitive sensors detect the
-displacement differentially. The MPU-60X0’s architecture reduces the accelerometers’ susceptibility to
-fabrication variations as well as to thermal drift. When the device is placed on a flat surface, it will measure
-0 _g_ on the X- and Y-axes and +1 _g_ on the Z-axis. The accelerometers’ scale factor is calibrated at the factory
-and is nominally independent of supply voltage. Each sensor has a dedicated sigma-delta ADC for providing
-digital outputs. The full scale range of the digital output can be adjusted to ±2 _g_, ±4 _g_, ±8 _g_, or ±16 _g_ .
+<a id="section-7-8"></a>
 
-**7.9** **Digital Motion Processor**
-The embedded Digital Motion Processor (DMP) is located within the MPU-60X0 and offloads computation of
-motion processing algorithms from the host processor. The DMP acquires data from accelerometers,
-gyroscopes, and additional 3 <sup>rd</sup> party sensors such as magnetometers, and processes the data. The resulting
-data can be read from the DMP’s registers, or can be buffered in a FIFO. The DMP has access to one of the
-MPU’s external pins, which can be used for generating interrupts.
+### 7.8 Three-Axis MEMS Accelerometer with 16-bit ADCs and Signal Conditioning
 
-The purpose of the DMP is to offload both timing requirements and processing power from the host
-processor. Typically, motion processing algorithms should be run at a high rate, often around 200Hz, in order
-to provide accurate results with low latency. This is required even if the application updates at a much lower
-rate; for example, a low power user interface may update as slowly as 5Hz, but the motion processing should
-still run at 200Hz. The DMP can be used as a tool in order to minimize power, simplify timing, simplify the
-software architecture, and save valuable MIPS on the host processor for use in the application.
+The MPU-60X0’s 3-Axis accelerometer uses separate proof masses for each axis. Acceleration along a particular axis induces displacement on the corresponding proof mass, and capacitive sensors detect the displacement differentially. The MPU-60X0’s architecture reduces the accelerometers’ susceptibility to fabrication variations as well as to thermal drift. When the device is placed on a flat surface, it will measure 0 _g_ on the X- and Y-axes and +1 _g_ on the Z-axis. The accelerometers’ scale factor is calibrated at the factory and is nominally independent of supply voltage. Each sensor has a dedicated sigma-delta ADC for providing digital outputs. The full scale range of the digital output can be adjusted to ±2 _g_, ±4 _g_, ±8 _g_, or ±16 _g_ .
 
-**7.10 Primary I** <sup>**2**</sup> **C and SPI Serial Communications Interfaces**
-The MPU-60X0 communicates to a system processor using either a SPI (MPU-6000 only) or an I <sup>2</sup> C serial
-interface. The MPU-60X0 always acts as a slave when communicating to the system processor. The LSB of
-the of the I <sup>2</sup> C slave address is set by pin 9 (AD0).
+<a id="section-7-9"></a>
+
+### 7.9 Digital Motion Processor
+
+The embedded Digital Motion Processor (DMP) is located within the MPU-60X0 and offloads computation of motion processing algorithms from the host processor. The DMP acquires data from accelerometers, gyroscopes, and additional 3 <sup>rd</sup> party sensors such as magnetometers, and processes the data. The resulting data can be read from the DMP’s registers, or can be buffered in a FIFO. The DMP has access to one of the MPU’s external pins, which can be used for generating interrupts.
+
+The purpose of the DMP is to offload both timing requirements and processing power from the host processor. Typically, motion processing algorithms should be run at a high rate, often around 200Hz, in order to provide accurate results with low latency. This is required even if the application updates at a much lower rate; for example, a low power user interface may update as slowly as 5Hz, but the motion processing should still run at 200Hz. The DMP can be used as a tool in order to minimize power, simplify timing, simplify the software architecture, and save valuable MIPS on the host processor for use in the application.
+
+<a id="section-7-10"></a>
+
+### 7.10 Primary I²C and SPI Serial Communications Interfaces
+
+The MPU-60X0 communicates to a system processor using either a SPI (MPU-6000 only) or an I²C serial interface. The MPU-60X0 always acts as a slave when communicating to the system processor. The LSB of the of the I²C slave address is set by pin 9 (AD0).
 
 The logic levels for communications between the MPU-60X0 and its master are as follows:
 
-  - <u>MPU-6000: The logic level for communications with the master is set by the voltage on VDD</u>
+- MPU-6000: The logic level for communications with the master is set by the voltage on VDD
 
-  - <u>MPU-6050: The logic level for communications with the master is set by the voltage on VLOGIC</u>
+- MPU-6050: The logic level for communications with the master is set by the voltage on VLOGIC
 
 For further information regarding the logic levels of the MPU-6050, please refer to Section 10.
 
-## 原文第 26 页
+<a id="section-7-11"></a>
 
-**7.11 Auxiliary I** <sup>**2**</sup> **C Serial Interface**
-The MPU-60X0 has an auxiliary I <sup>2</sup> C bus for communicating to an off-chip 3-Axis digital output magnetometer
-or other sensors. This bus has two operating modes:
+### 7.11 Auxiliary I²C Serial Interface
 
-  - <u>I</u> <sup>2</sup> <u>C Master Mode: The MPU-60X0 acts as a master to any external sensors connected to the</u>
-auxiliary I <sup><u>2</u></sup> C bus
+The MPU-60X0 has an auxiliary I²C bus for communicating to an off-chip 3-Axis digital output magnetometer or other sensors. This bus has two operating modes:
 
-  - <u>Pass-Through Mode: The MPU-60X0 directly connects the primary and auxiliary I</u> <sup>2</sup> C buses together,
-allowing the system processor to directly communicate with any external sensors.
+- I <sup>2</sup> C Master Mode: The MPU-60X0 acts as a master to any external sensors connected to the auxiliary I <sup>2</sup> C bus
+
+- Pass-Through Mode: The MPU-60X0 directly connects the primary and auxiliary I <sup>2</sup> C buses together, allowing the system processor to directly communicate with any external sensors.
 
 **Auxiliary I** <sup>**2**</sup> **C Bus Modes of Operation:**
 
-  - <u>I</u> <sup>2</sup> <u>C Master Mode: Allows the MPU-60X0 to directly access the data registers of external digital</u>
-sensors, such as a magnetometer. In this mode, the MPU-60X0 directly obtains data from auxiliary
-sensors, allowing the on-chip DMP to generate sensor fusion data without intervention from the
-system applications processor.
+- I <sup>2</sup> C Master Mode: Allows the MPU-60X0 to directly access the data registers of external digital sensors, such as a magnetometer. In this mode, the MPU-60X0 directly obtains data from auxiliary sensors, allowing the on-chip DMP to generate sensor fusion data without intervention from the system applications processor.
 
-For example, In I <sup>2</sup> C Master mode, the MPU-60X0 can be configured to perform burst reads,
-returning the following data from a magnetometer:
+For example, In I²C Master mode, the MPU-60X0 can be configured to perform burst reads, returning the following data from a magnetometer:
 
-          - X magnetometer data (2 bytes)
+- X magnetometer data (2 bytes)
 
-          - Y magnetometer data (2 bytes)
+- Y magnetometer data (2 bytes)
 
-          - Z magnetometer data (2 bytes)
+- Z magnetometer data (2 bytes)
 
-The I <sup>2</sup> C Master can be configured to read up to 24 bytes from up to 4 auxiliary sensors. A fifth sensor
-can be configured to work single byte read/write mode.
+The I²C Master can be configured to read up to 24 bytes from up to 4 auxiliary sensors. A fifth sensor can be configured to work single byte read/write mode.
 
-  - <u>Pass-Through Mode: Allows an external system processor to act as master and directly</u>
+- Pass-Through Mode: Allows an external system processor to act as master and directly communicate to the external sensors connected to the auxiliary I²C bus pins (AUX_DA and AUX_CL). In this mode, the auxiliary I²C bus control logic (3 <sup>rd</sup> party sensor interface block) of the MPU-60X0 is disabled, and the auxiliary I²C pins AUX_DA and AUX_CL (Pins 6 and 7) are connected to the main I²C bus (Pins 23 and 24) through analog switches.
 
-communicate to the external sensors connected to the auxiliary I <sup>2</sup> C bus pins (AUX_DA and
-AUX_CL). In this mode, the auxiliary I <sup>2</sup> C bus control logic (3 <sup>rd</sup> party sensor interface block) of the
-MPU-60X0 is disabled, and the auxiliary I <sup>2</sup> C pins AUX_DA and AUX_CL (Pins 6 and 7) are
-connected to the main I <sup>2</sup> C bus (Pins 23 and 24) through analog switches.
+Pass-Through Mode is useful for configuring the external sensors, or for keeping the MPU-60X0 in a low-power mode when only the external sensors are used.
 
-Pass-Through Mode is useful for configuring the external sensors, or for keeping the MPU-60X0 in a
-low-power mode when only the external sensors are used.
-
-In Pass-Through Mode the system processor can still access MPU-60X0 data through the I <sup>2</sup> C
-interface.
+In Pass-Through Mode the system processor can still access MPU-60X0 data through the I²C interface.
 
 **Auxiliary I** <sup>**2**</sup> **C Bus IO Logic Levels**
 
-  - <u>MPU-6000: The logic level of the auxiliary I</u> <sup>2</sup> C bus is VDD
+- MPU-6000: The logic level of the auxiliary I <sup>2</sup> C bus is VDD
 
-  - <u>MPU-6050: The logic level of the auxiliary I</u> <sup>2</sup> C bus can be programmed to be either VDD or VLOGIC
+- MPU-6050: The logic level of the auxiliary I <sup>2</sup> C bus can be programmed to be either VDD or VLOGIC
 
 For further information regarding the MPU-6050’s logic levels, please refer to Section 10.2.
 
-## 原文第 27 页
+<a id="section-7-12"></a>
 
-**7.12 Self-Test**
-Self-test allows for the testing of the mechanical and electrical portions of the sensors. The self-test for each
-measurement axis can be activated by controlling the bits of the Gyro and Accel control registers.
+### 7.12 Self-Test
 
-When self-test is activated, the electronics cause the sensors to be actuated and produce an output signal.
-The output signal is used to observe the self-test response.
+Self-test allows for the testing of the mechanical and electrical portions of the sensors. The self-test for each measurement axis can be activated by controlling the bits of the Gyro and Accel control registers.
+
+When self-test is activated, the electronics cause the sensors to be actuated and produce an output signal. The output signal is used to observe the self-test response.
 
 The self-test response is defined as follows:
 
 Self-test response = Sensor output with self-test enabled – Sensor output without self-test enabled
 
-The self-test response for each accelerometer axis is defined in the accelerometer specification table
-(Section 6.2). Similarly, for the gyro axes, self test allows the proof masses to be moved equivalent to a predefined Coriolis force, resulting in a change in sensor output. The self-test response for each gyroscope axis
-is defined in the gyroscope specification table (Section 6.1).
+The self-test response for each accelerometer axis is defined in the accelerometer specification table (Section 6.2). Similarly, for the gyro axes, self test allows the proof masses to be moved equivalent to a predefined Coriolis force, resulting in a change in sensor output. The self-test response for each gyroscope axis is defined in the gyroscope specification table (Section 6.1).
 
-For further information regarding the Gyro & Accel control registers, please refer to the MPU-6050 Register
-Map and Register Descriptions document.
+For further information regarding the Gyro & Accel control registers, please refer to the MPU-6050 Register Map and Register Descriptions document.
 
-## 原文第 28 页
+<a id="section-7-13"></a>
 
-**7.13 MPU-60X0 Solution for 9-axis Sensor Fusion Using I** <sup>**2**</sup> **C Interface**
-In the figure below, the system processor is an I <sup>2</sup> C master to the MPU-60X0. In addition, the MPU-60X0 is an
-I <sup>2</sup> C master to the optional external compass sensor. The MPU-60X0 has limited capabilities as an I <sup>2</sup> C
-Master, and depends on the system processor to manage the initial configuration of any auxiliary sensors.
-The MPU-60X0 has an interface bypass multiplexer, which connects the system processor I <sup>2</sup> C bus pins 23
-and 24 (SDA and SCL) directly to the auxiliary sensor I <sup>2</sup> C bus pins 6 and 7 (AUX_DA and AUX_CL).
+### 7.13 MPU-60X0 Solution for 9-axis Sensor Fusion Using I²C Interface
 
-Once the auxiliary sensors have been configured by the system processor, the interface bypass multiplexer
-should be disabled so that the MPU-60X0 auxiliary I <sup>2</sup> C master can take control of the sensor I <sup>2</sup> C bus and
-gather data from the auxiliary sensors.
+In the figure below, the system processor is an I²C master to the MPU-60X0. In addition, the MPU-60X0 is an I²C master to the optional external compass sensor. The MPU-60X0 has limited capabilities as an I²C Master, and depends on the system processor to manage the initial configuration of any auxiliary sensors. The MPU-60X0 has an interface bypass multiplexer, which connects the system processor I²C bus pins 23 and 24 (SDA and SCL) directly to the auxiliary sensor I²C bus pins 6 and 7 (AUX_DA and AUX_CL).
 
-For further information regarding I <sup>2</sup> C master control, please refer to Section 10.
+Once the auxiliary sensors have been configured by the system processor, the interface bypass multiplexer should be disabled so that the MPU-60X0 auxiliary I²C master can take control of the sensor I²C bus and gather data from the auxiliary sensors.
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 28 页](img/PS-MPU-6000A-EN-p028.png)
+For further information regarding I²C master control, please refer to Section 10.
 
-## 原文第 29 页
+![I²C connection for nine-axis sensor fusion](img/PS-MPU-6000A-EN-p028.png)
 
-**7.14 MPU-6000 Using SPI Interface**
-In the figure below, the system processor is an SPI master to the MPU-6000. Pins 8, 9, 23, and 24 are used
-to support the /CS, SDO, SCLK, and SDI signals for SPI communications. Because these SPI pins are
-shared with the I <sup>2</sup> C slave pins (9, 23 and 24), the system processor cannot access the auxiliary I <sup>2</sup> C bus
-through the interface bypass multiplexer, which connects the processor I <sup>2</sup> C interface pins to the sensor I <sup>2</sup> C
-interface pins.
+<a id="section-7-14"></a>
 
-Since the MPU-6000 has limited capabilities as an I <sup>2</sup> C Master, and depends on the system processor to
-manage the initial configuration of any auxiliary sensors, another method must be used for programming the
-sensors on the auxiliary sensor I <sup>2</sup> C bus pins 6 and 7 (AUX_DA and AUX_CL).
+### 7.14 MPU-6000 Using SPI Interface
 
-When using SPI communications between the MPU-6000 and the system processor, configuration of
-devices on the auxiliary I <sup>2</sup> C sensor bus can be achieved by using I <sup>2</sup> C Slaves 0-4 to perform read and write
-transactions on any device and register on the auxiliary I <sup>2</sup> C bus. The I <sup>2</sup> C Slave 4 interface can be used to
-perform only single byte read and write transactions.
+In the figure below, the system processor is an SPI master to the MPU-6000. Pins 8, 9, 23, and 24 are used to support the /CS, SDO, SCLK, and SDI signals for SPI communications. Because these SPI pins are shared with the I²C slave pins (9, 23 and 24), the system processor cannot access the auxiliary I²C bus through the interface bypass multiplexer, which connects the processor I²C interface pins to the sensor I²C interface pins.
 
-Once the external sensors have been configured, the MPU-6000 can perform single or multi-byte reads
-using the sensor I <sup>2</sup> C bus. The read results from the Slave 0-3 controllers can be written to the FIFO buffer as
+Since the MPU-6000 has limited capabilities as an I²C Master, and depends on the system processor to manage the initial configuration of any auxiliary sensors, another method must be used for programming the sensors on the auxiliary sensor I²C bus pins 6 and 7 (AUX_DA and AUX_CL).
 
-well as to the external sensor registers.
+When using SPI communications between the MPU-6000 and the system processor, configuration of devices on the auxiliary I²C sensor bus can be achieved by using I²C Slaves 0-4 to perform read and write transactions on any device and register on the auxiliary I²C bus. The I²C Slave 4 interface can be used to perform only single byte read and write transactions.
 
-For further information regarding the control of the MPU-60X0’s auxiliary I <sup>2</sup> C interface, please refer to the
+Once the external sensors have been configured, the MPU-6000 can perform single or multi-byte reads using the sensor I²C bus. The read results from the Slave 0-3 controllers can be written to the FIFO buffer as well as to the external sensor registers.
+
+For further information regarding the control of the MPU-60X0’s auxiliary I²C interface, please refer to the
 
 MPU-60X0 Register Map and Register Descriptions document.
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 29 页](img/PS-MPU-6000A-EN-p029.png)
+![SPI connection for nine-axis sensor fusion](img/PS-MPU-6000A-EN-p029.png)
 
-## 原文第 30 页
+<a id="section-7-15"></a>
 
-**7.15 Internal Clock Generation**
-The MPU-60X0 has a flexible clocking scheme, allowing a variety of internal or external clock sources to be
-used for the internal synchronous circuitry. This synchronous circuitry includes the signal conditioning and
-ADCs, the DMP, and various control circuits and registers. An on-chip PLL provides flexibility in the
-allowable inputs for generating this clock.
+### 7.15 Internal Clock Generation
+
+The MPU-60X0 has a flexible clocking scheme, allowing a variety of internal or external clock sources to be used for the internal synchronous circuitry. This synchronous circuitry includes the signal conditioning and ADCs, the DMP, and various control circuits and registers. An on-chip PLL provides flexibility in the allowable inputs for generating this clock.
 
 Allowable internal sources for generating the internal clock are:
 
-  - An internal relaxation oscillator
+- An internal relaxation oscillator
 
-  - Any of the X, Y, or Z gyros (MEMS oscillators with a variation of ±1% over temperature)
+- Any of the X, Y, or Z gyros (MEMS oscillators with a variation of ±1% over temperature)
 
 Allowable external clocking sources are:
 
-  - 32.768kHz square wave
+- 32.768kHz square wave
 
-  - 19.2MHz square wave
+- 19.2MHz square wave
 
-Selection of the source for generating the internal synchronous clock depends on the availability of external
-sources and the requirements for power consumption and clock accuracy. These requirements will most
-likely vary by mode of operation. For example, in one mode, where the biggest concern is power
-consumption, the user may wish to operate the Digital Motion Processor of the MPU-60X0 to process
-accelerometer data, while keeping the gyros off. In this case, the internal relaxation oscillator is a good clock
-choice. However, in another mode, where the gyros are active, selecting the gyros as the clock source
-provides for a more accurate clock source.
+Selection of the source for generating the internal synchronous clock depends on the availability of external sources and the requirements for power consumption and clock accuracy. These requirements will most likely vary by mode of operation. For example, in one mode, where the biggest concern is power consumption, the user may wish to operate the Digital Motion Processor of the MPU-60X0 to process accelerometer data, while keeping the gyros off. In this case, the internal relaxation oscillator is a good clock choice. However, in another mode, where the gyros are active, selecting the gyros as the clock source provides for a more accurate clock source.
 
-Clock accuracy is important, since timing errors directly affect the distance and angle calculations performed
-by the Digital Motion Processor (and by extension, by any processor).
+Clock accuracy is important, since timing errors directly affect the distance and angle calculations performed by the Digital Motion Processor (and by extension, by any processor).
 
-There are also start-up conditions to consider. When the MPU-60X0 first starts up, the device uses its
-internal clock until programmed to operate from another source. This allows the user, for example, to wait
-for the MEMS oscillators to stabilize before they are selected as the clock source.
+There are also start-up conditions to consider. When the MPU-60X0 first starts up, the device uses its internal clock until programmed to operate from another source. This allows the user, for example, to wait for the MEMS oscillators to stabilize before they are selected as the clock source.
 
-**7.16 Sensor Data Registers**
-The sensor data registers contain the latest gyro, accelerometer, auxiliary sensor, and temperature
-measurement data. They are read-only registers, and are accessed via the serial interface. Data from these
-registers may be read anytime. However, the interrupt function may be used to determine when new data is
-available.
+<a id="section-7-16"></a>
+
+### 7.16 Sensor Data Registers
+
+The sensor data registers contain the latest gyro, accelerometer, auxiliary sensor, and temperature measurement data. They are read-only registers, and are accessed via the serial interface. Data from these registers may be read anytime. However, the interrupt function may be used to determine when new data is available.
 
 For a table of interrupt sources please refer to Section 8.
 
-**7.17 FIFO**
-The MPU-60X0 contains a 1024-byte FIFO register that is accessible via the Serial Interface. The FIFO
-configuration register determines which data is written into the FIFO. Possible choices include gyro data,
-accelerometer data, temperature readings, auxiliary sensor readings, and FSYNC input. A FIFO counter
-keeps track of how many bytes of valid data are contained in the FIFO. The FIFO register supports burst
-reads. The interrupt function may be used to determine when new data is available.
+<a id="section-7-17"></a>
 
-For further information regarding the FIFO, please refer to the MPU-60X0 Register Map and Register
-Descriptions document.
+### 7.17 FIFO
 
-## 原文第 31 页
+The MPU-60X0 contains a 1024-byte FIFO register that is accessible via the Serial Interface. The FIFO configuration register determines which data is written into the FIFO. Possible choices include gyro data, accelerometer data, temperature readings, auxiliary sensor readings, and FSYNC input. A FIFO counter keeps track of how many bytes of valid data are contained in the FIFO. The FIFO register supports burst reads. The interrupt function may be used to determine when new data is available.
 
-**7.18 Interrupts**
-Interrupt functionality is configured via the Interrupt Configuration register. Items that are configurable include
-the INT pin configuration, the interrupt latching and clearing method, and triggers for the interrupt. Items that
-can trigger an interrupt are (1) Clock generator locked to new reference oscillator (used when switching clock
-sources); (2) new data is available to be read (from the FIFO and Data registers); (3) accelerometer event
-interrupts; and (4) the MPU-60X0 did not receive an acknowledge from an auxiliary sensor on the secondary
-I <sup>2</sup> C bus. The interrupt status can be read from the Interrupt Status register.
+For further information regarding the FIFO, please refer to the MPU-60X0 Register Map and Register Descriptions document.
 
-For further information regarding interrupts, please refer to the MPU-60X0 Register Map and Register
-Descriptions document.
+<a id="section-7-18"></a>
+
+### 7.18 Interrupts
+
+Interrupt functionality is configured via the Interrupt Configuration register. Items that are configurable include the INT pin configuration, the interrupt latching and clearing method, and triggers for the interrupt. Items that can trigger an interrupt are (1) Clock generator locked to new reference oscillator (used when switching clock sources); (2) new data is available to be read (from the FIFO and Data registers); (3) accelerometer event interrupts; and (4) the MPU-60X0 did not receive an acknowledge from an auxiliary sensor on the secondary I²C bus. The interrupt status can be read from the Interrupt Status register.
+
+For further information regarding interrupts, please refer to the MPU-60X0 Register Map and Register Descriptions document.
 
 For information regarding the MPU-60X0’s accelerometer event interrupts, please refer to Section 8.
 
-**7.19 Digital-Output Temperature Sensor**
-An on-chip temperature sensor and ADC are used to measure the MPU-60X0 die temperature. The
-readings from the ADC can be read from the FIFO or the Sensor Data registers.
+<a id="section-7-19"></a>
 
-**7.20 Bias and LDO**
-The bias and LDO section generates the internal supply and the reference voltages and currents required by
-the MPU-60X0. Its two inputs are an unregulated VDD of 2.375 to 3.46V and a VLOGIC logic reference
-supply voltage of 1.71V to VDD (MPU-6050 only). The LDO output is bypassed by a capacitor at REGOUT.
-For further details on the capacitor, please refer to the Bill of Materials for External Components (Section
-7.3).
+### 7.19 Digital-Output Temperature Sensor
 
-**7.21 Charge Pump**
-An on-board charge pump generates the high voltage required for the MEMS oscillators. Its output is
-bypassed by a capacitor at CPOUT. For further details on the capacitor, please refer to the Bill of Materials
-for External Components (Section 7.3).
+An on-chip temperature sensor and ADC are used to measure the MPU-60X0 die temperature. The readings from the ADC can be read from the FIFO or the Sensor Data registers.
 
-## 原文第 32 页
+<a id="section-7-20"></a>
 
-**8** **Programmable Interrupts**
+### 7.20 Bias and LDO
 
-The MPU-60X0 has a programmable interrupt system which can generate an interrupt signal on the INT pin.
-Status flags indicate the source of an interrupt. Interrupt sources may be enabled and disabled individually.
+The bias and LDO section generates the internal supply and the reference voltages and currents required by the MPU-60X0. Its two inputs are an unregulated VDD of 2.375 to 3.46V and a VLOGIC logic reference supply voltage of 1.71V to VDD (MPU-6050 only). The LDO output is bypassed by a capacitor at REGOUT. For further details on the capacitor, please refer to the Bill of Materials for External Components (Section 7.3).
+
+<a id="section-7-21"></a>
+
+### 7.21 Charge Pump
+
+An on-board charge pump generates the high voltage required for the MEMS oscillators. Its output is bypassed by a capacitor at CPOUT. For further details on the capacitor, please refer to the Bill of Materials for External Components (Section 7.3).
+
+<a id="section-8"></a>
+
+## 8 Programmable Interrupts
+
+The MPU-60X0 has a programmable interrupt system which can generate an interrupt signal on the INT pin. Status flags indicate the source of an interrupt. Interrupt sources may be enabled and disabled individually.
 
 **Table of Interrupt Sources**
 
@@ -1166,75 +853,55 @@ Status flags indicate the source of an interrupt. Interrupt sources may be enabl
 |I²C Master errors: Lost Arbitration, NACKs|I²C Master|
 |I²C Slave 4|I²C Master|
 
-For information regarding the interrupt enable/disable registers and flag registers, please refer to the MPU6000/MPU-6050 Register Map and Register Descriptions document. Some interrupt sources are explained
-below.
+For information regarding the interrupt enable/disable registers and flag registers, please refer to the MPU6000/MPU-6050 Register Map and Register Descriptions document. Some interrupt sources are explained below.
 
-## 原文第 33 页
+<a id="section-8-1"></a>
 
-**8.1** **Free Fall, Motion, and Zero Motion Signal Paths**
-The diagram below shows the signal path for the gyroscope and accelerometer sensors. Note that each
-digital low pass filter (DLPF) is configured identically, as is each sample rate divider and digital high pass
-filter (DHPF).
+### 8.1 Free Fall, Motion, and Zero Motion Signal Paths
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 33 页](img/PS-MPU-6000A-EN-p033.png)
+The diagram below shows the signal path for the gyroscope and accelerometer sensors. Note that each digital low pass filter (DLPF) is configured identically, as is each sample rate divider and digital high pass filter (DHPF).
 
-## 原文第 34 页
+![Free Fall, Motion and Zero Motion signal paths](img/PS-MPU-6000A-EN-p033.png)
 
-**8.2** **Free Fall Interrupt**
-Free fall is detected by checking if the accelerometer measurements from all 3 axes have an absolute value
-below a user-programmable threshold (acceleration threshold). For each sample where this condition is true
-(a qualifying sample), a counter is incremented. For each sample where this condition is false (a nonqualifying sample), the counter is decremented. Once the counter reaches a user-programmable threshold
-(the counter threshold), the Free Fall interrupt is triggered and a flag is set. The flag is cleared once the
-counter has decremented to zero. The counter does not increment above the counter threshold or decrement
-below zero.
+<a id="section-8-2"></a>
 
-The user is given several configuration parameters to fine tune Free Fall detection. Both, the acceleration
-threshold and counter threshold are user configurable. The FF_THR register allows the user to set a
-threshold in 1 m _g_ increments. The FF_DUR register allows the user to set duration in 1 ms increments.
+### 8.2 Free Fall Interrupt
 
-The decrement rate for non-qualifying samples is also configurable. The MOT_DETECT_CTRL register
-allows the user to specify whether a non-qualifying sample makes the counter reset to zero, or decrement in
-steps of 1, 2, or 4.
+Free fall is detected by checking if the accelerometer measurements from all 3 axes have an absolute value below a user-programmable threshold (acceleration threshold). For each sample where this condition is true (a qualifying sample), a counter is incremented. For each sample where this condition is false (a nonqualifying sample), the counter is decremented. Once the counter reaches a user-programmable threshold (the counter threshold), the Free Fall interrupt is triggered and a flag is set. The flag is cleared once the counter has decremented to zero. The counter does not increment above the counter threshold or decrement below zero.
 
-The [Free Fall interrupt diagram on original page 34](img/PS-MPU-6000A-EN-p034.png) shows a simplified example with just one axis. An example acceleration input signal
-(simplified to only show one axis), qualifying sample counter, and Free Fall flag are shown.
+The user is given several configuration parameters to fine tune Free Fall detection. Both, the acceleration threshold and counter threshold are user configurable. The FF_THR register allows the user to set a threshold in 1 m _g_ increments. The FF_DUR register allows the user to set duration in 1 ms increments.
 
-**8.3** **Motion Interrupt**
-The MPU-60X0 provides Motion detection capability with similar functionality to Free Fall detection.
-Accelerometer measurements are passed through a configurable digital high pass filter (DHPF) in order to
-eliminate bias due to gravity. A qualifying motion sample is one where the high passed sample from any axis
-has an absolute value exceeding a user-programmable threshold. A counter increments for each qualifying
-sample, and decrements for each non-qualifying sample. Once the counter reaches a user-programmable
-counter threshold, a motion interrupt is triggered. The axis and polarity which caused the interrupt to be
-triggered is flagged in the MOT_DETECT_STATUS register.
+The decrement rate for non-qualifying samples is also configurable. The MOT_DETECT_CTRL register allows the user to specify whether a non-qualifying sample makes the counter reset to zero, or decrement in steps of 1, 2, or 4.
 
-Like Free Fall detection, Motion detection has a configurable acceleration threshold MOT_THR specified in 1
-m _g_ increments. The counter threshold MOT_DUR is specified in 1 ms increments. The decrement rate has
-the same options as Free Fall detection, and is specified in the MOT_DETECT_CTRL register.
+The [Free Fall interrupt diagram](img/PS-MPU-6000A-EN-p034.png) shows a simplified example with just one axis. An example acceleration input signal (simplified to only show one axis), qualifying sample counter, and Free Fall flag are shown.
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 34 页](img/PS-MPU-6000A-EN-p034.png)
+<a id="section-8-3"></a>
 
-## 原文第 35 页
+### 8.3 Motion Interrupt
 
-**8.4** **Zero Motion Interrupt**
-The Zero Motion detection capability uses the digital high pass filter (DHPF) and a similar threshold scheme
-to that of Free Fall detection. Each axis of the high passed accelerometer measurement must have an
-absolute value less than a threshold specified in the ZRMOT_THR register, which can be increased in 1 m _g_
-increments. Each time a motion sample meets this condition, a counter increments. When this counter
-reaches a threshold specified in ZRMOT_DUR, an interrupt is generated.
+The MPU-60X0 provides Motion detection capability with similar functionality to Free Fall detection. Accelerometer measurements are passed through a configurable digital high pass filter (DHPF) in order to eliminate bias due to gravity. A qualifying motion sample is one where the high passed sample from any axis has an absolute value exceeding a user-programmable threshold. A counter increments for each qualifying sample, and decrements for each non-qualifying sample. Once the counter reaches a user-programmable counter threshold, a motion interrupt is triggered. The axis and polarity which caused the interrupt to be triggered is flagged in the MOT_DETECT_STATUS register.
 
-Unlike Free Fall or Motion detection, Zero Motion detection triggers an interrupt both when Zero Motion is
-first detected and when Zero Motion is no longer detected. While Free Fall and Motion are indicated with a
-flag which clears after being read, reading the state of the Zero Motion detected from the
-MOT_DETECT_STATUS register does not clear its status.
+Like Free Fall detection, Motion detection has a configurable acceleration threshold MOT_THR specified in 1 m _g_ increments. The counter threshold MOT_DUR is specified in 1 ms increments. The decrement rate has the same options as Free Fall detection, and is specified in the MOT_DETECT_CTRL register.
 
-## 原文第 36 页
+![Free Fall and Motion detection example](img/PS-MPU-6000A-EN-p034.png)
 
-**9** **Digital Interface**
+<a id="section-8-4"></a>
 
-**9.1** **I** <sup>**2**</sup> **C and SPI (MPU-6000 only) Serial Interfaces**
-The internal registers and memory of the MPU-6000/MPU-6050 can be accessed using either I <sup>2</sup> C at 400 kHz
-or SPI at 1MHz (MPU-6000 only). SPI operates in four-wire mode.
+### 8.4 Zero Motion Interrupt
+
+The Zero Motion detection capability uses the digital high pass filter (DHPF) and a similar threshold scheme to that of Free Fall detection. Each axis of the high passed accelerometer measurement must have an absolute value less than a threshold specified in the ZRMOT_THR register, which can be increased in 1 m _g_ increments. Each time a motion sample meets this condition, a counter increments. When this counter reaches a threshold specified in ZRMOT_DUR, an interrupt is generated.
+
+Unlike Free Fall or Motion detection, Zero Motion detection triggers an interrupt both when Zero Motion is first detected and when Zero Motion is no longer detected. While Free Fall and Motion are indicated with a flag which clears after being read, reading the state of the Zero Motion detected from the MOT_DETECT_STATUS register does not clear its status.
+
+<a id="section-9"></a>
+
+## 9 Digital Interface
+
+<a id="section-9-1"></a>
+
+### 9.1 I²C and SPI (MPU-6000 only) Serial Interfaces
+
+The internal registers and memory of the MPU-6000/MPU-6050 can be accessed using either I²C at 400 kHz or SPI at 1MHz (MPU-6000 only). SPI operates in four-wire mode.
 
 **Serial Interface**
 
@@ -1251,38 +918,29 @@ or SPI at 1MHz (MPU-6000 only). SPI operates in four-wire mode.
 
 **Note:**
 
-To prevent switching into I <sup>2</sup> C mode when using SPI (MPU-6000), the I <sup>2</sup> C interface should be disabled by
-setting the _I2C_IF_DIS_ configuration bit. Setting this bit should be performed immediately after waiting for the
-time specified by the “Start-Up Time for Register Read/Write” in Section 6.3.
+To prevent switching into I²C mode when using SPI (MPU-6000), the I²C interface should be disabled by setting the `I2C_IF_DIS` configuration bit. Setting this bit should be performed immediately after waiting for the time specified by the “Start-Up Time for Register Read/Write” in Section 6.3.
 
-For further information regarding the _I2C_IF_DIS_ bit, please refer to the MPU-60X0 Register Map and
-Register Descriptions document.
+For further information regarding the `I2C_IF_DIS` bit, please refer to the MPU-60X0 Register Map and Register Descriptions document.
 
-**9.2** **I** <sup>**2**</sup> **C Interface**
-I <sup>2</sup> C is a two-wire interface comprised of the signals serial data (SDA) and serial clock (SCL). In general, the
-lines are open-drain and bi-directional. In a generalized I <sup>2</sup> C interface implementation, attached devices can
-be a master or a slave. The master device puts the slave address on the bus, and the slave device with the
-matching address acknowledges the master.
+<a id="section-9-2"></a>
 
-The MPU-60X0 always operates as a slave device when communicating to the system processor, which thus
-acts as the master. SDA and SCL lines typically need pull-up resistors to VDD. The maximum bus speed is
+### 9.2 I²C Interface
+
+I²C is a two-wire interface comprised of the signals serial data (SDA) and serial clock (SCL). In general, the lines are open-drain and bi-directional. In a generalized I²C interface implementation, attached devices can be a master or a slave. The master device puts the slave address on the bus, and the slave device with the matching address acknowledges the master.
+
+The MPU-60X0 always operates as a slave device when communicating to the system processor, which thus acts as the master. SDA and SCL lines typically need pull-up resistors to VDD. The maximum bus speed is
 
 400 kHz.
 
-The slave address of the MPU-60X0 is b110100X which is 7 bits long. The LSB bit of the 7 bit address is
-determined by the logic level on pin AD0. This allows two MPU-60X0s to be connected to the same I <sup>2</sup> C bus.
-When used in this configuration, the address of the one of the devices should be b1101000 (pin AD0 is logic
-low) and the address of the other should be b1101001 (pin AD0 is logic high).
+The slave address of the MPU-60X0 is b110100X which is 7 bits long. The LSB bit of the 7 bit address is determined by the logic level on pin AD0. This allows two MPU-60X0s to be connected to the same I²C bus. When used in this configuration, the address of the one of the devices should be b1101000 (pin AD0 is logic low) and the address of the other should be b1101001 (pin AD0 is logic high).
 
-**9.3** **I** <sup>**2**</sup> **C Communications Protocol**
+<a id="section-9-3"></a>
+
+### 9.3 I²C Communications Protocol
+
 _START (S) and STOP (P) Conditions_
 
-Communication on the I <sup>2</sup> C bus starts when the master puts the START condition (S) on the bus, which is
-defined as a HIGH-to-LOW transition of the SDA line while SCL line is HIGH (see the [START and STOP conditions diagram on original page 37](img/PS-MPU-6000A-EN-p037.png)). The bus is
-considered to be busy until the master puts a STOP condition (P) on the bus, which is defined as a LOW to
-HIGH transition on the SDA line while SCL is HIGH (see the [same diagram on original page 37](img/PS-MPU-6000A-EN-p037.png)).
-
-## 原文第 37 页
+Communication on the I²C bus starts when the master puts the START condition (S) on the bus, which is defined as a HIGH-to-LOW transition of the SDA line while SCL line is HIGH (see the [START and STOP conditions diagram](img/PS-MPU-6000A-EN-p037.png)). The bus is considered to be busy until the master puts a STOP condition (P) on the bus, which is defined as a LOW to HIGH transition on the SDA line while SCL is HIGH (see the [same diagram](img/PS-MPU-6000A-EN-p037.png)).
 
 Additionally, the bus remains busy if a repeated START (Sr) is generated instead of a STOP condition.
 
@@ -1290,44 +948,21 @@ Additionally, the bus remains busy if a repeated START (Sr) is generated instead
 
 _Data Format / Acknowledge_
 
-I <sup>2</sup> C data bytes are defined to be 8-bits long. There is no restriction to the number of bytes transmitted per
-data transfer. Each byte transferred must be followed by an acknowledge (ACK) signal. The clock for the
-acknowledge signal is generated by the master, while the receiver generates the actual acknowledge signal
-by pulling down SDA and holding it low during the HIGH portion of the acknowledge clock pulse.
+I²C data bytes are defined to be 8-bits long. There is no restriction to the number of bytes transmitted per data transfer. Each byte transferred must be followed by an acknowledge (ACK) signal. The clock for the acknowledge signal is generated by the master, while the receiver generates the actual acknowledge signal by pulling down SDA and holding it low during the HIGH portion of the acknowledge clock pulse.
 
-If a slave is busy and cannot transmit or receive another byte of data until some other task has been
-performed, it can hold SCL LOW, thus forcing the master into a wait state. Normal data transfer resumes
-when the slave is ready, and releases the clock line (refer to the following figure).
+If a slave is busy and cannot transmit or receive another byte of data until some other task has been performed, it can hold SCL LOW, thus forcing the master into a wait state. Normal data transfer resumes when the slave is ready, and releases the clock line (refer to the following figure).
 
 **Acknowledge on the I** <sup>**2**</sup> **C Bus**
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 37 页](img/PS-MPU-6000A-EN-p037.png)
-
-## 原文第 38 页
+![I²C START, STOP and acknowledgement timing](img/PS-MPU-6000A-EN-p037.png)
 
 _Communications_
 
-After beginning communications with the START condition (S), the master sends a 7-bit slave address
-followed by an 8 <sup>th</sup> bit, the read/write bit. The read/write bit indicates whether the master is receiving data from
-or is writing to the slave device. Then, the master releases the SDA line and waits for the acknowledge
-signal (ACK) from the slave device. Each byte transferred must be followed by an acknowledge bit. To
-acknowledge, the slave device pulls the SDA line LOW and keeps it LOW for the high period of the SCL line.
-Data transmission is always terminated by the master with a STOP condition (P), thus freeing the
-communications line. However, the master can generate a repeated START condition (Sr), and address
-another slave without first generating a STOP condition (P). A LOW to HIGH transition on the SDA line while
-SCL is HIGH defines the stop condition. All SDA changes should take place when SCL is low, with the
-exception of start and stop conditions.
+After beginning communications with the START condition (S), the master sends a 7-bit slave address followed by an 8 <sup>th</sup> bit, the read/write bit. The read/write bit indicates whether the master is receiving data from or is writing to the slave device. Then, the master releases the SDA line and waits for the acknowledge signal (ACK) from the slave device. Each byte transferred must be followed by an acknowledge bit. To acknowledge, the slave device pulls the SDA line LOW and keeps it LOW for the high period of the SCL line. Data transmission is always terminated by the master with a STOP condition (P), thus freeing the communications line. However, the master can generate a repeated START condition (Sr), and address another slave without first generating a STOP condition (P). A LOW to HIGH transition on the SDA line while SCL is HIGH defines the stop condition. All SDA changes should take place when SCL is low, with the exception of start and stop conditions.
 
 **Complete I** <sup>**2**</sup> **C Data Transfer**
 
-To write the internal MPU-60X0 registers, the master transmits the start condition (S), followed by the I <sup>2</sup> C
-address and the write bit (0). At the 9 <sup>th</sup> clock cycle (when the clock is high), the MPU-60X0 acknowledges the
-transfer. Then the master puts the register address (RA) on the bus. After the MPU-60X0 acknowledges the
-reception of the register address, the master puts the register data onto the bus. This is followed by the ACK
-signal, and data transfer may be concluded by the stop condition (P). To write multiple bytes after the last
-ACK signal, the master can continue outputting data rather than transmitting a stop signal. In this case, the
-MPU-60X0 automatically increments the register address and loads the data to the appropriate register. The
-following figures show single and two-byte write sequences.
+To write the internal MPU-60X0 registers, the master transmits the start condition (S), followed by the I²C address and the write bit (0). At the 9 <sup>th</sup> clock cycle (when the clock is high), the MPU-60X0 acknowledges the transfer. Then the master puts the register address (RA) on the bus. After the MPU-60X0 acknowledges the reception of the register address, the master puts the register data onto the bus. This is followed by the ACK signal, and data transfer may be concluded by the stop condition (P). To write multiple bytes after the last ACK signal, the master can continue outputting data rather than transmitting a stop signal. In this case, the MPU-60X0 automatically increments the register address and loads the data to the appropriate register. The following figures show single and two-byte write sequences.
 
 _Single-Byte Write Sequence_
 
@@ -1341,16 +976,9 @@ _Burst Write Sequence_
 |---|---|---|---|---|---|---|---|---|---|---|
 |Slave|||ACK||ACK||ACK||ACK||
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 38 页](img/PS-MPU-6000A-EN-p038.png)
+![I²C transfer and write sequences](img/PS-MPU-6000A-EN-p038.png)
 
-## 原文第 39 页
-
-To read the internal MPU-60X0 registers, the master sends a start condition, followed by the I <sup>2</sup> C address and
-a write bit, and then the register address that is going to be read. Upon receiving the ACK signal from the
-MPU-60X0, the master transmits a start signal followed by the slave address and read bit. As a result, the
-MPU-60X0 sends an ACK signal and the data. The communication ends with a not acknowledge (NACK)
-signal and a stop bit from master. The NACK condition is defined such that the SDA line remains high at the
-9 <sup>th</sup> clock cycle. The following figures show single and two-byte read sequences.
+To read the internal MPU-60X0 registers, the master sends a start condition, followed by the I²C address and a write bit, and then the register address that is going to be read. Upon receiving the ACK signal from the MPU-60X0, the master transmits a start signal followed by the slave address and read bit. As a result, the MPU-60X0 sends an ACK signal and the data. The communication ends with a not acknowledge (NACK) signal and a stop bit from master. The NACK condition is defined such that the SDA line remains high at the 9 <sup>th</sup> clock cycle. The following figures show single and two-byte read sequences.
 
 _Single-Byte Read Sequence_
 
@@ -1364,7 +992,11 @@ _Burst Read Sequence_
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 |Slave|||ACK||ACK|||ACK|DATA||DATA|||
 
-**<u>9.4</u>** **<u>I</u>** <sup>**2**</sup> **<u>C Terms</u>**
+![I²C read sequences](img/PS-MPU-6000A-EN-p039.png)
+
+<a id="section-9-4"></a>
+
+### 9.4 I²C Terms
 
 |Signal|Description|
 |---|---|
@@ -1378,21 +1010,15 @@ _Burst Read Sequence_
 |DATA|Transmit or received data|
 |P|Stop condition: SDA going from low to high while SCL is high|
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 39 页](img/PS-MPU-6000A-EN-p039.png)
+<a id="section-9-5"></a>
 
-## 原文第 40 页
+### 9.5 SPI Interface (MPU-6000 only)
 
-**9.5** **SPI Interface (MPU-6000 only)**
-SPI is a 4-wire synchronous serial interface that uses two control lines and two data lines. The MPU-6000
-always operates as a Slave device during standard Master-Slave SPI operation.
+SPI is a 4-wire synchronous serial interface that uses two control lines and two data lines. The MPU-6000 always operates as a Slave device during standard Master-Slave SPI operation.
 
-With respect to the Master, the Serial Clock output (SCLK), the Serial Data Output (SDO) and the Serial
-Data Input (SDI) are shared among the Slave devices. Each SPI slave device requires its own Chip Select
-(/CS) line from the master.
+With respect to the Master, the Serial Clock output (SCLK), the Serial Data Output (SDO) and the Serial Data Input (SDI) are shared among the Slave devices. Each SPI slave device requires its own Chip Select (/CS) line from the master.
 
-/CS goes low (active) at the start of transmission and goes back high (inactive) at the end. Only one /CS line
-is active at a time, ensuring that only one slave is selected at any given time. The /CS lines of the nonselected slave devices are held high, causing their SDO lines to remain in a high-impedance (high-z) state
-so that they do not interfere with any active devices.
+/CS goes low (active) at the start of transmission and goes back high (inactive) at the end. Only one /CS line is active at a time, ensuring that only one slave is selected at any given time. The /CS lines of the nonselected slave devices are held high, causing their SDO lines to remain in a high-impedance (high-z) state so that they do not interfere with any active devices.
 
 _SPI Operational Features_
 
@@ -1400,19 +1026,15 @@ _SPI Operational Features_
 2. Data is latched on the rising edge of SCLK
 3. Data should be transitioned on the falling edge of SCLK
 4. The maximum frequency of SCLK is 1MHz
-5. SPI read and write operations are completed in 16 or more clock cycles (two or more bytes). The
-first byte contains the SPI Address, and the following byte(s) contain(s) the SPI data. The first
-bit of the first byte contains the Read/Write bit and indicates the Read (1) or Write (0) operation.
-The following 7 bits contain the Register Address. In cases of multiple-byte Read/Writes, data is
-two or more bytes:
+5. SPI read and write operations are completed in 16 or more clock cycles (two or more bytes). The first byte contains the SPI Address, and the following byte(s) contain(s) the SPI data. The first bit of the first byte contains the Read/Write bit and indicates the Read (1) or Write (0) operation. The following 7 bits contain the Register Address. In cases of multiple-byte Read/Writes, data is two or more bytes:
 
-_<u>SPI Address format</u>_
+_SPI Address format_
 
 |MSB|||||||LSB|
 |---|---|---|---|---|---|---|---|
 |R/W|A6|A5|A4|A3|A2|A1|A0|
 
-_<u>SPI Data format</u>_
+_SPI Data format_
 
 |MSB|||||||LSB|
 |---|---|---|---|---|---|---|---|
@@ -1420,95 +1042,89 @@ _<u>SPI Data format</u>_
 
 6. Supports Single or Burst Read/Writes.
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 40 页](img/PS-MPU-6000A-EN-p040.png)
+![SPI master and slave connections](img/PS-MPU-6000A-EN-p040.png)
 
-## 原文第 41 页
+<a id="section-10"></a>
 
-**10 Serial Interface Considerations (MPU-6050)**
+## 10 Serial Interface Considerations (MPU-6050)
 
-**10.1 MPU-6050 Supported Interfaces**
-The MPU-6050 supports I <sup>2</sup> C communications on both its primary (microprocessor) serial interface and its
-auxiliary interface.
+<a id="section-10-1"></a>
 
-**10.2 Logic Levels**
+### 10.1 MPU-6050 Supported Interfaces
+
+The MPU-6050 supports I²C communications on both its primary (microprocessor) serial interface and its auxiliary interface.
+
+<a id="section-10-2"></a>
+
+### 10.2 Logic Levels
+
 The MPU-6050’s I/O logic levels are set to be either VDD or VLOGIC, as shown in the table below.
 
-**I/O Logic Levels vs.** **_AUX_VDDIO_**
+**I/O Logic Levels vs.** **`AUX_VDDIO`**
 
 |AUX_VDDIO|MICROPROCESSOR LOGIC LEVELS<br>(Pins: SDA, SCL, AD0, CLKIN, INT)|AUXILLARY LOGIC LEVELS<br>(Pins: AUX_DA, AUX_CL)|
 |---|---|---|
 |0|VLOGIC|VLOGIC|
 |1|VLOGIC|VDD|
 
-Note: The power-on-reset value for _AUX_VDDIO_ is 0.
+Note: The power-on-reset value for `AUX_VDDIO` is 0.
 
-VLOGIC may be set to be equal to VDD or to another voltage. However, VLOGIC must be ≤ VDD at all
-times. When _AUX_VDDIO_ is set to 0 (its power-on-reset value), VLOGIC is the power supply voltage for
-both the microprocessor system bus and the auxiliary I <sup>2</sup> C bus, as shown in the figure of Section 10.3. When
-_AUX_VDDIO_ is set to 1, VLOGIC is the power supply voltage for the microprocessor system bus and VDD is
-the supply for the auxiliary I <sup>2</sup> C bus, as shown in the figure of Section 10.4.
+VLOGIC may be set to be equal to VDD or to another voltage. However, VLOGIC must be ≤ VDD at all times. When `AUX_VDDIO` is set to 0 (its power-on-reset value), VLOGIC is the power supply voltage for both the microprocessor system bus and the auxiliary I²C bus, as shown in the figure of Section 10.3. When `AUX_VDDIO` is set to 1, VLOGIC is the power supply voltage for the microprocessor system bus and VDD is the supply for the auxiliary I²C bus, as shown in the figure of Section 10.4.
 
-## 原文第 42 页
+<a id="section-10-3"></a>
 
-**10.3 Logic Levels Diagram for AUX** **__VDDIO_** **= 0**
-The figure below depicts a sample circuit with a third party magnetometer attached to the auxiliary I <sup>2</sup> C bus. It
-shows logic levels and voltage connections for _AUX_VDDIO_ = 0. Note: Actual configuration will depend on
-the auxiliary sensors used.
+### 10.3 Logic Levels Diagram for AUX_VDDIO = 0
 
-**I/O Levels and Connections for** **_AUX_VDDIO_** **= 0**
+The figure below depicts a sample circuit with a third party magnetometer attached to the auxiliary I²C bus. It shows logic levels and voltage connections for `AUX_VDDIO` = 0. Note: Actual configuration will depend on the auxiliary sensors used.
+
+**I/O Levels and Connections for** **`AUX_VDDIO`** **= 0**
 
 **Notes:**
 
-1. AUX_VDDIO determines the IO voltage levels of AUX_DA and AUX_CL
-(0 = set output levels relative to VLOGIC)
+1. AUX_VDDIO determines the IO voltage levels of AUX_DA and AUX_CL (0 = set output levels relative to VLOGIC)
 2. CLKOUT is referenced to VDD.
 3. All other MPU-6050 logic IOs are referenced to VLOGIC.
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 42 页](img/PS-MPU-6000A-EN-p042.png)
+![MPU-6050 logic levels with AUX_VDDIO = 0](img/PS-MPU-6000A-EN-p042.png)
 
-## 原文第 43 页
+<a id="section-10-4"></a>
 
-**10.4 Logic Levels Diagram for** **_AUX_VDDIO_** **= 1**
-The figure below depicts a sample circuit with a 3 <sup>rd</sup> party magnetometer attached to the auxiliary I <sup>2</sup> C bus. It
-shows logic levels and voltage connections for _AUX_VDDIO_ = 1. This configuration is useful when the
-auxiliary sensor has only one supply for logic and power. Note: Actual configuration will depend on the
-auxiliary sensors used.
+### 10.4 Logic Levels Diagram for AUX_VDDIO = 1
 
-**I/O Levels and Connections for Two Example Power Configurations (** **_AUX_VDDIO_** **= 1)**
+The figure below depicts a sample circuit with a 3 <sup>rd</sup> party magnetometer attached to the auxiliary I²C bus. It shows logic levels and voltage connections for `AUX_VDDIO` = 1. This configuration is useful when the auxiliary sensor has only one supply for logic and power. Note: Actual configuration will depend on the auxiliary sensors used.
+
+**I/O Levels and Connections for Two Example Power Configurations (** **`AUX_VDDIO`** **= 1)**
 
 **Notes:**
 
-1. _AUX_VDDIO_ determines the IO voltage levels of AUX_DA and AUX_CL. _AUX_VDDIO_ = 1 sets
-output levels relative to VDD.
-2. 3 <sup>rd</sup> -party auxiliary device logic levels are referenced to VDD. Setting INT1 and INT2 to open drain
-configuration provides voltage compatibility when VDD ≠ VLOGIC. When VDD = VLOGIC, INT1 and
-INT2 may be set to push-pull outputs, and external pull-up resistors are not needed.
+1. `AUX_VDDIO` determines the IO voltage levels of AUX_DA and AUX_CL. `AUX_VDDIO` = 1 sets output levels relative to VDD.
+2. 3 <sup>rd</sup> -party auxiliary device logic levels are referenced to VDD. Setting INT1 and INT2 to open drain configuration provides voltage compatibility when VDD ≠ VLOGIC. When VDD = VLOGIC, INT1 and INT2 may be set to push-pull outputs, and external pull-up resistors are not needed.
 3. CLKOUT is referenced to VDD.
 4. All other MPU-6050 logic IOs are referenced to VLOGIC.
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 43 页](img/PS-MPU-6000A-EN-p043.png)
+![MPU-6050 logic levels with AUX_VDDIO = 1](img/PS-MPU-6000A-EN-p043.png)
 
-## 原文第 44 页
+<a id="section-11"></a>
 
-**11 Assembly**
+## 11 Assembly
 
-This section provides general guidelines for assembling InvenSense Micro Electro-Mechanical Systems
-(MEMS) gyros packaged in Quad Flat No leads package (QFN) surface mount integrated circuits.
+This section provides general guidelines for assembling InvenSense Micro Electro-Mechanical Systems (MEMS) gyros packaged in Quad Flat No leads package (QFN) surface mount integrated circuits.
 
-**11.1 Orientation of Axes**
-The diagram below shows the orientation of the axes of sensitivity and the polarity of rotation. Note the pin 1
-identifier (•) in the figure.
+<a id="section-11-1"></a>
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 44 页](img/PS-MPU-6000A-EN-p044.png)
+### 11.1 Orientation of Axes
 
-## 原文第 45 页
+The diagram below shows the orientation of the axes of sensitivity and the polarity of rotation. Note the pin 1 identifier (•) in the figure.
 
-**11.2 Package Dimensions**
+![Sensor axis orientation and rotation polarity](img/PS-MPU-6000A-EN-p044.png)
+
+<a id="section-11-2"></a>
+
+### 11.2 Package Dimensions
 
 24 Lead QFN (4x4x0.9) mm NiPdAu Lead-frame finish
 
-
-封装各视图、引脚 1 标识及四角引脚尺寸的位置关系见本页尺寸图。
+封装各视图、引脚 1 标识及四角引脚尺寸的位置关系见下方封装尺寸图。
 
 |Symbol|Minimum (mm)|Nominal (mm)|Maximum (mm)|
 |---|---|---|---|
@@ -1527,17 +1143,15 @@ identifier (•) in the figure.
 |L1|0.35|0.40|0.45|
 |s|0.05|‐‐‐|0.15|
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 45 页](img/PS-MPU-6000A-EN-p045.png)
+![24-lead QFN package dimensions](img/PS-MPU-6000A-EN-p045.png)
 
+<a id="section-11-3"></a>
 
-## 原文第 46 页
+### 11.3 PCB Design Guidelines
 
-**11.3 PCB Design Guidelines**
-The Pad Diagram using a JEDEC type extension with solder rising on the outer edge is shown below. The
-Pad Dimensions Table shows pad sizing (mean dimensions) recommended for the MPU-60X0 product.
+The Pad Diagram using a JEDEC type extension with solder rising on the outer edge is shown below. The Pad Dimensions Table shows pad sizing (mean dimensions) recommended for the MPU-60X0 product.
 
 JEDEC type extension with solder rising on outer edge
-
 
 |Symbol|Description|Nominal dimension (mm)|
 |---|---|---|
@@ -1559,69 +1173,53 @@ JEDEC type extension with solder rising on outer edge
 |L2|Land Length|0.80|
 |L3|Land Length|0.85|
 
-
 **PCB Dimensions Table (for PCB Lay-out Diagram)**
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 46 页](img/PS-MPU-6000A-EN-p046.png)
+![Recommended PCB pad layout](img/PS-MPU-6000A-EN-p046.png)
 
+<a id="section-11-4"></a>
 
-## 原文第 47 页
+### 11.4 Assembly Precautions
 
-**11.4 Assembly Precautions**
+<a id="section-11-4-1"></a>
 
-**11.4.1 Gyroscope Surface Mount Guidelines**
+#### 11.4.1 Gyroscope Surface Mount Guidelines
 
-InvenSense MEMS Gyros sense rate of rotation. In addition, gyroscopes sense mechanical stress coming
-from the printed circuit board (PCB). This PCB stress can be minimized by adhering to certain design rules:
+InvenSense MEMS Gyros sense rate of rotation. In addition, gyroscopes sense mechanical stress coming from the printed circuit board (PCB). This PCB stress can be minimized by adhering to certain design rules:
 
-When using MEMS gyroscope components in plastic packages, PCB mounting and assembly can cause
-package stress. This package stress in turn can affect the output offset and its value over a wide range of
-temperatures. This stress is caused by the mismatch between the Coefficient of Linear Thermal Expansion
-(CTE) of the package material and the PCB. Care must be taken to avoid package stress due to mounting.
+When using MEMS gyroscope components in plastic packages, PCB mounting and assembly can cause package stress. This package stress in turn can affect the output offset and its value over a wide range of temperatures. This stress is caused by the mismatch between the Coefficient of Linear Thermal Expansion (CTE) of the package material and the PCB. Care must be taken to avoid package stress due to mounting.
 
-Traces connected to pads should be as symmetric as possible. Maximizing symmetry and balance for pad
-connection will help component self alignment and will lead to better control of solder paste reduction after
-reflow.
+Traces connected to pads should be as symmetric as possible. Maximizing symmetry and balance for pad connection will help component self alignment and will lead to better control of solder paste reduction after reflow.
 
-Any material used in the surface mount assembly process of the MEMS gyroscope should be free of
-restricted RoHS elements or compounds. Pb-free solders should be used for assembly.
+Any material used in the surface mount assembly process of the MEMS gyroscope should be free of restricted RoHS elements or compounds. Pb-free solders should be used for assembly.
 
-**11.4.2 Exposed Die Pad Precautions**
+<a id="section-11-4-2"></a>
 
-The MPU-60X0 has very low active and standby current consumption. The exposed die pad is not required
-for heat sinking, and should not be soldered to the PCB. Failure to adhere to this rule can induce
-performance changes due to package thermo-mechanical stress. There is no electrical connection between
-the pad and the CMOS.
+#### 11.4.2 Exposed Die Pad Precautions
 
-**11.4.3 Trace Routing**
+The MPU-60X0 has very low active and standby current consumption. The exposed die pad is not required for heat sinking, and should not be soldered to the PCB. Failure to adhere to this rule can induce performance changes due to package thermo-mechanical stress. There is no electrical connection between the pad and the CMOS.
 
-Routing traces or vias under the gyro package such that they run under the exposed die pad is prohibited.
-Routed active signals may harmonically couple with the gyro MEMS devices, compromising gyro response.
-These devices are designed with the drive frequencies as follows: X = 33±3Khz, Y = 30±3Khz, and
-Z=27±3Khz. To avoid harmonic coupling don’t route active signals in non-shielded signal planes directly
-below, or above the gyro package. Note: For best performance, design a ground plane under the e-pad to
-reduce PCB signal noise from the board on which the gyro device is mounted. If the gyro device is stacked
-under an adjacent PCB board, design a ground plane directly above the gyro device to shield active signals
-from the adjacent PCB board.
+<a id="section-11-4-3"></a>
 
-**11.4.4 Component Placement**
+#### 11.4.3 Trace Routing
 
-Do not place large insertion components such as keyboard or similar buttons, connectors, or shielding boxes
-at a distance of less than 6 mm from the MEMS gyro. Maintain generally accepted industry design practices
-for component placement near the MPU-60X0 to prevent noise coupling and thermo-mechanical stress.
+Routing traces or vias under the gyro package such that they run under the exposed die pad is prohibited. Routed active signals may harmonically couple with the gyro MEMS devices, compromising gyro response. These devices are designed with the drive frequencies as follows: X = 33±3Khz, Y = 30±3Khz, and Z=27±3Khz. To avoid harmonic coupling don’t route active signals in non-shielded signal planes directly below, or above the gyro package. Note: For best performance, design a ground plane under the e-pad to reduce PCB signal noise from the board on which the gyro device is mounted. If the gyro device is stacked under an adjacent PCB board, design a ground plane directly above the gyro device to shield active signals from the adjacent PCB board.
 
-**11.4.5 PCB Mounting and Cross-Axis Sensitivity**
+<a id="section-11-4-4"></a>
 
-Orientation errors of the gyroscope and accelerometer mounted to the printed circuit board can cause crossaxis sensitivity in which one gyro or accel responds to rotation or acceleration about another axis,
-respectively. For example, the X-axis gyroscope may respond to rotation about the Y or Z axes. The
-orientation mounting errors are illustrated in the [orientation error diagram on original page 48](img/PS-MPU-6000A-EN-p048.png).
+#### 11.4.4 Component Placement
 
-## 原文第 48 页
+Do not place large insertion components such as keyboard or similar buttons, connectors, or shielding boxes at a distance of less than 6 mm from the MEMS gyro. Maintain generally accepted industry design practices for component placement near the MPU-60X0 to prevent noise coupling and thermo-mechanical stress.
 
-The table below shows the cross-axis sensitivity as a percentage of the gyroscope or accelerometer’s
-sensitivity for a given orientation error, respectively.
+<a id="section-11-4-5"></a>
 
-**<u>Cross-Axis Sensitivity vs. Orientation Error</u>**
+#### 11.4.5 PCB Mounting and Cross-Axis Sensitivity
+
+Orientation errors of the gyroscope and accelerometer mounted to the printed circuit board can cause crossaxis sensitivity in which one gyro or accel responds to rotation or acceleration about another axis, respectively. For example, the X-axis gyroscope may respond to rotation about the Y or Z axes. The orientation mounting errors are illustrated in the [orientation error diagram](img/PS-MPU-6000A-EN-p048.png).
+
+The table below shows the cross-axis sensitivity as a percentage of the gyroscope or accelerometer’s sensitivity for a given orientation error, respectively.
+
+**Cross-Axis Sensitivity vs. Orientation Error**
 
 |Orientation Error<br>(θ or Φ)|Cross-Axis Sensitivity<br>(sinθ or sinΦ)|
 |---|---|
@@ -1629,64 +1227,45 @@ sensitivity for a given orientation error, respectively.
 |0.5º|0.87%|
 |1º|1.75%|
 
-The specifications for cross-axis sensitivity in Section 6.1 and Section 6.2 include the effect of the die
-orientation error with respect to the package.
+The specifications for cross-axis sensitivity in Section 6.1 and Section 6.2 include the effect of the die orientation error with respect to the package.
 
-**11.4.6 MEMS Handling Instructions**
+<a id="section-11-4-6"></a>
 
-MEMS (Micro Electro-Mechanical Systems) are a time-proven, robust technology used in hundreds of
-millions of consumer, automotive and industrial products. MEMS devices consist of microscopic moving
-mechanical structures. They differ from conventional IC products, even though they can be found in similar
-packages. Therefore, MEMS devices require different handling precautions than conventional ICs prior to
-mounting onto printed circuit boards (PCBs).
+#### 11.4.6 MEMS Handling Instructions
 
-The MPU-60X0 has been qualified to a shock tolerance of 10,000 _g_ . InvenSense packages its gyroscopes as
-it deems proper for protection against normal handling and shipping. It recommends the following handling
-precautions to prevent potential damage.
+MEMS (Micro Electro-Mechanical Systems) are a time-proven, robust technology used in hundreds of millions of consumer, automotive and industrial products. MEMS devices consist of microscopic moving mechanical structures. They differ from conventional IC products, even though they can be found in similar packages. Therefore, MEMS devices require different handling precautions than conventional ICs prior to mounting onto printed circuit boards (PCBs).
 
-- Do not drop individually packaged gyroscopes, or trays of gyroscopes onto hard surfaces. Components
-placed in trays could be subject to _g_ -forces in excess of 10,000 _g_ if dropped.
+The MPU-60X0 has been qualified to a shock tolerance of 10,000 _g_ . InvenSense packages its gyroscopes as it deems proper for protection against normal handling and shipping. It recommends the following handling precautions to prevent potential damage.
 
-- Printed circuit boards that incorporate mounted gyroscopes should not be separated by manually
-snapping apart. This could also create _g_ -forces in excess of 10,000 _g._
+- Do not drop individually packaged gyroscopes, or trays of gyroscopes onto hard surfaces. Components placed in trays could be subject to _g_ -forces in excess of 10,000 _g_ if dropped.
 
-**11.4.7 ESD Considerations**
+- Printed circuit boards that incorporate mounted gyroscopes should not be separated by manually snapping apart. This could also create _g_ -forces in excess of 10,000 _g._
+
+<a id="section-11-4-7"></a>
+
+#### 11.4.7 ESD Considerations
 
 Establish and use ESD-safe handling precautions when unpacking and handling ESD-sensitive devices.
 
-- Store ESD sensitive devices in ESD safe containers until ready for use. The Tape-and-Reel moisturesealed bag is an ESD approved barrier. The best practice is to keep the units in the original moisture
-sealed bags until ready for assembly.
+- Store ESD sensitive devices in ESD safe containers until ready for use. The Tape-and-Reel moisturesealed bag is an ESD approved barrier. The best practice is to keep the units in the original moisture sealed bags until ready for assembly.
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 48 页](img/PS-MPU-6000A-EN-p048.png)
+![Mounting orientation error and cross-axis sensitivity](img/PS-MPU-6000A-EN-p048.png)
 
-## 原文第 49 页
+Restrict all device handling to ESD protected work areas that measure less than 200V static charge. Ensure that all workstations and personnel are properly grounded to prevent ESD.
 
-Restrict all device handling to ESD protected work areas that measure less than 200V static charge. Ensure
-that all workstations and personnel are properly grounded to prevent ESD.
+<a id="section-11-4-8"></a>
 
-**11.4.8 Reflow Specification**
+#### 11.4.8 Reflow Specification
 
-Qualification Reflow: The MPU-60X0 was qualified in accordance with IPC/JEDEC J-STD-020D.01. This
-standard classifies proper packaging, storage and handling in order to avoid subsequent thermal and
-mechanical damage during the solder reflow attachment phase of assembly. The classification specifies a
-sequence consisting of a bake cycle, a moisture soak cycle in a temperature humidity oven, followed by
-three solder reflow cycles and functional testing for qualification. All temperatures refer to the topside of the
-QFN package, as measured on the package body surface. The peak solder reflow classification temperature
-requirement is (260 +5/-0°C) for lead-free soldering of components measuring less than 1.6 mm in thickness.
+Qualification Reflow: The MPU-60X0 was qualified in accordance with IPC/JEDEC J-STD-020D.01. This standard classifies proper packaging, storage and handling in order to avoid subsequent thermal and mechanical damage during the solder reflow attachment phase of assembly. The classification specifies a sequence consisting of a bake cycle, a moisture soak cycle in a temperature humidity oven, followed by three solder reflow cycles and functional testing for qualification. All temperatures refer to the topside of the QFN package, as measured on the package body surface. The peak solder reflow classification temperature requirement is (260 +5/-0°C) for lead-free soldering of components measuring less than 1.6 mm in thickness.
 
-Production Reflow: Check the recommendations of your solder manufacturer. For optimum results,
-production solder reflow processes should reduce exposure to high temperatures, and use lower ramp-up
-and ramp-down rates than those used in the component qualification profile shown for reference below.
+Production Reflow: Check the recommendations of your solder manufacturer. For optimum results, production solder reflow processes should reduce exposure to high temperatures, and use lower ramp-up and ramp-down rates than those used in the component qualification profile shown for reference below.
 
-Production reflow should never exceed the maximum constraints listed in the table and shown in the figure
-below that were used for the qualification profile, as these represent the maximum tolerable ratings for the
-device.
+Production reflow should never exceed the maximum constraints listed in the table and shown in the figure below that were used for the qualification profile, as these represent the maximum tolerable ratings for the device.
 
 **Approved IR/Convection Solder Reflow Curve**
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 49 页](img/PS-MPU-6000A-EN-p049.png)
-
-## 原文第 50 页
+![Approved reflow temperature profile](img/PS-MPU-6000A-EN-p049.png)
 
 **Temperature Set Points for IR / Convection Reflow Corresponding to Figure Above**
 
@@ -1704,13 +1283,13 @@ device.
 
 **Notes:**
 
-  - For users TPmax must not exceed the Classification temperature (260°C).
+- For users TPmax must not exceed the Classification temperature (260°C).
 
-  - For suppliers TPmax must equal or exceed the classification temperature.
+- For suppliers TPmax must equal or exceed the classification temperature.
 
-## 原文第 51 页
+<a id="section-11-5"></a>
 
-**11.5 Storage Specifications**
+### 11.5 Storage Specifications
 
 The storage specification of the MPU-60X0 conforms to IPC/JEDEC J-STD-020D.01 Moisture Sensitivity Level (MSL) 3.
 
@@ -1719,33 +1298,27 @@ The storage specification of the MPU-60X0 conforms to IPC/JEDEC J-STD-020D.01 Mo
 |Calculated shelf-life in moisture-sealed bag|12 months -- Storage conditions: <40°C and <90% RH|
 |After opening moisture-sealed bag|168 hours -- Storage conditions: ambient ≤30°C at 60%RH|
 
-**11.6 Package Marking Specification**
+<a id="section-11-6"></a>
+
+### 11.6 Package Marking Specification
 
 **Package Marking Specification**
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 51 页](img/PS-MPU-6000A-EN-p051.png)
+![Package marking](img/PS-MPU-6000A-EN-p051.png)
 
-## 原文第 52 页
+<a id="section-11-7"></a>
 
-**11.7** **Tape & Reel Specification**
+### 11.7 Tape & Reel Specification
 
-**Tape Dimensions**
-
-**Reel Outline Drawing**
-
-**Reel Dimensions and Package Size**
+The following table and drawing describe the tape dimensions, reel outline and package size.
 
 |Package size|Reel L (mm)|Reel V (mm)|Reel W (mm)|Reel Z (mm)|
 |---|---|---|---|---|
 |**4x4**|**330**|**100**|**13.2**|**2.2**|
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 52 页](img/PS-MPU-6000A-EN-p052.png)
+![Tape and reel dimensions](img/PS-MPU-6000A-EN-p052.png)
 
-## 原文第 53 页
-
-**Package Orientation**
-
-**Pin 1**
+Package orientation and the Pin 1 reference are shown in the [reel orientation diagram](img/PS-MPU-6000A-EN-p053.png).
 
 |Reel Specifications||
 |---|---|
@@ -1754,47 +1327,33 @@ The storage specification of the MPU-60X0 conforms to IPC/JEDEC J-STD-020D.01 Mo
 |**Boxes Per Carton (max)**|**3 **|
 |**Pcs/Carton (max)**|**15,000**|
 
-**11.8 Label**
+<a id="section-11-8"></a>
 
-**User Direction of**
+### 11.8 Label
 
-**Feed**
+The diagram shows package orientation (Pin 1), user direction of feed, anti-static cover tape and carrier tape, terminal tape, reel, barcode label, and label placement on the reel.
 
-**Cover Tape**
+![Reel orientation and barcode label placement](img/PS-MPU-6000A-EN-p053.png)
 
-**(Anti** **Static)**
+<a id="section-11-9"></a>
 
-**Carrier Tape**
+### 11.9 Packaging
 
-**<mark>Label</mark>**
-**(Anti** **Static)**
+![Packing materials and shipping arrangement](img/PS-MPU-6000A-EN-p054.png)
 
-**<mark>Terminal Tape</mark>**
+<a id="section-12"></a>
 
-**<mark>Reel</mark>**
+## 12 Reliability
 
-**Tape and Reel Specification**
+<a id="section-12-1"></a>
 
-**Barcode Label** **Location of Label on Reel**
+### 12.1 Qualification Test Policy
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 53 页](img/PS-MPU-6000A-EN-p053.png)
+InvenSense’s products complete a Qualification Test Plan before being released to production. The Qualification Test Plan for the MPU-60X0 followed the JEDEC 47G.01 Standard, “Stress-Test-Driven Qualification of Integrated Circuits,” with the individual tests described below.
 
-## 原文第 54 页
+<a id="section-12-2"></a>
 
-**11.9 Packaging**
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 54 页](img/PS-MPU-6000A-EN-p054.png)
-
-## 原文第 55 页
-
-**12 Reliability**
-
-**12.1 Qualification Test Policy**
-InvenSense’s products complete a Qualification Test Plan before being released to production. The
-Qualification Test Plan for the MPU-60X0 followed the JEDEC 47G.01 Standard, “Stress-Test-Driven
-Qualification of Integrated Circuits,” with the individual tests described below.
-
-**12.2 Qualification Test Plan**
+### 12.2 Qualification Test Plan
 
 **Accelerated Life Tests**
 
@@ -1804,7 +1363,7 @@ Qualification of Integrated Circuits,” with the individual tests described bel
 |**Highly Accelerated Stress**<br>**Test, Unbiased(1) (HAST)**<br>|JEDEC JESD22-A118<br>Condition A, 130°C, 85%RH, 33.3 psia.,<br>unbiased, [read-point 96 hours]|3|77|(0/1)|
 |**High Temperature Storage**<br>**Life (HTS)**|JEDEC JESD22-A103C, Cond. A, 125°C,<br>Non-Biased Bake<br>[read-points 168, 500, 1000 hours]|3 <br>|77|(0/1)|
 
-**<u>Device Component Level Tests</u>**
+**Device Component Level Tests**
 
 |TEST|Method/Condition|Lot<br>Quantity|Sample<br>/ Lot|Acc /<br>Reject<br>Criteria|
 |---|---|---|---|---|
@@ -1815,7 +1374,7 @@ Qualification of Integrated Circuits,” with the individual tests described bel
 |**Vibration**|JEDEC JESD22-B103B, Variable Frequency<br>(random), Cond. B, 5-500Hz,<br>X, Y, Z – 4 times/direction|3|5|(0/1)|
 |**Temperature Cycling (TC)(1) **|JEDEC JESD22-A104D Condition N,<br>[-40°C to +85°C], Soak Mode 2 [5’], 100 cycles|3|77|(0/1)|
 
-**<u>Board Level Tests</u>**
+**Board Level Tests**
 
 |TEST|Method/Condition|Lot<br>Quantity|Sample<br>/ Lot|Acc /<br>Reject<br>Criteria|
 |---|---|---|---|---|
@@ -1823,39 +1382,23 @@ Qualification of Integrated Circuits,” with the individual tests described bel
 
 (1) Tests are preceded by MSL3 Preconditioning in accordance with JEDEC JESD22-A113F
 
-## 原文第 56 页
+<a id="section-13"></a>
 
-**13 Environmental Compliance**
+## 13 Environmental Compliance
 
-The MPU-60X0 is RoHS and Green compliant and is in full environmental compliance as evidenced in report
-HS-MPU-6000A, Materials Declaration Data Sheet.
+The MPU-60X0 is RoHS and Green compliant and is in full environmental compliance as evidenced in report HS-MPU-6000A, Materials Declaration Data Sheet.
 
 **Environmental Declaration Disclaimer:**
 
-InvenSense believes this environmental information to be correct but cannot guarantee accuracy or completeness. Conformity
-documents for the above component constitutes are on file. InvenSense subcontracts manufacturing and the information contained
-herein is based on data received from vendors and suppliers, which has not been validated by InvenSense.
+InvenSense believes this environmental information to be correct but cannot guarantee accuracy or completeness. Conformity documents for the above component constitutes are on file. InvenSense subcontracts manufacturing and the information contained herein is based on data received from vendors and suppliers, which has not been validated by InvenSense.
 
-## 原文第 57 页
+## Legal notice
 
-This information furnished by InvenSense is believed to be accurate and reliable. However, no responsibility is assumed by InvenSense
-for its use, or for any infringements of patents or other rights of third parties that may result from its use. Specifications are subject to
-change without notice. InvenSense reserves the right to make changes to this product, including its circuits and software, in order to
-improve its design and/or performance, without prior notice. InvenSense makes no warranties, neither expressed nor implied, regarding
-the information and specifications contained in this document. InvenSense assumes no responsibility for any claims or damages arising
-from information contained in this document, or from the use of products and services detailed therein. This includes, but is not limited
-to, claims or damages based on the infringement of patents, copyrights, mask work and/or other intellectual property rights.
+This information furnished by InvenSense is believed to be accurate and reliable. However, no responsibility is assumed by InvenSense for its use, or for any infringements of patents or other rights of third parties that may result from its use. Specifications are subject to change without notice. InvenSense reserves the right to make changes to this product, including its circuits and software, in order to improve its design and/or performance, without prior notice. InvenSense makes no warranties, neither expressed nor implied, regarding the information and specifications contained in this document. InvenSense assumes no responsibility for any claims or damages arising from information contained in this document, or from the use of products and services detailed therein. This includes, but is not limited to, claims or damages based on the infringement of patents, copyrights, mask work and/or other intellectual property rights.
 
-Certain intellectual property owned by InvenSense and described in this document is patent protected. No license is granted by
-implication or otherwise under any patent or patent rights of InvenSense. This publication supersedes and replaces all information
-previously supplied. Trademarks that are registered trademarks are the property of their respective companies. InvenSense sensors
-should not be used or sold in the development, storage, production or utilization of any conventional or mass-destructive weapons or for
-any other weapons or life threatening applications, as well as in any other life critical applications such as medical equipment,
-transportation, aerospace and nuclear instruments, undersea equipment, power plant equipment, disaster prevention and crime
-prevention equipment.
+Certain intellectual property owned by InvenSense and described in this document is patent protected. No license is granted by implication or otherwise under any patent or patent rights of InvenSense. This publication supersedes and replaces all information previously supplied. Trademarks that are registered trademarks are the property of their respective companies. InvenSense sensors should not be used or sold in the development, storage, production or utilization of any conventional or mass-destructive weapons or for any other weapons or life threatening applications, as well as in any other life critical applications such as medical equipment, transportation, aerospace and nuclear instruments, undersea equipment, power plant equipment, disaster prevention and crime prevention equipment.
 
-InvenSense®, MotionCommand®, TouchAnywhere®, and AirSign® are registered trademarks of InvenSense, Inc.  MPU™, MPU6000™, MPU-6050™, MPU-60X0™, Motion Processing Unit™, MotionFusion™, MotionProcessing™, MotionApps™, Digital Motion
-Processor™, Digital Motion Processing™, DMP™, BlurFree™, and InstantGesture™ are trademarks of InvenSense, Inc.
+InvenSense®, MotionCommand®, TouchAnywhere®, and AirSign® are registered trademarks of InvenSense, Inc.  MPU™, MPU6000™, MPU-6050™, MPU-60X0™, Motion Processing Unit™, MotionFusion™, MotionProcessing™, MotionApps™, Digital Motion Processor™, Digital Motion Processing™, DMP™, BlurFree™, and InstantGesture™ are trademarks of InvenSense, Inc.
 
 ©2011 InvenSense, Inc. All rights reserved.
 
