@@ -1,6 +1,6 @@
 # MPU-6000 / MPU-6050 产品规格书
 
-> 来源：`PS-MPU-6000A-EN.pdf`，共 57 页。正文按原始页序转换为 Markdown，保留英文。复杂表格、公式和图示附原页截图供核对，合并单元格的对应关系以原页截图 为准。
+> 来源：`PS-MPU-6000A-EN.pdf`，共 57 页。正文按原始页序转换为 Markdown，文字、参数及表格直接排版；仅保留电路、时序、尺寸、实物等必要图示。英文资料保留英文；原表合并的参数行按项目展开，空白表示原表未给出该项数值。
 
 原资料版本：Revision 3.2；发布日期：2011-11-16。本次仅文档转换，未进行芯片或驱动验证。
 
@@ -9,7 +9,6 @@
 ## 原文第 1 页
 
 ### **MPU-6000 and MPU-6050** **Product Specification** **Revision 3.2**
-
 
 ## 原文第 2 页
 
@@ -130,7 +129,6 @@ DIGITAL MOTION PROCESSOR .......................................................
 PRIMARY I <sup>2</sup> C AND SPI SERIAL COMMUNICATIONS INTERFACES ............................................................ 25
 
 AUXILIARY I <sup>2</sup> C SERIAL INTERFACE ...................................................................................................... 26
-
 
 ## 原文第 3 页
 
@@ -262,7 +260,6 @@ PACKAGE MARKING SPECIFICATION ..................................................
 
 TAPE & REEL SPECIFICATION ............................................................................................................. 52
 
-
 ## 原文第 4 页
 
 11.8 LABEL .............................................................................................. **ERROR!** **BOOKMARK NOT DEFINED.**
@@ -276,7 +273,6 @@ TAPE & REEL SPECIFICATION ......................................................
 12.2 QUALIFICATION TEST PLAN ................................................................................................................ 55
 
 **13** **ENVIRONMENTAL COMPLIANCE ........................................................................................................... 56**
-
 
 ## 原文第 5 页
 
@@ -293,9 +289,6 @@ TAPE & REEL SPECIFICATION ......................................................
 |10/24/2011|3.1|Edits for clarity<br>Changed operating voltage range to 2.375V-3.46V<br>Added accelerometer Intelligence Function increment value of 1m_g_/LSB<br>(Section 6.2)<br>Updated absolute maximum rating for acceleration (any axis, unpowered) from<br>0.3ms to 0.2ms (Section 6.9)<br>Modified absolute maximum rating for Latch-up to Level A and ±100mA (Section<br>6.9, 12.2)|
 |11/16/2011|3.2|**Updated self-test response specifications for Revision D parts dated with**<br>**date code 1147 (YYWW) or later.** <br>Edits for clarity<br>Added Gyro self-test (sections 5.1, 6.1, 7.6, 7.12)<br>Added Min/Max limits to Accel self-test response (section 6.2)<br>Updated Accelerometer low power mode operating currents (Section 6.3)<br>Added gyro self test to block diagram (section 7.5)<br>Updated packaging labels and descriptions (sections 11.8 & 11.9)|
 
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 5 页](img/PS-MPU-6000A-EN-p005.png)
-
 ## 原文第 6 页
 
 **2** **Purpose and Scope**
@@ -311,7 +304,6 @@ MPU-6000/MPU-6050 Register Map and Register Descriptions document.
 
 **The self-test response specifications provided in this document pertain to Revision D parts with date**
 **codes of 1147 (YYWW) or later.** Please see Section 11.6 for package marking description details.
-
 
 ## 原文第 7 页
 
@@ -367,7 +359,6 @@ and has a separate VLOGIC reference pin. The MPU-6000 supports both I <sup>2</su
 single supply pin, VDD, which is both the device’s logic reference supply and the analog supply for the part.
 The table below outlines these differences:
 
-
 ## 原文第 8 页
 
 **Primary Differences between MPU-6000 and MPU-6050**
@@ -381,9 +372,6 @@ The table below outlines these differences:
 |**Pin 9**|AD0/SDO|AD0|
 |**Pin 23**|SCL/SCLK|SCL|
 |**Pin 24**|SDA/SDI|SDA|
-
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 8 页](img/PS-MPU-6000A-EN-p008.png)
 
 ## 原文第 9 页
 
@@ -412,7 +400,6 @@ The table below outlines these differences:
     - Wearable sensors for health, fitness and sports
 
     - Toys
-
 
 ## 原文第 10 页
 
@@ -497,7 +484,6 @@ bursts and then go into a low-power mode as the MPU collects more data
 
   - 400kHz Fast Mode I <sup>2</sup> C for communicating with all registers
 
-
 ## 原文第 11 页
 
 - 1MHz SPI serial interface for communicating with all registers (MPU-6000 only)
@@ -539,115 +525,240 @@ step count.
 
   - Optional external clock inputs of 32.768kHz or 19.2MHz
 
-
 ## 原文第 12 页
 
-**6** **Electrical Characteristics**
+**6 Electrical Characteristics**
 
-**6.1** **Gyroscope Specifications**
-VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or VDD, TA = 25°C
+**6.1 Gyroscope Specifications**
 
-|PARAMETER|CONDITIONS|MIN|TYP|MAX|UNITS|NOTES|
-|---|---|---|---|---|---|---|
-|**GYROSCOPE SENSITIVITY**<br>Full-Scale Range<br> <br> <br> <br>Gyroscope ADC Word Length<br>Sensitivity Scale Factor<br> <br> <br> <br>Sensitivity Scale Factor Tolerance<br>Sensitivity Scale Factor Variation Over<br>Temperature<br>Nonlinearity<br>Cross-Axis Sensitivity|<br>FS_SEL=0<br>FS_SEL=1<br>FS_SEL=2<br>FS_SEL=3<br> <br>FS_SEL=0<br>FS_SEL=1<br>FS_SEL=2<br>FS_SEL=3<br>25°C<br> <br>Best fit straight line; 25°C<br>|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br>-3<br> <br> <br>|<br>±250<br>±500<br>±1000<br>±2000<br>16<br>131<br>65.5<br>32.8<br>16.4<br> <br>±2<br>0.2<br>±2|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br>+3<br> <br> <br>|<br>º/s<br>º/s<br>º/s<br>º/s<br>bits<br>LSB/(º/s)<br>LSB/(º/s)<br>LSB/(º/s)<br>LSB/(º/s)<br>% <br>% <br>% <br>%|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br>|
-|**GYROSCOPE ZERO-RATE OUTPUT (ZRO)**<br>Initial ZRO Tolerance<br>ZRO Variation Over Temperature<br>Power-Supply Sensitivity (1-10Hz)<br>Power-Supply Sensitivity (10 - 250Hz)<br>Power-Supply Sensitivity (250Hz - 100kHz)<br>Linear Acceleration Sensitivity|<br>25°C<br>-40°C to +85°C<br>Sine wave, 100mVpp; VDD=2.5V<br>Sine wave, 100mVpp; VDD=2.5V<br>Sine wave, 100mVpp; VDD=2.5V<br>Static|<br> <br> <br> <br> <br> <br>|<br>±20<br>±20<br>0.2<br>0.2<br>4 <br>0.1|<br> <br> <br> <br> <br> <br>|<br>º/s<br>º/s<br>º/s<br>º/s<br>º/s<br>º/s/_g _|<br> <br> <br> <br> <br> <br>|
-|**SELF-TEST RESPONSE**<br>X-Axis<br>Y-Axis<br>1 <br>Z-Axis|<br> <br> <br>|<br>10<br>-105<br>10|<br> <br> <br>|<br>105<br>-10<br>105|<br>º/s<br>º/s<br>º/s|<br> <br> <br>|
-|**GYROSCOPE NOISE PERFORMANCE**<br>Total RMS Noise<br>Low-frequency RMS noise<br>Rate Noise Spectral Density|**FS_SEL=0**<br>DLPFCFG=2 (100Hz)<br>Bandwidth 1Hz to10Hz<br>At 10Hz|<br> <br> <br>|<br>0.05<br>0.033<br>0.005|<br> <br> <br>|<br>º/s-rms<br>º/s-rms<br>º/s/√Hz|<br> <br> <br>|
-|**GYROSCOPE MECHANICAL**<br>**FREQUENCIES**<br>X-Axis<br>Y-Axis<br>Z-Axis|<br> <br> <br>|<br>30<br>27<br>24|<br>33<br>30<br>27|<br>36<br>33<br>30|<br>kHz<br>kHz<br>kHz|<br> <br> <br>|
-|**LOW PASS FILTER RESPONSE** <br>|<br>Programmable Range|<br>5|<br>|<br>256|<br>Hz|<br>|
-|**OUTPUT DATA RATE** <br>|<br>Programmable|<br>4|<br>|<br>8,000|<br>Hz|<br>|
-|**GYROSCOPE START-UP TIME**<br>ZRO Settling|**DLPFCFG=0**<br>to ±1º/s of Final|<br>|<br>30|<br>|<br>ms|<br>|
+VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
-1. The Y-Axis self-test has an opposite polarities from the X-, and Z-Axes. However, the magnitude of the
-self-test limit is the same for all 3 axes.
+|PARAMETER|CONDITIONS|MIN|TYP|MAX|UNITS|
+|---|---|---|---|---|---|
+|Full-Scale Range|FS_SEL=0||±250||°/s|
+|Full-Scale Range|FS_SEL=1||±500||°/s|
+|Full-Scale Range|FS_SEL=2||±1000||°/s|
+|Full-Scale Range|FS_SEL=3||±2000||°/s|
+|Gyroscope ADC Word Length|||16||bits|
+|Sensitivity Scale Factor|FS_SEL=0||131||LSB/(°/s)|
+|Sensitivity Scale Factor|FS_SEL=1||65.5||LSB/(°/s)|
+|Sensitivity Scale Factor|FS_SEL=2||32.8||LSB/(°/s)|
+|Sensitivity Scale Factor|FS_SEL=3||16.4||LSB/(°/s)|
+|Sensitivity Scale Factor Tolerance|25°C|-3||+3|%|
+|Sensitivity Scale Factor Variation Over Temperature|||±2||%|
+|Nonlinearity|Best fit straight line; 25°C||0.2||%|
+|Cross-Axis Sensitivity|||±2||%|
+|Initial ZRO Tolerance|25°C||±20||°/s|
+|ZRO Variation Over Temperature|-40°C to +85°C||±20||°/s|
+|Power-Supply Sensitivity (1–10 Hz)|Sine wave, 100 mVpp; VDD=2.5 V||0.2||°/s|
+|Power-Supply Sensitivity (10–250 Hz)|Sine wave, 100 mVpp; VDD=2.5 V||0.2||°/s|
+|Power-Supply Sensitivity (250 Hz–100 kHz)|Sine wave, 100 mVpp; VDD=2.5 V||4||°/s|
+|Linear Acceleration Sensitivity|Static||0.1||°/s/g|
+|Self-Test Response, X-Axis||10||105|°/s|
+|Self-Test Response, Y-Axis (note 1)||-105||-10|°/s|
+|Self-Test Response, Z-Axis||10||105|°/s|
+|Total RMS Noise|FS_SEL=0, DLPFCFG=2 (100 Hz)||0.05||°/s-rms|
+|Low-frequency RMS noise|FS_SEL=0, bandwidth 1–10 Hz||0.033||°/s-rms|
+|Rate Noise Spectral Density|FS_SEL=0, at 10 Hz||0.005||°/s/√Hz|
+|Gyroscope Mechanical Frequency, X-Axis||30|33|36|kHz|
+|Gyroscope Mechanical Frequency, Y-Axis||27|30|33|kHz|
+|Gyroscope Mechanical Frequency, Z-Axis||24|27|30|kHz|
+|Low Pass Filter Response|Programmable range|5||256|Hz|
+|Output Data Rate|Programmable|4||8,000|Hz|
+|ZRO Settling|DLPFCFG=0; to ±1°/s of final||30||ms|
 
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 12 页](img/PS-MPU-6000A-EN-p012.png)
+1. The Y-Axis self-test has an opposite polarity from the X- and Z-Axes. However, the magnitude of the self-test limit is the same for all 3 axes.
 
 ## 原文第 13 页
 
-**6.2** **Accelerometer Specifications**
-VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or VDD, TA = 25°C
+**6.2 Accelerometer Specifications**
 
-|PARAMETER|CONDITIONS|MIN|TYP|MAX|UNITS|NOTES|
-|---|---|---|---|---|---|---|
-|**ACCELEROMETER SENSITIVITY** <br>Full-Scale Range <br> <br> <br> <br>ADC Word Length<br>Sensitivity Scale Factor<br> <br> <br> <br>Initial Calibration Tolerance<br> <br>Sensitivity Change vs. Temperature<br>Nonlinearity<br>Cross-Axis Sensitivity|<br>AFS_SEL=0<br>AFS_SEL=1<br>AFS_SEL=2<br>AFS_SEL=3<br>Output in two’s complement format<br>AFS_SEL=0<br>AFS_SEL=1<br>AFS_SEL=2<br>AFS_SEL=3<br> <br>AFS_SEL=0, -40°C to +85°C<br>Best Fit Straight Line<br>|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br>|<br>±2<br>±4<br>±8<br>±16<br>16<br>16,384<br>8,192<br>4,096<br>2,048<br>±3<br>±0.02<br>0.5<br>±2|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br>|<br>_g_ <br>_g _<br>_g _<br>_g _<br>bits <br>LSB/_g_ <br>LSB/_g_ <br>LSB/_g _LSB/_g_ <br>% <br>%/°C<br>% <br>%|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br>|
-|**ZERO-G OUTPUT** <br>Initial Calibration Tolerance<br>1 <br> <br>Zero-G Level Change vs. Temperature<br>|<br>X and Y axes<br>Z axis<br>X and Y axes, 0°C to +70°C<br>Z axis, 0°C to +70°C|<br> <br> <br> <br>|<br>±50<br>±80<br>±35<br>±60|<br> <br> <br> <br>|<br>m_g _<br>m_g_ <br> <br>m_g _|<br> <br> <br> <br>|
-|**SELF TEST RESPONSE** <br>|<br>|<br>300|<br>|<br>950|<br>m_g_|<br>|
-|**NOISE PERFORMANCE**<br>Power Spectral Density|<br>@10Hz, AFS_SEL=0 & ODR=1kHz|<br>|<br>400|<br>|<br>_g_/√Hz|<br>|
-|**LOW PASS FILTER RESPONSE** <br>|<br>Programmable Range|<br>5|<br>|<br>260|<br>Hz|<br>|
-|**OUTPUT DATA RATE** <br>|<br>Programmable Range|<br>4|<br>|<br>1,000|<br>Hz|<br>|
-|**INTELLIGENCE FUNCTION**<br>**INCREMENT**|||1||m_g_/LSB||
+VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
-1. Typical zero-g initial calibration tolerance value after MSL3 preconditioning
+|PARAMETER|CONDITIONS|MIN|TYP|MAX|UNITS|
+|---|---|---|---|---|---|
+|Full-Scale Range|AFS_SEL=0||±2||g|
+|Full-Scale Range|AFS_SEL=1||±4||g|
+|Full-Scale Range|AFS_SEL=2||±8||g|
+|Full-Scale Range|AFS_SEL=3||±16||g|
+|ADC Word Length|Output in two’s complement format||16||bits|
+|Sensitivity Scale Factor|AFS_SEL=0||16,384||LSB/g|
+|Sensitivity Scale Factor|AFS_SEL=1||8,192||LSB/g|
+|Sensitivity Scale Factor|AFS_SEL=2||4,096||LSB/g|
+|Sensitivity Scale Factor|AFS_SEL=3||2,048||LSB/g|
+|Initial Calibration Tolerance|||±3||%|
+|Sensitivity Change vs. Temperature|AFS_SEL=0, -40°C to +85°C||±0.02||%/°C|
+|Nonlinearity|Best fit straight line||0.5||%|
+|Cross-Axis Sensitivity|||±2||%|
+|Zero-G Initial Calibration Tolerance (note 1)|X and Y axes||±50||mg|
+|Zero-G Initial Calibration Tolerance (note 1)|Z axis||±80||mg|
+|Zero-G Level Change vs. Temperature|X and Y axes, 0°C to +70°C||±35||mg|
+|Zero-G Level Change vs. Temperature|Z axis, 0°C to +70°C||±60||mg|
+|Self Test Response||300||950|mg|
+|Noise Power Spectral Density|At 10 Hz, AFS_SEL=0, ODR=1 kHz||400||μg/√Hz|
+|Low Pass Filter Response|Programmable range|5||260|Hz|
+|Output Data Rate|Programmable range|4||1,000|Hz|
+|Intelligence Function Increment|||1||mg/LSB|
 
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 13 页](img/PS-MPU-6000A-EN-p013.png)
+1. Typical zero-g initial calibration tolerance value after MSL3 preconditioning.
 
 ## 原文第 14 页
 
-**6.3** **Electrical and Other Common Specifications**
-VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or VDD, TA = 25°C
+**6.3 Electrical and Other Common Specifications**
 
-|PARAMETER|CONDITIONS|MIN|TYP|MAX|Units|Notes|
-|---|---|---|---|---|---|---|
-|**TEMPERATURE SENSOR** <br>Range<br>Sensitivity <br>Temperature Offset<br>Linearity|<br> <br>Untrimmed<br>35<br>oC <br>Best fit straight line (-40°C to<br>+85°C)|<br> <br> <br> <br>|<br>-40 to +85<br>340<br>-521<br>±1|<br> <br> <br> <br>|<br>°C<br>LSB/ºC<br>LSB<br>°C|<br> <br> <br> <br>|
-|**VDD POWER SUPPLY** <br>Operating Voltages|<br>|<br>2.375|<br>|<br>3.46|<br>V|<br>|
-|Normal Operating Current<br> <br> <br> <br>|Gyroscope + Accelerometer + DMP<br>Gyroscope + Accelerometer<br>(DMP disabled)<br>Gyroscope + DMP<br>(Accelerometer disabled)<br>Gyroscope only<br>(DMP & Accelerometer disabled)<br>Accelerometer only<br>(DMP & Gyroscope disabled)|<br> <br> <br> <br>|3.9<br>3.8<br>3.7<br>3.6<br>500|<br> <br> <br> <br>|mA<br>mA<br>mA<br>mA<br>µA|<br> <br> <br> <br>|
-|Accelerometer Low Power Mode<br>Current|1 Hz update rate<br>5 Hz update rate<br>20 Hz update rate<br>40 Hz update rate|<br> <br> <br>|10<br>20<br>70<br>140|<br> <br> <br>|µA<br>µA<br>µA<br>µA|<br> <br> <br>|
-|Full-Chip Idle Mode Supply Current<br>Power Supply Ramp Rate|<br>Monotonic ramp. Ramp rate is 10%<br>to 90% of the final value|<br>|5 <br>|<br>100|µA<br>ms|<br>|
-|**VLOGIC REFERENCE VOLTAGE**<br>Voltage Range<br>Power Supply Ramp Rate<br>Normal Operating Current|MPU-6050 only<br>VLOGIC must be≤VDD at all times<br>Monotonic ramp. Ramp rate is 10%<br>to 90% of the final value<br>|<br>1.71<br> <br>|<br> <br> <br>100|<br>VDD<br>3 <br>|<br>V <br>ms<br>µA|<br> <br> <br>|
-|**START-UP TIME FOR REGISTER**<br>**READ/WRITE**|||20|100|ms||
-|**TEMPERATURE RANGE** <br>Specified Temperature Range|<br>Performance parameters are not<br>applicable beyond Specified<br>Temperature Range|<br>-40|<br>|<br>+85|<br>°C|<br>|
+VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 14 页](img/PS-MPU-6000A-EN-p014.png)
+|PARAMETER|CONDITIONS|MIN|TYP|MAX|UNITS|
+|---|---|---|---|---|---|
+|Temperature Sensor Range|||-40 to +85||°C|
+|Temperature Sensor Sensitivity|Untrimmed||340||LSB/°C|
+|Temperature Offset|35°C||-521||LSB|
+|Temperature Sensor Linearity|Best fit straight line (-40°C to +85°C)||±1||°C|
+|VDD Operating Voltage||2.375||3.46|V|
+|Normal Operating Current|Gyroscope + Accelerometer + DMP||3.9||mA|
+|Normal Operating Current|Gyroscope + Accelerometer; DMP disabled||3.8||mA|
+|Normal Operating Current|Gyroscope + DMP; Accelerometer disabled||3.7||mA|
+|Normal Operating Current|Gyroscope only; DMP & Accelerometer disabled||3.6||mA|
+|Normal Operating Current|Accelerometer only; DMP & Gyroscope disabled||500||μA|
+|Accelerometer Low Power Mode Current|1 Hz update rate||10||μA|
+|Accelerometer Low Power Mode Current|5 Hz update rate||20||μA|
+|Accelerometer Low Power Mode Current|20 Hz update rate||70||μA|
+|Accelerometer Low Power Mode Current|40 Hz update rate||140||μA|
+|Full-Chip Idle Mode Supply Current|||5||μA|
+|VDD Power Supply Ramp Rate|Monotonic ramp, 10% to 90% of final value|||100|ms|
+|VLOGIC Voltage Range|MPU-6050 only; VLOGIC ≤ VDD at all times|1.71||VDD|V|
+|VLOGIC Power Supply Ramp Rate|MPU-6050 only; monotonic ramp, 10% to 90% of final value|||3|ms|
+|VLOGIC Normal Operating Current|MPU-6050 only||100||μA|
+|Start-Up Time for Register Read/Write|||20|100|ms|
+|Specified Temperature Range|Performance parameters are not applicable beyond specified range|-40||+85|°C|
 
 ## 原文第 15 页
 
-**6.4** **Electrical Specifications, Continued**
-VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or VDD, TA = 25°C
+**6.4 Electrical Specifications, Continued**
 
-|PARAMETER|CONDITIONS|MIN|TYP|MAX|Units|Notes|
-|---|---|---|---|---|---|---|
-|**SERIAL INTERFACE**<br>SPI Operating Frequency, All<br>Registers Read/Write<br> <br>SPI Operating Frequency, Sensor<br>and Interrupt Registers Read Only<br>I<br>2C Operating Frequency<br>|<br>MPU-6000 only, Low Speed<br>Characterization<br>MPU-6000 only, High Speed<br>Characterization<br>MPU-6000 only<br>All registers, Fast-mode<br>All registers, Standard-mode|<br> <br> <br> <br> <br>|<br>100 ±10%<br>1 ±10%<br>20 ±10%<br> <br>|<br> <br> <br> <br>400<br>100|<br>kHz<br>MHz<br>MHz<br>kHz<br>kHz|<br> <br> <br> <br> <br>|
-|**I**<br>**2C ADDRESS** <br>|AD0 = 0<br>AD0 = 1|<br>|1101000<br>1101001|<br>|<br>|<br>|
-|**DIGITAL INPUTS  (SDI/SDA, AD0,**<br>**SCLK/SCL, FSYNC, /CS, CLKIN)** <br>VIH, High Level Input Voltage<br> <br>VIL, Low Level Input Voltage <br> <br>CI, Input Capacitance|<br>MPU-6000<br>MPU-6050<br>MPU-6000<br>MPU-6050<br>|<br> <br>0.7*VDD<br>0.7*VLOGIC<br> <br> <br>|<br> <br> <br> <br> <br> <br> <br>< 5|<br> <br> <br> <br> <br>0.3*VDD<br>0.3*VLOGIC<br>|<br> <br> <br>V <br>V <br>V <br>V <br>pF|<br> <br> <br> <br> <br>|
-|**DIGITAL OUTPUT (SDO, INT)** <br>VOH, High Level Output Voltage <br> <br>VOL1, LOW-Level Output Voltage<br> <br>VOL.INT1, INT Low-Level Output<br>Voltage<br>Output Leakage Current<br>tINT, INT Pulse Width|<br>RLOAD=1MΩ; MPU-6000<br>RLOAD=1MΩ; MPU-6050<br>RLOAD=1MΩ; MPU-6000<br>RLOAD=1MΩ; MPU-6050<br>OPEN=1, 0.3mA sink<br>Current<br>OPEN=1<br>LATCH_INT_EN=0|<br>0.9*VDD<br>0.9*VLOGIC<br> <br> <br> <br> <br>|<br> <br> <br> <br> <br> <br>100<br>50|<br> <br> <br>0.1*VDD<br>0.1*VLOGIC<br>0.1<br> <br>|<br>V <br>V <br>V <br>V <br>V <br>nA<br>µs|<br> <br> <br> <br> <br> <br> <br>|
-|**DIGITAL OUTPUT (CLKOUT)**<br>VOH, High Level Output Voltage<br>VOL1, LOW-Level Output Voltage|<br>RLOAD=1MΩ<br>RLOAD=1MΩ|<br>0.9*VDD<br>||<br> <br>0.1*VDD|<br>V <br>V||
+VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
+|PARAMETER|CONDITIONS|MIN|TYP|MAX|UNITS|
+|---|---|---|---|---|---|
+|SPI Operating Frequency, All Registers Read/Write|MPU-6000 only, low speed characterization||100 ± 10%||kHz|
+|SPI Operating Frequency, All Registers Read/Write|MPU-6000 only, high speed characterization||1 ± 10%||MHz|
+|SPI Operating Frequency, Sensor and Interrupt Registers Read Only|MPU-6000 only||20 ± 10%||MHz|
+|I²C Operating Frequency|All registers, Fast-mode|||400|kHz|
+|I²C Operating Frequency|All registers, Standard-mode|||100|kHz|
+|I²C Address|AD0=0||1101000||binary|
+|I²C Address|AD0=1||1101001||binary|
+|Digital Inputs: VIH, High Level Input Voltage|MPU-6000|0.7 × VDD|||V|
+|Digital Inputs: VIH, High Level Input Voltage|MPU-6050|0.7 × VLOGIC|||V|
+|Digital Inputs: VIL, Low Level Input Voltage|MPU-6000|||0.3 × VDD|V|
+|Digital Inputs: VIL, Low Level Input Voltage|MPU-6050|||0.3 × VLOGIC|V|
+|Digital Inputs: CI, Input Capacitance|||< 5||pF|
+|Digital Outputs (SDO, INT): VOH|RLOAD=1 MΩ; MPU-6000|0.9 × VDD|||V|
+|Digital Outputs (SDO, INT): VOH|RLOAD=1 MΩ; MPU-6050|0.9 × VLOGIC|||V|
+|Digital Outputs (SDO, INT): VOL1|RLOAD=1 MΩ; MPU-6000|||0.1 × VDD|V|
+|Digital Outputs (SDO, INT): VOL1|RLOAD=1 MΩ; MPU-6050|||0.1 × VLOGIC|V|
+|Digital Outputs: VOL.INT1, INT Low-Level Output Voltage|OPEN=1, 0.3 mA sink current|||0.1|V|
+|Digital Outputs (SDO, INT): Output Leakage Current|OPEN=1||100||nA|
+|Digital Outputs: tINT, INT Pulse Width|LATCH_INT_EN=0||50||μs|
+|Digital Output (CLKOUT): VOH|RLOAD=1 MΩ|0.9 × VDD|||V|
+|Digital Output (CLKOUT): VOL1|RLOAD=1 MΩ|||0.1 × VDD|V|
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 15 页](img/PS-MPU-6000A-EN-p015.png)
+Digital input pins: SDI/SDA, AD0, SCLK/SCL, FSYNC, /CS, CLKIN. VOH is the high-level output voltage; VOL1 is the low-level output voltage.
 
 ## 原文第 16 页
 
-**6.5** **Electrical Specifications, Continued**
-Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or
-VDD, TA = 25°C
+**6.5 Electrical Specifications, Continued**
 
-|Parameters|Conditions|Typical|Units|Notes|
-|---|---|---|---|---|
-|**Primary I**<br>**2C I/O (SCL, SDA)**<br>VIL, LOW-Level Input Voltage<br>VIH, HIGH-Level Input Voltage<br>Vhys, Hysteresis<br>VIL, LOW Level Input Voltage<br>VIH, HIGH-Level Input Voltage<br>Vhys, Hysteresis<br>VOL1, LOW-Level Output Voltage<br>IOL, LOW-Level Output Current<br> <br>Output Leakage Current<br>tof, Output Fall Time from VIHmax to VILmax <br>CI, Capacitance for Each I/O pin|<br>MPU-6000<br>MPU-6000<br>MPU-6000<br>MPU-6050<br>MPU-6050<br>MPU-6050<br>3mA sink current<br>VOL = 0.4V<br>VOL = 0.6V<br> <br>Cb bus capacitance in pF<br>|<br>-0.5 to 0.3*VDD<br>0.7*VDD to VDD + 0.5V<br>0.1*VDD<br>-0.5V to 0.3*VLOGIC<br>0.7*VLOGIC to VLOGIC + 0.5V<br>0.1*VLOGIC<br>0 to 0.4<br>3 <br>5 <br>100<br>20+0.1Cb to 250<br>< 10|<br>V <br>V <br>V <br>V <br>V <br>V <br>V <br>mA<br>mA<br>nA<br>ns<br>pF|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br>|
-|**Auxiliary I**<br>**2C I/O (AUX_CL, AUX_DA)**<br>VIL, LOW-Level Input Voltage<br>VIH, HIGH-Level Input Voltage<br>Vhys, Hysteresis<br>VOL1, LOW-Level Output Voltage<br>VOL3, LOW-Level Output Voltage<br>IOL, LOW-Level Output Current<br>Output Leakage Current<br>tof, Output Fall Time from VIHmax to VILmax <br>CI, Capacitance for Each I/O pin|**MPU-6050:****_AUX_VDDIO_=0**<br> <br> <br> <br>VLOGIC > 2V; 1mA sink current<br>VLOGIC < 2V; 1mA sink current<br>VOL = 0.4V<br>VOL = 0.6V<br> <br> Cb bus capacitance in pF<br>|<br>-0.5V to 0.3*VLOGIC<br>0.7*VLOGIC to<br>VLOGIC + 0.5V<br>0.1*VLOGIC<br>0 to 0.4<br>0 to 0.2*VLOGIC<br>1 <br>1 <br>100<br>20+0.1Cb to 250<br>< 10|<br>V <br>V <br>V <br>V <br>V <br>mA<br>mA<br>nA<br>ns<br>pF|<br> <br> <br> <br> <br> <br> <br> <br> <br>|
-|**Auxiliary I**<br>**2C I/O (AUX_CL, AUX_DA)**<br>VIL, LOW-Level Input Voltage<br>VIH, HIGH-Level Input Voltage<br>Vhys, Hysteresis<br>VOL1, LOW-Level Output Voltage<br>IOL, LOW-Level Output Current<br>Output Leakage Current<br>tof, Output Fall Time from VIHmax to VILmax <br>CI, Capacitance for Each I/O pin|**MPU-6050:****_AUX_VDDIO_=1;**<br>**MPU-6000**<br> <br> <br> <br>1mA sink current<br>VOL = 0.4V<br>VOL = 0.6V<br> <br> Cb bus cap. in pF<br>|<br>-0.5 to 0.3*VDD<br>0.7*VDD to VDD+0.5V<br>0.1*VDD<br>0 to 0.4<br>1 <br>1 <br>100<br>20+0.1Cb to 250<br>< 10|<br>V <br>V <br>V <br>V <br>mA<br>mA<br>nA<br>ns<br>pF|<br> <br> <br> <br> <br> <br> <br> <br>|
+Typical Operating Circuit of Section 7.2. VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
+**Primary I²C I/O (SCL, SDA)**
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 16 页](img/PS-MPU-6000A-EN-p016.png)
+|PARAMETER|CONDITIONS|TYPICAL|UNITS|
+|---|---|---|---|
+|VIL, Low-Level Input Voltage|MPU-6000|-0.5 to 0.3 × VDD|V|
+|VIH, High-Level Input Voltage|MPU-6000|0.7 × VDD to VDD + 0.5|V|
+|Vhys, Hysteresis|MPU-6000|0.1 × VDD|V|
+|VIL, Low-Level Input Voltage|MPU-6050|-0.5 to 0.3 × VLOGIC|V|
+|VIH, High-Level Input Voltage|MPU-6050|0.7 × VLOGIC to VLOGIC + 0.5|V|
+|Vhys, Hysteresis|MPU-6050|0.1 × VLOGIC|V|
+|VOL1, Low-Level Output Voltage|3 mA sink current|0 to 0.4|V|
+|IOL, Low-Level Output Current|VOL=0.4 V|3|mA|
+|IOL, Low-Level Output Current|VOL=0.6 V|5|mA|
+|Output Leakage Current||100|nA|
+|tof, Output Fall Time from VIHmax to VILmax|Cb bus capacitance in pF|20 + 0.1 × Cb to 250|ns|
+|CI, Capacitance for Each I/O Pin||< 10|pF|
+
+**Auxiliary I²C I/O (AUX_CL, AUX_DA), MPU-6050: AUX_VDDIO=0**
+
+|PARAMETER|CONDITIONS|TYPICAL|UNITS|
+|---|---|---|---|
+|VIL, Low-Level Input Voltage||-0.5 to 0.3 × VLOGIC|V|
+|VIH, High-Level Input Voltage||0.7 × VLOGIC to VLOGIC + 0.5|V|
+|Vhys, Hysteresis||0.1 × VLOGIC|V|
+|VOL1, Low-Level Output Voltage|VLOGIC > 2 V; 1 mA sink current|0 to 0.4|V|
+|VOL3, Low-Level Output Voltage|VLOGIC < 2 V; 1 mA sink current|0 to 0.2 × VLOGIC|V|
+|IOL, Low-Level Output Current|VOL=0.4 V|1|mA|
+|IOL, Low-Level Output Current|VOL=0.6 V|1|mA|
+|Output Leakage Current||100|nA|
+|tof, Output Fall Time from VIHmax to VILmax|Cb bus capacitance in pF|20 + 0.1 × Cb to 250|ns|
+|CI, Capacitance for Each I/O Pin||< 10|pF|
+
+**Auxiliary I²C I/O (AUX_CL, AUX_DA), MPU-6050: AUX_VDDIO=1; MPU-6000**
+
+|PARAMETER|CONDITIONS|TYPICAL|UNITS|
+|---|---|---|---|
+|VIL, Low-Level Input Voltage||-0.5 to 0.3 × VDD|V|
+|VIH, High-Level Input Voltage||0.7 × VDD to VDD + 0.5|V|
+|Vhys, Hysteresis||0.1 × VDD|V|
+|VOL1, Low-Level Output Voltage|1 mA sink current|0 to 0.4|V|
+|IOL, Low-Level Output Current|VOL=0.4 V|1|mA|
+|IOL, Low-Level Output Current|VOL=0.6 V|1|mA|
+|Output Leakage Current||100|nA|
+|tof, Output Fall Time from VIHmax to VILmax|Cb bus capacitance in pF|20 + 0.1 × Cb to 250|ns|
+|CI, Capacitance for Each I/O Pin||< 10|pF|
 
 ## 原文第 17 页
 
-**6.6** **Electrical Specifications, Continued**
-Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or
-VDD, TA = 25°C
+**6.6 Electrical Specifications, Continued**
 
-|Parameters|Conditions|Min|Typical|Max|Units|Notes|
-|---|---|---|---|---|---|---|
-|**INTERNAL CLOCK SOURCE**<br>Gyroscope Sample Rate, Fast<br>Gyroscope Sample Rate, Slow<br>Accelerometer Sample Rate<br>Reference Clock Output<br>Clock Frequency Initial Tolerance<br> <br>Frequency Variation over Temperature<br> <br>PLL Settling Time|**CLK_SEL=0,1,2,3**<br>DLPFCFG=0<br>SAMPLERATEDIV = 0<br>DLPFCFG=1,2,3,4,5, or 6<br>SAMPLERATEDIV = 0<br> <br>CLKOUTEN = 1<br>CLK_SEL=0, 25°C<br>CLK_SEL=1,2,3; 25°C<br>CLK_SEL=0<br>CLK_SEL=1,2,3<br>CLK_SEL=1,2,3|<br> <br> <br> <br> <br>-5<br>-1<br> <br> <br>|<br>8 <br>1 <br>1 <br>1.024<br> <br> <br>-15 to +10<br>±1<br>1|<br> <br> <br> <br> <br>+5<br>+1<br> <br> <br>10|<br>kHz<br>kHz<br>kHz<br>MHz<br>% <br>% <br>% <br>% <br>ms|<br> <br> <br> <br> <br> <br> <br> <br> <br>|
-|**EXTERNAL 32.768kHz CLOCK**<br>External Clock Frequency<br>External Clock Allowable Jitter<br>Gyroscope Sample Rate, Fast<br>Gyroscope Sample Rate, Slow<br>Accelerometer Sample Rate<br>Reference Clock Output<br>PLL Settling Time|**CLK_SEL=4**<br> <br>Cycle-to-cycle rms<br>DLPFCFG=0<br>SAMPLERATEDIV = 0<br>DLPFCFG=1,2,3,4,5, or 6<br>SAMPLERATEDIV = 0<br> <br>CLKOUTEN = 1<br>|<br> <br> <br> <br> <br> <br> <br>|<br>32.768<br>1 to 2<br>8.192<br>1.024<br>1.024<br>1.0486<br>1|<br> <br> <br> <br> <br> <br> <br>10|<br>kHz<br>µs<br>kHz<br>kHz<br>kHz<br>MHz<br>ms|<br> <br> <br> <br> <br> <br> <br>|
-|**EXTERNAL 19.2MHz CLOCK**<br>External Clock Frequency <br>Gyroscope Sample Rate<br>Gyroscope Sample Rate, Fast Mode<br>Gyroscope Sample Rate, Slow Mode<br>Accelerometer Sample Rate<br>Reference Clock Output<br>PLL Settling Time|**CLK_SEL=5**<br> <br>Full programmable range<br>DLPFCFG=0<br>SAMPLERATEDIV = 0<br>DLPFCFG=1,2,3,4,5, or 6<br>SAMPLERATEDIV = 0<br> <br>CLKOUTEN = 1<br>|<br> <br>3.9<br> <br> <br> <br> <br>|<br>19.2<br> <br>8 <br>1 <br>1 <br>1.024 <br>1|<br> <br>8000<br> <br> <br> <br> <br>10|<br>MHz<br>Hz<br>kHz<br>kHz <br>kHz<br>MHz<br>ms|<br> <br> <br> <br> <br> <br> <br>|
+Typical Operating Circuit of Section 7.2. VDD = 2.375–3.46 V, VLOGIC (MPU-6050 only) = 1.8 V ± 5% or VDD, TA = 25°C.
 
+**Internal Clock Source: CLK_SEL=0,1,2,3**
 
-![MPU-6000 / MPU-6050 产品规格书，原文第 17 页](img/PS-MPU-6000A-EN-p017.png)
+|PARAMETER|CONDITIONS|MIN|TYP|MAX|UNITS|
+|---|---|---|---|---|---|
+|Gyroscope Sample Rate, Fast|DLPFCFG=0, SAMPLERATEDIV=0||8||kHz|
+|Gyroscope Sample Rate, Slow|DLPFCFG=1,2,3,4,5,6; SAMPLERATEDIV=0||1||kHz|
+|Accelerometer Sample Rate|||1||kHz|
+|Reference Clock Output|CLKOUTEN=1||1.024||MHz|
+|Clock Frequency Initial Tolerance|CLK_SEL=0, 25°C|-5||+5|%|
+|Clock Frequency Initial Tolerance|CLK_SEL=1,2,3; 25°C|-1||+1|%|
+|Frequency Variation over Temperature|CLK_SEL=0||-15 to +10||%|
+|Frequency Variation over Temperature|CLK_SEL=1,2,3||±1||%|
+|PLL Settling Time|CLK_SEL=1,2,3||1|10|ms|
+
+**External 32.768 kHz Clock: CLK_SEL=4**
+
+|PARAMETER|CONDITIONS|MIN|TYP|MAX|UNITS|
+|---|---|---|---|---|---|
+|External Clock Frequency|||32.768||kHz|
+|External Clock Allowable Jitter|Cycle-to-cycle rms||1 to 2||μs|
+|Gyroscope Sample Rate, Fast|DLPFCFG=0, SAMPLERATEDIV=0||8.192||kHz|
+|Gyroscope Sample Rate, Slow|DLPFCFG=1,2,3,4,5,6; SAMPLERATEDIV=0||1.024||kHz|
+|Accelerometer Sample Rate|||1.024||kHz|
+|Reference Clock Output|CLKOUTEN=1||1.0486||MHz|
+|PLL Settling Time|||1|10|ms|
+
+**External 19.2 MHz Clock: CLK_SEL=5**
+
+|PARAMETER|CONDITIONS|MIN|TYP|MAX|UNITS|
+|---|---|---|---|---|---|
+|External Clock Frequency|||19.2||MHz|
+|Gyroscope Sample Rate|Full programmable range|3.9||8000|Hz|
+|Gyroscope Sample Rate, Fast Mode|DLPFCFG=0, SAMPLERATEDIV=0||8||kHz|
+|Gyroscope Sample Rate, Slow Mode|DLPFCFG=1,2,3,4,5,6; SAMPLERATEDIV=0||1||kHz|
+|Accelerometer Sample Rate|||1||kHz|
+|Reference Clock Output|CLKOUTEN=1||1.024||MHz|
+|PLL Settling Time|||1|10|ms|
 
 ## 原文第 18 页
 
@@ -660,7 +771,6 @@ VDD, TA = 25°C
 |**I**<br>**2C TIMING**<br>fSCL, SCL Clock Frequency<br>tHD.STA, (Repeated) START Condition Hold<br>Time<br>tLOW, SCL Low Period<br>tHIGH, SCL High Period<br>tSU.STA, Repeated START Condition Setup<br>Time<br>tHD.DAT, SDA Data Hold Time<br>tSU.DAT, SDA Data Setup Time<br>tr, SDA and SCL Rise Time<br>tf, SDA and SCL Fall Time<br>tSU.STO, STOP Condition Setup Time<br>tBUF, Bus Free Time Between STOP and<br>START Condition<br>Cb, Capacitive Load for each Bus Line<br>tVD.DAT, Data Valid Time<br>tVD.ACK, Data Valid Acknowledge Time<br>|**I**<br>**2C FAST-MODE**<br> <br> <br> <br> <br> <br> <br> <br>Cb bus cap. from 10 to 400pF<br>Cb bus cap. from 10 to 400pF<br> <br> <br> <br> <br> <br>|<br>0.6<br>1.3<br>0.6<br>0.6<br>0 <br>100<br>20+0.1Cb <br>20+0.1Cb <br>0.6<br>1.3<br> <br> <br> <br>|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br>< 400<br> <br> <br>|400<br> <br> <br> <br> <br> <br> <br>300<br>300<br> <br> <br> <br>0.9<br>0.9|kHz<br>µs<br>µs<br>µs<br>µs<br>µs<br>ns<br>ns<br>ns<br>µs<br>µs<br>pF<br>µs<br>µs|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br> <br>|
 
 **I** <sup>**2**</sup> **C Bus Timing Diagram**
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 18 页](img/PS-MPU-6000A-EN-p018.png)
 
@@ -675,7 +785,6 @@ VDD,TA = -40°C to +85°C, unless otherwise noted.
 |**SPI TIMING**<br>fSCLK, SCLK Clock Frequency<br>tLOW, SCLK Low Period<br>tHIGH, SCLK High Period<br>tSU.CS, CS Setup Time<br>tHD.CS, CS Hold Time<br>tSU.SDI, SDI Setup Time<br>tHD.SDI, SDI Hold Time<br>tVD.SDO, SDO Valid Time<br>tHD.SDO, SDO Hold Time<br>tDIS.SDO, SDO Output Disable Time|<br>Cload = 20pF<br>Cload = 20pF|400<br>400<br>8 <br>500<br>11<br>7 <br>4||1 <br>100<br>10|MHz<br>ns<br>ns<br>ns<br>ns<br>ns<br>ns<br>ns<br>ns<br>ns|<br> <br> <br> <br> <br> <br> <br> <br> <br> <br>|
 
 **SPI Bus Timing Diagram**
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 19 页](img/PS-MPU-6000A-EN-p019.png)
 
@@ -699,9 +808,6 @@ Exposure to the absolute maximum ratings conditions for extended periods may aff
 |Electrostatic Discharge (ESD) Protection|2kV (HBM);<br>200V (MM)|
 |Latch-up|JEDEC Class II (2),125°C<br>Level A, ±100mA|
 
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 20 页](img/PS-MPU-6000A-EN-p020.png)
-
 ## 原文第 21 页
 
 **7** **Applications Information**
@@ -711,12 +817,12 @@ Exposure to the absolute maximum ratings conditions for extended periods may aff
 |Pin Number|MPU-<br>6000|MPU-<br>6050|Pin Name|Pin Description|
 |---|---|---|---|---|
 |1|Y|Y|CLKIN|Optional external reference clock input. Connect to GND if unused.|
-|6|Y|Y|AUX_DA|I<br>2C master serial data, for connecting to external sensors|
-|7|Y|Y|AUX_CL|I<br>2C Master serial clock, for connecting to external sensors|
+|6|Y|Y|AUX_DA|I²C master serial data, for connecting to external sensors|
+|7|Y|Y|AUX_CL|I²C Master serial clock, for connecting to external sensors|
 |8|Y||/CS|SPI chip select (0=SPI mode)|
 |8||Y|VLOGIC|Digital I/O supply voltage|
-|9|Y||AD0 / SDO|I<br>2C Slave Address LSB (AD0); SPI serial data output (SDO)|
-|9||Y|AD0|I<br>2C Slave Address LSB (AD0)|
+|9|Y||AD0 / SDO|I²C Slave Address LSB (AD0); SPI serial data output (SDO)|
+|9||Y|AD0|I²C Slave Address LSB (AD0)|
 |10|Y|Y|REGOUT|Regulator filter capacitor connection|
 |11|Y|Y|FSYNC|Frame synchronization digital input. Connect to GND if unused.|
 |12|Y|Y|INT|Interrupt digital output (totem pole or open-drain)|
@@ -725,12 +831,11 @@ Exposure to the absolute maximum ratings conditions for extended periods may aff
 |19, 21|Y|Y|RESV|Reserved. Do not connect.|
 |20|Y|Y|CPOUT|Charge pump capacitor connection|
 |22|Y|Y|CLKOUT|System clock output|
-|23|Y||SCL / SCLK|I<br>2C serial clock (SCL); SPI serial clock (SCLK)|
-|23||Y|SCL|I<br>2C serial clock (SCL)|
-|24|Y||SDA / SDI|I<br>2C serial data (SDA); SPI serial data input (SDI)|
-|24||Y|SDA|I<br>2C serial data (SDA)|
+|23|Y||SCL / SCLK|I²C serial clock (SCL); SPI serial clock (SCLK)|
+|23||Y|SCL|I²C serial clock (SCL)|
+|24|Y||SDA / SDI|I²C serial data (SDA); SPI serial data input (SDI)|
+|24||Y|SDA|I²C serial data (SDA)|
 |2, 3, 4, 5, 14,<br>15, 16, 17|Y|Y|NC|Not internally connected. May be used for PCB trace routing.|
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 21 页](img/PS-MPU-6000A-EN-p021.png)
 
@@ -749,13 +854,11 @@ Exposure to the absolute maximum ratings conditions for extended periods may aff
 
 - MPU-6050 Only.
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 22 页](img/PS-MPU-6000A-EN-p022.png)
 
 ## 原文第 23 页
 
 **7.4** **Recommended Power-on Procedure**
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 23 页](img/PS-MPU-6000A-EN-p023.png)
 
@@ -791,7 +894,6 @@ The MPU-60X0 is comprised of the following key blocks and functions:
   - Bias and LDO
 
   - Charge Pump
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 24 页](img/PS-MPU-6000A-EN-p024.png)
 
@@ -842,7 +944,6 @@ The logic levels for communications between the MPU-60X0 and its master are as f
   - <u>MPU-6050: The logic level for communications with the master is set by the voltage on VLOGIC</u>
 
 For further information regarding the logic levels of the MPU-6050, please refer to Section 10.
-
 
 ## 原文第 26 页
 
@@ -896,9 +997,6 @@ interface.
 
 For further information regarding the MPU-6050’s logic levels, please refer to Section 10.2.
 
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 26 页](img/PS-MPU-6000A-EN-p026.png)
-
 ## 原文第 27 页
 
 **7.12 Self-Test**
@@ -919,7 +1017,6 @@ is defined in the gyroscope specification table (Section 6.1).
 For further information regarding the Gyro & Accel control registers, please refer to the MPU-6050 Register
 Map and Register Descriptions document.
 
-
 ## 原文第 28 页
 
 **7.13 MPU-60X0 Solution for 9-axis Sensor Fusion Using I** <sup>**2**</sup> **C Interface**
@@ -934,7 +1031,6 @@ should be disabled so that the MPU-60X0 auxiliary I <sup>2</sup> C master can ta
 gather data from the auxiliary sensors.
 
 For further information regarding I <sup>2</sup> C master control, please refer to Section 10.
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 28 页](img/PS-MPU-6000A-EN-p028.png)
 
@@ -964,7 +1060,6 @@ well as to the external sensor registers.
 For further information regarding the control of the MPU-60X0’s auxiliary I <sup>2</sup> C interface, please refer to the
 
 MPU-60X0 Register Map and Register Descriptions document.
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 29 页](img/PS-MPU-6000A-EN-p029.png)
 
@@ -1021,7 +1116,6 @@ reads. The interrupt function may be used to determine when new data is availabl
 For further information regarding the FIFO, please refer to the MPU-60X0 Register Map and Register
 Descriptions document.
 
-
 ## 原文第 31 页
 
 **7.18 Interrupts**
@@ -1053,7 +1147,6 @@ An on-board charge pump generates the high voltage required for the MEMS oscilla
 bypassed by a capacitor at CPOUT. For further details on the capacitor, please refer to the Bill of Materials
 for External Components (Section 7.3).
 
-
 ## 原文第 32 页
 
 **8** **Programmable Interrupts**
@@ -1070,14 +1163,11 @@ Status flags indicate the source of an interrupt. Interrupt sources may be enabl
 |Zero Motion Detection|Zero Motion|
 |FIFO Overflow|FIFO|
 |Data Ready|Sensor Registers|
-|I<br>2C Master errors: Lost Arbitration, NACKs|I<br>2C Master|
-|I<br>2C Slave 4|I<br>2C Master|
+|I²C Master errors: Lost Arbitration, NACKs|I²C Master|
+|I²C Slave 4|I²C Master|
 
 For information regarding the interrupt enable/disable registers and flag registers, please refer to the MPU6000/MPU-6050 Register Map and Register Descriptions document. Some interrupt sources are explained
 below.
-
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 32 页](img/PS-MPU-6000A-EN-p032.png)
 
 ## 原文第 33 页
 
@@ -1085,7 +1175,6 @@ below.
 The diagram below shows the signal path for the gyroscope and accelerometer sensors. Note that each
 digital low pass filter (DLPF) is configured identically, as is each sample rate divider and digital high pass
 filter (DHPF).
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 33 页](img/PS-MPU-6000A-EN-p033.png)
 
@@ -1107,7 +1196,7 @@ The decrement rate for non-qualifying samples is also configurable. The MOT_DETE
 allows the user to specify whether a non-qualifying sample makes the counter reset to zero, or decrement in
 steps of 1, 2, or 4.
 
-The figure above shows a simplified example with just one axis. An example acceleration input signal
+The [Free Fall interrupt diagram on original page 34](img/PS-MPU-6000A-EN-p034.png) shows a simplified example with just one axis. An example acceleration input signal
 (simplified to only show one axis), qualifying sample counter, and Free Fall flag are shown.
 
 **8.3** **Motion Interrupt**
@@ -1122,7 +1211,6 @@ triggered is flagged in the MOT_DETECT_STATUS register.
 Like Free Fall detection, Motion detection has a configurable acceleration threshold MOT_THR specified in 1
 m _g_ increments. The counter threshold MOT_DUR is specified in 1 ms increments. The decrement rate has
 the same options as Free Fall detection, and is specified in the MOT_DETECT_CTRL register.
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 34 页](img/PS-MPU-6000A-EN-p034.png)
 
@@ -1140,7 +1228,6 @@ first detected and when Zero Motion is no longer detected. While Free Fall and M
 flag which clears after being read, reading the state of the Zero Motion detected from the
 MOT_DETECT_STATUS register does not clear its status.
 
-
 ## 原文第 36 页
 
 **9** **Digital Interface**
@@ -1155,12 +1242,12 @@ or SPI at 1MHz (MPU-6000 only). SPI operates in four-wire mode.
 |---|---|---|---|---|
 |8|Y||/CS|SPI chip select (0=SPI enable)|
 |8||Y|VLOGIC|Digital I/O supply voltage. VLOGIC must be ≤ VDD at all times.|
-|9|Y||AD0 / SDO|I<br>2C Slave Address LSB (AD0); SPI serial data output (SDO)|
-|9||Y|AD0|I<br>2C Slave Address LSB|
-|23|Y||SCL / SCLK|I<br>2C serial clock (SCL); SPI serial clock (SCLK)|
-|23||Y|SCL|I<br>2C serial clock|
-|24|Y||SDA / SDI|I<br>2C serial data (SDA); SPI serial data input (SDI)|
-|24||Y|SDA|I<br>2C serial data|
+|9|Y||AD0 / SDO|I²C Slave Address LSB (AD0); SPI serial data output (SDO)|
+|9||Y|AD0|I²C Slave Address LSB|
+|23|Y||SCL / SCLK|I²C serial clock (SCL); SPI serial clock (SCLK)|
+|23||Y|SCL|I²C serial clock|
+|24|Y||SDA / SDI|I²C serial data (SDA); SPI serial data input (SDI)|
+|24||Y|SDA|I²C serial data|
 
 **Note:**
 
@@ -1191,12 +1278,9 @@ low) and the address of the other should be b1101001 (pin AD0 is logic high).
 _START (S) and STOP (P) Conditions_
 
 Communication on the I <sup>2</sup> C bus starts when the master puts the START condition (S) on the bus, which is
-defined as a HIGH-to-LOW transition of the SDA line while SCL line is HIGH (see figure below). The bus is
+defined as a HIGH-to-LOW transition of the SDA line while SCL line is HIGH (see the [START and STOP conditions diagram on original page 37](img/PS-MPU-6000A-EN-p037.png)). The bus is
 considered to be busy until the master puts a STOP condition (P) on the bus, which is defined as a LOW to
-HIGH transition on the SDA line while SCL is HIGH (see figure below).
-
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 36 页](img/PS-MPU-6000A-EN-p036.png)
+HIGH transition on the SDA line while SCL is HIGH (see the [same diagram on original page 37](img/PS-MPU-6000A-EN-p037.png)).
 
 ## 原文第 37 页
 
@@ -1216,7 +1300,6 @@ performed, it can hold SCL LOW, thus forcing the master into a wait state. Norma
 when the slave is ready, and releases the clock line (refer to the following figure).
 
 **Acknowledge on the I** <sup>**2**</sup> **C Bus**
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 37 页](img/PS-MPU-6000A-EN-p037.png)
 
@@ -1258,7 +1341,6 @@ _Burst Write Sequence_
 |---|---|---|---|---|---|---|---|---|---|---|
 |Slave|||ACK||ACK||ACK||ACK||
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 38 页](img/PS-MPU-6000A-EN-p038.png)
 
 ## 原文第 39 页
@@ -1295,7 +1377,6 @@ _Burst Read Sequence_
 |RA|MPU-60X0 internal register address|
 |DATA|Transmit or received data|
 |P|Stop condition: SDA going from low to high while SCL is high|
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 39 页](img/PS-MPU-6000A-EN-p039.png)
 
@@ -1339,7 +1420,6 @@ _<u>SPI Data format</u>_
 
 6. Supports Single or Burst Read/Writes.
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 40 页](img/PS-MPU-6000A-EN-p040.png)
 
 ## 原文第 41 页
@@ -1357,7 +1437,8 @@ The MPU-6050’s I/O logic levels are set to be either VDD or VLOGIC, as shown i
 
 |AUX_VDDIO|MICROPROCESSOR LOGIC LEVELS<br>(Pins: SDA, SCL, AD0, CLKIN, INT)|AUXILLARY LOGIC LEVELS<br>(Pins: AUX_DA, AUX_CL)|
 |---|---|---|
-|0 <br>1|VLOGIC<br>VLOGIC|VLOGIC<br>VDD|
+|0|VLOGIC|VLOGIC|
+|1|VLOGIC|VDD|
 
 Note: The power-on-reset value for _AUX_VDDIO_ is 0.
 
@@ -1366,9 +1447,6 @@ times. When _AUX_VDDIO_ is set to 0 (its power-on-reset value), VLOGIC is the po
 both the microprocessor system bus and the auxiliary I <sup>2</sup> C bus, as shown in the figure of Section 10.3. When
 _AUX_VDDIO_ is set to 1, VLOGIC is the power supply voltage for the microprocessor system bus and VDD is
 the supply for the auxiliary I <sup>2</sup> C bus, as shown in the figure of Section 10.4.
-
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 41 页](img/PS-MPU-6000A-EN-p041.png)
 
 ## 原文第 42 页
 
@@ -1385,7 +1463,6 @@ the auxiliary sensors used.
 (0 = set output levels relative to VLOGIC)
 2. CLKOUT is referenced to VDD.
 3. All other MPU-6050 logic IOs are referenced to VLOGIC.
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 42 页](img/PS-MPU-6000A-EN-p042.png)
 
@@ -1409,7 +1486,6 @@ INT2 may be set to push-pull outputs, and external pull-up resistors are not nee
 3. CLKOUT is referenced to VDD.
 4. All other MPU-6050 logic IOs are referenced to VLOGIC.
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 43 页](img/PS-MPU-6000A-EN-p043.png)
 
 ## 原文第 44 页
@@ -1423,7 +1499,6 @@ This section provides general guidelines for assembling InvenSense Micro Electro
 The diagram below shows the orientation of the axes of sensitivity and the polarity of rotation. Note the pin 1
 identifier (•) in the figure.
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 44 页](img/PS-MPU-6000A-EN-p044.png)
 
 ## 原文第 45 页
@@ -1432,30 +1507,11 @@ identifier (•) in the figure.
 
 24 Lead QFN (4x4x0.9) mm NiPdAu Lead-frame finish
 
-f
 
-b
+封装各视图、引脚 1 标识及四角引脚尺寸的位置关系见本页尺寸图。
 
-1
-
-6
-
-|24 19||
-|---|---|
-|PIN 1 IDENTIFIER IS A LASER<br>MARKED FEATURE ON TOP|18<br>13<br>E|
-|D<br>7<br>12||
-
-|||||
+|Symbol|Minimum (mm)|Nominal (mm)|Maximum (mm)|
 |---|---|---|---|
-|||||
-|||||
-|||D2||
-
-On 4 corners lead dimensions
-
-|SYMBOLS|DIMENSIONS IN MILLIMETERS|||
-|---|---|---|---|
-||MIN|NOM|MAX|
 |A|0.85|0.90|0.95|
 |A1|0.00|0.02|0.05|
 |b|0.18|0.25|0.30|
@@ -1471,8 +1527,8 @@ On 4 corners lead dimensions
 |L1|0.35|0.40|0.45|
 |s|0.05|‐‐‐|0.15|
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 45 页](img/PS-MPU-6000A-EN-p045.png)
+
 
 ## 原文第 46 页
 
@@ -1482,20 +1538,9 @@ Pad Dimensions Table shows pad sizing (mean dimensions) recommended for the MPU-
 
 JEDEC type extension with solder rising on outer edge
 
-PIN 1
-IDENTIFIER
 
-e
-
-L2
-
-Tou ~~t~~
-
-L
-
-|PCB Layout Diagram|||
+|Symbol|Description|Nominal dimension (mm)|
 |---|---|---|
-|**SYMBOLS**<br>**   DIMENSIONS IN MILLIMETERS**<br>**NOM**|||
 |<br>**Nominal Package I/O Pad Dimensions**|||
 |e|Pad Pitch|0.50|
 |b|Pad Width|0.25|
@@ -1514,33 +1559,11 @@ L
 |L2|Land Length|0.80|
 |L3|Land Length|0.85|
 
-||||||||D3||||||||||
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-||||||||||||||||||
-||||||||||||||||||
-||||||||||||||||||
-||||||||||||||||||
-||||||||||||||||||
-||||||||||||||||||
-|||24<br>7<br>12<br>13<br>18<br>19||||||||||19||||L1<br>L3<br><br>E2|
-||1|||||||||||||18||L1<br>L3<br>E|
-||||||||||||||||||
-||||||||||||||||||
-||||||||||||||||||
-||||||||||||||||||
-||||||||||||||||||
-||||||||||||||||||
-||||||||||||||||||
-||6||||||||||||||||
-||||||||||||||||||
-|||||||||||||12|||||
-||||||||||||||||||
-||||||||||||||||||
 
 **PCB Dimensions Table (for PCB Lay-out Diagram)**
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 46 页](img/PS-MPU-6000A-EN-p046.png)
+
 
 ## 原文第 47 页
 
@@ -1591,8 +1614,7 @@ for component placement near the MPU-60X0 to prevent noise coupling and thermo-m
 
 Orientation errors of the gyroscope and accelerometer mounted to the printed circuit board can cause crossaxis sensitivity in which one gyro or accel responds to rotation or acceleration about another axis,
 respectively. For example, the X-axis gyroscope may respond to rotation about the Y or Z axes. The
-orientation mounting errors are illustrated in the figure below.
-
+orientation mounting errors are illustrated in the [orientation error diagram on original page 48](img/PS-MPU-6000A-EN-p048.png).
 
 ## 原文第 48 页
 
@@ -1635,7 +1657,6 @@ Establish and use ESD-safe handling precautions when unpacking and handling ESD-
 - Store ESD sensitive devices in ESD safe containers until ready for use. The Tape-and-Reel moisturesealed bag is an ESD approved barrier. The best practice is to keep the units in the original moisture
 sealed bags until ready for assembly.
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 48 页](img/PS-MPU-6000A-EN-p048.png)
 
 ## 原文第 49 页
@@ -1663,16 +1684,14 @@ device.
 
 **Approved IR/Convection Solder Reflow Curve**
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 49 页](img/PS-MPU-6000A-EN-p049.png)
 
 ## 原文第 50 页
 
 **Temperature Set Points for IR / Convection Reflow Corresponding to Figure Above**
 
-|Step|Setting|CONSTRAINTS|||
+|Step|Setting|Temperature constraint (°C)|Time constraint (sec)|Rate constraint (°C/sec)|
 |---|---|---|---|---|
-|||Temp (°C)|Time (sec)|Rate (°C/sec)|
 |A|Troom|25|||
 |B|TSmin|150|||
 |C|TSmax|200|60 < tBC < 120||
@@ -1689,12 +1708,13 @@ device.
 
   - For suppliers TPmax must equal or exceed the classification temperature.
 
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 50 页](img/PS-MPU-6000A-EN-p050.png)
-
 ## 原文第 51 页
 
-|11.5 Storage Specifications The storage specification of the MPU-60X0 Level (MSL) 3.|conforms to IPC/JEDEC J-STD-020D.01 Moisture Sensitivi|
+**11.5 Storage Specifications**
+
+The storage specification of the MPU-60X0 conforms to IPC/JEDEC J-STD-020D.01 Moisture Sensitivity Level (MSL) 3.
+
+|Condition|Shelf-life and storage requirements|
 |---|---|
 |Calculated shelf-life in moisture-sealed bag|12 months -- Storage conditions: <40°C and <90% RH|
 |After opening moisture-sealed bag|168 hours -- Storage conditions: ambient ≤30°C at 60%RH|
@@ -1702,7 +1722,6 @@ device.
 **11.6 Package Marking Specification**
 
 **Package Marking Specification**
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 51 页](img/PS-MPU-6000A-EN-p051.png)
 
@@ -1716,11 +1735,9 @@ device.
 
 **Reel Dimensions and Package Size**
 
-|PACKAGE<br>SIZE|REEL (mm)||||
+|Package size|Reel L (mm)|Reel V (mm)|Reel W (mm)|Reel Z (mm)|
 |---|---|---|---|---|
-||**L **|**V **|**W **|**Z **|
 |**4x4**|**330**|**100**|**13.2**|**2.2**|
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 52 页](img/PS-MPU-6000A-EN-p052.png)
 
@@ -1760,13 +1777,11 @@ device.
 
 **Barcode Label** **Location of Label on Reel**
 
-
 ![MPU-6000 / MPU-6050 产品规格书，原文第 53 页](img/PS-MPU-6000A-EN-p053.png)
 
 ## 原文第 54 页
 
 **11.9 Packaging**
-
 
 ![MPU-6000 / MPU-6050 产品规格书，原文第 54 页](img/PS-MPU-6000A-EN-p054.png)
 
@@ -1808,9 +1823,6 @@ Qualification of Integrated Circuits,” with the individual tests described bel
 
 (1) Tests are preceded by MSL3 Preconditioning in accordance with JEDEC JESD22-A113F
 
-
-![MPU-6000 / MPU-6050 产品规格书，原文第 55 页](img/PS-MPU-6000A-EN-p055.png)
-
 ## 原文第 56 页
 
 **13 Environmental Compliance**
@@ -1823,7 +1835,6 @@ HS-MPU-6000A, Materials Declaration Data Sheet.
 InvenSense believes this environmental information to be correct but cannot guarantee accuracy or completeness. Conformity
 documents for the above component constitutes are on file. InvenSense subcontracts manufacturing and the information contained
 herein is based on data received from vendors and suppliers, which has not been validated by InvenSense.
-
 
 ## 原文第 57 页
 
@@ -1847,6 +1858,5 @@ InvenSense®, MotionCommand®, TouchAnywhere®, and AirSign® are registered tra
 Processor™, Digital Motion Processing™, DMP™, BlurFree™, and InstantGesture™ are trademarks of InvenSense, Inc.
 
 ©2011 InvenSense, Inc. All rights reserved.
-
 
 返回：[文档索引](../../README.md)。

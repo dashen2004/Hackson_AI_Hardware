@@ -2,7 +2,7 @@
 
 > 整理说明：本次仅转换原手册，未执行其中命令或进行硬件验证。赛题使用 LJWB03 命名，本手册使用 XJWB03 命名，对应关系待确认。
 
-> 来源：`灵机XJWB03标准开发板使用文档.pdf`，共 13 页。正文按原始页序转换为 Markdown；英文资料保留英文。复杂表格、公式和图示附原页截图供核对；合并单元格以原页截图 为准。
+> 来源：`灵机XJWB03标准开发板使用文档.pdf`，共 13 页。正文按原始页序转换为 Markdown，文字、参数及表格直接排版；仅保留电路、时序、尺寸、实物等必要图示。
 
 ## 原文第 1 页
 
@@ -21,9 +21,7 @@ ESP32-S3 · 16 MB Flash · Wi-Fi / BLE · ESP-IDF + QUMIOS
 |目标芯片|ESP32-S3|
 |更新日期|2026-10|
 
-阅读提示本文所有在线文档 / 平台页面链接统一收拢在第 12 章「链接汇总」。正文不再内嵌链接占位；如需跳转到平台注册页、配网 / 绑定步骤说明、模块资料等具体子页面，请在「链接汇总」
-
-中补充对应直链。
+阅读提示：SDK、平台及开发者文档入口集中在[第 12 章「链接汇总」](#links)。配网、绑定等具体子页面直链原资料未提供，可先从开发者文档中心进入；具体子页面地址待补充。
 
 ### 1 阅读指南
 
@@ -38,8 +36,6 @@ ESP32-S3 · 16 MB Flash · Wi-Fi / BLE · ESP-IDF + QUMIOS
 |只想让设备跑起来体验|接线 → 用现成烧录包烧录 →配网绑定 → 逐项验证（无需装编译环境）|2、3、6.3、7、8|
 |要做二次开发 / 做自己的产品|按顺序完整阅读；改宏开关、换 PID、重新编译|1～8、10、11|
 |设备已经在跑，遇到问题|先看第 9 章常见问题，再用调试命令行定位|8.4、9|
-
-![灵机 XJWB03 标准开发板使用文档，原文第 1 页](img/灵机XJWB03标准开发板使用文档-p001.png)
 
 ## 原文第 2 页
 
@@ -69,17 +65,13 @@ ESP32-S3 · 16 MB Flash · Wi-Fi / BLE · ESP-IDF + QUMIOS
 
 #### 2.2 流程示意
 
-选择方案 → 购买开发板 → 准备编译环境 → 创建产品取得 PID
-
-编译烧录 → 配网与绑定 → 开始体验
+选择方案 → 购买开发板 → 准备编译环境 → 创建产品取得 PID → 编译烧录 → 配网与绑定 → 开始体验
 
 #### 2.3 开始前的准备清单
 
 |类别|需要准备|说明|
 |---|---|---|
 |硬件|开发板套件、USB Type-C 数据线、2.4 GHz Wi-Fi 路由器|USB 线需支持数据传输|
-
-![灵机 XJWB03 标准开发板使用文档，原文第 2 页](img/灵机XJWB03标准开发板使用文档-p002.png)
 
 ## 原文第 3 页
 
@@ -130,8 +122,6 @@ PowerShell 中执行：
  [System.IO.Ports.SerialPort]::GetPortNames()
 
 ```
-
-![灵机 XJWB03 标准开发板使用文档，原文第 3 页](img/灵机XJWB03标准开发板使用文档-p003.png)
 
 ## 原文第 4 页
 
@@ -197,8 +187,6 @@ apps\build\vb701n.bin。
 |python env not found|工具链路径未找到|确认 install.bat 已成功；或设置 IDF_TOOLS_PATH 指向 .espressif 目录|
 |idf.py not found|esp-idf 子模块没有拉取|git submodule update --initesp-idf|
 
-![灵机 XJWB03 标准开发板使用文档，原文第 4 页](img/灵机XJWB03标准开发板使用文档-p004.png)
-
 ## 原文第 5 页
 
 |报错|原因|处理|
@@ -211,7 +199,7 @@ apps\build\vb701n.bin。
 
 #### 5.1 注册并创建产品
 
-- 打开灵机开放平台（地址见第 12 章链接汇总），注册并登录账号。
+- 打开灵机开放平台（地址见[第 12 章链接汇总](#links)），注册并登录账号。
 
 - 在账号下创建产品，记下产品 ID（PID）与密钥（SECRET）。
 
@@ -249,8 +237,6 @@ apps\build\vb701n.bin。
 |dev.bat rebuild|删除 apps\build 后全量编译|改了 qm_config.h 的宏、换了PID、换了分区表|
 |dev.bat clean|删除整个编译缓存|编译产物异常、需要彻底重来|
 |dev.bat clean obj|只清对象文件，保留sdkconfig|只怀疑对象文件损坏时|
-
-![灵机 XJWB03 标准开发板使用文档，原文第 5 页](img/灵机XJWB03标准开发板使用文档-p005.png)
 
 ## 原文第 6 页
 
@@ -296,8 +282,6 @@ cloud connected
 
 如果只出现前半段，说明卡在联网：优先检查 Wi-Fi 频段、PID / 密钥和平台环境是否匹配。
 
-![灵机 XJWB03 标准开发板使用文档，原文第 6 页](img/灵机XJWB03标准开发板使用文档-p006.png)
-
 ## 原文第 7 页
 
 ### 7 第五步：配网与绑定
@@ -316,9 +300,7 @@ cloud connected
 
 #### 7.2 Wi-Fi 设备：小程序 BLE 配网
 
-- 打开小程序，进入“添加设备 / 配网”，按产品选择“灵机 ESP32 组合开发板”（操作步骤
-
-见第 12 章链接汇总）。
+- 打开小程序，进入“添加设备 / 配网”，按产品选择“灵机 ESP32 组合开发板”（操作资料入口见[第 12 章链接汇总](#links)，具体步骤页面待补充）。
 
 - 输入家中 Wi-Fi 的名称与密码，等待进度到 100%，设备会自动重启并连云。
 
@@ -328,11 +310,9 @@ cloud connected
 
 #### 7.3 绑定设备与 AGENT
 
-- 绑定设备：在平台或小程序把设备归属到你的账号（步骤见第 12 章链接汇总）。
+- 绑定设备：在平台或小程序把设备归属到你的账号（操作资料入口见[第 12 章链接汇总](#links)，具体步骤页面待补充）。
 
-- AGENT：为产品选择或创建智能体，设备连云后用它进行语音对话（步骤见第 12 章链接汇
-
-总）。
+- AGENT：为产品选择或创建智能体，设备连云后用它进行语音对话（操作资料入口见[第 12 章链接汇总](#links)，具体步骤页面待补充）。
 
 绑定完成后重新上电，设备带着绑定信息连云，即可开始对话。
 
@@ -348,8 +328,6 @@ cloud connected
 |---|---|---|---|
 |语音对话|说唤醒词，听到提示后提问“现在几点”|喇叭有语音回答|日志 agent / ttsfinal|
 |音量控制|小程序把音量从 30 调到80，再说“声音大一点”|音量变化，小程序状态回显|日志标签 volume|
-
-![灵机 XJWB03 标准开发板使用文档，原文第 7 页](img/灵机XJWB03标准开发板使用文档-p007.png)
 
 ## 原文第 8 页
 
@@ -394,8 +372,6 @@ cloud connected
 |volume|音量读写与影子上报|
 |player|资源播放|
 
-![灵机 XJWB03 标准开发板使用文档，原文第 8 页](img/灵机XJWB03标准开发板使用文档-p008.png)
-
 ## 原文第 9 页
 
 ### 9 常见问题
@@ -432,8 +408,6 @@ cloud connected
 |GPIO|用途|方向|备注|
 |---|---|---|---|
 |1|WS2812 灯带|输出|默认 8 颗灯珠，串行级联只接 DI|
-
-![灵机 XJWB03 标准开发板使用文档，原文第 9 页](img/灵机XJWB03标准开发板使用文档-p009.png)
 
 ## 原文第 10 页
 
@@ -482,8 +456,6 @@ ESP32-S3
 |spiffs_data|0xB30000|1024 KB|文件系统|
 |lvgl|0xC30000|3072 KB|界面资源预留|
 
-![灵机 XJWB03 标准开发板使用文档，原文第 10 页](img/灵机XJWB03标准开发板使用文档-p010.png)
-
 ## 原文第 11 页
 
 ### 11 附录 B：SDK 结构与插件开关
@@ -529,8 +501,6 @@ esp32_combo/
 |闹钟|lj_components/alarm|CONFIG_QM_ALARM_SUPPORT|1|应用层与平台 qm_alarm 都不编译|
 |资源播放|lj_components/playback|CONFIG_LJYD_PLAYBACK_SUPPORT|1|播放器不编译、不初始化|
 
-![灵机 XJWB03 标准开发板使用文档，原文第 11 页](img/灵机XJWB03标准开发板使用文档-p011.png)
-
 ## 原文第 12 页
 
 |插件|位置|开关宏|默认|置 0 的影响|
@@ -541,25 +511,23 @@ esp32_combo/
 |摄像头取流|peripheral|CONFIG_APP_CAMERA_TEST|0|不编译摄像头取流|
 |设备 IOT 控制|lj_components/iot_control|无（常开）|—|当前没有开关宏|
 
+<a id="links"></a>
+
 ### 12 附录 C：链接汇总
 
 |用途|链接|
 |---|---|
-|SDK 仓库|https://gitee.com/xj-open/ljyd_xjwb03_agent_public_developer|
-|灵机开放平台（注册 / 登录）|https://platform.ljyd.cn|
-|灵机开发者文档中心（配网 /绑定 / 模块资料等步骤说明）|https://xjiangiot.yuque.com/afahpl/qrhct7/hyqx4bpnpg1zcys1|
-|ESP-IDF 文档|https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32s3/|
-
-### 13 开发设备展示
-
-下图是用灵机 XJWB03-DevKIT-V1 开发板与 LJX40-Audio-KIT-V1 语音开发板实图，详细资料可前往开发者文档中心获取。其他外设信息可在SDK 仓库中获取。
-
-![灵机 XJWB03 标准开发板使用文档，原文第 12 页](img/灵机XJWB03标准开发板使用文档-p012.png)
+|SDK 仓库|[打开 SDK 仓库](https://gitee.com/xj-open/ljyd_xjwb03_agent_public_developer)|
+|灵机开放平台（注册 / 登录）|[打开灵机开放平台](https://platform.ljyd.cn)|
+|灵机开发者文档中心（配网 / 绑定 / 模块资料入口，具体子页面待补充）|[打开开发者文档中心](https://xjiangiot.yuque.com/afahpl/qrhct7/hyqx4bpnpg1zcys1)|
+|ESP-IDF 文档|[打开 ESP32-S3 的 ESP-IDF 文档](https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32s3/)|
 
 ## 原文第 13 页
 
-图 1 XJWB03-DevKIT-V1 LJX40-Audio-KIT-V1
+### 13 开发设备展示
 
-![灵机 XJWB03 标准开发板使用文档，原文第 13 页](img/灵机XJWB03标准开发板使用文档-p013.png)
+下图展示 XJWB03-DevKIT-V1 开发板与 LJX40-Audio-KIT-V1 语音开发板。详细资料可通过[链接汇总](#links)中的开发者文档中心和 SDK 仓库查阅。
+
+![图 1：XJWB03-DevKIT-V1 开发板与 LJX40-Audio-KIT-V1 语音开发板实物照片](img/灵机XJWB03标准开发板使用文档-p013.png)
 
 返回：[文档索引](../../README.md)。

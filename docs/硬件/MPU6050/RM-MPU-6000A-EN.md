@@ -1,6 +1,6 @@
 # MPU-6000 / MPU-6050 寄存器手册
 
-> 来源：`RM-MPU-6000A-EN.pdf`，共 50 页。正文按原始页序转换为 Markdown，保留英文。复杂表格、公式和图示附原页截图供核对，合并单元格的对应关系以原页截图 为准。
+> 来源：`RM-MPU-6000A-EN.pdf`，共 50 页。正文按原始页序转换为 Markdown，保留英文；文字、公式和表格直接排版，不保留纯文字或表格截图。寄存器表的跨列位字段已按 Bit7～Bit0 逐位展开，表中 `-` 沿用原文保留位标记。
 
 原资料版本：Revision 3.2；发布日期：2011-11-14。本次仅文档转换，未进行芯片或驱动验证。
 
@@ -10,155 +10,65 @@
 
 ### **MPU-6000 and MPU-6050** **Register Map and Descriptions** **Revision 3.2**
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 1 页](img/RM-MPU-6000A-EN-p001.png)
-
 ## 原文第 2 页
 
-#### **CONTENTS**
+#### CONTENTS
 
-**1** **REVISION HISTORY ................................................................................................................................... 4**
+|Section|Title|Original page|
+|---|---|---|
+|1|REVISION HISTORY|4|
+|2|PURPOSE AND SCOPE|5|
+|3|REGISTER MAP|6|
+|4|REGISTER DESCRIPTIONS|9|
+|4.1|REGISTER 1 – AUXILIARY I <sup>2</sup> C SUPPLY SELECTION |9|
+|4.2|REGISTER 25 – SAMPLE RATE DIVIDER |10|
+|4.3|REGISTER 26 – CONFIGURATION |11|
+|4.4|REGISTER 27 - GYROSCOPE CONFIGURATION |12|
+|4.5|REGISTER 28 - ACCELEROMETER CONFIGURATION |13|
+|4.6|REGISTER 29 – FREE FALL ACCELERATION THRESHOLD|14|
+|4.7|REGISTER 30 – FREE FALL DURATION |14|
+|4.8|REGISTER 31 – MOTION DETECTION THRESHOLD |16|
+|4.9|REGISTER 32 – MOTION DETECTION DURATION |16|
+|4.10|REGISTER 33 – ZERO MOTION DETECTION THRESHOLD |17|
+|4.11|REGISTER 34 – ZERO MOTION DETECTION DURATION|17|
+|4.12|REGISTER 35 – FIFO ENABLE|18|
+|4.13|REGISTER 36 – I <sup>2</sup> C MASTER CONTROL |19|
+|4.14|REGISTERS 37 TO 39 – I <sup>2</sup> C SLAVE 0 CONTROL |21|
+|4.15|REGISTERS 40 TO 42 – I <sup>2</sup> C SLAVE 1 CONTROL |24|
+|4.16|REGISTERS 43 TO 45 - I <sup>2</sup> C SLAVE 2 CONTROL |24|
+|4.17|REGISTERS 46 TO 48 – I <sup>2</sup> C SLAVE 3 CONTROL |24|
+|4.18|REGISTERS 49 TO 53 – I <sup>2</sup> C SLAVE 4 CONTROL |25|
+|4.19|REGISTER 54 – I <sup>2</sup> C MASTER STATUS|27|
+|4.20|REGISTER 55  - INT PIN / BYPASS ENABLE CONFIGURATION |28|
+|4.21|REGISTER 56  - INTERRUPT ENABLE |29|
+|4.22|REGISTER 58  - INTERRUPT STATUS |30|
+|4.23|REGISTERS 59 TO 64  - ACCELEROMETER MEASUREMENTS |31|
+|4.24|REGISTERS 65 AND 66  - TEMPERATURE MEASUREMENT |32|
+|4.25|REGISTERS 67 TO 72  - GYROSCOPE MEASUREMENTS |33|
+|4.26|REGISTERS 73 TO 96  - EXTERNAL SENSOR DATA |34|
+|4.27|REGISTER 97  - MOTION DETECTION STATUS |36|
+|4.28|REGISTER 99  - I <sup>2</sup> C SLAVE 0 DATA OUT |37|
+|4.29|REGISTER 100  - I <sup>2</sup> C SLAVE 1 DATA OUT |37|
 
-**2** **PURPOSE AND SCOPE ............................................................................................................................. 5**
-
-**3** **REGISTER MAP .......................................................................................................................................... 6**
-
-**4** **REGISTER DESCRIPTIONS ....................................................................................................................... 9**
-
-4.1
-
-4.2
-
-4.3
-
-REGISTER 1 – AUXILIARY I <sup>2</sup> C SUPPLY SELECTION .................................................................................9
-
-REGISTER 25 – SAMPLE RATE DIVIDER ..............................................................................................10
-
-REGISTER 26 – CONFIGURATION ........................................................................................................11
-
-4.4 REGISTER 27 - GYROSCOPE CONFIGURATION .................................................................................... 12
-
-4.5 REGISTER 28 - ACCELEROMETER CONFIGURATION ............................................................................. 13
-
-4.6
-
-4.7
-
-4.8
-
-4.9
-
-4.10
-
-4.11
-
-4.12
-
-4.13
-
-4.14
-
-4.15
-
-REGISTER 29 – FREE FALL ACCELERATION THRESHOLD......................................................................14
-
-REGISTER 30 – FREE FALL DURATION ................................................................................................14
-
-REGISTER 31 – MOTION DETECTION THRESHOLD ...............................................................................16
-
-REGISTER 32 – MOTION DETECTION DURATION ..................................................................................16
-
-REGISTER 33 – ZERO MOTION DETECTION THRESHOLD ......................................................................17
-
-REGISTER 34 – ZERO MOTION DETECTION DURATION.........................................................................17
-
-REGISTER 35 – FIFO ENABLE............................................................................................................18
-
-REGISTER 36 – I <sup>2</sup> C MASTER CONTROL ...............................................................................................19
-
-REGISTERS 37 TO 39 – I <sup>2</sup> C SLAVE 0 CONTROL ...................................................................................21
-
-REGISTERS 40 TO 42 – I <sup>2</sup> C SLAVE 1 CONTROL ...................................................................................24
-
-4.16 REGISTERS 43 TO 45 - I <sup>2</sup> C SLAVE 2 CONTROL ................................................................................... 24
-
-4.17
-
-4.18
-
-4.19
-
-REGISTERS 46 TO 48 – I <sup>2</sup> C SLAVE 3 CONTROL ...................................................................................24
-
-REGISTERS 49 TO 53 – I <sup>2</sup> C SLAVE 4 CONTROL ...................................................................................25
-
-REGISTER 54 – I <sup>2</sup> C MASTER STATUS..................................................................................................27
-
-4.20 REGISTER 55  - INT PIN / BYPASS ENABLE CONFIGURATION ................................................................ 28
-
-4.21 REGISTER 56  - INTERRUPT ENABLE ................................................................................................... 29
-
-4.22 REGISTER 58  - INTERRUPT STATUS ................................................................................................... 30
-
-4.23 REGISTERS 59 TO 64  - ACCELEROMETER MEASUREMENTS ................................................................. 31
-
-4.24 REGISTERS 65 AND 66  - TEMPERATURE MEASUREMENT ..................................................................... 32
-
-4.25 REGISTERS 67 TO 72  - GYROSCOPE MEASUREMENTS ........................................................................ 33
-
-4.26 REGISTERS 73 TO 96  - EXTERNAL SENSOR DATA ............................................................................... 34
-
-4.27 REGISTER 97  - MOTION DETECTION STATUS ...................................................................................... 36
-
-4.28 REGISTER 99  - I <sup>2</sup> C SLAVE 0 DATA OUT .............................................................................................. 37
-
-4.29 REGISTER 100  - I <sup>2</sup> C SLAVE 1 DATA OUT ............................................................................................ 37
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 2 页](img/RM-MPU-6000A-EN-p002.png)
 
 ## 原文第 3 页
 
-4.30
+#### CONTENTS (continued)
 
-4.31
+|Section|Title|Original page|
+|---|---|---|
+|4.30|REGISTER 101 – I <sup>2</sup> C SLAVE 2 DATA OUT|38|
+|4.31|REGISTER 102 – I <sup>2</sup> C SLAVE 3 DATA OUT|38|
+|4.32|REGISTER 103 – I <sup>2</sup> C MASTER DELAY CONTROL |39|
+|4.33|REGISTER 104 – SIGNAL PATH RESET|40|
+|4.34|REGISTER 105 – MOTION DETECTION CONTROL |41|
+|4.35|REGISTER 106 – USER CONTROL|42|
+|4.36|原文目录未列出标题与页码||
+|4.37|原文目录未列出标题与页码||
+|4.38|REGISTER 114 AND 115  - FIFO COUNT REGISTERS |47|
+|4.39|REGISTER 116  - FIFO READ WRITE |48|
+|4.40|REGISTER 117 – WHO AM I|49|
 
-4.32
-
-4.33
-
-4.34
-
-4.35
-
-4.36
-
-4.37
-
-REGISTER 101 – I <sup>2</sup> C SLAVE 2 DATA OUT............................................................................................38
-
-REGISTER 102 – I <sup>2</sup> C SLAVE 3 DATA OUT............................................................................................38
-
-REGISTER 103 – I <sup>2</sup> C MASTER DELAY CONTROL ..................................................................................39
-
-REGISTER 104 – SIGNAL PATH RESET................................................................................................40
-
-REGISTER 105 – MOTION DETECTION CONTROL .................................................................................41
-
-REGISTER 106 – USER CONTROL.......................................................................................................42
-
-4.38 REGISTER 114 AND 115  - FIFO COUNT REGISTERS ........................................................................... 47
-
-4.39 REGISTER 116  - FIFO READ WRITE .................................................................................................. 48
-
-4.40 REGISTER 117 – WHO AM I...............................................................................................................49
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 3 页](img/RM-MPU-6000A-EN-p003.png)
 
 ## 原文第 4 页
 
@@ -172,10 +82,6 @@ REGISTER 106 – USER CONTROL...................................................
 |10/07/2011|3.0|Updates for Rev D silicon:<br>Updated accelerometer sensitivity specifications (sections 4.6, 4.8, 4.10, 4.23)|
 |10/24/2011|3.1|Edits for clarity|
 |11/14/2011|3.2|Updated reset value for register 107 (section 3)<br>Updated register 27 with gyro self-test bits (section 4.4)<br>Provided gyro self-test instructions and register bits (section 4.4)<br> <br>Provided accel self-test instructions (section 4.5)|
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 4 页](img/RM-MPU-6000A-EN-p004.png)
 
 ## 原文第 5 页
 
@@ -208,10 +114,6 @@ supply for the part.
 For more detailed information for the MPU-60X0 devices, please refer to the “MPU-6000 and MPU-6050
 Product Specification”.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 5 页](img/RM-MPU-6000A-EN-p005.png)
-
 ## 原文第 6 页
 
 **3** **Register Map**
@@ -221,41 +123,37 @@ The register map for the MPU-60X0 is listed below.
 |Addr<br>(Hex)|Addr<br>(Dec.)|Register Name|Serial<br>I/F|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|---|---|
 |01|1|AUX_VDDIO|R/W|AUX_VDDIO|-|-|-|-|-|-|-|
-|19|25|SMPLRT_DIV|R/W|SMPLRT_DIV[7:0]||||||||
-|1A|26|CONFIG|R/W|-|-|EXT_SYNC_SET[2:0]|||DLPF_CFG[2:0]|||
-|1B|27|GYRO_CONFIG|R/W|-|-|-|FS_SEL [1:0]||-|-|-|
-|1C|28|ACCEL_CONFIG|R/W|XA_ST|YA_ST|ZA_ST|AFS_SEL[1:0]||ACCEL_HPF[2:0]|||
-|1D|29|FF_THR|R/W|FF_THR[7:0]||||||||
-|1E|30|FF_DUR|R/W|FF_DUR[7:0]||||||||
-|1F|31|MOT_THR|R/W|MOT_THR[7:0]||||||||
-|20|32|MOT_DUR|R/W|MOT_DUR[7:0]||||||||
-|21|33|ZRMOT_THR|R/W|ZRMOT_THR[7:0]||||||||
-|22|34|ZRMOT_DUR|R/W|ZRMOT_DUR[7:0]||||||||
+|19|25|SMPLRT_DIV|R/W|SMPLRT_DIV[7]|SMPLRT_DIV[6]|SMPLRT_DIV[5]|SMPLRT_DIV[4]|SMPLRT_DIV[3]|SMPLRT_DIV[2]|SMPLRT_DIV[1]|SMPLRT_DIV[0]|
+|1A|26|CONFIG|R/W|-|-|EXT_SYNC_SET[2]|EXT_SYNC_SET[1]|EXT_SYNC_SET[0]|DLPF_CFG[2]|DLPF_CFG[1]|DLPF_CFG[0]|
+|1B|27|GYRO_CONFIG|R/W|-|-|-|FS_SEL[1]|FS_SEL[0]|-|-|-|
+|1C|28|ACCEL_CONFIG|R/W|XA_ST|YA_ST|ZA_ST|AFS_SEL[1]|AFS_SEL[0]|ACCEL_HPF[2]|ACCEL_HPF[1]|ACCEL_HPF[0]|
+|1D|29|FF_THR|R/W|FF_THR[7]|FF_THR[6]|FF_THR[5]|FF_THR[4]|FF_THR[3]|FF_THR[2]|FF_THR[1]|FF_THR[0]|
+|1E|30|FF_DUR|R/W|FF_DUR[7]|FF_DUR[6]|FF_DUR[5]|FF_DUR[4]|FF_DUR[3]|FF_DUR[2]|FF_DUR[1]|FF_DUR[0]|
+|1F|31|MOT_THR|R/W|MOT_THR[7]|MOT_THR[6]|MOT_THR[5]|MOT_THR[4]|MOT_THR[3]|MOT_THR[2]|MOT_THR[1]|MOT_THR[0]|
+|20|32|MOT_DUR|R/W|MOT_DUR[7]|MOT_DUR[6]|MOT_DUR[5]|MOT_DUR[4]|MOT_DUR[3]|MOT_DUR[2]|MOT_DUR[1]|MOT_DUR[0]|
+|21|33|ZRMOT_THR|R/W|ZRMOT_THR[7]|ZRMOT_THR[6]|ZRMOT_THR[5]|ZRMOT_THR[4]|ZRMOT_THR[3]|ZRMOT_THR[2]|ZRMOT_THR[1]|ZRMOT_THR[0]|
+|22|34|ZRMOT_DUR|R/W|ZRMOT_DUR[7]|ZRMOT_DUR[6]|ZRMOT_DUR[5]|ZRMOT_DUR[4]|ZRMOT_DUR[3]|ZRMOT_DUR[2]|ZRMOT_DUR[1]|ZRMOT_DUR[0]|
 |23|35|FIFO_EN|R/W|TEMP_FIFO_EN|XG_FIFO_EN|YG_FIFO_EN|ZG_FIFO_EN|ACCEL_FIFO_EN|SLV2_FIFO_EN|SLV1_FIFO_EN|SLV0_FIFO_EN|
-|24|36|I2C_MST_CTRL|R/W|MULT_MST_EN|WAIT_FOR_ES|SLV_3_FIFO_EN|I2C_MST_P_NSR|I2C_MST_CLK[3:0]||||
-|25|37|I2C_SLV0_ADDR|R/W|I2C_SLV0_RW|I2C_SLV0_ADDR[6:0]|||||||
-|26|38|I2C_SLV0_REG|R/W|I2C_SLV0_REG[7:0]||||||||
-|27|39|I2C_SLV0_CTRL|R/W|I2C_SLV0_EN|I2C_SLV0_BYTE_SW|I2C_SLV0_REG_DIS|I2C_SLV0_GRP|I2C_SLV0_LEN[3:0]||||
-|28|40|I2C_SLV1_ADDR|R/W|I2C_SLV1_RW|I2C_SLV1_ADDR[6:0]|||||||
-|29|41|I2C_SLV1_REG|R/W|I2C_SLV1_REG[7:0]||||||||
-|2A|42|I2C_SLV1_CTRL|R/W|I2C_SLV1_EN|I2C_SLV1_BYTE_SW|I2C_SLV1_REG_DIS|I2C_SLV1_GRP|I2C_SLV1_LEN[3:0]||||
-|2B|43|I2C_SLV2_ADDR|R/W|I2C_SLV2_RW|I2C_SLV2_ADDR[6:0]|||||||
-|2C|44|I2C_SLV2_REG|R/W|I2C_SLV2_REG[7:0]||||||||
-|2D|45|I2C_SLV2_CTRL|R/W|I2C_SLV2_EN|I2C_SLV2_BYTE_SW|I2C_SLV2_REG_DIS|I2C_SLV2_GRP|I2C_SLV2_LEN[3:0]||||
-|2E|46|I2C_SLV3_ADDR|R/W|I2C_SLV3_RW|I2C_SLV3_ADDR[6:0]|||||||
-|2F|47|I2C_SLV3_REG|R/W|I2C_SLV3_REG[7:0]||||||||
-|30|48|I2C_SLV3_CTRL|R/W|I2C_SLV3_EN|I2C_SLV3_BYTE_SW|I2C_SLV3_REG_DIS|I2C_SLV3_GRP|I2C_SLV3_LEN[3:0]||||
-|31|49|I2C_SLV4_ADDR|R/W|I2C_SLV4_RW|I2C_SLV4_ADDR[6:0]|||||||
-|32|50|I2C_SLV4_REG|R/W|I2C_SLV4_REG[7:0]||||||||
-|33|51|I2C_SLV4_DO|R/W|I2C_SLV4_DO[7:0]||||||||
-|34|52|I2C_SLV4_CTRL|R/W|I2C_SLV4_EN|I2C_SLV4_INT_EN|I2C_SLV4_REG_DIS|I2C_MST_DLY[4:0]|||||
-|35|53|I2C_SLV4_DI|R|I2C_SLV4_DI[7:0]||||||||
+|24|36|I2C_MST_CTRL|R/W|MULT_MST_EN|WAIT_FOR_ES|SLV_3_FIFO_EN|I2C_MST_P_NSR|I2C_MST_CLK[3]|I2C_MST_CLK[2]|I2C_MST_CLK[1]|I2C_MST_CLK[0]|
+|25|37|I2C_SLV0_ADDR|R/W|I2C_SLV0_RW|I2C_SLV0_ADDR[6]|I2C_SLV0_ADDR[5]|I2C_SLV0_ADDR[4]|I2C_SLV0_ADDR[3]|I2C_SLV0_ADDR[2]|I2C_SLV0_ADDR[1]|I2C_SLV0_ADDR[0]|
+|26|38|I2C_SLV0_REG|R/W|I2C_SLV0_REG[7]|I2C_SLV0_REG[6]|I2C_SLV0_REG[5]|I2C_SLV0_REG[4]|I2C_SLV0_REG[3]|I2C_SLV0_REG[2]|I2C_SLV0_REG[1]|I2C_SLV0_REG[0]|
+|27|39|I2C_SLV0_CTRL|R/W|I2C_SLV0_EN|I2C_SLV0_BYTE_SW|I2C_SLV0_REG_DIS|I2C_SLV0_GRP|I2C_SLV0_LEN[3]|I2C_SLV0_LEN[2]|I2C_SLV0_LEN[1]|I2C_SLV0_LEN[0]|
+|28|40|I2C_SLV1_ADDR|R/W|I2C_SLV1_RW|I2C_SLV1_ADDR[6]|I2C_SLV1_ADDR[5]|I2C_SLV1_ADDR[4]|I2C_SLV1_ADDR[3]|I2C_SLV1_ADDR[2]|I2C_SLV1_ADDR[1]|I2C_SLV1_ADDR[0]|
+|29|41|I2C_SLV1_REG|R/W|I2C_SLV1_REG[7]|I2C_SLV1_REG[6]|I2C_SLV1_REG[5]|I2C_SLV1_REG[4]|I2C_SLV1_REG[3]|I2C_SLV1_REG[2]|I2C_SLV1_REG[1]|I2C_SLV1_REG[0]|
+|2A|42|I2C_SLV1_CTRL|R/W|I2C_SLV1_EN|I2C_SLV1_BYTE_SW|I2C_SLV1_REG_DIS|I2C_SLV1_GRP|I2C_SLV1_LEN[3]|I2C_SLV1_LEN[2]|I2C_SLV1_LEN[1]|I2C_SLV1_LEN[0]|
+|2B|43|I2C_SLV2_ADDR|R/W|I2C_SLV2_RW|I2C_SLV2_ADDR[6]|I2C_SLV2_ADDR[5]|I2C_SLV2_ADDR[4]|I2C_SLV2_ADDR[3]|I2C_SLV2_ADDR[2]|I2C_SLV2_ADDR[1]|I2C_SLV2_ADDR[0]|
+|2C|44|I2C_SLV2_REG|R/W|I2C_SLV2_REG[7]|I2C_SLV2_REG[6]|I2C_SLV2_REG[5]|I2C_SLV2_REG[4]|I2C_SLV2_REG[3]|I2C_SLV2_REG[2]|I2C_SLV2_REG[1]|I2C_SLV2_REG[0]|
+|2D|45|I2C_SLV2_CTRL|R/W|I2C_SLV2_EN|I2C_SLV2_BYTE_SW|I2C_SLV2_REG_DIS|I2C_SLV2_GRP|I2C_SLV2_LEN[3]|I2C_SLV2_LEN[2]|I2C_SLV2_LEN[1]|I2C_SLV2_LEN[0]|
+|2E|46|I2C_SLV3_ADDR|R/W|I2C_SLV3_RW|I2C_SLV3_ADDR[6]|I2C_SLV3_ADDR[5]|I2C_SLV3_ADDR[4]|I2C_SLV3_ADDR[3]|I2C_SLV3_ADDR[2]|I2C_SLV3_ADDR[1]|I2C_SLV3_ADDR[0]|
+|2F|47|I2C_SLV3_REG|R/W|I2C_SLV3_REG[7]|I2C_SLV3_REG[6]|I2C_SLV3_REG[5]|I2C_SLV3_REG[4]|I2C_SLV3_REG[3]|I2C_SLV3_REG[2]|I2C_SLV3_REG[1]|I2C_SLV3_REG[0]|
+|30|48|I2C_SLV3_CTRL|R/W|I2C_SLV3_EN|I2C_SLV3_BYTE_SW|I2C_SLV3_REG_DIS|I2C_SLV3_GRP|I2C_SLV3_LEN[3]|I2C_SLV3_LEN[2]|I2C_SLV3_LEN[1]|I2C_SLV3_LEN[0]|
+|31|49|I2C_SLV4_ADDR|R/W|I2C_SLV4_RW|I2C_SLV4_ADDR[6]|I2C_SLV4_ADDR[5]|I2C_SLV4_ADDR[4]|I2C_SLV4_ADDR[3]|I2C_SLV4_ADDR[2]|I2C_SLV4_ADDR[1]|I2C_SLV4_ADDR[0]|
+|32|50|I2C_SLV4_REG|R/W|I2C_SLV4_REG[7]|I2C_SLV4_REG[6]|I2C_SLV4_REG[5]|I2C_SLV4_REG[4]|I2C_SLV4_REG[3]|I2C_SLV4_REG[2]|I2C_SLV4_REG[1]|I2C_SLV4_REG[0]|
+|33|51|I2C_SLV4_DO|R/W|I2C_SLV4_DO[7]|I2C_SLV4_DO[6]|I2C_SLV4_DO[5]|I2C_SLV4_DO[4]|I2C_SLV4_DO[3]|I2C_SLV4_DO[2]|I2C_SLV4_DO[1]|I2C_SLV4_DO[0]|
+|34|52|I2C_SLV4_CTRL|R/W|I2C_SLV4_EN|I2C_SLV4_INT_EN|I2C_SLV4_REG_DIS|I2C_MST_DLY[4]|I2C_MST_DLY[3]|I2C_MST_DLY[2]|I2C_MST_DLY[1]|I2C_MST_DLY[0]|
+|35|53|I2C_SLV4_DI|R|I2C_SLV4_DI[7]|I2C_SLV4_DI[6]|I2C_SLV4_DI[5]|I2C_SLV4_DI[4]|I2C_SLV4_DI[3]|I2C_SLV4_DI[2]|I2C_SLV4_DI[1]|I2C_SLV4_DI[0]|
 |36|54|I2C_MST_STATUS|R|PASS_THROUGH|I2C_SLV4_DONE|I2C_LOST_ARB|I2C_SLV4_NACK|I2C_SLV3_NACK|I2C_SLV2_NACK|I2C_SLV1_NACK|I2C_SLV0_NACK|
 |37|55|INT_PIN_CFG|R/W|INT_LEVEL|INT_OPEN|LATCH_INT_EN|INT_RD_CLEAR|FSYNC_INT_LEVEL|FSYNC_INT_EN|I2C_BYPASS_EN|CLKOUT_EN|
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 6 页](img/RM-MPU-6000A-EN-p006.png)
 
 ## 原文第 7 页
 
@@ -263,68 +161,64 @@ The register map for the MPU-60X0 is listed below.
 |---|---|---|---|---|---|---|---|---|---|---|---|
 |38|56|INT_ENABLE|R/W|FF_EN|MOT_EN|ZMOT_EN|FIFO_OFLOW_EN|I2C_MST_INT_EN|-|-|DATA_RDY_EN|
 |3A|58|INT_STATUS|R|FF_INT|MOT_INT|ZMOT_INT|FIFO_OFLOW_INT|I2C_MST_INT|-|-|DATA_RDY_INT|
-|3B|59|ACCEL_XOUT_H|R|ACCEL_XOUT[15:8]||||||||
-|3C|60|ACCEL_XOUT_L|R|ACCEL_XOUT[7:0]||||||||
-|3D|61|ACCEL_YOUT_H|R|ACCEL_YOUT[15:8]||||||||
-|3E|62|ACCEL_YOUT_L|R|ACCEL_YOUT[7:0]||||||||
-|3F|63|ACCEL_ZOUT_H|R|ACCEL_ZOUT[15:8]||||||||
-|40|64|ACCEL_ZOUT_L|R|ACCEL_ZOUT[7:0]||||||||
-|41|65|TEMP_OUT_H|R|TEMP_OUT[15:8]||||||||
-|42|66|TEMP_OUT_L|R|TEMP_OUT[7:0]||||||||
-|43|67|GYRO_XOUT_H|R|GYRO_XOUT[15:8]||||||||
-|44|68|GYRO_XOUT_L|R|GYRO_XOUT[7:0]||||||||
-|45|69|GYRO_YOUT_H|R|GYRO_YOUT[15:8]||||||||
-|46|70|GYRO_YOUT_L|R|GYRO_YOUT[7:0]||||||||
-|47|71|GYRO_ZOUT_H|R|GYRO_ZOUT[15:8]||||||||
-|48|72|GYRO_ZOUT_L|R|GYRO_ZOUT[7:0]||||||||
-|49|73|EXT_SENS_DATA_00|R|EXT_SENS_DATA_00[7:0]||||||||
-|4A|74|EXT_SENS_DATA_01|R|EXT_SENS_DATA_01[7:0]||||||||
-|4B|75|EXT_SENS_DATA_02|R|EXT_SENS_DATA_02[7:0]||||||||
-|4C|76|EXT_SENS_DATA_03|R|EXT_SENS_DATA_03[7:0]||||||||
-|4D|77|EXT_SENS_DATA_04|R|EXT_SENS_DATA_04[7:0]||||||||
-|4E|78|EXT_SENS_DATA_05|R|EXT_SENS_DATA_05[7:0]||||||||
-|4F|79|EXT_SENS_DATA_06|R|EXT_SENS_DATA_06[7:0]||||||||
-|50|80|EXT_SENS_DATA_07|R|EXT_SENS_DATA_07[7:0]||||||||
-|51|81|EXT_SENS_DATA_08|R|EXT_SENS_DATA_08[7:0]||||||||
-|52|82|EXT_SENS_DATA_09|R|EXT_SENS_DATA_09[7:0]||||||||
-|53|83|EXT_SENS_DATA_10|R|EXT_SENS_DATA_10[7:0]||||||||
-|54|84|EXT_SENS_DATA_11|R|EXT_SENS_DATA_11[7:0]||||||||
-|55|85|EXT_SENS_DATA_12|R|EXT_SENS_DATA_12[7:0]||||||||
-|56|86|EXT_SENS_DATA_13|R|EXT_SENS_DATA_13[7:0]||||||||
-|57|87|EXT_SENS_DATA_14|R|EXT_SENS_DATA_14[7:0]||||||||
-|58|88|EXT_SENS_DATA_15|R|EXT_SENS_DATA_15[7:0]||||||||
-|59|89|EXT_SENS_DATA_16|R|EXT_SENS_DATA_16[7:0]||||||||
-|5A|90|EXT_SENS_DATA_17|R|EXT_SENS_DATA_17[7:0]||||||||
-|5B|91|EXT_SENS_DATA_18|R|EXT_SENS_DATA_18[7:0]||||||||
-|5C|92|EXT_SENS_DATA_19|R|EXT_SENS_DATA_19[7:0]||||||||
-|5D|93|EXT_SENS_DATA_20|R|EXT_SENS_DATA_20[7:0]||||||||
-|5E|94|EXT_SENS_DATA_21|R|EXT_SENS_DATA_21[7:0]||||||||
-|5F|95|EXT_SENS_DATA_22|R|EXT_SENS_DATA_22[7:0]||||||||
-|60|96|EXT_SENS_DATA_23|R|EXT_SENS_DATA_23[7:0]||||||||
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 7 页](img/RM-MPU-6000A-EN-p007.png)
+|3B|59|ACCEL_XOUT_H|R|ACCEL_XOUT[15]|ACCEL_XOUT[14]|ACCEL_XOUT[13]|ACCEL_XOUT[12]|ACCEL_XOUT[11]|ACCEL_XOUT[10]|ACCEL_XOUT[9]|ACCEL_XOUT[8]|
+|3C|60|ACCEL_XOUT_L|R|ACCEL_XOUT[7]|ACCEL_XOUT[6]|ACCEL_XOUT[5]|ACCEL_XOUT[4]|ACCEL_XOUT[3]|ACCEL_XOUT[2]|ACCEL_XOUT[1]|ACCEL_XOUT[0]|
+|3D|61|ACCEL_YOUT_H|R|ACCEL_YOUT[15]|ACCEL_YOUT[14]|ACCEL_YOUT[13]|ACCEL_YOUT[12]|ACCEL_YOUT[11]|ACCEL_YOUT[10]|ACCEL_YOUT[9]|ACCEL_YOUT[8]|
+|3E|62|ACCEL_YOUT_L|R|ACCEL_YOUT[7]|ACCEL_YOUT[6]|ACCEL_YOUT[5]|ACCEL_YOUT[4]|ACCEL_YOUT[3]|ACCEL_YOUT[2]|ACCEL_YOUT[1]|ACCEL_YOUT[0]|
+|3F|63|ACCEL_ZOUT_H|R|ACCEL_ZOUT[15]|ACCEL_ZOUT[14]|ACCEL_ZOUT[13]|ACCEL_ZOUT[12]|ACCEL_ZOUT[11]|ACCEL_ZOUT[10]|ACCEL_ZOUT[9]|ACCEL_ZOUT[8]|
+|40|64|ACCEL_ZOUT_L|R|ACCEL_ZOUT[7]|ACCEL_ZOUT[6]|ACCEL_ZOUT[5]|ACCEL_ZOUT[4]|ACCEL_ZOUT[3]|ACCEL_ZOUT[2]|ACCEL_ZOUT[1]|ACCEL_ZOUT[0]|
+|41|65|TEMP_OUT_H|R|TEMP_OUT[15]|TEMP_OUT[14]|TEMP_OUT[13]|TEMP_OUT[12]|TEMP_OUT[11]|TEMP_OUT[10]|TEMP_OUT[9]|TEMP_OUT[8]|
+|42|66|TEMP_OUT_L|R|TEMP_OUT[7]|TEMP_OUT[6]|TEMP_OUT[5]|TEMP_OUT[4]|TEMP_OUT[3]|TEMP_OUT[2]|TEMP_OUT[1]|TEMP_OUT[0]|
+|43|67|GYRO_XOUT_H|R|GYRO_XOUT[15]|GYRO_XOUT[14]|GYRO_XOUT[13]|GYRO_XOUT[12]|GYRO_XOUT[11]|GYRO_XOUT[10]|GYRO_XOUT[9]|GYRO_XOUT[8]|
+|44|68|GYRO_XOUT_L|R|GYRO_XOUT[7]|GYRO_XOUT[6]|GYRO_XOUT[5]|GYRO_XOUT[4]|GYRO_XOUT[3]|GYRO_XOUT[2]|GYRO_XOUT[1]|GYRO_XOUT[0]|
+|45|69|GYRO_YOUT_H|R|GYRO_YOUT[15]|GYRO_YOUT[14]|GYRO_YOUT[13]|GYRO_YOUT[12]|GYRO_YOUT[11]|GYRO_YOUT[10]|GYRO_YOUT[9]|GYRO_YOUT[8]|
+|46|70|GYRO_YOUT_L|R|GYRO_YOUT[7]|GYRO_YOUT[6]|GYRO_YOUT[5]|GYRO_YOUT[4]|GYRO_YOUT[3]|GYRO_YOUT[2]|GYRO_YOUT[1]|GYRO_YOUT[0]|
+|47|71|GYRO_ZOUT_H|R|GYRO_ZOUT[15]|GYRO_ZOUT[14]|GYRO_ZOUT[13]|GYRO_ZOUT[12]|GYRO_ZOUT[11]|GYRO_ZOUT[10]|GYRO_ZOUT[9]|GYRO_ZOUT[8]|
+|48|72|GYRO_ZOUT_L|R|GYRO_ZOUT[7]|GYRO_ZOUT[6]|GYRO_ZOUT[5]|GYRO_ZOUT[4]|GYRO_ZOUT[3]|GYRO_ZOUT[2]|GYRO_ZOUT[1]|GYRO_ZOUT[0]|
+|49|73|EXT_SENS_DATA_00|R|EXT_SENS_DATA_00[7]|EXT_SENS_DATA_00[6]|EXT_SENS_DATA_00[5]|EXT_SENS_DATA_00[4]|EXT_SENS_DATA_00[3]|EXT_SENS_DATA_00[2]|EXT_SENS_DATA_00[1]|EXT_SENS_DATA_00[0]|
+|4A|74|EXT_SENS_DATA_01|R|EXT_SENS_DATA_01[7]|EXT_SENS_DATA_01[6]|EXT_SENS_DATA_01[5]|EXT_SENS_DATA_01[4]|EXT_SENS_DATA_01[3]|EXT_SENS_DATA_01[2]|EXT_SENS_DATA_01[1]|EXT_SENS_DATA_01[0]|
+|4B|75|EXT_SENS_DATA_02|R|EXT_SENS_DATA_02[7]|EXT_SENS_DATA_02[6]|EXT_SENS_DATA_02[5]|EXT_SENS_DATA_02[4]|EXT_SENS_DATA_02[3]|EXT_SENS_DATA_02[2]|EXT_SENS_DATA_02[1]|EXT_SENS_DATA_02[0]|
+|4C|76|EXT_SENS_DATA_03|R|EXT_SENS_DATA_03[7]|EXT_SENS_DATA_03[6]|EXT_SENS_DATA_03[5]|EXT_SENS_DATA_03[4]|EXT_SENS_DATA_03[3]|EXT_SENS_DATA_03[2]|EXT_SENS_DATA_03[1]|EXT_SENS_DATA_03[0]|
+|4D|77|EXT_SENS_DATA_04|R|EXT_SENS_DATA_04[7]|EXT_SENS_DATA_04[6]|EXT_SENS_DATA_04[5]|EXT_SENS_DATA_04[4]|EXT_SENS_DATA_04[3]|EXT_SENS_DATA_04[2]|EXT_SENS_DATA_04[1]|EXT_SENS_DATA_04[0]|
+|4E|78|EXT_SENS_DATA_05|R|EXT_SENS_DATA_05[7]|EXT_SENS_DATA_05[6]|EXT_SENS_DATA_05[5]|EXT_SENS_DATA_05[4]|EXT_SENS_DATA_05[3]|EXT_SENS_DATA_05[2]|EXT_SENS_DATA_05[1]|EXT_SENS_DATA_05[0]|
+|4F|79|EXT_SENS_DATA_06|R|EXT_SENS_DATA_06[7]|EXT_SENS_DATA_06[6]|EXT_SENS_DATA_06[5]|EXT_SENS_DATA_06[4]|EXT_SENS_DATA_06[3]|EXT_SENS_DATA_06[2]|EXT_SENS_DATA_06[1]|EXT_SENS_DATA_06[0]|
+|50|80|EXT_SENS_DATA_07|R|EXT_SENS_DATA_07[7]|EXT_SENS_DATA_07[6]|EXT_SENS_DATA_07[5]|EXT_SENS_DATA_07[4]|EXT_SENS_DATA_07[3]|EXT_SENS_DATA_07[2]|EXT_SENS_DATA_07[1]|EXT_SENS_DATA_07[0]|
+|51|81|EXT_SENS_DATA_08|R|EXT_SENS_DATA_08[7]|EXT_SENS_DATA_08[6]|EXT_SENS_DATA_08[5]|EXT_SENS_DATA_08[4]|EXT_SENS_DATA_08[3]|EXT_SENS_DATA_08[2]|EXT_SENS_DATA_08[1]|EXT_SENS_DATA_08[0]|
+|52|82|EXT_SENS_DATA_09|R|EXT_SENS_DATA_09[7]|EXT_SENS_DATA_09[6]|EXT_SENS_DATA_09[5]|EXT_SENS_DATA_09[4]|EXT_SENS_DATA_09[3]|EXT_SENS_DATA_09[2]|EXT_SENS_DATA_09[1]|EXT_SENS_DATA_09[0]|
+|53|83|EXT_SENS_DATA_10|R|EXT_SENS_DATA_10[7]|EXT_SENS_DATA_10[6]|EXT_SENS_DATA_10[5]|EXT_SENS_DATA_10[4]|EXT_SENS_DATA_10[3]|EXT_SENS_DATA_10[2]|EXT_SENS_DATA_10[1]|EXT_SENS_DATA_10[0]|
+|54|84|EXT_SENS_DATA_11|R|EXT_SENS_DATA_11[7]|EXT_SENS_DATA_11[6]|EXT_SENS_DATA_11[5]|EXT_SENS_DATA_11[4]|EXT_SENS_DATA_11[3]|EXT_SENS_DATA_11[2]|EXT_SENS_DATA_11[1]|EXT_SENS_DATA_11[0]|
+|55|85|EXT_SENS_DATA_12|R|EXT_SENS_DATA_12[7]|EXT_SENS_DATA_12[6]|EXT_SENS_DATA_12[5]|EXT_SENS_DATA_12[4]|EXT_SENS_DATA_12[3]|EXT_SENS_DATA_12[2]|EXT_SENS_DATA_12[1]|EXT_SENS_DATA_12[0]|
+|56|86|EXT_SENS_DATA_13|R|EXT_SENS_DATA_13[7]|EXT_SENS_DATA_13[6]|EXT_SENS_DATA_13[5]|EXT_SENS_DATA_13[4]|EXT_SENS_DATA_13[3]|EXT_SENS_DATA_13[2]|EXT_SENS_DATA_13[1]|EXT_SENS_DATA_13[0]|
+|57|87|EXT_SENS_DATA_14|R|EXT_SENS_DATA_14[7]|EXT_SENS_DATA_14[6]|EXT_SENS_DATA_14[5]|EXT_SENS_DATA_14[4]|EXT_SENS_DATA_14[3]|EXT_SENS_DATA_14[2]|EXT_SENS_DATA_14[1]|EXT_SENS_DATA_14[0]|
+|58|88|EXT_SENS_DATA_15|R|EXT_SENS_DATA_15[7]|EXT_SENS_DATA_15[6]|EXT_SENS_DATA_15[5]|EXT_SENS_DATA_15[4]|EXT_SENS_DATA_15[3]|EXT_SENS_DATA_15[2]|EXT_SENS_DATA_15[1]|EXT_SENS_DATA_15[0]|
+|59|89|EXT_SENS_DATA_16|R|EXT_SENS_DATA_16[7]|EXT_SENS_DATA_16[6]|EXT_SENS_DATA_16[5]|EXT_SENS_DATA_16[4]|EXT_SENS_DATA_16[3]|EXT_SENS_DATA_16[2]|EXT_SENS_DATA_16[1]|EXT_SENS_DATA_16[0]|
+|5A|90|EXT_SENS_DATA_17|R|EXT_SENS_DATA_17[7]|EXT_SENS_DATA_17[6]|EXT_SENS_DATA_17[5]|EXT_SENS_DATA_17[4]|EXT_SENS_DATA_17[3]|EXT_SENS_DATA_17[2]|EXT_SENS_DATA_17[1]|EXT_SENS_DATA_17[0]|
+|5B|91|EXT_SENS_DATA_18|R|EXT_SENS_DATA_18[7]|EXT_SENS_DATA_18[6]|EXT_SENS_DATA_18[5]|EXT_SENS_DATA_18[4]|EXT_SENS_DATA_18[3]|EXT_SENS_DATA_18[2]|EXT_SENS_DATA_18[1]|EXT_SENS_DATA_18[0]|
+|5C|92|EXT_SENS_DATA_19|R|EXT_SENS_DATA_19[7]|EXT_SENS_DATA_19[6]|EXT_SENS_DATA_19[5]|EXT_SENS_DATA_19[4]|EXT_SENS_DATA_19[3]|EXT_SENS_DATA_19[2]|EXT_SENS_DATA_19[1]|EXT_SENS_DATA_19[0]|
+|5D|93|EXT_SENS_DATA_20|R|EXT_SENS_DATA_20[7]|EXT_SENS_DATA_20[6]|EXT_SENS_DATA_20[5]|EXT_SENS_DATA_20[4]|EXT_SENS_DATA_20[3]|EXT_SENS_DATA_20[2]|EXT_SENS_DATA_20[1]|EXT_SENS_DATA_20[0]|
+|5E|94|EXT_SENS_DATA_21|R|EXT_SENS_DATA_21[7]|EXT_SENS_DATA_21[6]|EXT_SENS_DATA_21[5]|EXT_SENS_DATA_21[4]|EXT_SENS_DATA_21[3]|EXT_SENS_DATA_21[2]|EXT_SENS_DATA_21[1]|EXT_SENS_DATA_21[0]|
+|5F|95|EXT_SENS_DATA_22|R|EXT_SENS_DATA_22[7]|EXT_SENS_DATA_22[6]|EXT_SENS_DATA_22[5]|EXT_SENS_DATA_22[4]|EXT_SENS_DATA_22[3]|EXT_SENS_DATA_22[2]|EXT_SENS_DATA_22[1]|EXT_SENS_DATA_22[0]|
+|60|96|EXT_SENS_DATA_23|R|EXT_SENS_DATA_23[7]|EXT_SENS_DATA_23[6]|EXT_SENS_DATA_23[5]|EXT_SENS_DATA_23[4]|EXT_SENS_DATA_23[3]|EXT_SENS_DATA_23[2]|EXT_SENS_DATA_23[1]|EXT_SENS_DATA_23[0]|
 
 ## 原文第 8 页
 
 |Addr<br>(Hex)|Addr<br>(Dec.)|Register Name|Serial<br>I/F|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|---|---|
-|61|97|MOT_DETECT_STAT<br>US|R|MOT_XNEG|MOT_XPOS|MOT_YNEG|MOT_YPOS|MOT_ZNEG|MOT_ZPOS|-|MOT_ZRMOT|
-|63|99|I2C_SLV0_DO|R/W|I2C_SLV0_DO[7:0]||||||||
-|64|100|I2C_SLV1_DO|R/W|I2C_SLV1_DO[7:0]||||||||
-|65|101|I2C_SLV2_DO|R/W|I2C_SLV2_DO[7:0]||||||||
-|66|102|I2C_SLV3_DO|R/W|I2C_SLV3_DO[7:0]||||||||
-|67|103|I2C_MST_DELAY_CT<br>RL|R/W|DELAY_ES_SHADOW|-|-|I2C_SLV4_DLY_EN|I2C_SLV3_DLY_EN|I2C_SLV2_DLY_EN|I2C_SLV1_DLY_EN|I2C_SLV0_DLY_EN|
+|61|97|MOT_DETECT_STATUS|R|MOT_XNEG|MOT_XPOS|MOT_YNEG|MOT_YPOS|MOT_ZNEG|MOT_ZPOS|-|MOT_ZRMOT|
+|63|99|I2C_SLV0_DO|R/W|I2C_SLV0_DO[7]|I2C_SLV0_DO[6]|I2C_SLV0_DO[5]|I2C_SLV0_DO[4]|I2C_SLV0_DO[3]|I2C_SLV0_DO[2]|I2C_SLV0_DO[1]|I2C_SLV0_DO[0]|
+|64|100|I2C_SLV1_DO|R/W|I2C_SLV1_DO[7]|I2C_SLV1_DO[6]|I2C_SLV1_DO[5]|I2C_SLV1_DO[4]|I2C_SLV1_DO[3]|I2C_SLV1_DO[2]|I2C_SLV1_DO[1]|I2C_SLV1_DO[0]|
+|65|101|I2C_SLV2_DO|R/W|I2C_SLV2_DO[7]|I2C_SLV2_DO[6]|I2C_SLV2_DO[5]|I2C_SLV2_DO[4]|I2C_SLV2_DO[3]|I2C_SLV2_DO[2]|I2C_SLV2_DO[1]|I2C_SLV2_DO[0]|
+|66|102|I2C_SLV3_DO|R/W|I2C_SLV3_DO[7]|I2C_SLV3_DO[6]|I2C_SLV3_DO[5]|I2C_SLV3_DO[4]|I2C_SLV3_DO[3]|I2C_SLV3_DO[2]|I2C_SLV3_DO[1]|I2C_SLV3_DO[0]|
+|67|103|I2C_MST_DELAY_CTRL|R/W|DELAY_ES_SHADOW|-|-|I2C_SLV4_DLY_EN|I2C_SLV3_DLY_EN|I2C_SLV2_DLY_EN|I2C_SLV1_DLY_EN|I2C_SLV0_DLY_EN|
 |68|104|SIGNAL_PATH_RES<br>ET|R/W|-|-|-|-|-|GYRO_RESET|ACCEL_RESET|TEMP_RESET|
-|69|105|MOT_DETECT_CTRL|R/W|-|-|ACCEL_ON_DELAY[1:0]||FF_COUNT[1:0]||MOT_COUNT[1:0]||
+|69|105|MOT_DETECT_CTRL|R/W|-|-|ACCEL_ON_DELAY[1]|ACCEL_ON_DELAY[0]|FF_COUNT[1]|FF_COUNT[0]|MOT_COUNT[1]|MOT_COUNT[0]|
 |6A|106|USER_CTRL|R/W|-|FIFO_EN|I2C_MST_EN|I2C_IF_DIS|-|FIFO_RESET|I2C_MST_RESET|SIG_COND_RESET|
-|6B|107|PWR_MGMT_1|R/W|DEVICE_RESET|SLEEP|CYCLE|-|TEMP_DIS|CLKSEL[2:0]|||
-|6C|108|PWR_MGMT_2|R/W|LP_WAKE_CTRL[1:0]||STBY_XA|STBY_YA|STBY_ZA|STBY_XG|STBY_YG|STBY_ZG|
-|72|114|FIFO_COUNTH|R/W|FIFO_COUNT[15:8]||||||||
-|73|115|FIFO_COUNTL|R/W|FIFO_COUNT[7:0]||||||||
-|74|116|FIFO_R_W|R/W|FIFO_DATA[7:0]||||||||
-|75|117|WHO_AM_I|R|-|WHO_AM_I[6:1]||||||-|
+|6B|107|PWR_MGMT_1|R/W|DEVICE_RESET|SLEEP|CYCLE|-|TEMP_DIS|CLKSEL[2]|CLKSEL[1]|CLKSEL[0]|
+|6C|108|PWR_MGMT_2|R/W|LP_WAKE_CTRL[1]|LP_WAKE_CTRL[0]|STBY_XA|STBY_YA|STBY_ZA|STBY_XG|STBY_YG|STBY_ZG|
+|72|114|FIFO_COUNTH|R/W|FIFO_COUNT[15]|FIFO_COUNT[14]|FIFO_COUNT[13]|FIFO_COUNT[12]|FIFO_COUNT[11]|FIFO_COUNT[10]|FIFO_COUNT[9]|FIFO_COUNT[8]|
+|73|115|FIFO_COUNTL|R/W|FIFO_COUNT[7]|FIFO_COUNT[6]|FIFO_COUNT[5]|FIFO_COUNT[4]|FIFO_COUNT[3]|FIFO_COUNT[2]|FIFO_COUNT[1]|FIFO_COUNT[0]|
+|74|116|FIFO_R_W|R/W|FIFO_DATA[7]|FIFO_DATA[6]|FIFO_DATA[5]|FIFO_DATA[4]|FIFO_DATA[3]|FIFO_DATA[2]|FIFO_DATA[1]|FIFO_DATA[0]|
+|75|117|WHO_AM_I|R|-|WHO_AM_I[6]|WHO_AM_I[5]|WHO_AM_I[4]|WHO_AM_I[3]|WHO_AM_I[2]|WHO_AM_I[1]|-|
 
 <u>Note:</u> Register Names ending in _H and _L contain the high and low bytes, respectively, of an internal
 register value.
@@ -338,10 +232,6 @@ The reset value is 0x00 for all registers other than the registers below.
     - Register 107: 0x40.
 
     - Register 117: 0x68.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 8 页](img/RM-MPU-6000A-EN-p008.png)
 
 ## 原文第 9 页
 
@@ -379,10 +269,6 @@ VLOGIC
 
 MPU-6000: Write 0 for _AUX_VDDIO_ .
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 9 页](img/RM-MPU-6000A-EN-p009.png)
-
 ## 原文第 10 页
 
 **4.2** **Register 25 – Sample Rate Divider**
@@ -392,7 +278,7 @@ MPU-6000: Write 0 for _AUX_VDDIO_ .
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|19|25|SMPLRT_DIV[7:0]||||||||
+|19|25|SMPLRT_DIV[7]|SMPLRT_DIV[6]|SMPLRT_DIV[5]|SMPLRT_DIV[4]|SMPLRT_DIV[3]|SMPLRT_DIV[2]|SMPLRT_DIV[1]|SMPLRT_DIV[0]|
 
 **<u>Description:</u>**
 
@@ -422,10 +308,6 @@ For a diagram of the gyroscope and accelerometer signal paths, see Section 8 of 
 _SMPLRT_DIV_ 8-bit unsigned value. The Sample Rate is determined by dividing the
 gyroscope output rate by this value.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 10 页](img/RM-MPU-6000A-EN-p010.png)
-
 ## 原文第 11 页
 
 **4.3** **Register 26 – Configuration**
@@ -435,7 +317,7 @@ gyroscope output rate by this value.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|1A|26|-|-|EXT_SYNC_SET[2:0]|||DLPF_CFG[2:0]|||
+|1A|26|-|-|EXT_SYNC_SET[2]|EXT_SYNC_SET[1]|EXT_SYNC_SET[0]|DLPF_CFG[2]|DLPF_CFG[1]|DLPF_CFG[0]|
 
 **<u>Description:</u>**
 
@@ -465,9 +347,8 @@ determined by the value of _EXT_SYNC_SET_ according to the following table.
 The DLPF is configured by _DLPF_CFG_ . The accelerometer and gyroscope are filtered according to
 the value of _DLPF_CFG_ as shown in the table below.
 
-|DLPF_CFG|Accelerometer<br>(F = 1kHz)<br>s||Gyroscope|||
+|DLPF_CFG|Accelerometer bandwidth (Hz), Fs = 1 kHz|Accelerometer delay (ms)|Gyroscope bandwidth (Hz)|Gyroscope delay (ms)|Gyroscope Fs (kHz)|
 |---|---|---|---|---|---|
-||**Bandwidth**<br>**(Hz)**|**Delay**<br>**(ms)**|**Bandwidth**<br>**(Hz)**|**Delay**<br>**(ms)**|**Fs (kHz)**|
 |0|260|0|256|0.98|8|
 |1|184|2.0|188|1.9|1|
 |2|94|3.0|98|2.8|1|
@@ -475,7 +356,7 @@ the value of _DLPF_CFG_ as shown in the table below.
 |4|21|8.5|20|8.3|1|
 |5|10|13.8|10|13.4|1|
 |6|5|19.0|5|18.6|1|
-|7|RESERVED||RESERVED||8|
+|7|RESERVED|RESERVED|RESERVED|RESERVED|8|
 
 Bit 7 and bit 6 are reserved.
 
@@ -483,10 +364,6 @@ Bit 7 and bit 6 are reserved.
 
 _EXT_SYNC_SET_ 3-bit unsigned value. Configures the FSYNC pin sampling.
 _DLPF_CFG_ 3-bit unsigned value. Configures the DLPF setting.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 11 页](img/RM-MPU-6000A-EN-p011.png)
 
 ## 原文第 12 页
 
@@ -497,7 +374,7 @@ _DLPF_CFG_ 3-bit unsigned value. Configures the DLPF setting.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|1B|27|XG_ST|YG_ST|ZG_ST|FS_SEL[1:0]||-|-|-|
+|1B|27|XG_ST|YG_ST|ZG_ST|FS_SEL[1]|FS_SEL[0]|-|-|-|
 
 **<u>Description:</u>**
 
@@ -544,10 +421,6 @@ _ZG_ST_ Setting this bit causes the Z axis gyroscope to perform self test.
 
 _FS_SEL_ 2-bit unsigned value. Selects the full scale range of gyroscopes.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 12 页](img/RM-MPU-6000A-EN-p012.png)
-
 ## 原文第 13 页
 
 **4.5** **Register 28 – Accelerometer Configuration**
@@ -557,7 +430,7 @@ _FS_SEL_ 2-bit unsigned value. Selects the full scale range of gyroscopes.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|1C|28|XA_ST|YA_ST|ZA_ST|AFS_SEL[1:0]||ACCEL_HPF[2:0]|||
+|1C|28|XA_ST|YA_ST|ZA_ST|AFS_SEL[1]|AFS_SEL[0]|ACCEL_HPF[2]|ACCEL_HPF[1]|ACCEL_HPF[0]|
 
 **<u>Description:</u>**
 
@@ -611,10 +484,6 @@ difference between the input sample and the held sample.
 |0|Reset|None|
 |1|On|5Hz|
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 13 页](img/RM-MPU-6000A-EN-p013.png)
-
 ## 原文第 14 页
 
 **<u>Parameters:</u>**
@@ -642,7 +511,7 @@ _ACCEL_HPF_ 3-bit unsigned value. Selects the Digital High Pass Filter configura
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|1D|29|FF_THR[7:0]||||||||
+|1D|29|FF_THR[7]|FF_THR[6]|FF_THR[5]|FF_THR[4]|FF_THR[3]|FF_THR[2]|FF_THR[1]|FF_THR[0]|
 
 **<u>Description:</u>**
 
@@ -668,16 +537,12 @@ _FF_THR_ 8-bit unsigned value specifying the Free Fall detection threshold.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|1E|30|FF_DUR[7:0]||||||||
+|1E|30|FF_DUR[7]|FF_DUR[6]|FF_DUR[5]|FF_DUR[4]|FF_DUR[3]|FF_DUR[2]|FF_DUR[1]|FF_DUR[0]|
 
 **<u>Description:</u>**
 
 This register configures the duration counter threshold for Free Fall event detection. The duration
 counter ticks at 1kHz, therefore _FF_DUR_ has a unit of 1 LSB = 1 ms.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 14 页](img/RM-MPU-6000A-EN-p014.png)
 
 ## 原文第 15 页
 
@@ -693,10 +558,6 @@ Product Specification document as well as Registers 56 and 58 of this document.
 _FF_DUR_ 8-bit unsigned value. Specifies the duration counter threshold.
 Unit of LSB = 1ms.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 15 页](img/RM-MPU-6000A-EN-p015.png)
-
 ## 原文第 16 页
 
 **4.8** **Register 31 – Motion Detection Threshold**
@@ -706,7 +567,7 @@ Unit of LSB = 1ms.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|1F|31|MOT_THR[7:0]||||||||
+|1F|31|MOT_THR[7]|MOT_THR[6]|MOT_THR[5]|MOT_THR[4]|MOT_THR[3]|MOT_THR[2]|MOT_THR[1]|MOT_THR[0]|
 
 **<u>Description:</u>**
 
@@ -735,7 +596,7 @@ _MOT_THR_ 8-bit unsigned value. Specifies the Motion detection threshold.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|20|32|MOT_DUR[7:0]||||||||
+|20|32|MOT_DUR[7]|MOT_DUR[6]|MOT_DUR[5]|MOT_DUR[4]|MOT_DUR[3]|MOT_DUR[2]|MOT_DUR[1]|MOT_DUR[0]|
 
 **<u>Description:</u>**
 
@@ -755,10 +616,6 @@ Product Specification document.
 _MOT_DUR_ 8-bit unsigned value. Specifies the duration counter threshold.
 Unit of 1 LSB = 1ms.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 16 页](img/RM-MPU-6000A-EN-p016.png)
-
 ## 原文第 17 页
 
 **4.10 Register 33 – Zero Motion Detection Threshold**
@@ -768,7 +625,7 @@ Unit of 1 LSB = 1ms.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|21|33|ZRMOT_THR[7:0]||||||||
+|21|33|ZRMOT_THR[7]|ZRMOT_THR[6]|ZRMOT_THR[5]|ZRMOT_THR[4]|ZRMOT_THR[3]|ZRMOT_THR[2]|ZRMOT_THR[1]|ZRMOT_THR[0]|
 
 **<u>Description:</u>**
 
@@ -802,7 +659,7 @@ _ZRMOT_THR_ 8-bit unsigned value. Specifies the Zero Motion detection threshold.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|22|34|ZRMOT_DUR[7:0]||||||||
+|22|34|ZRMOT_DUR[7]|ZRMOT_DUR[6]|ZRMOT_DUR[5]|ZRMOT_DUR[4]|ZRMOT_DUR[3]|ZRMOT_DUR[2]|ZRMOT_DUR[1]|ZRMOT_DUR[0]|
 
 **<u>Description:</u>**
 
@@ -820,10 +677,6 @@ Product Specification document, as well as Registers 56 and 58 of this document.
 
 _ZRMOT_DUR_ 8-bit unsigned value. Specifies the duration counter threshold.
 Unit of 1 LSB = 64ms.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 17 页](img/RM-MPU-6000A-EN-p017.png)
 
 ## 原文第 18 页
 
@@ -890,10 +743,6 @@ _SLV0_ FIFO_EN_ When set to 1, this bit enables EXT_SENS_DATA registers (Registe
 <u>Note: For further information regarding the association of EXT_SENS_DATA registers to particular</u>
 slave devices, please refer to Registers 73 to 96.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 18 页](img/RM-MPU-6000A-EN-p018.png)
-
 ## 原文第 19 页
 
 **4.13 Register 36 – I** <sup>**2**</sup> **C Master Control**
@@ -903,7 +752,7 @@ slave devices, please refer to Registers 73 to 96.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|24|36|MULT_MST_EN|WAIT_FOR_ES|SLV_3_FIFO_EN|I2C_MST_P_NSR|I2C_MST_CLK[3:0]||||
+|24|36|MULT_MST_EN|WAIT_FOR_ES|SLV_3_FIFO_EN|I2C_MST_P_NSR|I2C_MST_CLK[3]|I2C_MST_CLK[2]|I2C_MST_CLK[1]|I2C_MST_CLK[0]|
 
 **<u>Description:</u>**
 
@@ -940,10 +789,6 @@ The _I2C_MST_P_NSR_ bit configures the I <sup>2</sup> C Master’s transition fr
 slave read. If the bit equals 0, there will be a restart between reads. If the bit equals 1, there will be a
 stop followed by a start of the following read. When a write transaction follows a read transaction, the
 stop followed by a start of the successive write will be always used.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 19 页](img/RM-MPU-6000A-EN-p019.png)
 
 ## 原文第 20 页
 
@@ -994,10 +839,6 @@ _I2C_MST_CLK_ 4 bit unsigned value. Configures the I <sup>2</sup> C master clock
 <u>Note: For further information regarding the association of EXT_SENS_DATA registers to particular</u>
 slave devices, please refer to Registers 73 to 96.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 20 页](img/RM-MPU-6000A-EN-p020.png)
-
 ## 原文第 21 页
 
 **4.14 Registers 37 to 39 – I** <sup>**2**</sup> **C Slave 0 Control**
@@ -1007,9 +848,9 @@ slave devices, please refer to Registers 73 to 96.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|25|37|I2C_SLV0_RW|I2C_SLV0_ADDR[6:0]|||||||
-|26|38|I2C_SLV0_REG[7:0]||||||||
-|27|39|I2C_SLV0_EN|I2C_SLV0_BYTE_SW|I2C_SLV0_REG_DIS|I2C_SLV<br>0_GRP|I2C_SLV0_LEN[3:0]||||
+|25|37|I2C_SLV0_RW|I2C_SLV0_ADDR[6]|I2C_SLV0_ADDR[5]|I2C_SLV0_ADDR[4]|I2C_SLV0_ADDR[3]|I2C_SLV0_ADDR[2]|I2C_SLV0_ADDR[1]|I2C_SLV0_ADDR[0]|
+|26|38|I2C_SLV0_REG[7]|I2C_SLV0_REG[6]|I2C_SLV0_REG[5]|I2C_SLV0_REG[4]|I2C_SLV0_REG[3]|I2C_SLV0_REG[2]|I2C_SLV0_REG[1]|I2C_SLV0_REG[0]|
+|27|39|I2C_SLV0_EN|I2C_SLV0_BYTE_SW|I2C_SLV0_REG_DIS|I2C_SLV0_GRP|I2C_SLV0_LEN[3]|I2C_SLV0_LEN[2]|I2C_SLV0_LEN[1]|I2C_SLV0_LEN[0]|
 
 **<u>Description:</u>**
 
@@ -1050,10 +891,6 @@ When _I2C_SLV0_REG_DIS_ is set to 1, the transaction will read or write data onl
 0, the transaction will write a register address prior to reading or writing data. This bit should equal 0
 when specifying the register address within the Slave device to/from which the ensuing data
 transaction will take place.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 21 页](img/RM-MPU-6000A-EN-p021.png)
 
 ## 原文第 22 页
 
@@ -1115,10 +952,6 @@ Slave 0.
 Clearing this bit to 0 is equivalent to disabling the register by writing 0 to
 _I2C_SLV0_EN_ .
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 22 页](img/RM-MPU-6000A-EN-p022.png)
-
 ## 原文第 23 页
 
 **<u>Byte Swapping Example</u>**
@@ -1141,10 +974,6 @@ other slaves are disabled. In the first cycle, both Slave 0 and Slave 1 will be 
 the second cycle, only Slave 0 will be accessed. In the third cycle, both Slave 0 and Slave 1 will be
 accessed. In the fourth cycle, only Slave 0 will be accessed. This pattern continues.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 23 页](img/RM-MPU-6000A-EN-p023.png)
-
 ## 原文第 24 页
 
 **4.15 Registers 40 to 42 – I** <sup>**2**</sup> **C Slave 1 Control**
@@ -1154,9 +983,9 @@ accessed. In the fourth cycle, only Slave 0 will be accessed. This pattern conti
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|28|40|I2C_SLV1_RW|I2C_SLV1_ADDR[6:0]|||||||
-|29|41|I2C_SLV1_REG[7:0]||||||||
-|2A|42|I2C_SLV1_EN|I2C_SLV1_BYTE_SW|I2C_SLV1_REG_DIS|I2C_SLV<br>1_GRP|I2C_SLV1_LEN[3:0]||||
+|28|40|I2C_SLV1_RW|I2C_SLV1_ADDR[6]|I2C_SLV1_ADDR[5]|I2C_SLV1_ADDR[4]|I2C_SLV1_ADDR[3]|I2C_SLV1_ADDR[2]|I2C_SLV1_ADDR[1]|I2C_SLV1_ADDR[0]|
+|29|41|I2C_SLV1_REG[7]|I2C_SLV1_REG[6]|I2C_SLV1_REG[5]|I2C_SLV1_REG[4]|I2C_SLV1_REG[3]|I2C_SLV1_REG[2]|I2C_SLV1_REG[1]|I2C_SLV1_REG[0]|
+|2A|42|I2C_SLV1_EN|I2C_SLV1_BYTE_SW|I2C_SLV1_REG_DIS|I2C_SLV1_GRP|I2C_SLV1_LEN[3]|I2C_SLV1_LEN[2]|I2C_SLV1_LEN[1]|I2C_SLV1_LEN[0]|
 
 **<u>Description:</u>**
 
@@ -1170,9 +999,9 @@ described for the Slave 0 registers (Registers 37 to 39).
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|2B|43|I2C_SLV2_RW|I2C_SLV2_ADDR[6:0]|||||||
-|2C|44|I2C_SLV2_REG[7:0]||||||||
-|2D|45|I2C_SLV2_EN|I2C_SLV2_BYTE_SW|I2C_SLV2_REG_DIS|I2C_SLV<br>2_GRP|I2C_SLV2_LEN[3:0]||||
+|2B|43|I2C_SLV2_RW|I2C_SLV2_ADDR[6]|I2C_SLV2_ADDR[5]|I2C_SLV2_ADDR[4]|I2C_SLV2_ADDR[3]|I2C_SLV2_ADDR[2]|I2C_SLV2_ADDR[1]|I2C_SLV2_ADDR[0]|
+|2C|44|I2C_SLV2_REG[7]|I2C_SLV2_REG[6]|I2C_SLV2_REG[5]|I2C_SLV2_REG[4]|I2C_SLV2_REG[3]|I2C_SLV2_REG[2]|I2C_SLV2_REG[1]|I2C_SLV2_REG[0]|
+|2D|45|I2C_SLV2_EN|I2C_SLV2_BYTE_SW|I2C_SLV2_REG_DIS|I2C_SLV2_GRP|I2C_SLV2_LEN[3]|I2C_SLV2_LEN[2]|I2C_SLV2_LEN[1]|I2C_SLV2_LEN[0]|
 
 **<u>Description:</u>**
 
@@ -1186,18 +1015,14 @@ described for the Slave 0 registers (Registers 37 to 39).
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|2E|46|I2C_SLV3_RW|I2C_SLV3_ADDR[6:0]|||||||
-|2F|47|I2C_SLV3_REG[7:0]||||||||
-|30|48|I2C_SLV3_EN|I2C_SLV3_BYTE_SW|I2C_SLV3_REG_DIS|I2C_SLV<br>3_GRP|I2C_SLV3_LEN[3:0]||||
+|2E|46|I2C_SLV3_RW|I2C_SLV3_ADDR[6]|I2C_SLV3_ADDR[5]|I2C_SLV3_ADDR[4]|I2C_SLV3_ADDR[3]|I2C_SLV3_ADDR[2]|I2C_SLV3_ADDR[1]|I2C_SLV3_ADDR[0]|
+|2F|47|I2C_SLV3_REG[7]|I2C_SLV3_REG[6]|I2C_SLV3_REG[5]|I2C_SLV3_REG[4]|I2C_SLV3_REG[3]|I2C_SLV3_REG[2]|I2C_SLV3_REG[1]|I2C_SLV3_REG[0]|
+|30|48|I2C_SLV3_EN|I2C_SLV3_BYTE_SW|I2C_SLV3_REG_DIS|I2C_SLV3_GRP|I2C_SLV3_LEN[3]|I2C_SLV3_LEN[2]|I2C_SLV3_LEN[1]|I2C_SLV3_LEN[0]|
 
 **<u>Description:</u>**
 
 These registers describe the data transfer sequence for Slave 3. Their functions correspond to those
 described for the Slave 0 registers (Registers 37 to 39).
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 24 页](img/RM-MPU-6000A-EN-p024.png)
 
 ## 原文第 25 页
 
@@ -1208,11 +1033,11 @@ described for the Slave 0 registers (Registers 37 to 39).
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|31|49|I2C_SLV4_RW|I2C_SLV4_ADDR[6:0]|||||||
-|32|50|I2C_SLV4_REG[7:0]||||||||
-|33|51|I2C_SLV4_DO[7:0]||||||||
-|34|52|I2C_SLV4_EN|I2C_SLV4_INT_EN|I2C_SLV4_REG_DIS|I2C_MST_DLY[4:0]|||||
-|35|53|I2C_SLV4_DI[7:0]||||||||
+|31|49|I2C_SLV4_RW|I2C_SLV4_ADDR[6]|I2C_SLV4_ADDR[5]|I2C_SLV4_ADDR[4]|I2C_SLV4_ADDR[3]|I2C_SLV4_ADDR[2]|I2C_SLV4_ADDR[1]|I2C_SLV4_ADDR[0]|
+|32|50|I2C_SLV4_REG[7]|I2C_SLV4_REG[6]|I2C_SLV4_REG[5]|I2C_SLV4_REG[4]|I2C_SLV4_REG[3]|I2C_SLV4_REG[2]|I2C_SLV4_REG[1]|I2C_SLV4_REG[0]|
+|33|51|I2C_SLV4_DO[7]|I2C_SLV4_DO[6]|I2C_SLV4_DO[5]|I2C_SLV4_DO[4]|I2C_SLV4_DO[3]|I2C_SLV4_DO[2]|I2C_SLV4_DO[1]|I2C_SLV4_DO[0]|
+|34|52|I2C_SLV4_EN|I2C_SLV4_INT_EN|I2C_SLV4_REG_DIS|I2C_MST_DLY[4]|I2C_MST_DLY[3]|I2C_MST_DLY[2]|I2C_MST_DLY[1]|I2C_MST_DLY[0]|
+|35|53|I2C_SLV4_DI[7]|I2C_SLV4_DI[6]|I2C_SLV4_DI[5]|I2C_SLV4_DI[4]|I2C_SLV4_DI[3]|I2C_SLV4_DI[2]|I2C_SLV4_DI[1]|I2C_SLV4_DI[0]|
 
 **<u>Description:</u>**
 
@@ -1258,10 +1083,6 @@ Slave 4 transactions are performed after Slave 0, 1, 2 and 3 transactions have b
 Thus the maximum rate for Slave 4 transactions is determined by the Sample Rate as defined in
 Register 25.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 25 页](img/RM-MPU-6000A-EN-p025.png)
-
 ## 原文第 26 页
 
 **<u>Parameters:</u>**
@@ -1297,10 +1118,6 @@ Sample Rate.
 _I2C_SLV4_DI_ This register stores the data read from Slave 4.
 
 This field is populated after a read transaction.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 26 页](img/RM-MPU-6000A-EN-p026.png)
 
 ## 原文第 27 页
 
@@ -1356,10 +1173,6 @@ bit in the INT_ENABLE register (Register 56) is asserted.
 _I2C_SLV0_NACK_ This bit automatically sets to 1 when the I <sup>2</sup> C Master receives a NACK in a
 transaction with Slave 0. This triggers an interrupt if the _I2C_MST_INT_EN_
 bit in the INT_ENABLE register (Register 56) is asserted.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 27 页](img/RM-MPU-6000A-EN-p027.png)
 
 ## 原文第 28 页
 
@@ -1420,10 +1233,6 @@ the host processor.
 When equal to 1, this bit enables the FSYNC pin to be used as an interrupt to
 the host processor.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 28 页](img/RM-MPU-6000A-EN-p028.png)
-
 ## 原文第 29 页
 
 _I2C_BYPASS_EN_ When this bit is equal to 1 and _I2C_MST_EN_ (Register 106 bit[5]) is equal to
@@ -1479,10 +1288,6 @@ generate an interrupt.
 _DATA_RDY_EN_ When set to 1, this bit enables the Data Ready interrupt, which occurs each
 time a write operation to all of the sensor registers has been completed.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 29 页](img/RM-MPU-6000A-EN-p029.png)
-
 ## 原文第 30 页
 
 **4.22 Register 58 – Interrupt Status**
@@ -1536,10 +1341,6 @@ _DATA_RDY_INT_ This bit automatically sets to 1 when a Data Ready interrupt is g
 
 The bit clears to 0 after the register has been read.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 30 页](img/RM-MPU-6000A-EN-p030.png)
-
 ## 原文第 31 页
 
 **4.23 Registers 59 to 64 – Accelerometer Measurements**
@@ -1550,12 +1351,12 @@ The bit clears to 0 after the register has been read.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|3B|59|<br>ACCEL_XOUT[15:8]||||||||
-|3C|60|<br>ACCEL_XOUT[7:0]||||||||
-|3D|61|<br>ACCEL_YOUT[15:8]||||||||
-|3E|62|<br>ACCEL_YOUT[7:0]||||||||
-|3F|63|<br>ACCEL_ZOUT[15:8]||||||||
-|40|64|<br>ACCEL_ZOUT[7:0]||||||||
+|3B|59|ACCEL_XOUT[15]|ACCEL_XOUT[14]|ACCEL_XOUT[13]|ACCEL_XOUT[12]|ACCEL_XOUT[11]|ACCEL_XOUT[10]|ACCEL_XOUT[9]|ACCEL_XOUT[8]|
+|3C|60|ACCEL_XOUT[7]|ACCEL_XOUT[6]|ACCEL_XOUT[5]|ACCEL_XOUT[4]|ACCEL_XOUT[3]|ACCEL_XOUT[2]|ACCEL_XOUT[1]|ACCEL_XOUT[0]|
+|3D|61|ACCEL_YOUT[15]|ACCEL_YOUT[14]|ACCEL_YOUT[13]|ACCEL_YOUT[12]|ACCEL_YOUT[11]|ACCEL_YOUT[10]|ACCEL_YOUT[9]|ACCEL_YOUT[8]|
+|3E|62|ACCEL_YOUT[7]|ACCEL_YOUT[6]|ACCEL_YOUT[5]|ACCEL_YOUT[4]|ACCEL_YOUT[3]|ACCEL_YOUT[2]|ACCEL_YOUT[1]|ACCEL_YOUT[0]|
+|3F|63|ACCEL_ZOUT[15]|ACCEL_ZOUT[14]|ACCEL_ZOUT[13]|ACCEL_ZOUT[12]|ACCEL_ZOUT[11]|ACCEL_ZOUT[10]|ACCEL_ZOUT[9]|ACCEL_ZOUT[8]|
+|40|64|ACCEL_ZOUT[7]|ACCEL_ZOUT[6]|ACCEL_ZOUT[5]|ACCEL_ZOUT[4]|ACCEL_ZOUT[3]|ACCEL_ZOUT[2]|ACCEL_ZOUT[1]|ACCEL_ZOUT[0]|
 
 **<u>Description:</u>**
 
@@ -1603,10 +1404,6 @@ _ACCEL_ZOUT_ 16-bit 2’s complement value.
 
 Stores the most recent Z axis accelerometer measurement.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 31 页](img/RM-MPU-6000A-EN-p031.png)
-
 ## 原文第 32 页
 
 **4.24 Registers 65 and 66 – Temperature Measurement**
@@ -1616,8 +1413,8 @@ Stores the most recent Z axis accelerometer measurement.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|41|65|<br>TEMP_OUT[15:8]||||||||
-|42|66|<br>TEMP_OUT[7:0]||||||||
+|41|65|TEMP_OUT[15]|TEMP_OUT[14]|TEMP_OUT[13]|TEMP_OUT[12]|TEMP_OUT[11]|TEMP_OUT[10]|TEMP_OUT[9]|TEMP_OUT[8]|
+|42|66|TEMP_OUT[7]|TEMP_OUT[6]|TEMP_OUT[5]|TEMP_OUT[4]|TEMP_OUT[3]|TEMP_OUT[2]|TEMP_OUT[1]|TEMP_OUT[0]|
 
 **<u>Description:</u>**
 
@@ -1650,10 +1447,6 @@ _TEMP_OUT_ 16-bit signed value.
 
 Stores the most recent temperature sensor measurement.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 32 页](img/RM-MPU-6000A-EN-p032.png)
-
 ## 原文第 33 页
 
 **4.25 Registers 67 to 72 – Gyroscope Measurements**
@@ -1664,12 +1457,12 @@ Stores the most recent temperature sensor measurement.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|43|67|<br>GYRO_XOUT[15:8]||||||||
-|44|68|<br>GYRO_XOUT[7:0]||||||||
-|45|69|<br>GYRO_YOUT[15:8]||||||||
-|46|70|<br>GYRO_YOUT[7:0]||||||||
-|47|71|<br>GYRO_ZOUT[15:8]||||||||
-|48|72|<br>GYRO_ZOUT[7:0]||||||||
+|43|67|GYRO_XOUT[15]|GYRO_XOUT[14]|GYRO_XOUT[13]|GYRO_XOUT[12]|GYRO_XOUT[11]|GYRO_XOUT[10]|GYRO_XOUT[9]|GYRO_XOUT[8]|
+|44|68|GYRO_XOUT[7]|GYRO_XOUT[6]|GYRO_XOUT[5]|GYRO_XOUT[4]|GYRO_XOUT[3]|GYRO_XOUT[2]|GYRO_XOUT[1]|GYRO_XOUT[0]|
+|45|69|GYRO_YOUT[15]|GYRO_YOUT[14]|GYRO_YOUT[13]|GYRO_YOUT[12]|GYRO_YOUT[11]|GYRO_YOUT[10]|GYRO_YOUT[9]|GYRO_YOUT[8]|
+|46|70|GYRO_YOUT[7]|GYRO_YOUT[6]|GYRO_YOUT[5]|GYRO_YOUT[4]|GYRO_YOUT[3]|GYRO_YOUT[2]|GYRO_YOUT[1]|GYRO_YOUT[0]|
+|47|71|GYRO_ZOUT[15]|GYRO_ZOUT[14]|GYRO_ZOUT[13]|GYRO_ZOUT[12]|GYRO_ZOUT[11]|GYRO_ZOUT[10]|GYRO_ZOUT[9]|GYRO_ZOUT[8]|
+|48|72|GYRO_ZOUT[7]|GYRO_ZOUT[6]|GYRO_ZOUT[5]|GYRO_ZOUT[4]|GYRO_ZOUT[3]|GYRO_ZOUT[2]|GYRO_ZOUT[1]|GYRO_ZOUT[0]|
 
 **<u>Description:</u>**
 
@@ -1713,10 +1506,6 @@ _GYRO_ZOUT_ 16-bit 2’s complement value.
 
 Stores the most recent Z axis gyroscope measurement.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 33 页](img/RM-MPU-6000A-EN-p033.png)
-
 ## 原文第 34 页
 
 **4.26 Registers 73 to 96 – External Sensor Data**
@@ -1726,30 +1515,30 @@ Stores the most recent Z axis gyroscope measurement.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|49|73|EXT_SENS_DATA_00[7:0]||||||||
-|4A|74|EXT_SENS_DATA_01[7:0]||||||||
-|4B|75|EXT_SENS_DATA_02[7:0]||||||||
-|4C|76|EXT_SENS_DATA_03[7:0]||||||||
-|4D|77|EXT_SENS_DATA_04[7:0]||||||||
-|4E|78|EXT_SENS_DATA_05[7:0]||||||||
-|4F|79|EXT_SENS_DATA_06[7:0]||||||||
-|50|80|EXT_SENS_DATA_07[7:0]||||||||
-|51|81|EXT_SENS_DATA_08[7:0]||||||||
-|52|82|EXT_SENS_DATA_09[7:0]||||||||
-|53|83|EXT_SENS_DATA_10[7:0]||||||||
-|54|84|EXT_SENS_DATA_11[7:0]||||||||
-|55|85|EXT_SENS_DATA_12[7:0]||||||||
-|56|86|EXT_SENS_DATA_13[7:0]||||||||
-|57|87|EXT_SENS_DATA_14[7:0]||||||||
-|58|88|EXT_SENS_DATA_15[7:0]||||||||
-|59|89|EXT_SENS_DATA_16[7:0]||||||||
-|5A|90|EXT_SENS_DATA_17[7:0]||||||||
-|5B|91|EXT_SENS_DATA_18[7:0]||||||||
-|5C|92|EXT_SENS_DATA_19[7:0]||||||||
-|5D|93|EXT_SENS_DATA_20[7:0]||||||||
-|5E|94|EXT_SENS_DATA_21[7:0]||||||||
-|5F|95|EXT_SENS_DATA_22[7:0]||||||||
-|60|96|EXT_SENS_DATA_23[7:0]||||||||
+|49|73|EXT_SENS_DATA_00[7]|EXT_SENS_DATA_00[6]|EXT_SENS_DATA_00[5]|EXT_SENS_DATA_00[4]|EXT_SENS_DATA_00[3]|EXT_SENS_DATA_00[2]|EXT_SENS_DATA_00[1]|EXT_SENS_DATA_00[0]|
+|4A|74|EXT_SENS_DATA_01[7]|EXT_SENS_DATA_01[6]|EXT_SENS_DATA_01[5]|EXT_SENS_DATA_01[4]|EXT_SENS_DATA_01[3]|EXT_SENS_DATA_01[2]|EXT_SENS_DATA_01[1]|EXT_SENS_DATA_01[0]|
+|4B|75|EXT_SENS_DATA_02[7]|EXT_SENS_DATA_02[6]|EXT_SENS_DATA_02[5]|EXT_SENS_DATA_02[4]|EXT_SENS_DATA_02[3]|EXT_SENS_DATA_02[2]|EXT_SENS_DATA_02[1]|EXT_SENS_DATA_02[0]|
+|4C|76|EXT_SENS_DATA_03[7]|EXT_SENS_DATA_03[6]|EXT_SENS_DATA_03[5]|EXT_SENS_DATA_03[4]|EXT_SENS_DATA_03[3]|EXT_SENS_DATA_03[2]|EXT_SENS_DATA_03[1]|EXT_SENS_DATA_03[0]|
+|4D|77|EXT_SENS_DATA_04[7]|EXT_SENS_DATA_04[6]|EXT_SENS_DATA_04[5]|EXT_SENS_DATA_04[4]|EXT_SENS_DATA_04[3]|EXT_SENS_DATA_04[2]|EXT_SENS_DATA_04[1]|EXT_SENS_DATA_04[0]|
+|4E|78|EXT_SENS_DATA_05[7]|EXT_SENS_DATA_05[6]|EXT_SENS_DATA_05[5]|EXT_SENS_DATA_05[4]|EXT_SENS_DATA_05[3]|EXT_SENS_DATA_05[2]|EXT_SENS_DATA_05[1]|EXT_SENS_DATA_05[0]|
+|4F|79|EXT_SENS_DATA_06[7]|EXT_SENS_DATA_06[6]|EXT_SENS_DATA_06[5]|EXT_SENS_DATA_06[4]|EXT_SENS_DATA_06[3]|EXT_SENS_DATA_06[2]|EXT_SENS_DATA_06[1]|EXT_SENS_DATA_06[0]|
+|50|80|EXT_SENS_DATA_07[7]|EXT_SENS_DATA_07[6]|EXT_SENS_DATA_07[5]|EXT_SENS_DATA_07[4]|EXT_SENS_DATA_07[3]|EXT_SENS_DATA_07[2]|EXT_SENS_DATA_07[1]|EXT_SENS_DATA_07[0]|
+|51|81|EXT_SENS_DATA_08[7]|EXT_SENS_DATA_08[6]|EXT_SENS_DATA_08[5]|EXT_SENS_DATA_08[4]|EXT_SENS_DATA_08[3]|EXT_SENS_DATA_08[2]|EXT_SENS_DATA_08[1]|EXT_SENS_DATA_08[0]|
+|52|82|EXT_SENS_DATA_09[7]|EXT_SENS_DATA_09[6]|EXT_SENS_DATA_09[5]|EXT_SENS_DATA_09[4]|EXT_SENS_DATA_09[3]|EXT_SENS_DATA_09[2]|EXT_SENS_DATA_09[1]|EXT_SENS_DATA_09[0]|
+|53|83|EXT_SENS_DATA_10[7]|EXT_SENS_DATA_10[6]|EXT_SENS_DATA_10[5]|EXT_SENS_DATA_10[4]|EXT_SENS_DATA_10[3]|EXT_SENS_DATA_10[2]|EXT_SENS_DATA_10[1]|EXT_SENS_DATA_10[0]|
+|54|84|EXT_SENS_DATA_11[7]|EXT_SENS_DATA_11[6]|EXT_SENS_DATA_11[5]|EXT_SENS_DATA_11[4]|EXT_SENS_DATA_11[3]|EXT_SENS_DATA_11[2]|EXT_SENS_DATA_11[1]|EXT_SENS_DATA_11[0]|
+|55|85|EXT_SENS_DATA_12[7]|EXT_SENS_DATA_12[6]|EXT_SENS_DATA_12[5]|EXT_SENS_DATA_12[4]|EXT_SENS_DATA_12[3]|EXT_SENS_DATA_12[2]|EXT_SENS_DATA_12[1]|EXT_SENS_DATA_12[0]|
+|56|86|EXT_SENS_DATA_13[7]|EXT_SENS_DATA_13[6]|EXT_SENS_DATA_13[5]|EXT_SENS_DATA_13[4]|EXT_SENS_DATA_13[3]|EXT_SENS_DATA_13[2]|EXT_SENS_DATA_13[1]|EXT_SENS_DATA_13[0]|
+|57|87|EXT_SENS_DATA_14[7]|EXT_SENS_DATA_14[6]|EXT_SENS_DATA_14[5]|EXT_SENS_DATA_14[4]|EXT_SENS_DATA_14[3]|EXT_SENS_DATA_14[2]|EXT_SENS_DATA_14[1]|EXT_SENS_DATA_14[0]|
+|58|88|EXT_SENS_DATA_15[7]|EXT_SENS_DATA_15[6]|EXT_SENS_DATA_15[5]|EXT_SENS_DATA_15[4]|EXT_SENS_DATA_15[3]|EXT_SENS_DATA_15[2]|EXT_SENS_DATA_15[1]|EXT_SENS_DATA_15[0]|
+|59|89|EXT_SENS_DATA_16[7]|EXT_SENS_DATA_16[6]|EXT_SENS_DATA_16[5]|EXT_SENS_DATA_16[4]|EXT_SENS_DATA_16[3]|EXT_SENS_DATA_16[2]|EXT_SENS_DATA_16[1]|EXT_SENS_DATA_16[0]|
+|5A|90|EXT_SENS_DATA_17[7]|EXT_SENS_DATA_17[6]|EXT_SENS_DATA_17[5]|EXT_SENS_DATA_17[4]|EXT_SENS_DATA_17[3]|EXT_SENS_DATA_17[2]|EXT_SENS_DATA_17[1]|EXT_SENS_DATA_17[0]|
+|5B|91|EXT_SENS_DATA_18[7]|EXT_SENS_DATA_18[6]|EXT_SENS_DATA_18[5]|EXT_SENS_DATA_18[4]|EXT_SENS_DATA_18[3]|EXT_SENS_DATA_18[2]|EXT_SENS_DATA_18[1]|EXT_SENS_DATA_18[0]|
+|5C|92|EXT_SENS_DATA_19[7]|EXT_SENS_DATA_19[6]|EXT_SENS_DATA_19[5]|EXT_SENS_DATA_19[4]|EXT_SENS_DATA_19[3]|EXT_SENS_DATA_19[2]|EXT_SENS_DATA_19[1]|EXT_SENS_DATA_19[0]|
+|5D|93|EXT_SENS_DATA_20[7]|EXT_SENS_DATA_20[6]|EXT_SENS_DATA_20[5]|EXT_SENS_DATA_20[4]|EXT_SENS_DATA_20[3]|EXT_SENS_DATA_20[2]|EXT_SENS_DATA_20[1]|EXT_SENS_DATA_20[0]|
+|5E|94|EXT_SENS_DATA_21[7]|EXT_SENS_DATA_21[6]|EXT_SENS_DATA_21[5]|EXT_SENS_DATA_21[4]|EXT_SENS_DATA_21[3]|EXT_SENS_DATA_21[2]|EXT_SENS_DATA_21[1]|EXT_SENS_DATA_21[0]|
+|5F|95|EXT_SENS_DATA_22[7]|EXT_SENS_DATA_22[6]|EXT_SENS_DATA_22[5]|EXT_SENS_DATA_22[4]|EXT_SENS_DATA_22[3]|EXT_SENS_DATA_22[2]|EXT_SENS_DATA_22[1]|EXT_SENS_DATA_22[0]|
+|60|96|EXT_SENS_DATA_23[7]|EXT_SENS_DATA_23[6]|EXT_SENS_DATA_23[5]|EXT_SENS_DATA_23[4]|EXT_SENS_DATA_23[3]|EXT_SENS_DATA_23[2]|EXT_SENS_DATA_23[1]|EXT_SENS_DATA_23[0]|
 
 **<u>Description:</u>**
 
@@ -1776,10 +1565,6 @@ slave is read at the Sample Rate (as defined in Register 25) or delayed rate (if
 52 and 103). During each Sample cycle, slave reads are performed in order of Slave number. If all
 slaves are enabled with more than zero bytes to be read, the order will be Slave 0, followed by Slave
 1, Slave 2, and Slave 3.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 34 页](img/RM-MPU-6000A-EN-p034.png)
 
 ## 原文第 35 页
 
@@ -1821,10 +1606,6 @@ The allocation of the EXT_SENS_DATA registers is recomputed only when (1) all sl
 disabled, or (2) the _I2C_MST_RST_ bit is set (Register 106) .
 
 This above is also true if one of the slaves gets NACKed and stops functioning.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 35 页](img/RM-MPU-6000A-EN-p035.png)
 
 ## 原文第 36 页
 
@@ -1881,10 +1662,6 @@ generated a Motion detection interrupt.
 _MOT_ZRMOT_ This bit automatically sets to 1 when Zero Motion detection interrupt is
 generated.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 36 页](img/RM-MPU-6000A-EN-p036.png)
-
 ## 原文第 37 页
 
 **4.28 Register 99 – I** <sup>**2**</sup> **C Slave 0 Data Out**
@@ -1894,7 +1671,7 @@ generated.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|63|99|I2C_SLV0_DO[7:0]||||||||
+|63|99|I2C_SLV0_DO[7]|I2C_SLV0_DO[6]|I2C_SLV0_DO[5]|I2C_SLV0_DO[4]|I2C_SLV0_DO[3]|I2C_SLV0_DO[2]|I2C_SLV0_DO[1]|I2C_SLV0_DO[0]|
 
 **<u>Description:</u>**
 
@@ -1914,7 +1691,7 @@ mode.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|64|100|I2C_SLV1_DO[7:0]||||||||
+|64|100|I2C_SLV1_DO[7]|I2C_SLV1_DO[6]|I2C_SLV1_DO[5]|I2C_SLV1_DO[4]|I2C_SLV1_DO[3]|I2C_SLV1_DO[2]|I2C_SLV1_DO[1]|I2C_SLV1_DO[0]|
 
 **<u>Description:</u>**
 
@@ -1927,10 +1704,6 @@ For further information regarding Slave 1 control, please refer to Registers 40 
 _I2C_SLV1_DO_ 8 bit unsigned value that is written into Slave 1 when Slave 1 is set to write
 mode.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 37 页](img/RM-MPU-6000A-EN-p037.png)
-
 ## 原文第 38 页
 
 **4.30 Register 101 – I** <sup>**2**</sup> **C Slave 2 Data Out**
@@ -1940,7 +1713,7 @@ mode.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|65|101|I2C_SLV2_DO[7:0]||||||||
+|65|101|I2C_SLV2_DO[7]|I2C_SLV2_DO[6]|I2C_SLV2_DO[5]|I2C_SLV2_DO[4]|I2C_SLV2_DO[3]|I2C_SLV2_DO[2]|I2C_SLV2_DO[1]|I2C_SLV2_DO[0]|
 
 **<u>Description:</u>**
 
@@ -1960,7 +1733,7 @@ mode.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|66|102|I2C_SLV3_DO[7:0]||||||||
+|66|102|I2C_SLV3_DO[7]|I2C_SLV3_DO[6]|I2C_SLV3_DO[5]|I2C_SLV3_DO[4]|I2C_SLV3_DO[3]|I2C_SLV3_DO[2]|I2C_SLV3_DO[1]|I2C_SLV3_DO[0]|
 
 **<u>Description:</u>**
 
@@ -1972,10 +1745,6 @@ For further information regarding Slave 3 control, please refer to Registers 46 
 
 _I2C_SLV3_DO_ 8 bit unsigned value that is written into Slave 3 when Slave 3 is set to write
 mode.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 38 页](img/RM-MPU-6000A-EN-p038.png)
 
 ## 原文第 39 页
 
@@ -2027,10 +1796,6 @@ _I2C_SLV1_DLY_EN_ When enabled, slave 1 will only be accessed at a decreased rat
 
 _I2C_SLV0_DLY_EN_ When enabled, slave 0 will only be accessed at a decreased rate.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 39 页](img/RM-MPU-6000A-EN-p039.png)
-
 ## 原文第 40 页
 
 **4.33 Register 104 – Signal Path Reset**
@@ -2064,10 +1829,6 @@ paths.
 _TEMP_RESET_ When set to 1, this bit resets the temperature sensor analog and digital signal
 paths.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 40 页](img/RM-MPU-6000A-EN-p040.png)
-
 ## 原文第 41 页
 
 **4.34 Register 105 – Motion Detection Control**
@@ -2077,7 +1838,7 @@ paths.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|69|105|-|-|ACCEL_ON_DELAY[1:0]||FF_COUNT[1:0]||MOT_COUNT[1:0]||
+|69|105|-|-|ACCEL_ON_DELAY[1]|ACCEL_ON_DELAY[0]|FF_COUNT[1]|FF_COUNT[0]|MOT_COUNT[1]|MOT_COUNT[0]|
 
 **<u>Description:</u>**
 
@@ -2124,10 +1885,6 @@ rate.
 
 _MOT_COUNT_ 2-bit unsigned value. Configures the Motion detection counter decrement
 rate.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 41 页](img/RM-MPU-6000A-EN-p041.png)
 
 ## 原文第 42 页
 
@@ -2190,10 +1947,6 @@ bit automatically clears to 0 after the reset has been triggered.
 _I2C_MST_RESET_ This bit resets the I <sup>2</sup> C Master when set to 1 while _I2C_MST_EN_ equals 0.
 This bit automatically clears to 0 after the reset has been triggered.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 42 页](img/RM-MPU-6000A-EN-p042.png)
-
 ## 原文第 43 页
 
 _SIG_COND_RESET_ When set to 1, this bit resets the signal paths for all sensors (gyroscopes,
@@ -2204,10 +1957,6 @@ triggered.
 When resetting only the signal path (and not the sensor registers), please
 use Register 104, SIGNAL_PATH_RESET.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 43 页](img/RM-MPU-6000A-EN-p043.png)
-
 ## 原文第 44 页
 
 **4.36 Register 107 – Power Management 1**
@@ -2217,7 +1966,7 @@ use Register 104, SIGNAL_PATH_RESET.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|6B|107|DEVICE_RESET|SLEEP|CYCLE|-|TEMP_DIS|CLKSEL[2:0]|||
+|6B|107|DEVICE_RESET|SLEEP|CYCLE|-|TEMP_DIS|CLKSEL[2]|CLKSEL[1]|CLKSEL[0]|
 
 **<u>Description:</u>**
 
@@ -2254,10 +2003,6 @@ For further information regarding the MPU-60X0 clock source, please refer to the
 
 Bit 4 is reserved.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 44 页](img/RM-MPU-6000A-EN-p044.png)
-
 ## 原文第 45 页
 
 **<u>Parameters:</u>**
@@ -2278,10 +2023,6 @@ _TEMP_DIS_ When set to 1, this bit disables the temperature sensor.
 
 _CLKSEL_ 3-bit unsigned value. Specifies the clock source of the device.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 45 页](img/RM-MPU-6000A-EN-p045.png)
-
 ## 原文第 46 页
 
 **4.37 Register 108 – Power Management 2**
@@ -2291,7 +2032,7 @@ _CLKSEL_ 3-bit unsigned value. Specifies the clock source of the device.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|6C|108|LP_WAKE_CTRL[1:0]||STBY_XA|STBY_YA|STBY_ZA|STBY_XG|STBY_YG|STBY_ZG|
+|6C|108|LP_WAKE_CTRL[1]|LP_WAKE_CTRL[0]|STBY_XA|STBY_YA|STBY_ZA|STBY_XG|STBY_YG|STBY_ZG|
 
 **<u>Description:</u>**
 
@@ -2338,10 +2079,6 @@ _STBY_YG_ When set to 1, this bit puts the Y axis gyroscope into standby mode.
 
 _STBY_ZG_ When set to 1, this bit puts the Z axis gyroscope into standby mode.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 46 页](img/RM-MPU-6000A-EN-p046.png)
-
 ## 原文第 47 页
 
 **4.38 Register 114 and 115 – FIFO Count Registers**
@@ -2351,8 +2088,8 @@ _STBY_ZG_ When set to 1, this bit puts the Z axis gyroscope into standby mode.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|72|114|<br>FIFO_COUNT[15:8]||||||||
-|73|115|<br>FIFO_COUNT[7:0]||||||||
+|72|114|FIFO_COUNT[15]|FIFO_COUNT[14]|FIFO_COUNT[13]|FIFO_COUNT[12]|FIFO_COUNT[11]|FIFO_COUNT[10]|FIFO_COUNT[9]|FIFO_COUNT[8]|
+|73|115|FIFO_COUNT[7]|FIFO_COUNT[6]|FIFO_COUNT[5]|FIFO_COUNT[4]|FIFO_COUNT[3]|FIFO_COUNT[2]|FIFO_COUNT[1]|FIFO_COUNT[0]|
 
 **<u>Description:</u>**
 
@@ -2375,10 +2112,6 @@ FIFO buffer and it is directly proportional to the number of samples available
 given the set of sensor data bound to be stored in the FIFO (register 35 and
 36).
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 47 页](img/RM-MPU-6000A-EN-p047.png)
-
 ## 原文第 48 页
 
 **4.39 Register 116 – FIFO Read Write**
@@ -2388,7 +2121,7 @@ given the set of sensor data bound to be stored in the FIFO (register 35 and
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|74|116|FIFO_DATA[7:0]||||||||
+|74|116|FIFO_DATA[7]|FIFO_DATA[6]|FIFO_DATA[5]|FIFO_DATA[4]|FIFO_DATA[3]|FIFO_DATA[2]|FIFO_DATA[1]|FIFO_DATA[0]|
 
 **<u>Description:</u>**
 
@@ -2415,10 +2148,6 @@ buffer is not read when empty.
 
 _FIFO_DATA_ 8-bit data transferred to and from the FIFO buffer.
 
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 48 页](img/RM-MPU-6000A-EN-p048.png)
-
 ## 原文第 49 页
 
 **4.40 Register 117 – Who Am I**
@@ -2428,7 +2157,7 @@ _FIFO_DATA_ 8-bit data transferred to and from the FIFO buffer.
 
 |Register<br>(Hex)|Register<br>(Decimal)|Bit7|Bit6|Bit5|Bit4|Bit3|Bit2|Bit1|Bit0|
 |---|---|---|---|---|---|---|---|---|---|
-|75|117|-|WHO_AM_I[6:1]||||||-|
+|75|117|-|WHO_AM_I[6]|WHO_AM_I[5]|WHO_AM_I[4]|WHO_AM_I[3]|WHO_AM_I[2]|WHO_AM_I[1]|-|
 
 **<u>Description:</u>**
 
@@ -2445,10 +2174,6 @@ Bits 0 and 7 are reserved. (Hard coded to 0)
 _WHO_AM_I_ Contains the 6-bit I <sup>2</sup> C address of the MPU-60X0.
 
 The Power-On-Reset value of Bit6:Bit1 is 110 100.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 49 页](img/RM-MPU-6000A-EN-p049.png)
 
 ## 原文第 50 页
 
@@ -2472,9 +2197,5 @@ InvenSense® is a registered trademark of InvenSense, Inc. MPU <sup>TM</sup>, MP
 Processor <sup>™</sup>, DMP <sup>™</sup>, Motion Processing Unit™, MotionFusion™, and MotionApps™ are trademarks of InvenSense, Inc.
 
 ©2011 InvenSense, Inc. All rights reserved.
-
-
-
-![MPU-6000 / MPU-6050 寄存器手册，原文第 50 页](img/RM-MPU-6000A-EN-p050.png)
 
 返回：[文档索引](../../README.md)。
