@@ -505,10 +505,6 @@ Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 o
 
 Timing characteristics apply to both primary and auxiliary I²C buses.
 
-**I** <sup>**2**</sup> **C Bus Timing Diagram**
-
-![I²C bus timing](img/PS-MPU-6000A-EN-p018.png)
-
 <a id="section-6-8"></a>
 
 ### 6.8 SPI Timing Characterization (MPU-6000 only)
@@ -527,10 +523,6 @@ Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 o
 | tVD.SDO, SDO Valid Time | Cload = 20 pF | | | 100 | ns |
 | tHD.SDO, SDO Hold Time | Cload = 20 pF | 4 | | | ns |
 | tDIS.SDO, SDO Output Disable Time | | | | 10 | ns |
-
-**SPI Bus Timing Diagram**
-
-![SPI bus timing](img/PS-MPU-6000A-EN-p019.png)
 
 <a id="section-6-9"></a>
 
@@ -582,13 +574,11 @@ Stress above those listed as “Absolute Maximum Ratings” may cause permanent 
 |24||Y|SDA|I²C serial data (SDA)|
 |2, 3, 4, 5, 14,<br>15, 16, 17|Y|Y|NC|Not internally connected. May be used for PCB trace routing.|
 
-![MPU-6000 and MPU-6050 pinout](img/PS-MPU-6000A-EN-p021.png)
-
 <a id="section-7-2"></a>
 
 ### 7.2 Typical Operating Circuit
 
-![Typical operating circuit and external components](img/PS-MPU-6000A-EN-p022.png)
+典型电路的完整连线未在文字中转录，待确认。
 
 <a id="section-7-3"></a>
 
@@ -609,13 +599,13 @@ Component labels refer to the [typical operating circuit](#section-7-2).
 
 ### 7.4 Recommended Power-on Procedure
 
-![Recommended power-on procedure](img/PS-MPU-6000A-EN-p023.png)
+原资料的上电时序仅以图示提供，未在文字中转录，待确认。
 
 <a id="section-7-5"></a>
 
 ### 7.5 Block Diagram
 
-![MPU-60X0 functional block diagram](img/PS-MPU-6000A-EN-p024.png)
+功能框图未在文字中转录；各功能的文字说明见后续章节。
 
 <a id="section-7-6"></a>
 
@@ -741,19 +731,17 @@ For further information regarding the Gyro & Accel control registers, please ref
 
 ### 7.13 MPU-60X0 Solution for 9-axis Sensor Fusion Using I²C Interface
 
-In the figure below, the system processor is an I²C master to the MPU-60X0. In addition, the MPU-60X0 is an I²C master to the optional external compass sensor. The MPU-60X0 has limited capabilities as an I²C Master, and depends on the system processor to manage the initial configuration of any auxiliary sensors. The MPU-60X0 has an interface bypass multiplexer, which connects the system processor I²C bus pins 23 and 24 (SDA and SCL) directly to the auxiliary sensor I²C bus pins 6 and 7 (AUX_DA and AUX_CL).
+The system processor is an I²C master to the MPU-60X0. In addition, the MPU-60X0 is an I²C master to the optional external compass sensor. The MPU-60X0 has limited capabilities as an I²C Master, and depends on the system processor to manage the initial configuration of any auxiliary sensors. The MPU-60X0 has an interface bypass multiplexer, which connects the system processor I²C bus pins 23 and 24 (SDA and SCL) directly to the auxiliary sensor I²C bus pins 6 and 7 (AUX_DA and AUX_CL).
 
 Once the auxiliary sensors have been configured by the system processor, the interface bypass multiplexer should be disabled so that the MPU-60X0 auxiliary I²C master can take control of the sensor I²C bus and gather data from the auxiliary sensors.
 
 For further information regarding I²C master control, please refer to Section 10.
 
-![I²C connection for nine-axis sensor fusion](img/PS-MPU-6000A-EN-p028.png)
-
 <a id="section-7-14"></a>
 
 ### 7.14 MPU-6000 Using SPI Interface
 
-In the figure below, the system processor is an SPI master to the MPU-6000. Pins 8, 9, 23, and 24 are used to support the /CS, SDO, SCLK, and SDI signals for SPI communications. Because these SPI pins are shared with the I²C slave pins (9, 23 and 24), the system processor cannot access the auxiliary I²C bus through the interface bypass multiplexer, which connects the processor I²C interface pins to the sensor I²C interface pins.
+The system processor is an SPI master to the MPU-6000. Pins 8, 9, 23, and 24 are used to support the /CS, SDO, SCLK, and SDI signals for SPI communications. Because these SPI pins are shared with the I²C slave pins (9, 23 and 24), the system processor cannot access the auxiliary I²C bus through the interface bypass multiplexer, which connects the processor I²C interface pins to the sensor I²C interface pins.
 
 Since the MPU-6000 has limited capabilities as an I²C Master, and depends on the system processor to manage the initial configuration of any auxiliary sensors, another method must be used for programming the sensors on the auxiliary sensor I²C bus pins 6 and 7 (AUX_DA and AUX_CL).
 
@@ -764,8 +752,6 @@ Once the external sensors have been configured, the MPU-6000 can perform single 
 For further information regarding the control of the MPU-60X0’s auxiliary I²C interface, please refer to the
 
 MPU-60X0 Register Map and Register Descriptions document.
-
-![SPI connection for nine-axis sensor fusion](img/PS-MPU-6000A-EN-p029.png)
 
 <a id="section-7-15"></a>
 
@@ -859,9 +845,7 @@ For information regarding the interrupt enable/disable registers and flag regist
 
 ### 8.1 Free Fall, Motion, and Zero Motion Signal Paths
 
-The diagram below shows the signal path for the gyroscope and accelerometer sensors. Note that each digital low pass filter (DLPF) is configured identically, as is each sample rate divider and digital high pass filter (DHPF).
-
-![Free Fall, Motion and Zero Motion signal paths](img/PS-MPU-6000A-EN-p033.png)
+Each digital low pass filter (DLPF) is configured identically, as is each sample rate divider and digital high pass filter (DHPF).
 
 <a id="section-8-2"></a>
 
@@ -873,8 +857,6 @@ The user is given several configuration parameters to fine tune Free Fall detect
 
 The decrement rate for non-qualifying samples is also configurable. The MOT_DETECT_CTRL register allows the user to specify whether a non-qualifying sample makes the counter reset to zero, or decrement in steps of 1, 2, or 4.
 
-The [Free Fall interrupt diagram](img/PS-MPU-6000A-EN-p034.png) shows a simplified example with just one axis. An example acceleration input signal (simplified to only show one axis), qualifying sample counter, and Free Fall flag are shown.
-
 <a id="section-8-3"></a>
 
 ### 8.3 Motion Interrupt
@@ -882,8 +864,6 @@ The [Free Fall interrupt diagram](img/PS-MPU-6000A-EN-p034.png) shows a simplifi
 The MPU-60X0 provides Motion detection capability with similar functionality to Free Fall detection. Accelerometer measurements are passed through a configurable digital high pass filter (DHPF) in order to eliminate bias due to gravity. A qualifying motion sample is one where the high passed sample from any axis has an absolute value exceeding a user-programmable threshold. A counter increments for each qualifying sample, and decrements for each non-qualifying sample. Once the counter reaches a user-programmable counter threshold, a motion interrupt is triggered. The axis and polarity which caused the interrupt to be triggered is flagged in the MOT_DETECT_STATUS register.
 
 Like Free Fall detection, Motion detection has a configurable acceleration threshold MOT_THR specified in 1 m _g_ increments. The counter threshold MOT_DUR is specified in 1 ms increments. The decrement rate has the same options as Free Fall detection, and is specified in the MOT_DETECT_CTRL register.
-
-![Free Fall and Motion detection example](img/PS-MPU-6000A-EN-p034.png)
 
 <a id="section-8-4"></a>
 
@@ -940,7 +920,7 @@ The slave address of the MPU-60X0 is b110100X which is 7 bits long. The LSB bit 
 
 _START (S) and STOP (P) Conditions_
 
-Communication on the I²C bus starts when the master puts the START condition (S) on the bus, which is defined as a HIGH-to-LOW transition of the SDA line while SCL line is HIGH (see the [START and STOP conditions diagram](img/PS-MPU-6000A-EN-p037.png)). The bus is considered to be busy until the master puts a STOP condition (P) on the bus, which is defined as a LOW to HIGH transition on the SDA line while SCL is HIGH (see the [same diagram](img/PS-MPU-6000A-EN-p037.png)).
+Communication on the I²C bus starts when the master puts the START condition (S) on the bus, which is defined as a HIGH-to-LOW transition of the SDA line while SCL line is HIGH. The bus is considered to be busy until the master puts a STOP condition (P) on the bus, which is defined as a LOW to HIGH transition on the SDA line while SCL is HIGH.
 
 Additionally, the bus remains busy if a repeated START (Sr) is generated instead of a STOP condition.
 
@@ -950,11 +930,7 @@ _Data Format / Acknowledge_
 
 I²C data bytes are defined to be 8-bits long. There is no restriction to the number of bytes transmitted per data transfer. Each byte transferred must be followed by an acknowledge (ACK) signal. The clock for the acknowledge signal is generated by the master, while the receiver generates the actual acknowledge signal by pulling down SDA and holding it low during the HIGH portion of the acknowledge clock pulse.
 
-If a slave is busy and cannot transmit or receive another byte of data until some other task has been performed, it can hold SCL LOW, thus forcing the master into a wait state. Normal data transfer resumes when the slave is ready, and releases the clock line (refer to the following figure).
-
-**Acknowledge on the I** <sup>**2**</sup> **C Bus**
-
-![I²C START, STOP and acknowledgement timing](img/PS-MPU-6000A-EN-p037.png)
+If a slave is busy and cannot transmit or receive another byte of data until some other task has been performed, it can hold SCL LOW, thus forcing the master into a wait state. Normal data transfer resumes when the slave is ready, and releases the clock line.
 
 _Communications_
 
@@ -962,7 +938,7 @@ After beginning communications with the START condition (S), the master sends a 
 
 **Complete I** <sup>**2**</sup> **C Data Transfer**
 
-To write the internal MPU-60X0 registers, the master transmits the start condition (S), followed by the I²C address and the write bit (0). At the 9 <sup>th</sup> clock cycle (when the clock is high), the MPU-60X0 acknowledges the transfer. Then the master puts the register address (RA) on the bus. After the MPU-60X0 acknowledges the reception of the register address, the master puts the register data onto the bus. This is followed by the ACK signal, and data transfer may be concluded by the stop condition (P). To write multiple bytes after the last ACK signal, the master can continue outputting data rather than transmitting a stop signal. In this case, the MPU-60X0 automatically increments the register address and loads the data to the appropriate register. The following figures show single and two-byte write sequences.
+To write the internal MPU-60X0 registers, the master transmits the start condition (S), followed by the I²C address and the write bit (0). At the 9 <sup>th</sup> clock cycle (when the clock is high), the MPU-60X0 acknowledges the transfer. Then the master puts the register address (RA) on the bus. After the MPU-60X0 acknowledges the reception of the register address, the master puts the register data onto the bus. This is followed by the ACK signal, and data transfer may be concluded by the stop condition (P). To write multiple bytes after the last ACK signal, the master can continue outputting data rather than transmitting a stop signal. In this case, the MPU-60X0 automatically increments the register address and loads the data to the appropriate register. The following tables show single and two-byte write sequences.
 
 _Single-Byte Write Sequence_
 
@@ -976,9 +952,7 @@ _Burst Write Sequence_
 |---|---|---|---|---|---|---|---|---|---|---|
 |Slave|||ACK||ACK||ACK||ACK||
 
-![I²C transfer and write sequences](img/PS-MPU-6000A-EN-p038.png)
-
-To read the internal MPU-60X0 registers, the master sends a start condition, followed by the I²C address and a write bit, and then the register address that is going to be read. Upon receiving the ACK signal from the MPU-60X0, the master transmits a start signal followed by the slave address and read bit. As a result, the MPU-60X0 sends an ACK signal and the data. The communication ends with a not acknowledge (NACK) signal and a stop bit from master. The NACK condition is defined such that the SDA line remains high at the 9 <sup>th</sup> clock cycle. The following figures show single and two-byte read sequences.
+To read the internal MPU-60X0 registers, the master sends a start condition, followed by the I²C address and a write bit, and then the register address that is going to be read. Upon receiving the ACK signal from the MPU-60X0, the master transmits a start signal followed by the slave address and read bit. As a result, the MPU-60X0 sends an ACK signal and the data. The communication ends with a not acknowledge (NACK) signal and a stop bit from master. The NACK condition is defined such that the SDA line remains high at the 9 <sup>th</sup> clock cycle. The following tables show single and two-byte read sequences.
 
 _Single-Byte Read Sequence_
 
@@ -991,8 +965,6 @@ _Burst Read Sequence_
 |Master|S|AD+W||RA||S|AD+R|||ACK||NACK|P|
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 |Slave|||ACK||ACK|||ACK|DATA||DATA|||
-
-![I²C read sequences](img/PS-MPU-6000A-EN-p039.png)
 
 <a id="section-9-4"></a>
 
@@ -1042,8 +1014,6 @@ _SPI Data format_
 
 6. Supports Single or Burst Read/Writes.
 
-![SPI master and slave connections](img/PS-MPU-6000A-EN-p040.png)
-
 <a id="section-10"></a>
 
 ## 10 Serial Interface Considerations (MPU-6050)
@@ -1069,13 +1039,13 @@ The MPU-6050’s I/O logic levels are set to be either VDD or VLOGIC, as shown i
 
 Note: The power-on-reset value for `AUX_VDDIO` is 0.
 
-VLOGIC may be set to be equal to VDD or to another voltage. However, VLOGIC must be ≤ VDD at all times. When `AUX_VDDIO` is set to 0 (its power-on-reset value), VLOGIC is the power supply voltage for both the microprocessor system bus and the auxiliary I²C bus, as shown in the figure of Section 10.3. When `AUX_VDDIO` is set to 1, VLOGIC is the power supply voltage for the microprocessor system bus and VDD is the supply for the auxiliary I²C bus, as shown in the figure of Section 10.4.
+VLOGIC may be set to be equal to VDD or to another voltage. However, VLOGIC must be ≤ VDD at all times. When `AUX_VDDIO` is set to 0 (its power-on-reset value), VLOGIC is the power supply voltage for both the microprocessor system bus and the auxiliary I²C bus, as described in Section 10.3. When `AUX_VDDIO` is set to 1, VLOGIC is the power supply voltage for the microprocessor system bus and VDD is the supply for the auxiliary I²C bus, as described in Section 10.4.
 
 <a id="section-10-3"></a>
 
-### 10.3 Logic Levels Diagram for AUX_VDDIO = 0
+### 10.3 Logic Levels for AUX_VDDIO = 0
 
-The figure below depicts a sample circuit with a third party magnetometer attached to the auxiliary I²C bus. It shows logic levels and voltage connections for `AUX_VDDIO` = 0. Note: Actual configuration will depend on the auxiliary sensors used.
+For a sample circuit with a third party magnetometer attached to the auxiliary I²C bus, the following notes describe logic levels for `AUX_VDDIO` = 0. Note: Actual configuration will depend on the auxiliary sensors used.
 
 **I/O Levels and Connections for** **`AUX_VDDIO`** **= 0**
 
@@ -1085,13 +1055,11 @@ The figure below depicts a sample circuit with a third party magnetometer attach
 2. CLKOUT is referenced to VDD.
 3. All other MPU-6050 logic IOs are referenced to VLOGIC.
 
-![MPU-6050 logic levels with AUX_VDDIO = 0](img/PS-MPU-6000A-EN-p042.png)
-
 <a id="section-10-4"></a>
 
-### 10.4 Logic Levels Diagram for AUX_VDDIO = 1
+### 10.4 Logic Levels for AUX_VDDIO = 1
 
-The figure below depicts a sample circuit with a 3 <sup>rd</sup> party magnetometer attached to the auxiliary I²C bus. It shows logic levels and voltage connections for `AUX_VDDIO` = 1. This configuration is useful when the auxiliary sensor has only one supply for logic and power. Note: Actual configuration will depend on the auxiliary sensors used.
+For a sample circuit with a 3 <sup>rd</sup> party magnetometer attached to the auxiliary I²C bus, the following notes describe logic levels for `AUX_VDDIO` = 1. This configuration is useful when the auxiliary sensor has only one supply for logic and power. Note: Actual configuration will depend on the auxiliary sensors used.
 
 **I/O Levels and Connections for Two Example Power Configurations (** **`AUX_VDDIO`** **= 1)**
 
@@ -1101,8 +1069,6 @@ The figure below depicts a sample circuit with a 3 <sup>rd</sup> party magnetome
 2. 3 <sup>rd</sup> -party auxiliary device logic levels are referenced to VDD. Setting INT1 and INT2 to open drain configuration provides voltage compatibility when VDD ≠ VLOGIC. When VDD = VLOGIC, INT1 and INT2 may be set to push-pull outputs, and external pull-up resistors are not needed.
 3. CLKOUT is referenced to VDD.
 4. All other MPU-6050 logic IOs are referenced to VLOGIC.
-
-![MPU-6050 logic levels with AUX_VDDIO = 1](img/PS-MPU-6000A-EN-p043.png)
 
 <a id="section-11"></a>
 
@@ -1114,9 +1080,7 @@ This section provides general guidelines for assembling InvenSense Micro Electro
 
 ### 11.1 Orientation of Axes
 
-The diagram below shows the orientation of the axes of sensitivity and the polarity of rotation. Note the pin 1 identifier (•) in the figure.
-
-![Sensor axis orientation and rotation polarity](img/PS-MPU-6000A-EN-p044.png)
+敏感轴方向、旋转极性与引脚 1 标识的位置关系未在文字中转录，待确认。
 
 <a id="section-11-2"></a>
 
@@ -1124,7 +1088,7 @@ The diagram below shows the orientation of the axes of sensitivity and the polar
 
 24 Lead QFN (4x4x0.9) mm NiPdAu Lead-frame finish
 
-封装各视图、引脚 1 标识及四角引脚尺寸的位置关系见下方封装尺寸图。
+封装各视图、引脚 1 标识及四角引脚尺寸的位置关系未在文字中转录，待确认。
 
 |Symbol|Minimum (mm)|Nominal (mm)|Maximum (mm)|
 |---|---|---|---|
@@ -1143,13 +1107,11 @@ The diagram below shows the orientation of the axes of sensitivity and the polar
 |L1|0.35|0.40|0.45|
 |s|0.05|‐‐‐|0.15|
 
-![24-lead QFN package dimensions](img/PS-MPU-6000A-EN-p045.png)
-
 <a id="section-11-3"></a>
 
 ### 11.3 PCB Design Guidelines
 
-The Pad Diagram using a JEDEC type extension with solder rising on the outer edge is shown below. The Pad Dimensions Table shows pad sizing (mean dimensions) recommended for the MPU-60X0 product.
+The Pad Dimensions Table shows pad sizing (mean dimensions) recommended for the MPU-60X0 product. 焊盘位置关系未在文字中转录，待确认。
 
 JEDEC type extension with solder rising on outer edge
 
@@ -1174,8 +1136,6 @@ JEDEC type extension with solder rising on outer edge
 |L3|Land Length|0.85|
 
 **PCB Dimensions Table (for PCB Lay-out Diagram)**
-
-![Recommended PCB pad layout](img/PS-MPU-6000A-EN-p046.png)
 
 <a id="section-11-4"></a>
 
@@ -1215,7 +1175,7 @@ Do not place large insertion components such as keyboard or similar buttons, con
 
 #### 11.4.5 PCB Mounting and Cross-Axis Sensitivity
 
-Orientation errors of the gyroscope and accelerometer mounted to the printed circuit board can cause crossaxis sensitivity in which one gyro or accel responds to rotation or acceleration about another axis, respectively. For example, the X-axis gyroscope may respond to rotation about the Y or Z axes. The orientation mounting errors are illustrated in the [orientation error diagram](img/PS-MPU-6000A-EN-p048.png).
+Orientation errors of the gyroscope and accelerometer mounted to the printed circuit board can cause crossaxis sensitivity in which one gyro or accel responds to rotation or acceleration about another axis, respectively. For example, the X-axis gyroscope may respond to rotation about the Y or Z axes.
 
 The table below shows the cross-axis sensitivity as a percentage of the gyroscope or accelerometer’s sensitivity for a given orientation error, respectively.
 
@@ -1249,8 +1209,6 @@ Establish and use ESD-safe handling precautions when unpacking and handling ESD-
 
 - Store ESD sensitive devices in ESD safe containers until ready for use. The Tape-and-Reel moisturesealed bag is an ESD approved barrier. The best practice is to keep the units in the original moisture sealed bags until ready for assembly.
 
-![Mounting orientation error and cross-axis sensitivity](img/PS-MPU-6000A-EN-p048.png)
-
 Restrict all device handling to ESD protected work areas that measure less than 200V static charge. Ensure that all workstations and personnel are properly grounded to prevent ESD.
 
 <a id="section-11-4-8"></a>
@@ -1259,15 +1217,11 @@ Restrict all device handling to ESD protected work areas that measure less than 
 
 Qualification Reflow: The MPU-60X0 was qualified in accordance with IPC/JEDEC J-STD-020D.01. This standard classifies proper packaging, storage and handling in order to avoid subsequent thermal and mechanical damage during the solder reflow attachment phase of assembly. The classification specifies a sequence consisting of a bake cycle, a moisture soak cycle in a temperature humidity oven, followed by three solder reflow cycles and functional testing for qualification. All temperatures refer to the topside of the QFN package, as measured on the package body surface. The peak solder reflow classification temperature requirement is (260 +5/-0°C) for lead-free soldering of components measuring less than 1.6 mm in thickness.
 
-Production Reflow: Check the recommendations of your solder manufacturer. For optimum results, production solder reflow processes should reduce exposure to high temperatures, and use lower ramp-up and ramp-down rates than those used in the component qualification profile shown for reference below.
+Production Reflow: Check the recommendations of your solder manufacturer. For optimum results, production solder reflow processes should reduce exposure to high temperatures, and use lower ramp-up and ramp-down rates than those used in the component qualification profile.
 
-Production reflow should never exceed the maximum constraints listed in the table and shown in the figure below that were used for the qualification profile, as these represent the maximum tolerable ratings for the device.
+Production reflow should never exceed the maximum constraints listed in the table below that were used for the qualification profile, as these represent the maximum tolerable ratings for the device.
 
-**Approved IR/Convection Solder Reflow Curve**
-
-![Approved reflow temperature profile](img/PS-MPU-6000A-EN-p049.png)
-
-**Temperature Set Points for IR / Convection Reflow Corresponding to Figure Above**
+**Temperature Set Points for IR / Convection Reflow**
 
 |Step|Setting|Temperature constraint (°C)|Time constraint (sec)|Rate constraint (°C/sec)|
 |---|---|---|---|---|
@@ -1302,9 +1256,7 @@ The storage specification of the MPU-60X0 conforms to IPC/JEDEC J-STD-020D.01 Mo
 
 ### 11.6 Package Marking Specification
 
-**Package Marking Specification**
-
-![Package marking](img/PS-MPU-6000A-EN-p051.png)
+封装标记的图形布局未在文字中转录，待确认。
 
 <a id="section-11-7"></a>
 
@@ -1316,9 +1268,7 @@ The following table and drawing describe the tape dimensions, reel outline and p
 |---|---|---|---|---|
 |**4x4**|**330**|**100**|**13.2**|**2.2**|
 
-![Tape and reel dimensions](img/PS-MPU-6000A-EN-p052.png)
-
-Package orientation and the Pin 1 reference are shown in the [reel orientation diagram](img/PS-MPU-6000A-EN-p053.png).
+封装方向与引脚 1 在卷盘中的位置未在文字中转录，待确认。
 
 |Reel Specifications||
 |---|---|
@@ -1331,15 +1281,13 @@ Package orientation and the Pin 1 reference are shown in the [reel orientation d
 
 ### 11.8 Label
 
-The diagram shows package orientation (Pin 1), user direction of feed, anti-static cover tape and carrier tape, terminal tape, reel, barcode label, and label placement on the reel.
-
-![Reel orientation and barcode label placement](img/PS-MPU-6000A-EN-p053.png)
+封装方向（引脚 1）、送料方向、防静电盖带与载带、终端带、卷盘、条码标签及标签在卷盘上的位置未在文字中转录，待确认。
 
 <a id="section-11-9"></a>
 
 ### 11.9 Packaging
 
-![Packing materials and shipping arrangement](img/PS-MPU-6000A-EN-p054.png)
+包装材料与装运布局未在文字中转录，待确认。
 
 <a id="section-12"></a>
 

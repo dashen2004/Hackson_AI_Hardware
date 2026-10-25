@@ -18,7 +18,7 @@
 - [10 附录 A：硬件与接口](#chapter-10)
 - [11 附录 B：SDK 结构与插件开关](#chapter-11)
 - [12 附录 C：链接汇总](#chapter-12)
-- [13 开发设备展示](#chapter-13)
+- [13 开发设备资料](#chapter-13)
 
 XJWB03-DevKIT-V1 底板 + LJX40-Audio-KIT-V1 语音模块开发板
 
@@ -163,6 +163,8 @@ git submodule update --init --recursive
 
 ### 4.3 安装工具链
 
+**本项目工作区：** 在项目根目录的 PowerShell 执行 `.\tools\Install-FirmwareTools.ps1` 安装工具链。2026-10-23 已修复 `dev.bat` 的固定环境路径，可直接在 SDK 目录执行 `.\dev.bat build`，或从项目根目录执行 `.\src\firmware\dev.bat build`。也可使用 `. .\tools\Enter-Firmware.ps1` 激活当前 PowerShell，再用 `idf.py -C src/firmware/apps build` 编译。具体版本与检查结果见[Windows 工具链安装记录](../../开发/Windows工具链安装记录.md)。
+
 在 SDK 根目录执行一键安装脚本；当前版本复用内置 ESP-IDF 源码，安装 CMake、Ninja、Xtensa 工具链和 Python 环境：
 
 ```batch
@@ -290,6 +292,8 @@ cloud connected
 - 设备未被其它账号绑定；已绑定过的设备需先解绑，或长按 GPIO14 三秒复位配网（见 7.2 节）。
 
 ### 7.2 Wi-Fi 设备：小程序 BLE 配网
+
+- 微信搜索小程序 **“灵机一动AI”** 并进入，支持微信一键登录与手机号登录。名称与登录方式依据 2026-10-23 查阅的官方[小程序使用指引](https://xjiangiot.yuque.com/afahpl/qrhct7/xvn5ff6vtwdqdcq2)确认；实际配网页面以小程序为准。
 
 - 打开小程序，进入“添加设备 / 配网”，按产品选择“灵机 ESP32 组合开发板”（操作资料入口见[第 12 章链接汇总](#links)，具体步骤页面待补充）。
 
@@ -501,15 +505,14 @@ esp32_combo/
 |---|---|
 |SDK 仓库|[打开 SDK 仓库](https://gitee.com/xj-open/ljyd_xjwb03_agent_public_developer)|
 |灵机开放平台（注册 / 登录）|[打开灵机开放平台](https://platform.ljyd.cn)|
+|微信小程序名称与登录入口说明|[小程序使用指引](https://xjiangiot.yuque.com/afahpl/qrhct7/xvn5ff6vtwdqdcq2)，搜索“灵机一动AI”|
 |灵机开发者文档中心（配网 / 绑定 / 模块资料入口，具体子页面待补充）|[打开开发者文档中心](https://xjiangiot.yuque.com/afahpl/qrhct7/hyqx4bpnpg1zcys1)|
 |ESP-IDF 文档|[打开 ESP32-S3 的 ESP-IDF 文档](https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32s3/)|
 
 <a id="chapter-13"></a>
 
-## 13 开发设备展示
+## 13 开发设备资料
 
-下图展示 XJWB03-DevKIT-V1 开发板与 LJX40-Audio-KIT-V1 语音开发板。详细资料可通过[链接汇总](#links)中的开发者文档中心和 SDK 仓库查阅。
-
-![图 1：XJWB03-DevKIT-V1 开发板与 LJX40-Audio-KIT-V1 语音开发板实物照片](img/灵机XJWB03标准开发板使用文档-p013.png)
+开发设备包括 XJWB03-DevKIT-V1 开发板与 LJX40-Audio-KIT-V1 语音开发板。详细资料可通过[链接汇总](#links)中的开发者文档中心和 SDK 仓库查阅。
 
 返回：[文档索引](../../README.md)。
