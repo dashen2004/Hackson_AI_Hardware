@@ -15,3 +15,13 @@ git submodule update --init --recursive
 ```
 
 代码来源、目录入口、Gitee SSH 获取方式和后续编译步骤见[固件代码获取与运行说明](docs/开发/固件代码获取与运行说明.md)。
+
+Windows 工具链安装与环境激活（项目根目录的 PowerShell）：
+
+```powershell
+.\tools\Install-FirmwareTools.ps1
+. .\tools\Enter-Firmware.ps1
+idf.py -C src/firmware/apps build
+```
+
+版本与验证范围见[Windows 工具链安装记录](docs/开发/Windows工具链安装记录.md)。

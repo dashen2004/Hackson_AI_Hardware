@@ -1,3 +1,4 @@
 [submodule "src/firmware"]
 	path = src/firmware
-	url = https://gitee.com/xj-open/ljyd_xjwb03_agent_public_developer.git
+	url = https://github.com/dashen2004/Hackson_AI_Hardware.git
+	branch = codex/firmware-sdk
