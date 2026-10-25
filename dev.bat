@@ -10,10 +10,8 @@ rem    build / clean : esp-idf\tools\idf.py  (build / fullclean / clean / app-fl
 rem    full flash    : esptool shipped with esp-idf, addresses are read from
 rem                    apps\build\flash_args
 rem
-rem  The repo's own export.bat is NOT used: on this machine the installed
-rem  openocd-esp32 / riscv32-esp-elf-gdb versions do not match what this
-rem  IDF branch expects, so export aborts with "Activation script failed".
-rem  Environment variables are set here instead.
+rem  Use the bundled IDF activator to discover the Python environment and
+rem  installed tool versions. The ADF export/patch script is not needed.
 rem
 rem  NOTE: this file must stay pure ASCII. The cmd session codepage here is
 rem  65001 while the system ACP is 936, so CJK text in a .bat line gets
@@ -24,8 +22,16 @@ rem =====================================================================
 rem ---------------- environment ----------------
 set "ROOT=%~dp0"
 set "ROOT=%ROOT:~0,-1%"
-if not defined IDF_TOOLS_PATH set "IDF_TOOLS_PATH=C:\esp32\esp32_combo\.espressif"
-if not exist "%IDF_TOOLS_PATH%\python_env" set "IDF_TOOLS_PATH=%USERPROFILE%\.espressif"
+if not defined IDF_TOOLS_PATH set "IDF_TOOLS_PATH=%USERPROFILE%\.espressif"
+
+set "IDF_ACTIVATE_SCRIPT="
+for /f "tokens=1,*" %%i in ('python.exe "%ROOT%\esp-idf\tools\activate.py" --export --shell cmd.exe') do if "%%i"=="call" set "IDF_ACTIVATE_SCRIPT=%%j"
+if not defined IDF_ACTIVATE_SCRIPT (
+    echo [dev] ESP-IDF activation failed. Check Python and run install.bat.
+    exit /b 1
+)
+call "%IDF_ACTIVATE_SCRIPT%"
+if errorlevel 1 exit /b 1
 
 rem ADF_PATH / IDF_PATH must use forward slashes, otherwise CMake reports
 rem "Invalid character escape" while processing qumios-dev include paths
@@ -35,13 +41,7 @@ set "APPS=%ROOT%/apps"
 set "BUILD_DIR=%APPS%/build"
 set "BUILD_DIR_WIN=%ROOT%\apps\build"
 set "IDF_PY=%IDF_PATH%/tools/idf.py"
-set "PYTHON=%IDF_TOOLS_PATH%\python_env\idf5.4_py3.14_env\Scripts\python.exe"
-set "IDF_PYTHON_ENV_PATH=%IDF_TOOLS_PATH%\python_env\idf5.4_py3.14_env"
-
-rem cross toolchain and build tools on PATH
-set "TC=%IDF_TOOLS_PATH%\tools"
-set "PATH=%TC%\xtensa-esp-elf\esp-14.2.0_20241119\xtensa-esp-elf\bin;%TC%\cmake\3.30.2\bin;%TC%\ninja\1.12.1;%TC%\esp32ulp-elf\2.38_20240113\esp32ulp-elf\bin;%PATH%"
-set "ESP_ROM_ELF_DIR=%TC%\esp-rom-elfs\20241011"
+set "PYTHON=%IDF_PYTHON_ENV_PATH%\Scripts\python.exe"
 
 rem tunables
 set "CHIP=esp32s3"
