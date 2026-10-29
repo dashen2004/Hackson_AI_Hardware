@@ -30,47 +30,13 @@
 
 Python 核心依赖由官方 `espidf.constraints.v5.4.txt` 约束安装，包含 esptool、串口监视器和组件管理器。未启用可选的 esp-clang 或 QEMU。
 
-## 安装与日常使用
+## 使用入口与后续修复
 
-在项目根目录执行：
+安装、PowerShell 激活、`dev.bat build`、下载镜像及常见错误的处理统一见[固件代码获取与运行说明](固件代码获取与运行说明.md#工具链安装与运行)。本文只保留安装环境与验证证据。
 
-```powershell
-# 首次安装或补齐工具。
-.\tools\Install-FirmwareTools.ps1
-
-# 每个新 PowerShell 窗口激活一次；点号后有空格。
-. .\tools\Enter-Firmware.ps1
-idf.py --version
-
-# 编译项目。
-idf.py -C src/firmware/apps build
-```
-
-如执行策略阻止本地脚本，可先运行 `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force`，仅影响当前窗口。安装器和 PowerShell 激活入口位于主项目 `tools/`。激活只改变当前进程环境，关闭终端后失效。
-
-2026-10-23 已修复 SDK 的 `dev.bat`，通过官方 `activate.py --export --shell cmd.exe` 自动定位 Python 环境及工具版本，移除了上游作者电脑的固定路径。现在也可从项目根目录直接运行：
-
-```powershell
-.\src\firmware\dev.bat build
-```
-
-该命令在子进程中自动激活环境，不需要先运行 PowerShell 激活脚本。两个入口均不调用上游 ADF 补丁脚本。`dev.bat` 的修复已于 2026-10-25 提交到团队 GitHub 仓库的 `codex/firmware-sdk` 分支；2026-10-22 安装阶段 SDK 源码干净的记录仅描述当时状态。团队获取方式见[固件代码获取与运行说明](固件代码获取与运行说明.md)。
-
-2026-10-23 在未预先激活环境的 PowerShell 中执行 `.\dev.bat build`，成功定位 Python 3.12.10 环境，增量构建退出码为 0，输出 `[dev] build done`；应用与 bootloader 的分区大小检查均通过。本次复用 2026-10-22 已完成的编译产物，未重新执行全量构建，未烧录硬件。
-
-### 下载网络
-
-安装脚本默认使用 Espressif 官方 GitHub 发布包镜像 `dl.espressif.com/github_assets`，依赖版本约束从 Espressif 官方下载。本次 PyPI 文件下载缓慢，安装时仅在进程内设置了清华镜像，没有写入全局 pip 配置。如再次遇到相同情况，可执行：
-
-```powershell
-$previousPipIndex = $env:PIP_INDEX_URL
-try {
-    $env:PIP_INDEX_URL = 'https://pypi.tuna.tsinghua.edu.cn/simple'
-    .\tools\Install-FirmwareTools.ps1
-} finally {
-    $env:PIP_INDEX_URL = $previousPipIndex
-}
-```
+- 2026-10-23：修复 SDK 的 `dev.bat`，改用官方 `activate.py --export --shell cmd.exe` 自动发现环境，移除上游作者的固定工具路径；不调用 ADF 补丁脚本。
+- 同日：在未预先激活环境的 PowerShell 中执行 `dev.bat build`，成功定位 Python 3.12.10，增量构建退出码 0，输出 `[dev] build done`；应用与 bootloader 分区大小检查通过。此次复用 10 月 22 日的全量构建产物，未烧录硬件。
+- 2026-10-25：修复提交到团队 `codex/firmware-sdk` 分支。10 月 22 日“SDK 源码干净”的记录只描述当时状态；后续设备烧录与联网见[首次运行核对记录](开发板首次运行核对记录.md)。
 
 ## 验证结果
 
@@ -100,6 +66,6 @@ ninja -C src/firmware/apps/build -j 8 all
 
 此命令用于已有 `build.ninja` 的构建目录；首次配置或修改工程配置后，先使用 `idf.py -C src/firmware/apps build`。
 
-本次构建仍有上游代码的编译警告，例如 `qm_pwm.c` 的类型范围比较与未使用变量；未将警告清理扩展为本次安装任务。生成固件仅证明电脑端构建通过，PID、设备密钥、实际开发板型号以及运行时行为仍待确认。
+本次构建仍有上游代码的编译警告，例如 `qm_pwm.c` 的类型范围比较与未使用变量；未将警告清理扩展为本次安装任务。本记录仅证明当时电脑端构建通过；后续产品配置、烧录及运行结果见[首次运行核对记录](开发板首次运行核对记录.md)。
 
 返回：[固件代码获取与运行说明](固件代码获取与运行说明.md) · [文档索引](../README.md)。

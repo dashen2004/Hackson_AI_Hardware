@@ -1,5 +1,7 @@
 # MPU-6000 / MPU-6050 产品规格书
 
+> 在线来源与配件对应：[赛道配件清单与实物图](../赛道配件清单与实物图.md)；原件核对／补图日期：2026-10-29。
+
 用于查询芯片功能、电气参数、接口时序、应用电路和封装要求。参数表空白表示资料未给出该项数值。正文保留英文技术术语和章节编号，可通过阅读导航定位。
 
 > 来源：InvenSense，`PS-MPU-6000A-EN.pdf`，Revision 3.2，2011-11-16。未进行芯片、驱动或实物验证；实际模块版本与项目配置待确认。
@@ -484,6 +486,10 @@ Typical Operating Circuit of Section 7.2. VDD = 2.375–3.46 V, VLOGIC (MPU-6050
 
 ### 6.7 I²C Timing Characterization
 
+![I2C总线时序](img/MPU60X0_I2C总线时序.png)
+
+原 PDF 第 18 页图形区域。
+
 Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or VDD, TA = 25°C
 
 | Parameter | Conditions | Min | Typical | Max | Units |
@@ -508,6 +514,10 @@ Timing characteristics apply to both primary and auxiliary I²C buses.
 <a id="section-6-8"></a>
 
 ### 6.8 SPI Timing Characterization (MPU-6000 only)
+
+![SPI总线时序](img/MPU60X0_SPI总线时序.png)
+
+原 PDF 第 19 页图形区域。
 
 Typical Operating Circuit of Section 7.2, VDD = 2.375V-3.46V, VLOGIC (MPU-6050 only) = 1.8V±5% or VDD,TA = -40°C to +85°C, unless otherwise noted.
 
@@ -551,6 +561,10 @@ Stress above those listed as “Absolute Maximum Ratings” may cause permanent 
 
 ### 7.1 Pin Out and Signal Description
 
+![芯片引脚与方向](img/MPU60X0_芯片引脚与方向.png)
+
+原 PDF 第 21 页图形区域。
+
 |Pin Number|MPU-<br>6000|MPU-<br>6050|Pin Name|Pin Description|
 |---|---|---|---|---|
 |1|Y|Y|CLKIN|Optional external reference clock input. Connect to GND if unused.|
@@ -578,7 +592,11 @@ Stress above those listed as “Absolute Maximum Ratings” may cause permanent 
 
 ### 7.2 Typical Operating Circuit
 
-典型电路的完整连线未在文字中转录，待确认。
+图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![典型应用电路](img/MPU60X0_典型应用电路.png)
+
+原 PDF 第 22 页图形区域。
 
 <a id="section-7-3"></a>
 
@@ -599,13 +617,21 @@ Component labels refer to the [typical operating circuit](#section-7-2).
 
 ### 7.4 Recommended Power-on Procedure
 
-原资料的上电时序仅以图示提供，未在文字中转录，待确认。
+图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![上电时序](img/MPU60X0_上电时序.png)
+
+原 PDF 第 23 页图形区域。原图另列上电约束：`VLOGIC ≤ VDD`；VDD 从最终值的 10% 升至 90% 的时间不超过 100 ms，VLOGIC 相同定义的上升时间不超过 3 ms；VLOGIC 的起升不得早于 VDD，二者应单调上升。这些为芯片级要求，模块电源方案仍待核对。
 
 <a id="section-7-5"></a>
 
 ### 7.5 Block Diagram
 
-功能框图未在文字中转录；各功能的文字说明见后续章节。
+图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![功能框图](img/MPU60X0_功能框图.png)
+
+原 PDF 第 24 页图形区域。
 
 <a id="section-7-6"></a>
 
@@ -731,6 +757,10 @@ For further information regarding the Gyro & Accel control registers, please ref
 
 ### 7.13 MPU-60X0 Solution for 9-axis Sensor Fusion Using I²C Interface
 
+![I2C九轴融合连接](img/MPU60X0_I2C九轴融合连接.png)
+
+原 PDF 第 28 页图形区域。
+
 The system processor is an I²C master to the MPU-60X0. In addition, the MPU-60X0 is an I²C master to the optional external compass sensor. The MPU-60X0 has limited capabilities as an I²C Master, and depends on the system processor to manage the initial configuration of any auxiliary sensors. The MPU-60X0 has an interface bypass multiplexer, which connects the system processor I²C bus pins 23 and 24 (SDA and SCL) directly to the auxiliary sensor I²C bus pins 6 and 7 (AUX_DA and AUX_CL).
 
 Once the auxiliary sensors have been configured by the system processor, the interface bypass multiplexer should be disabled so that the MPU-60X0 auxiliary I²C master can take control of the sensor I²C bus and gather data from the auxiliary sensors.
@@ -740,6 +770,10 @@ For further information regarding I²C master control, please refer to Section 1
 <a id="section-7-14"></a>
 
 ### 7.14 MPU-6000 Using SPI Interface
+
+![MPU6000_SPI连接](img/MPU60X0_MPU6000_SPI连接.png)
+
+原 PDF 第 29 页图形区域。
 
 The system processor is an SPI master to the MPU-6000. Pins 8, 9, 23, and 24 are used to support the /CS, SDO, SCLK, and SDI signals for SPI communications. Because these SPI pins are shared with the I²C slave pins (9, 23 and 24), the system processor cannot access the auxiliary I²C bus through the interface bypass multiplexer, which connects the processor I²C interface pins to the sensor I²C interface pins.
 
@@ -845,6 +879,10 @@ For information regarding the interrupt enable/disable registers and flag regist
 
 ### 8.1 Free Fall, Motion, and Zero Motion Signal Paths
 
+![运动检测信号通路](img/MPU60X0_运动检测信号通路.png)
+
+原 PDF 第 33 页图形区域。
+
 Each digital low pass filter (DLPF) is configured identically, as is each sample rate divider and digital high pass filter (DHPF).
 
 <a id="section-8-2"></a>
@@ -918,6 +956,18 @@ The slave address of the MPU-60X0 is b110100X which is 7 bits long. The LSB bit 
 
 ### 9.3 I²C Communications Protocol
 
+![I2C起止条件](img/MPU60X0_I2C起止条件.png)
+
+原 PDF 第 37 页图形区域。
+
+![I2C应答时序](img/MPU60X0_I2C应答时序.png)
+
+原 PDF 第 37 页图形区域。
+
+![I2C完整传输时序](img/MPU60X0_I2C完整传输时序.png)
+
+原 PDF 第 38 页图形区域。
+
 _START (S) and STOP (P) Conditions_
 
 Communication on the I²C bus starts when the master puts the START condition (S) on the bus, which is defined as a HIGH-to-LOW transition of the SDA line while SCL line is HIGH. The bus is considered to be busy until the master puts a STOP condition (P) on the bus, which is defined as a LOW to HIGH transition on the SDA line while SCL is HIGH.
@@ -985,6 +1035,10 @@ _Burst Read Sequence_
 <a id="section-9-5"></a>
 
 ### 9.5 SPI Interface (MPU-6000 only)
+
+![SPI主从连接](img/MPU60X0_SPI主从连接.png)
+
+原 PDF 第 40 页图形区域。
 
 SPI is a 4-wire synchronous serial interface that uses two control lines and two data lines. The MPU-6000 always operates as a Slave device during standard Master-Slave SPI operation.
 
@@ -1080,7 +1134,11 @@ This section provides general guidelines for assembling InvenSense Micro Electro
 
 ### 11.1 Orientation of Axes
 
-敏感轴方向、旋转极性与引脚 1 标识的位置关系未在文字中转录，待确认。
+图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![敏感轴与旋转方向](img/MPU60X0_敏感轴与旋转方向.png)
+
+原 PDF 第 44 页图形区域。
 
 <a id="section-11-2"></a>
 
@@ -1088,7 +1146,11 @@ This section provides general guidelines for assembling InvenSense Micro Electro
 
 24 Lead QFN (4x4x0.9) mm NiPdAu Lead-frame finish
 
-封装各视图、引脚 1 标识及四角引脚尺寸的位置关系未在文字中转录，待确认。
+图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![封装机械图](img/MPU60X0_封装机械图.png)
+
+原 PDF 第 45 页图形区域。
 
 |Symbol|Minimum (mm)|Nominal (mm)|Maximum (mm)|
 |---|---|---|---|
@@ -1111,7 +1173,11 @@ This section provides general guidelines for assembling InvenSense Micro Electro
 
 ### 11.3 PCB Design Guidelines
 
-The Pad Dimensions Table shows pad sizing (mean dimensions) recommended for the MPU-60X0 product. 焊盘位置关系未在文字中转录，待确认。
+The Pad Dimensions Table shows pad sizing (mean dimensions) recommended for the MPU-60X0 product. 图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![PCB焊盘布局](img/MPU60X0_PCB焊盘布局.png)
+
+原 PDF 第 46 页图形区域。
 
 JEDEC type extension with solder rising on outer edge
 
@@ -1175,6 +1241,10 @@ Do not place large insertion components such as keyboard or similar buttons, con
 
 #### 11.4.5 PCB Mounting and Cross-Axis Sensitivity
 
+![PCB安装误差方向](img/MPU60X0_PCB安装误差方向.png)
+
+原 PDF 第 48 页图形区域。
+
 Orientation errors of the gyroscope and accelerometer mounted to the printed circuit board can cause crossaxis sensitivity in which one gyro or accel responds to rotation or acceleration about another axis, respectively. For example, the X-axis gyroscope may respond to rotation about the Y or Z axes.
 
 The table below shows the cross-axis sensitivity as a percentage of the gyroscope or accelerometer’s sensitivity for a given orientation error, respectively.
@@ -1214,6 +1284,10 @@ Restrict all device handling to ESD protected work areas that measure less than 
 <a id="section-11-4-8"></a>
 
 #### 11.4.8 Reflow Specification
+
+![回流焊曲线](img/MPU60X0_回流焊曲线.png)
+
+原 PDF 第 49 页图形区域。
 
 Qualification Reflow: The MPU-60X0 was qualified in accordance with IPC/JEDEC J-STD-020D.01. This standard classifies proper packaging, storage and handling in order to avoid subsequent thermal and mechanical damage during the solder reflow attachment phase of assembly. The classification specifies a sequence consisting of a bake cycle, a moisture soak cycle in a temperature humidity oven, followed by three solder reflow cycles and functional testing for qualification. All temperatures refer to the topside of the QFN package, as measured on the package body surface. The peak solder reflow classification temperature requirement is (260 +5/-0°C) for lead-free soldering of components measuring less than 1.6 mm in thickness.
 
@@ -1256,7 +1330,11 @@ The storage specification of the MPU-60X0 conforms to IPC/JEDEC J-STD-020D.01 Mo
 
 ### 11.6 Package Marking Specification
 
-封装标记的图形布局未在文字中转录，待确认。
+图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![封装标记](img/MPU60X0_封装标记.png)
+
+原 PDF 第 51 页图形区域。
 
 <a id="section-11-7"></a>
 
@@ -1268,7 +1346,11 @@ The following table and drawing describe the tape dimensions, reel outline and p
 |---|---|---|---|---|
 |**4x4**|**330**|**100**|**13.2**|**2.2**|
 
-封装方向与引脚 1 在卷盘中的位置未在文字中转录，待确认。
+图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![载带与卷盘机械图](img/MPU60X0_载带与卷盘机械图.png)
+
+原 PDF 第 52 页图形区域。
 
 |Reel Specifications||
 |---|---|
@@ -1281,13 +1363,25 @@ The following table and drawing describe the tape dimensions, reel outline and p
 
 ### 11.8 Label
 
-封装方向（引脚 1）、送料方向、防静电盖带与载带、终端带、卷盘、条码标签及标签在卷盘上的位置未在文字中转录，待确认。
+![标签样例及在卷盘上的位置](img/MPU60X0_标签与卷盘位置.png)
+
+原 PDF 第 53 页图形区域。
+
+图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![封装与送料方向](img/MPU60X0_封装与送料方向.png)
+
+原 PDF 第 53 页图形区域。
 
 <a id="section-11-9"></a>
 
 ### 11.9 Packaging
 
-包装材料与装运布局未在文字中转录，待确认。
+图形位置关系见原资料截图；参数表仍以本文文字为准。
+
+![包装示例](img/MPU60X0_包装示例.png)
+
+原 PDF 第 54 页图形区域。
 
 <a id="section-12"></a>
 
