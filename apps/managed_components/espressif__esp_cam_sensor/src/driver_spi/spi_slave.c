@@ -39,6 +39,10 @@
 
 static const char *SPI_TAG = "spi_slave";
 
+/* S3 PSRAM RX descriptors must keep every data address burst/cache aligned.
+ * The generic SPI helper uses 4092-byte chunks, which break that alignment. */
+#define CAM_S3_DMA_CHUNK_SIZE 4032
+
 #define SPI_CHECK(a, str, ret_val)  ESP_RETURN_ON_FALSE(a, ret_val, SPI_TAG, str)
 
 #ifdef CONFIG_SPI_SLAVE_ISR_IN_IRAM
@@ -211,10 +215,26 @@ esp_err_t esp_cam_spi_slave_initialize(spi_host_device_t host, const spi_bus_con
         if (ret != ESP_OK) {
             goto cleanup;
         }
-        ret = spicommon_dma_desc_alloc(spihost[host]->dma_ctx, bus_config->max_transfer_sz, &spihost[host]->max_transfer_sz);
+        int descriptor_alloc_size = bus_config->max_transfer_sz;
+#if CONFIG_IDF_TARGET_ESP32S3
+        int descriptor_count = (descriptor_alloc_size + CAM_S3_DMA_CHUNK_SIZE - 1) / CAM_S3_DMA_CHUNK_SIZE;
+        descriptor_alloc_size = descriptor_count * DMA_DESCRIPTOR_BUFFER_MAX_SIZE_4B_ALIGNED;
+        gdma_transfer_config_t rx_config = {
+            .max_data_burst_size = 16,
+            .access_ext_mem = true,
+        };
+        ret = gdma_config_transfer(spihost[host]->dma_ctx->rx_dma_chan, &rx_config);
         if (ret != ESP_OK) {
             goto cleanup;
         }
+#endif
+        ret = spicommon_dma_desc_alloc(spihost[host]->dma_ctx, descriptor_alloc_size, &spihost[host]->max_transfer_sz);
+        if (ret != ESP_OK) {
+            goto cleanup;
+        }
+#if CONFIG_IDF_TARGET_ESP32S3
+        spihost[host]->max_transfer_sz = bus_config->max_transfer_sz;
+#endif
 
         hal->dmadesc_tx = spihost[host]->dma_ctx->dmadesc_tx;
         hal->dmadesc_rx = spihost[host]->dma_ctx->dmadesc_rx;
@@ -710,7 +730,32 @@ esp_err_t SPI_SLAVE_ATTR spi_slave_transmit(spi_host_device_t host, spi_slave_tr
 static void SPI_SLAVE_ISR_ATTR s_spi_slave_dma_prepare_data(spi_dma_ctx_t *dma_ctx, spi_slave_hal_context_t *hal)
 {
     if (hal->rx_buffer) {
+#if CONFIG_IDF_TARGET_ESP32S3
+        int remaining = (hal->bitlen + 7) / 8;
+        uint8_t *data = hal->rx_buffer;
+        if (esp_ptr_external_ram(data)) {
+            /* Discard CPU modifications from the previous in-place decode before
+             * DMA owns this buffer; otherwise dirty cache can overwrite new pixels. */
+            ESP_ERROR_CHECK(esp_cache_msync(data, remaining, ESP_CACHE_MSYNC_FLAG_DIR_M2C));
+        }
+        int n = 0;
+        while (remaining) {
+            int chunk = remaining > CAM_S3_DMA_CHUNK_SIZE ? CAM_S3_DMA_CHUNK_SIZE : remaining;
+            assert(n < dma_ctx->dma_desc_num);
+            spi_dma_desc_t *desc = &dma_ctx->dmadesc_rx[n];
+            memset(desc, 0, sizeof(*desc));
+            desc->dw0.size = (chunk + 3) & ~3;
+            desc->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
+            desc->buffer = data;
+            desc->next = remaining > chunk ? &dma_ctx->dmadesc_rx[n + 1] : NULL;
+            desc->dw0.suc_eof = remaining == chunk;
+            remaining -= chunk;
+            data += chunk;
+            n++;
+        }
+#else
         spicommon_dma_desc_setup_link(dma_ctx->dmadesc_rx, hal->rx_buffer, ((hal->bitlen + 7) / 8), true);
+#endif
 
         spi_dma_reset(dma_ctx->rx_dma_chan);
         spi_slave_hal_hw_prepare_rx(hal->hw);
@@ -773,6 +818,14 @@ static void SPI_SLAVE_ISR_ATTR spi_intr(void *arg)
 
         spi_slave_hal_store_result(hal);
         host->cur_trans.trans->trans_len = spi_slave_hal_get_rcv_bitlen(hal);
+
+#if CONFIG_IDF_TARGET_ESP32S3
+        if (use_dma && esp_ptr_external_ram(host->cur_trans.rx_buffer)) {
+            ESP_ERROR_CHECK(esp_cache_msync(host->cur_trans.rx_buffer,
+                                          (host->cur_trans.trans->length + 7) / 8,
+                                          ESP_CACHE_MSYNC_FLAG_DIR_M2C));
+        }
+#endif
 
 #if CONFIG_IDF_TARGET_ESP32
         //This workaround is only for esp32

@@ -185,6 +185,7 @@ if(QM_POSE_SUPPORT)
     list(APPEND COMPONENT_SRCS
         "./pose/yolo11_pose.cpp"
         "./pose/example_pose.c"
+        "./pose/camera_pose.c"
     )
 endif()
 

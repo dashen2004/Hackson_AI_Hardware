@@ -176,7 +176,12 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_APP_POMODORO_AUTO_START 0
 
 /* 1：在完整应用里编译并启动 BF3901 摄像头取流。 */
-#define CONFIG_APP_CAMERA_TEST 0
+/* 本地采集在应用初始化结束后启动，不依赖联网。 */
+#define CONFIG_APP_CAMERA_TEST 1
+/* 最多每秒接收一张供模型分析；忙碌时跳过，不排队。 */
+#define CONFIG_APP_CAMERA_POSE_INTERVAL_MS 1000
+/* 默认保留原生方向；实物若横置，可设为 1 后重新编译。 */
+#define CONFIG_APP_CAMERA_POSE_ROTATE_CW90 0
 
 /* 0 关，1 打方向和命令，2 再打整帧十六进制 */
 #define VB701N_UART_TRACE 0

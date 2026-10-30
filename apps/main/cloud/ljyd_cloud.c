@@ -6,9 +6,6 @@
 
 #include "qm.h"
 
-#if defined(CONFIG_APP_CAMERA_TEST) && CONFIG_APP_CAMERA_TEST
-#include "bsp_camera.h"
-#endif
 #include "qm_iot_api.h"
 #include "qm_iot_dynreg.h"
 #include "qm_kv.h"
@@ -309,11 +306,6 @@ static void cloud_iot_event_handler(void *handle, const qm_iot_event_t *event, v
     switch (event->type) {
         case QM_IOT_EVENT_CLOUD_CONN:
             QM_LOGI(LOG_TAG, "cloud connected");
-#if defined(CONFIG_APP_CAMERA_TEST) && CONFIG_APP_CAMERA_TEST
-            if (bsp_camera_stream_start() != ESP_OK) {
-                QM_LOGE(LOG_TAG, "camera stream start failed");
-            }
-#endif
             (void)ljyd_method_on_connected(iot_handle);
             time_sync_start();      /* 网络已可用：SNTP 对时 → 成功后通知闹钟重排 */
 #if defined(CONFIG_QM_POMODORO_SUPPORT) && CONFIG_QM_POMODORO_SUPPORT

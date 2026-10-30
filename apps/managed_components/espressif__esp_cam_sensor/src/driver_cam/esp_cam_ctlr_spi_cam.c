@@ -598,7 +598,7 @@ static esp_err_t spi_cam_decode(esp_cam_ctlr_spi_cam_t *ctlr, uint8_t *src, uint
         }
         src += ctlr->frame_info->line_header_size;
 
-        memcpy(dst, src, line_data_size);
+        memmove(dst, src, line_data_size);
 
         src += line_data_size;
         dst += line_data_size;

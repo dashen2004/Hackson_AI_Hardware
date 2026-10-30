@@ -29,7 +29,7 @@ extern "C" {
  * XCLK        没有丝印就不用接（模组自带 24 MHz）
  *
  * 开机只 early_init（申请 PSRAM 帧缓冲，不开流）。
- * 云连上后再 stream_start。5fps/20M 表和板上 24M 晶振不匹配，仍用 240x320 15fps。
+ * 应用初始化结束后 stream_start，不依赖连云。使用 240x320 15fps 档位。
  */
 #define BSP_CAM_I2C_PORT        0
 #define BSP_CAM_SDA_GPIO        21
@@ -42,6 +42,7 @@ extern "C" {
 #define BSP_CAM_XCLK_GPIO       (-1)
 
 esp_err_t bsp_camera_early_init(void);
+/* ESP_OK 表示采集任务已创建；实际 STREAMON 成败由任务日志报告。 */
 esp_err_t bsp_camera_stream_start(void);
 esp_err_t bsp_camera_start(void);
 bool bsp_camera_is_available(void);

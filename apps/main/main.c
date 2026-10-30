@@ -3,7 +3,7 @@
    ↓
 准备平台基础能力
    ↓
-运行静态图片姿态识别示例
+准备摄像头姿态识别（关闭摄像头时才运行静态图片示例）
    ↓
 初始化工作队列
    ↓
@@ -43,6 +43,9 @@
 #include "ljyd_course.h"
 #if defined(CONFIG_QM_POSE_SUPPORT) && CONFIG_QM_POSE_SUPPORT
 #include "example_pose.h"
+#if defined(CONFIG_APP_CAMERA_TEST) && CONFIG_APP_CAMERA_TEST
+#include "camera_pose.h"
+#endif
 #endif
 
 #if defined(CONFIG_APP_CAMERA_TEST) && CONFIG_APP_CAMERA_TEST
@@ -73,17 +76,33 @@ void app_main(void)
 void qm_application_start(void)
 {
 #if defined(CONFIG_QM_POSE_SUPPORT) && CONFIG_QM_POSE_SUPPORT
+#if defined(CONFIG_APP_CAMERA_TEST) && CONFIG_APP_CAMERA_TEST
+    /* 模型与工作缓冲先准备好，摄像头取流后不再加载 Flash 模型。 */
+    if (camera_pose_init() != ESP_OK) {
+        QM_LOGE("main", "camera pose init failed; capture diagnostics remain available");
+    }
+#else
     example_pose_run();
+#endif
 #endif
     // if (bsp_servo_init() != QM_EOK) {
     //     QM_LOGE("main", "servo init failed"); //初始化舵机
     // }
-    // if (bsp_vibrator_init() != QM_EOK) {
-    //     QM_LOGE("main", "vibrator init failed"); //初始化马达
-    // } else {
-    //     bsp_vibrator_pulse(BSP_VIBRATOR_PULSE_MS); //初始化光圈
-    // }
-    // bsp_ws2812_example();
+    if (bsp_vibrator_init() != QM_EOK) {
+        QM_LOGE("main", "vibrator init failed");
+    } else {
+        // 上电联调：短震动一次后关闭，不依赖联网。
+        bsp_vibrator_pulse(BSP_VIBRATOR_PULSE_MS);
+    }
+    // 上电联调：8 颗灯低亮度绿灯常亮，不依赖联网。
+    if (bsp_ws2812_init() != QM_EOK) {
+        QM_LOGE("main", "ws2812 init failed");
+    } else if (bsp_ws2812_fill(0, 16, 0) != QM_EOK) {
+        QM_LOGE("main", "ws2812 startup fill failed");
+    } else {
+        QM_LOGI("main", "ws2812 startup green ok gpio%d leds %d level 16",
+                BSP_WS2812_GPIO, BSP_WS2812_LED_NUM);
+    }
     if (qm_work_on_init() != QM_EOK) {
         QM_LOGE("main", "qm_work_on_init failed"); //初始化工作队列
         return;
@@ -136,5 +155,12 @@ void qm_application_start(void)
 
 #if defined(CONFIG_QM_POMODORO_SUPPORT) && CONFIG_QM_POMODORO_SUPPORT
     pomodoro_init(); //番茄钟
+#endif
+
+#if defined(CONFIG_APP_CAMERA_TEST) && CONFIG_APP_CAMERA_TEST
+    /* 本地坐姿检测不依赖 Wi-Fi/云端；所有启动初始化完成后再采集。 */
+    if (bsp_camera_stream_start() != ESP_OK) {
+        QM_LOGE("main", "camera stream start failed");
+    }
 #endif
 }
