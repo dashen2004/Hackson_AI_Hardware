@@ -595,6 +595,12 @@ int agent_app_user_corpus(const char *text)
         return ret;
     }
 
+    if (__atomic_exchange_n(&s_waiting_tts_complete, 1U, __ATOMIC_ACQ_REL)) {
+        cJSON_free(body);
+        qm_agent_auth_info_deinit(&auth);
+        return -QM_EBUSY;
+    }
+
     drain_tts_complete_sem();
     s_tts_wait_aborted = 0U;
     s_tts_text_seen = 0U;
@@ -604,7 +610,6 @@ int agent_app_user_corpus(const char *text)
     s_tts_playback_error = QM_EOK;
     s_tts_silent_seen = 0U;
     s_tts_input_complete_posted = 0U;
-    s_waiting_tts_complete = 1U;
     header.name = "Authorization";
     header.value = auth.ljyd.token;
     request.method = QM_HTTP_POST;
@@ -622,7 +627,7 @@ int agent_app_user_corpus(const char *text)
         ret = -QM_EIO;
     }
     if (ret != QM_EOK) {
-        s_waiting_tts_complete = 0U;
+        __atomic_store_n(&s_waiting_tts_complete, 0U, __ATOMIC_RELEASE);
         s_tts_text_seen = 0U;
         s_tts_speaking_seen = 0U;
         s_tts_playback_started = 0U;
@@ -666,7 +671,7 @@ int agent_app_wait_tts_complete(uint32_t timeout_ms)
                 (unsigned)s_tts_silent_seen,
                 (unsigned)s_tts_input_complete_posted);
     }
-    s_waiting_tts_complete = 0U;
+    __atomic_store_n(&s_waiting_tts_complete, 0U, __ATOMIC_RELEASE);
     s_tts_wait_aborted = 0U;
     s_tts_text_seen = 0U;
     s_tts_speaking_seen = 0U;
