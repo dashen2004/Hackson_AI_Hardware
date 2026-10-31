@@ -7,16 +7,46 @@
 </style>
 <header><div><h1>摄像头 · 坐姿观察</h1><p>先看清画面，再调整到舒服的距离。</p></div><span id="connection" class="badge">正在连接</span></header>
 <main>
-<section class="card"><div class="picture"><div id="empty" class="empty">正在等待摄像头画面…<br>首次连接可能需要几秒钟。</div><img id="frame" alt="开发板摄像头当前画面" hidden><div class="live"><span class="dot">●</span> <span id="freshness">等待画面</span></div></div><div class="toolbar"><button id="pause" type="button">暂停预览</button><button id="rotate" type="button">旋转 90°</button><button id="mirror" type="button">镜像</button><a class="button" href="/api/frame.png" download="camera-frame.png">保存当前图片</a></div><p class="foot" id="previewinfo">串口预览 · 正在测量刷新速度</p><p class="foot">旋转和镜像只改变这里的显示方向。模型的输入方向需要在固件中设置。</p></section>
-<section class="card"><h2>最近一次检测</h2><div id="status" class="status">等待检测</div><div id="reason" class="reason">头部和双肩进入画面后，等待模型完成处理。</div><dl><div><dt>检测更新</dt><dd id="poseage">—</dd></div><div><dt>处理用时</dt><dd id="duration">—</dd></div><div><dt>检测帧 / 预览帧</dt><dd id="ids">—</dd></div><div><dt>有效帧 / 丢弃帧</dt><dd id="counts">—</dd></div></dl><div class="hint">把镜头固定在面前，让头部和左右肩都进入画面。避免镜头正对窗户或强光。画面比较近时，先拉开距离，再观察检测是否更新。</div><p class="foot">检测和预览独立更新，最近的检测可能来自较早的一帧。打开预览会增加处理用时，以这里显示的实测值为准；“无法判断”表示关键点不足。</p><div id="error" role="status"></div></section>
+<section class="card"><div class="picture"><div id="empty" class="empty">正在等待摄像头画面…<br>首次连接可能需要几秒钟。</div><img id="frame" alt="开发板摄像头当前画面" hidden><div class="live"><span class="dot">●</span> <span id="freshness">等待画面</span></div></div><div class="toolbar"><button id="pause" type="button">暂停预览</button><button id="rotate" type="button">旋转 90°</button><button id="mirror" type="button">镜像</button><a class="button" href="/api/frame.png" download="camera-frame.png">保存当前图片</a></div><p class="foot" id="previewinfo">正在连接持续视频</p><p class="foot">旋转和镜像只改变这里的显示方向。模型的输入方向需要在固件中设置。</p></section>
+<section class="card"><h2>开发板最新判断</h2><div id="status" class="status">等待检测</div><div id="reason" class="reason">头部和双肩进入画面后，等待模型完成处理。</div><dl><div><dt>检测更新</dt><dd id="poseage">—</dd></div><div><dt>处理用时</dt><dd id="duration">—</dd></div><div><dt>检测帧 / 预览帧</dt><dd id="ids">—</dd></div><div><dt>有效帧 / 丢弃帧</dt><dd id="counts">—</dd></div></dl><div class="hint">把镜头固定在面前，让头部和左右肩都进入画面。避免镜头正对窗户或强光。画面比较近时，先拉开距离，再观察检测是否更新。</div><p class="foot">检测和预览独立更新，最近的检测可能来自较早的一帧。打开预览会增加处理用时，以这里显示的实测值为准；“无法判断”表示关键点不足。</p><div id="error" role="status"></div></section>
 </main>
 <script>
-const el=id=>document.getElementById(id);let sequence=-1,rotation=0,mirrored=false,enabled=true;
+const el=id=>document.getElementById(id);let sequence=-1,rotation=0,mirrored=false,enabled=true,streaming=false;
 const names={no_person:'未识别人',ok:'坐姿正常',bad_posture:'请调整坐姿',unknown:'无法判断',error:'检测出错'};
 const reasons={none:'',head_tilt:'检测到头部倾斜',body_tilt:'检测到身体倾斜',too_close:'画面中的身体比例提示距离较近',head_down:'检测到低头倾向',inference_error:'模型处理失败，等待下一次检测'};
 function transform(){el('frame').style.transform=`rotate(${rotation}deg) scaleX(${mirrored?-1:1})`}
 el('rotate').onclick=()=>{rotation=(rotation+90)%360;transform()};el('mirror').onclick=()=>{mirrored=!mirrored;transform()};
 el('pause').onclick=async()=>{try{const r=await fetch(enabled?'/api/pause':'/api/resume',{method:'POST'});if(!r.ok)throw Error();enabled=!enabled;el('pause').textContent=enabled?'暂停预览':'继续预览'}catch{el('error').textContent='无法连接本机服务'}};
-async function update(){try{const r=await fetch('/api/state');if(!r.ok)throw Error();const s=await r.json();enabled=s.enabled;el('pause').textContent=enabled?'暂停预览':'继续预览';el('connection').textContent=s.connected?`${s.port} 已连接`:'串口连接中';el('error').textContent=s.error||'';if(s.frame_at&&s.sequence!==sequence){el('frame').src='/api/frame.png?s='+s.sequence;el('frame').hidden=false;el('empty').hidden=true;sequence=s.sequence}const age=s.frame_at?s.now-s.frame_at:0;el('freshness').textContent=!s.enabled?'预览已暂停':s.frame_at?`${age.toFixed(1)} 秒前更新`:'等待画面';el('previewinfo').textContent=s.width?`${s.width} × ${s.height} 彩色预览 · ${s.frame_interval?`约每 ${s.frame_interval.toFixed(1)} 秒一帧`:'正在测量刷新速度'}`:'串口预览 · 正在等待首帧';el('counts').textContent=`${s.valid} / ${s.invalid}`;const p=s.pose;el('status').textContent=p?(names[p.status]||p.status):'等待检测';el('reason').textContent=p?(reasons[p.reason]||(p.status==='unknown'?'关键点不足。请检查取景、光线和镜头方向。':p.status==='no_person'?'请让头部和双肩完整进入画面。':'最近一次检测完成。')):'头部和双肩进入画面后，等待模型完成处理。';el('poseage').textContent=s.pose_at?`${Math.max(0,s.now-s.pose_at).toFixed(1)} 秒前`:'—';el('duration').textContent=p&&p.processing_ms?`${(p.processing_ms/1000).toFixed(2)} 秒`:'—';el('ids').textContent=`${p&&p.frame_id||'—'} / ${s.frame_id||'—'}`;if(age>8&&s.enabled)el('error').textContent=s.error||'画面暂未更新，正在等待摄像头。'}catch{el('connection').textContent='服务未连接';el('error').textContent='本机预览服务未运行，或连接已中断。'}finally{setTimeout(update,500)}}update();
+async function update(){
+ try{
+  const r=await fetch('/api/state');if(!r.ok)throw Error();const s=await r.json();
+  enabled=s.enabled;el('pause').textContent=enabled?'暂停预览':'继续预览';
+  const wifi=s.transport==='wifi', age=s.frame_at?Math.max(0,s.now-s.frame_at):Infinity;
+  const poseAge=s.pose_at?Math.max(0,s.now-s.pose_at):Infinity;
+  const stale=poseAge>Math.max(10,((s.pose&&s.pose.processing_ms)||0)/1000*2.5);
+  el('connection').textContent=wifi?'局域网视频已连接':s.connected?'开发板 USB 已连接':'等待开发板连接';
+  el('error').textContent=s.error||(!wifi?s.network_error||'等待开发板与电脑连接同一 Wi-Fi；当前显示串口备用画面。':'');
+  if(wifi&&s.frame_at){
+   if(!streaming&&enabled){el('frame').src='/api/stream.mjpg?t='+Date.now();streaming=true}
+   el('frame').hidden=false;el('empty').hidden=true;
+  }else if(s.frame_at&&s.sequence!==sequence){
+   el('frame').src='/api/frame.png?s='+s.sequence;streaming=false;
+   el('frame').hidden=false;el('empty').hidden=true;
+  }
+  sequence=s.sequence;
+  el('freshness').textContent=!enabled?'预览已暂停':age===Infinity?'等待画面':age>3?'画面已停更':`${age.toFixed(1)} 秒前更新`;
+  el('previewinfo').textContent=s.width?`${s.width} × ${s.height} · ${wifi?'持续视频':'USB 备用预览'} · ${s.frame_interval?(1/s.frame_interval).toFixed(1)+' FPS':'测量中'}`:'等待摄像头画面';
+  el('counts').textContent=`${s.valid} / ${s.invalid}`;
+  const p=s.pose;el('status').textContent=p?(stale?'判断已过期':names[p.status]||p.status):'等待开发板判断';
+  el('status').style.color=p&&p.status==='bad_posture'?'#f3ba94':stale?'#b1c6b7':'#d5eeb2';
+  el('reason').textContent=p?(stale?'暂未收到新的判断，请等待开发板完成处理。':reasons[p.reason]||(p.status==='unknown'?'关键点不足。请检查取景、光线和镜头方向。':p.status==='no_person'?'请让头部和双肩完整进入画面。':'开发板已完成最近一次判断。')):'等待开发板完成检测。';
+  el('poseage').textContent=s.pose_at?`${poseAge.toFixed(1)} 秒前`:'—';
+  el('duration').textContent=p&&p.processing_ms?`${(p.processing_ms/1000).toFixed(2)} 秒`:'—';
+  el('ids').textContent=`${p&&p.frame_id||'—'} / ${s.frame_id||'—'}`;
+  if(age>3&&enabled&&s.frame_at)el('error').textContent=s.error||'视频暂未更新，正在重新连接。';
+ }catch{el('connection').textContent='服务未连接';el('error').textContent='本机预览服务未运行，或连接已中断。';el('status').textContent='判断连接已断开';}
+ finally{setTimeout(update,250)}
+}
+el('frame').onerror=()=>{streaming=false};update();
 </script>
 </html>
