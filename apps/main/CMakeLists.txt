@@ -58,9 +58,8 @@ set(COMPONENT_SRCS
     "./lj_components/pomodoro/pomodoro.c"
     "${QDEV}/components/qm_pomodoro/src/qm_pomodoro.c"
     "./peripheral/bsp_io.c"
-    "./peripheral/bsp_mpu6050.c"
     "./peripheral/bsp_servo.c"
-    "./peripheral/bsp_vibrator.c"
+    "./peripheral/bsp_touch.c"
     "./peripheral/bsp_ws2812.c"
     "./voice/voice.c"
     "./voice/boot_sound.c"
@@ -170,7 +169,7 @@ if(LJYD_PLAYBACK_SUPPORT)
 endif()
 
 if(APP_CAMERA_TEST)
-    list(APPEND COMPONENT_SRCS "./peripheral/bsp_camera.c")
+    list(APPEND COMPONENT_SRCS "./peripheral/bsp_camera.c" "./peripheral/camera_web.c")
 endif()
 
 # 闹钟：平台组件和应用层模块一起开关，CONFIG_QM_ALARM_SUPPORT 0 时两者都不编译
@@ -284,7 +283,6 @@ endif()
 set(COMPONENT_REQUIRES
     esp_driver_uart esp_driver_gpio esp_timer driver vfs
     esp_wifi esp_netif esp_event nvs_flash bt mbedtls esp-tls
-    esp-idf-lib__mpu6050
     espressif__led_strip
 )
 
@@ -293,7 +291,7 @@ if(QM_POSE_SUPPORT)
 endif()
 
 if(APP_CAMERA_TEST)
-    list(APPEND COMPONENT_REQUIRES espressif__esp_video espressif__esp_cam_sensor)
+    list(APPEND COMPONENT_REQUIRES espressif__esp_video espressif__esp_cam_sensor esp_http_server)
 endif()
 
 if(VOICE_BACKEND_AGORA)

@@ -18,11 +18,25 @@ static qm_pwm_dev_t s_pwm = {
 };
 
 static uint8_t s_inited;
+static uint8_t s_pwm_started;
 static uint8_t s_move_run;
+static uint8_t s_wiggle_active;
 static uint16_t s_pulse_us;
 static int16_t s_target_angle;
 static qm_mutex_t s_lock;
 static qm_task_t s_move_task;
+
+static qm_err_t servo_output_start_locked(void)
+{
+    if (s_pwm_started) {
+        return QM_EOK;
+    }
+    if (qm_pwm_start(&s_pwm) != QM_EOK) {
+        return -QM_EIO;
+    }
+    s_pwm_started = 1U;
+    return QM_EOK;
+}
 
 static uint16_t servo_clamp_pulse(uint16_t pulse_us)
 {
@@ -133,7 +147,9 @@ static void servo_move_task(void *arg)
         }
 
         qm_mutex_lock(&s_lock, QM_WAIT_FOREVER);
-        (void)servo_apply_pulse(next_pulse);
+        if (servo_output_start_locked() == QM_EOK) {
+            (void)servo_apply_pulse(next_pulse);
+        }
         qm_mutex_unlock(&s_lock);
         qm_msleep(BSP_SERVO_MOVE_STEP_MS);
     }
@@ -160,20 +176,23 @@ qm_err_t bsp_servo_init(void)
         QM_LOGE(LOG_TAG, "pwm init fail");
         return -QM_EIO;
     }
+    s_pulse_us = boot_pulse;
+    s_target_angle = servo_pulse_to_angle(boot_pulse);
+    s_move_run = 1;
     if (qm_pwm_start(&s_pwm) != QM_EOK) {
         QM_LOGE(LOG_TAG, "pwm start fail");
         return -QM_EIO;
     }
-
-    s_pulse_us = boot_pulse;
-    s_target_angle = servo_pulse_to_angle(boot_pulse);
-    s_move_run = 1;
+    s_pwm_started = 1U;
 
     if (qm_task_new(&s_move_task, "servo", servo_move_task, NULL,
                     BSP_SERVO_MOVE_STACK, BSP_SERVO_MOVE_PRIO) != 0) {
         QM_LOGE(LOG_TAG, "move task create fail");
         s_move_run = 0;
-        (void)qm_pwm_stop(&s_pwm);
+        if (s_pwm_started) {
+            (void)qm_pwm_stop(&s_pwm);
+            s_pwm_started = 0U;
+        }
         return -QM_EIO;
     }
     s_inited = 1;
@@ -192,21 +211,31 @@ void bsp_servo_deinit(void)
 
     s_move_run = 0;
     qm_msleep(BSP_SERVO_MOVE_STEP_MS * 2);
-    (void)qm_pwm_stop(&s_pwm);
+    if (s_pwm_started) {
+        (void)qm_pwm_stop(&s_pwm);
+        s_pwm_started = 0U;
+    }
     s_inited = 0;
 }
 
-void bsp_servo_set_pulse_us(uint16_t pulse_us)
+qm_err_t bsp_servo_set_pulse_us(uint16_t pulse_us)
 {
+    qm_err_t ret;
+
     if (!s_inited) {
         QM_LOGW(LOG_TAG, "set_pulse_us ignored, not inited");
-        return;
+        return -QM_EINIT;
     }
-
     qm_mutex_lock(&s_lock, QM_WAIT_FOREVER);
-    (void)servo_apply_pulse(pulse_us);
-    s_target_angle = servo_pulse_to_angle(s_pulse_us);
+    ret = servo_output_start_locked();
+    if (ret == QM_EOK && servo_apply_pulse(pulse_us) != 0) {
+        ret = -QM_EIO;
+    }
+    if (ret == QM_EOK) {
+        s_target_angle = servo_pulse_to_angle(s_pulse_us);
+    }
     qm_mutex_unlock(&s_lock);
+    return ret;
 }
 
 uint16_t bsp_servo_get_pulse_us(void)
@@ -222,15 +251,15 @@ uint16_t bsp_servo_get_pulse_us(void)
     return pulse;
 }
 
-void bsp_servo_set_angle(int16_t angle)
+qm_err_t bsp_servo_set_angle(int16_t angle)
 {
     int16_t from;
+    qm_err_t ret;
 
     if (!s_inited) {
         QM_LOGW(LOG_TAG, "set_angle ignored, not inited");
-        return;
+        return -QM_EINIT;
     }
-
     if (angle < BSP_SERVO_PULSE_ANGLE_MIN) {
         angle = BSP_SERVO_PULSE_ANGLE_MIN;
     }
@@ -239,15 +268,21 @@ void bsp_servo_set_angle(int16_t angle)
     }
 
     qm_mutex_lock(&s_lock, QM_WAIT_FOREVER);
+    ret = servo_output_start_locked();
+    if (ret != QM_EOK) {
+        qm_mutex_unlock(&s_lock);
+        return ret;
+    }
     if (angle == s_target_angle) {
         qm_mutex_unlock(&s_lock);
-        return;
+        return QM_EOK;
     }
     from = servo_pulse_to_angle(s_pulse_us);
     s_target_angle = angle;
     qm_mutex_unlock(&s_lock);
     QM_LOGI(LOG_TAG, "cmd angle %d -> %d pulse=%u",
             (int)from, (int)angle, (unsigned)servo_angle_to_pulse(angle));
+    return QM_EOK;
 }
 
 int16_t bsp_servo_get_angle(void)
@@ -261,4 +296,55 @@ int16_t bsp_servo_get_angle(void)
     angle = servo_pulse_to_angle(s_pulse_us);
     qm_mutex_unlock(&s_lock);
     return angle;
+}
+
+qm_err_t bsp_servo_wiggle(int16_t delta_deg, uint32_t cycles)
+{
+    int16_t center;
+    int16_t left;
+    int16_t right;
+    uint32_t i;
+    qm_err_t ret = QM_EOK;
+
+    if (delta_deg <= 0 || cycles == 0) {
+        return -QM_EINVAL;
+    }
+    if (!s_inited) {
+        QM_LOGW(LOG_TAG, "wiggle ignored, not inited");
+        return -QM_EINIT;
+    }
+    if (s_wiggle_active) {
+        QM_LOGW(LOG_TAG, "wiggle ignored, already active");
+        return -QM_EBUSY;
+    }
+
+    s_wiggle_active = 1U;
+    center = bsp_servo_get_angle();
+    left = center - delta_deg;
+    right = center + delta_deg;
+    QM_LOGI(LOG_TAG, "wiggle begin center=%d left=%d right=%d cycles=%u",
+            (int)center, (int)left, (int)right, (unsigned)cycles);
+
+    for (i = 0; i < cycles; i++) {
+        ret = bsp_servo_set_angle(left);
+        if (ret != QM_EOK) {
+            break;
+        }
+        qm_msleep(BSP_SERVO_WIGGLE_STEP_MS);
+
+        ret = bsp_servo_set_angle(right);
+        if (ret != QM_EOK) {
+            break;
+        }
+        qm_msleep(BSP_SERVO_WIGGLE_STEP_MS);
+    }
+
+    if (ret == QM_EOK) {
+        ret = bsp_servo_set_angle(center);
+        qm_msleep(BSP_SERVO_WIGGLE_STEP_MS);
+    }
+    s_wiggle_active = 0U;
+    QM_LOGI(LOG_TAG, "wiggle %s cycles=%u", ret == QM_EOK ? "done" : "stopped",
+            (unsigned)(ret == QM_EOK ? cycles : i));
+    return ret;
 }

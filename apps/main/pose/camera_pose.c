@@ -128,6 +128,7 @@ static void pose_task(void *arg)
             result.pose.status = YOLO11_POSE_FRAME_UNKNOWN;
         }
         result.processing_ms = (uint32_t)(esp_timer_get_time() / 1000 - started_ms);
+        result.completed_ms = esp_timer_get_time() / 1000;
         portENTER_CRITICAL(&s_result_lock);
         s_latest = result;
         s_has_result = true;

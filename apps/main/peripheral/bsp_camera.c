@@ -1,4 +1,5 @@
 #include "bsp_camera.h"
+#include "camera_web.h"
 #include "qm.h"
 #include "qm_cli.h"
 #include "mbedtls/base64.h"
@@ -356,6 +357,7 @@ static void cam_stream_task(void *arg)
             buf.bytesused <= s_cam.buffer_len[buf.index]) {
             good++;
             last_good = xTaskGetTickCount();
+            camera_web_submit_uyvy(s_cam.buffer[buf.index], buf.bytesused, frames, good, empty);
             preview_submit(s_cam.buffer[buf.index], frames);
 #if defined(CONFIG_QM_POSE_SUPPORT) && CONFIG_QM_POSE_SUPPORT
             camera_pose_submit_uyvy(s_cam.buffer[buf.index], buf.bytesused,
@@ -363,11 +365,17 @@ static void cam_stream_task(void *arg)
 #endif
         } else {
             empty++;
+            camera_web_submit_uyvy(NULL, 0, frames, good, empty);
             TickType_t now = xTaskGetTickCount();
             if ((now - last_good) >= pdMS_TO_TICKS(5000) &&
                 (now - last_warning) >= pdMS_TO_TICKS(5000)) {
                 ESP_LOGW(LOG_TAG, "camera invalid frame bytes=%u expected=%u",
                          (unsigned)buf.bytesused, (unsigned)expect);
+                if (buf.index < CAM_BUF_NUM) {
+                    const uint8_t *raw = s_cam.buffer[buf.index];
+                    ESP_LOGW(LOG_TAG, "camera raw prefix=%02x %02x %02x %02x %02x %02x %02x %02x",
+                             raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7]);
+                }
                 last_warning = now;
             }
         }
@@ -419,6 +427,9 @@ esp_err_t bsp_camera_stream_start(void)
     }
     if (preview_init() != ESP_OK) {
         ESP_LOGW(LOG_TAG, "browser preview unavailable: allocation failed");
+    }
+    if (camera_web_init() != ESP_OK) {
+        ESP_LOGW(LOG_TAG, "LAN camera server unavailable");
     }
     if (xTaskCreatePinnedToCoreWithCaps(cam_stream_task, "cam_stream", CAM_STREAM_STACK,
                                         NULL, CAM_STREAM_PRIO, &s_stream_task,

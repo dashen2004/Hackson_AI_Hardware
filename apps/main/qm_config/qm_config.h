@@ -147,7 +147,7 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 #define CONFIG_QM_ALARM_SUPPORT 1
 
 /* 姿态识别总开关：0 = 不编译 yolo11_pose，也不初始化 */
-#define CONFIG_QM_POSE_SUPPORT 1
+#define CONFIG_QM_POSE_SUPPORT 0
 #define CONFIG_QM_ALARM_MAX_ALARMS 8
 #define CONFIG_QM_ALARM_SNOOZE_INTERVAL_MIN 5
 
@@ -177,7 +177,19 @@ int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap);
 
 /* 1：在完整应用里编译并启动 BF3901 摄像头取流。 */
 /* 本地采集在应用初始化结束后启动，不依赖联网。 */
-#define CONFIG_APP_CAMERA_TEST 1
+#define CONFIG_APP_CAMERA_TEST 0
+
+
+/* MPU6050 预留传感器参数；当前不参与舵机控制。 */
+#define CONFIG_APP_MPU6050_SDA_GPIO 17
+#define CONFIG_APP_MPU6050_SCL_GPIO 18
+#define CONFIG_APP_MPU6050_UP_AXIS 2
+#define CONFIG_APP_MPU6050_UP_SIGN 1
+#define CONFIG_APP_MPU6050_UPRIGHT_RATIO_MILLI 900
+#define CONFIG_APP_MPU6050_TIPPED_RATIO_MILLI 800
+#define CONFIG_APP_MPU6050_TIP_HOLD_MS 600
+#define CONFIG_APP_MPU6050_RECOVER_HOLD_MS 1500
+
 /* 最多每秒接收一张供模型分析；忙碌时跳过，不排队。 */
 #define CONFIG_APP_CAMERA_POSE_INTERVAL_MS 1000
 /* 默认保留原生方向；实物若横置，可设为 1 后重新编译。 */

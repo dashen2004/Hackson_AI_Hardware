@@ -30,9 +30,8 @@
 #include "qm.h"
 #include "qm_work.h"
 #include "bsp_io.h"
-/* #include "bsp_mpu6050.h" */
 #include "bsp_servo.h"
-#include "bsp_vibrator.h"
+#include "bsp_touch.h"
 #include "bsp_ws2812.h"
 #include "voice.h"
 #include "agent_app.h"
@@ -63,6 +62,12 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+static void touch_press_handler(void *arg)
+{
+    (void)arg;
+    (void)bsp_servo_wiggle(40, 8);
+}
+
 int qm_vsnprintf(char *str, size_t count, const char *fmt, va_list ap)
 {
     return vsnprintf(str, count, fmt, ap);
@@ -85,14 +90,12 @@ void qm_application_start(void)
     example_pose_run();
 #endif
 #endif
-    // if (bsp_servo_init() != QM_EOK) {
-    //     QM_LOGE("main", "servo init failed"); //初始化舵机
-    // }
-    if (bsp_vibrator_init() != QM_EOK) {
-        QM_LOGE("main", "vibrator init failed");
-    } else {
-        // 上电联调：短震动一次后关闭，不依赖联网。
-        bsp_vibrator_pulse(BSP_VIBRATOR_PULSE_MS);
+    if (bsp_servo_init() != QM_EOK) {
+        QM_LOGE("main", "servo init failed");
+    }
+    bsp_touch_set_press_callback(touch_press_handler, NULL);
+    if (bsp_touch_init() != QM_EOK) {
+        QM_LOGE("main", "touch input init failed");
     }
     // 上电联调：8 颗灯低亮度绿灯常亮，不依赖联网。
     if (bsp_ws2812_init() != QM_EOK) {
@@ -116,9 +119,6 @@ void qm_application_start(void)
         QM_LOGE("main", "camera early init failed"); //摄像头
     }
 #endif
-    /* if (bsp_mpu6050_init() != QM_EOK) {
-        QM_LOGE("main", "mpu6050 init failed"); //传感器
-    } */
     if (voice_start() != QM_EOK) {
         QM_LOGE("main", "audio init failed"); //voice_start() 会准备音频模块、订阅唤醒事件、创建音频控制对象、恢复音量，并启动开机音播放。
         return;
@@ -145,7 +145,6 @@ void qm_application_start(void)
     if (agent_app_init(ljyd_cloud_get_handle()) != QM_EOK) {
         QM_LOGE("main", "agent_app_init failed"); //初始化智能体应用，把云连接事件、语音唤醒事件和智能体会话连接起来。
     }
-
 #if defined(CONFIG_QM_ALARM_SUPPORT) && CONFIG_QM_ALARM_SUPPORT
     /* 闹钟：开机即初始化（不要求已联网）。云端同步与响铃行为注册都在模块内部完成。 */
     if (app_alarm_init(ljyd_cloud_get_handle()) != QM_EOK) {

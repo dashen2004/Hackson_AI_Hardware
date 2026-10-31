@@ -9,6 +9,7 @@
 typedef struct {
     uint32_t frame_id;
     int64_t captured_ms;
+    int64_t completed_ms;
     uint32_t processing_ms;
     esp_err_t error; /* 先检查 error；失败时不能把 pose 当成有效检测结果。 */
     yolo11_pose_frame_result_t pose;
