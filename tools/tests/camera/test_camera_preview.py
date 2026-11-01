@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from PIL import Image
 
-SOURCE = pathlib.Path(__file__).resolve().parents[1] / "camera_preview.py"
+SOURCE = pathlib.Path(__file__).resolve().parents[2] / "camera" / "camera_preview.py"
 spec = importlib.util.spec_from_file_location("camera_preview", SOURCE)
 preview = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(preview)

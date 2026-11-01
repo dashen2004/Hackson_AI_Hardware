@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$firmwareRoot = Join-Path (Split-Path $PSScriptRoot -Parent) 'src/firmware'
+$firmwareRoot = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'src/firmware'
 $idfTools = Join-Path $firmwareRoot 'esp-idf/tools/idf_tools.py'
 
 if (-not (Test-Path -LiteralPath $idfTools)) {
@@ -21,4 +21,4 @@ try {
     $env:IDF_GITHUB_ASSETS = $previousMirror
 }
 
-Write-Host 'Tools installed. Run: . ./tools/Enter-Firmware.ps1'
+Write-Host 'Tools installed. Run: . ./tools/firmware/Enter-Firmware.ps1'

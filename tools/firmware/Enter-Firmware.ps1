@@ -1,6 +1,6 @@
 # Dot-source this script to activate the environment in the current shell.
 $ErrorActionPreference = 'Stop'
-$firmwareRoot = Join-Path (Split-Path $PSScriptRoot -Parent) 'src/firmware'
+$firmwareRoot = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'src/firmware'
 $idfRoot = Join-Path $firmwareRoot 'esp-idf'
 $idfActivate = Join-Path $idfRoot 'tools/activate.py'
 
@@ -11,7 +11,7 @@ if (-not (Test-Path -LiteralPath $idfActivate)) {
 # Let ESP-IDF discover its Python environment and all tool versions.
 $activationScript = & python.exe $idfActivate --export --shell powershell.exe
 if ($LASTEXITCODE -ne 0 -or -not $activationScript) {
-    throw 'ESP-IDF activation failed. Run: ./tools/Install-FirmwareTools.ps1'
+    throw 'ESP-IDF activation failed. Run: ./tools/firmware/Install-FirmwareTools.ps1'
 }
 . $activationScript
 

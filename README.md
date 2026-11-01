@@ -2,7 +2,7 @@
 
 # AI + 硬件黑客松项目
 
-项目资料从[文档索引](docs/README.md)开始阅读；具体产品场景与方案待确认。
+项目资料从[文档索引](docs/README.md)开始阅读；当前产品基线为 Ticko，需求与开发阶段见[产品主文档](docs/产品/ticko最小可交互文档.md)。
 
 📚 [文档索引](docs/README.md)　·　📂 [仓库目录](#user-content-repository-structure)　·　🚀 [首次获取](#user-content-first-clone)　·　🔄 [已有工作区](#user-content-existing-workspace)　·　🛠️ [Windows 工具链](#user-content-windows-toolchain)
 
@@ -18,8 +18,11 @@
 Hackson_AI_Hardware/
 ├── assets/
 │   └── platform/                    # 平台与配网资料
+├── .agents/
+│   └── skills/                      # 本项目可复用的代理技能
 ├── docs/                            # 项目文档
 │   ├── meetings/                    # 会议纪要
+│   ├── 产品/                         # Ticko 当前产品基线与配套图片
 │   ├── 创意/                         # 产品创意与需求
 │   ├── 开发/
 │   │   └── AI插件/                   # 平台插件与集成说明
@@ -37,9 +40,13 @@ Hackson_AI_Hardware/
 │   ├── README.md                    # 文档索引
 │   └── Ticko一页方案说明.doc
 ├── src/
+│   ├── control-panel/               # Ticko H5 控制面板
 │   └── firmware/                    # 灵机 XJWB03 SDK Git 子模块
-├── tools/                           # 摄像头预览、固件环境与辅助工具
-│   └── tests/
+├── tools/
+│   ├── camera/                      # 摄像头串口预览与截图
+│   ├── firmware/                    # Windows 固件环境脚本
+│   ├── platform/                    # 平台配置与智能体离线预演
+│   └── tests/                       # 按摄像头、固件、平台分类的回归测试
 ├── .gitmodules
 ├── AGENTS.md                        # 项目协作指南
 ├── README.md                        # GitHub 项目首页
@@ -73,8 +80,8 @@ git submodule update --init --recursive
 **Windows 工具链安装与环境激活（项目根目录的 PowerShell）：**
 
 ```powershell
-.\tools\Install-FirmwareTools.ps1
-. .\tools\Enter-Firmware.ps1
+.\tools\firmware\Install-FirmwareTools.ps1
+. .\tools\firmware\Enter-Firmware.ps1
 idf.py -C src/firmware/apps build
 ```
 
