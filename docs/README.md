@@ -8,7 +8,7 @@
 
 <div align="center">
 
-📚 **快速导航**　[🚀 从哪里开始](#start-here)　·　[🗒️ 会议纪要](#meeting-notes)　·　[💡 创意与赛题](#ideas-and-challenge)　·　[🧩 开发与平台](#development-and-platform)　·　[🔧 硬件资料](#hardware)　·　[✅ 验证范围](#validation-scope)　·　[🧭 组织维护](#organization)
+📚 **快速导航**　[🚀 从哪里开始](#user-content-start-here)　·　[🗒️ 会议纪要](#user-content-meeting-notes)　·　[💡 创意与赛题](#user-content-ideas-and-challenge)　·　[🧩 开发与平台](#user-content-development-and-platform)　·　[🔧 硬件资料](#user-content-hardware)　·　[✅ 验证范围](#user-content-validation-scope)　·　[🧭 组织维护](#user-content-organization)
 
 </div>
 

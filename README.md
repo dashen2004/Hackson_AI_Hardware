@@ -4,7 +4,7 @@
 
 项目资料从[文档索引](docs/README.md)开始阅读；具体产品场景与方案待确认。
 
-📚 [文档索引](docs/README.md)　·　📂 [仓库目录](#repository-structure)　·　🚀 [首次获取](#first-clone)　·　🔄 [已有工作区](#existing-workspace)　·　🛠️ [Windows 工具链](#windows-toolchain)
+📚 [文档索引](docs/README.md)　·　📂 [仓库目录](#user-content-repository-structure)　·　🚀 [首次获取](#user-content-first-clone)　·　🔄 [已有工作区](#user-content-existing-workspace)　·　🛠️ [Windows 工具链](#user-content-windows-toolchain)
 
 </div>
 
